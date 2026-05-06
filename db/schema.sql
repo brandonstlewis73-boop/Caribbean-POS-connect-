@@ -1,3 +1,22 @@
+CREATE TABLE IF NOT EXISTS businesses (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  legal_name TEXT,
+  slug TEXT UNIQUE,
+  phone TEXT,
+  email TEXT,
+  street_address TEXT,
+  city TEXT,
+  region TEXT,
+  country TEXT NOT NULL DEFAULT 'Trinidad and Tobago',
+  currency TEXT NOT NULL DEFAULT 'TTD',
+  logo_url TEXT,
+  tax_id TEXT,
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,

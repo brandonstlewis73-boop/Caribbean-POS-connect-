@@ -10,6 +10,8 @@ import {
 } from "./whatsapp";
 import type {
   CheckoutPayload,
+  Business,
+  BusinessInput,
   Customer,
   CustomerInput,
   DashboardData,
@@ -34,6 +36,7 @@ type DemoAuditLog = {
 
 type DemoStore = {
   settings: Settings;
+  businesses: Business[];
   users: User[];
   products: Product[];
   customers: Customer[];
@@ -83,6 +86,24 @@ const demoSettings: Settings = {
   payment_pod_enabled: true
 };
 
+const demoBusiness: Business = {
+  id: "biz_savannah_sea",
+  name: "Savannah & Sea Retail Ltd.",
+  legal_name: "Savannah & Sea Retail Ltd.",
+  slug: "savannah-sea-retail",
+  phone: "868-443-7582",
+  email: "hello@savannahsea.tt",
+  street_address: "18 Independence Square",
+  city: "Port of Spain",
+  region: "Port of Spain",
+  country: "Trinidad and Tobago",
+  currency: CURRENCY_CODE,
+  logo_url: "/logo.svg",
+  active: true,
+  created_at: now(14),
+  updated_at: now(1)
+};
+
 function id(prefix: string) {
   return `${prefix}_${randomUUID()}`;
 }
@@ -97,6 +118,10 @@ function moneyRound(value: number) {
 
 function cloneProduct(product: Product): Product {
   return { ...product };
+}
+
+function cloneBusiness(business: Business): Business {
+  return { ...business };
 }
 
 function cloneCustomer(customer: Customer): Customer {
@@ -336,6 +361,7 @@ function createStore(): DemoStore {
   const customers = seedCustomers();
   const store: DemoStore = {
     settings: { ...demoSettings, delivery_rates: { ...demoSettings.delivery_rates } },
+    businesses: [cloneBusiness(demoBusiness)],
     users: [
       { id: "usr_demo_admin", name: "Demo Admin", email: "admin@demo.com", role: "admin", phone: "868-443-7582", active: true },
       { id: "usr_demo_driver", name: "Malik Charles", email: "driver@demo.com", role: "driver", phone: "868-555-1004", active: true }
@@ -478,6 +504,40 @@ export async function demoUpdateSettings(input: Partial<Settings>, userId?: stri
 
 export async function demoListUsers(role?: string) {
   return store().users.filter((user) => user.active && (!role || user.role === role)).map((user) => ({ ...user }));
+}
+
+export async function demoListBusinesses() {
+  return store().businesses.map(cloneBusiness);
+}
+
+export async function demoCreateBusiness(input: BusinessInput, userId?: string) {
+  const name = input.name?.trim();
+  if (!name) return null;
+  const business: Business = {
+    id: id("biz"),
+    name,
+    legal_name: input.legal_name || name,
+    slug: (input.slug || name)
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, ""),
+    phone: input.phone || null,
+    email: input.email || null,
+    street_address: input.street_address || null,
+    city: input.city || null,
+    region: input.region || null,
+    country: input.country || "Trinidad and Tobago",
+    currency: input.currency || CURRENCY_CODE,
+    logo_url: input.logo_url || null,
+    tax_id: input.tax_id || null,
+    active: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  };
+  store().businesses.unshift(business);
+  demoAuditLog("business:create", "business", business.id, input, userId);
+  return cloneBusiness(business);
 }
 
 export async function demoListProducts(search?: string, includeInactive = false) {
@@ -850,6 +910,7 @@ export async function demoGetReceiptNumber(orderId: string) {
 export async function demoExportTables() {
   const state = store();
   return {
+    businesses: state.businesses,
     users: state.users,
     settings: state.settings,
     customers: state.customers,

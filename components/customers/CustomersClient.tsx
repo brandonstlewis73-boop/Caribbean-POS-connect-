@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Gift, History, MessageCircle, Search, UserRound } from "lucide-react";
+import { History, MessageCircle, PlusCircle, Search, UserRound } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Panel, PanelHeader } from "@/components/ui/Panel";
 import { Button } from "@/components/ui/Button";
@@ -9,7 +9,7 @@ import { Field, SelectField, TextAreaField } from "@/components/ui/Field";
 import { money, TT_REGIONS } from "@/lib/constants";
 import { readApiPayload } from "@/lib/client-response";
 import { cleanWhatsAppNumber } from "@/lib/whatsapp";
-import type { Customer, Order } from "@/lib/types";
+import type { Customer, CustomerInput, Order } from "@/lib/types";
 
 type Profile = {
   customer: Customer;
@@ -17,12 +17,62 @@ type Profile = {
   favoriteProducts: Array<{ name: string; quantity: number }>;
 };
 
+function emptyCustomerDraft(): Customer {
+  return {
+    id: "new",
+    name: "",
+    phone: "",
+    phone_normalized: "",
+    email: "",
+    street_address: "",
+    community: "",
+    city: "",
+    region: "Chaguanas",
+    country: "Trinidad and Tobago",
+    delivery_notes: "",
+    preferred_payment_method: "",
+    notes: "",
+    birthday: "",
+    marketing_consent: false,
+    loyalty_points: 0,
+    total_spent: 0,
+    orders_count: 0,
+    last_order_at: null,
+    tags: ["New Customer"]
+  };
+}
+
+function nullableText(value?: string | null) {
+  const trimmed = String(value || "").trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function toCustomerPayload(customer: Customer): CustomerInput {
+  return {
+    name: nullableText(customer.name),
+    phone: nullableText(customer.phone),
+    email: nullableText(customer.email),
+    street_address: nullableText(customer.street_address),
+    community: nullableText(customer.community),
+    city: nullableText(customer.city),
+    region: nullableText(customer.region),
+    country: nullableText(customer.country) || "Trinidad and Tobago",
+    delivery_notes: nullableText(customer.delivery_notes),
+    preferred_payment_method: nullableText(customer.preferred_payment_method),
+    notes: nullableText(customer.notes),
+    birthday: nullableText(customer.birthday),
+    marketing_consent: Boolean(customer.marketing_consent)
+  };
+}
+
 export function CustomersClient({ customers }: { customers: Customer[] }) {
   const [items, setItems] = useState(customers);
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState(customers[0]?.id || "");
   const [profile, setProfile] = useState<Profile | null>(null);
   const [draft, setDraft] = useState<Customer | null>(customers[0] || null);
+  const [message, setMessage] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase().trim();
@@ -36,7 +86,10 @@ export function CustomersClient({ customers }: { customers: Customer[] }) {
   }, [items, query]);
 
   useEffect(() => {
-    if (!selectedId) return;
+    if (!selectedId || selectedId === "new") {
+      setProfile(null);
+      return;
+    }
     fetch(`/api/customers/${selectedId}`)
       .then((response) => readApiPayload<Profile>(response))
       .then((payload) => {
@@ -48,21 +101,45 @@ export function CustomersClient({ customers }: { customers: Customer[] }) {
       .catch(() => null);
   }, [selectedId]);
 
+  function startNewCustomer() {
+    setSelectedId("new");
+    setProfile(null);
+    setDraft(emptyCustomerDraft());
+    setMessage("Enter the customer details, then save the profile.");
+  }
+
   async function saveCustomer() {
     if (!draft) return;
-    const response = await fetch(`/api/customers/${draft.id}`, {
-      method: "PATCH",
+    const payloadBody = toCustomerPayload(draft);
+    if (!payloadBody.name && !payloadBody.phone && !payloadBody.email) {
+      setMessage("Add at least a customer name, phone, or email before saving.");
+      return;
+    }
+    setSaving(true);
+    setMessage("");
+    const isNew = draft.id === "new";
+    const response = await fetch(isNew ? "/api/customers" : `/api/customers/${draft.id}`, {
+      method: isNew ? "POST" : "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(draft)
+      body: JSON.stringify(payloadBody)
     });
     const payload = await readApiPayload<{ customer: Customer }>(response);
+    setSaving(false);
     if (response.ok) {
       const updated = payload.data?.customer;
       if (!updated) return;
-      setItems((current) =>
-        current.map((customer) => (customer.id === draft.id ? updated : customer))
-      );
+      setItems((current) => {
+        if (isNew) {
+          return [updated, ...current.filter((customer) => customer.id !== updated.id)];
+        }
+        return current.map((customer) => (customer.id === draft.id ? updated : customer));
+      });
+      setSelectedId(updated.id);
       setDraft(updated);
+      setProfile((current) => current && current.customer.id === updated.id ? { ...current, customer: updated } : null);
+      setMessage(isNew ? "Customer created." : "Customer profile saved.");
+    } else {
+      setMessage(payload.error || "Customer profile could not be saved.");
     }
   }
 
@@ -76,7 +153,16 @@ export function CustomersClient({ customers }: { customers: Customer[] }) {
   return (
     <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(320px,380px)_minmax(0,1fr)]">
       <Panel>
-        <PanelHeader title="Customers" description="Search by phone, email, name, area, or city" />
+        <PanelHeader
+          title="Customers"
+          description="Search by phone, email, name, area, or city"
+          action={
+            <Button variant="primary" onClick={startNewCustomer}>
+              <PlusCircle className="h-4 w-4" />
+              New customer
+            </Button>
+          }
+        />
         <div className="border-b border-caribbean-line p-4 dark:border-slate-800">
           <label className="relative min-w-0">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -102,6 +188,9 @@ export function CustomersClient({ customers }: { customers: Customer[] }) {
               <span className="text-xs font-bold text-slate-400">{customer.community || customer.city || customer.region}</span>
             </button>
           ))}
+          {!filtered.length ? (
+            <div className="p-4 text-sm font-semibold text-slate-500">No customers match this search.</div>
+          ) : null}
         </div>
       </Panel>
 
@@ -128,7 +217,7 @@ export function CustomersClient({ customers }: { customers: Customer[] }) {
 
           <Panel>
             <PanelHeader
-              title="Customer profile"
+              title={draft.id === "new" ? "New customer profile" : "Customer profile"}
               action={
                 whatsAppLink ? (
                   <a href={whatsAppLink} target="_blank" rel="noreferrer" className="inline-flex min-h-10 items-center gap-2 rounded-card bg-caribbean-palm px-3 py-2 text-sm font-black leading-tight text-white">
@@ -138,6 +227,11 @@ export function CustomersClient({ customers }: { customers: Customer[] }) {
                 ) : null
               }
             />
+            {message ? (
+              <p className="mx-4 mt-4 rounded-card bg-caribbean-cloud p-3 text-sm font-black text-slate-700 dark:bg-slate-950 dark:text-slate-200">
+                {message}
+              </p>
+            ) : null}
             <div className="grid min-w-0 gap-4 p-4 xl:grid-cols-2">
               <div className="grid min-w-0 gap-3">
                 <Field label="Name" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} />
@@ -167,7 +261,9 @@ export function CustomersClient({ customers }: { customers: Customer[] }) {
                   />
                   Marketing consent granted
                 </label>
-                <Button variant="primary" onClick={saveCustomer}>Save profile</Button>
+                <Button variant="primary" onClick={saveCustomer} disabled={saving}>
+                  {saving ? "Saving..." : draft.id === "new" ? "Create customer" : "Save profile"}
+                </Button>
               </div>
             </div>
           </Panel>
@@ -176,9 +272,9 @@ export function CustomersClient({ customers }: { customers: Customer[] }) {
             <Panel>
               <PanelHeader title="Tags" description="Automatically updated from buying behavior" />
               <div className="flex flex-wrap gap-2 p-4">
-                {draft.tags.map((tag) => <Badge key={tag} tone={tag === "Owes Balance" ? "red" : tag === "VIP" ? "teal" : "green"}>{tag}</Badge>)}
-              </div>
-            </Panel>
+              {draft.tags.map((tag) => <Badge key={tag} tone={tag === "Owes Balance" ? "red" : tag === "VIP" ? "teal" : "green"}>{tag}</Badge>)}
+            </div>
+          </Panel>
             <Panel>
               <PanelHeader title="Favorite products" />
               <div className="divide-y divide-caribbean-line dark:divide-slate-800">
@@ -195,7 +291,7 @@ export function CustomersClient({ customers }: { customers: Customer[] }) {
           <Panel>
             <PanelHeader title="Order history" />
             <div className="divide-y divide-caribbean-line dark:divide-slate-800">
-              {profile?.orders.map((order) => (
+              {profile?.orders.length ? profile.orders.map((order) => (
                 <div key={order.id} className="grid gap-1 px-4 py-3 sm:grid-cols-[1fr_auto_auto] sm:items-center">
                   <div className="flex min-w-0 items-center gap-2">
                     <History className="h-4 w-4 text-caribbean-teal" />
@@ -204,7 +300,7 @@ export function CustomersClient({ customers }: { customers: Customer[] }) {
                   <span className="text-sm font-semibold text-slate-500">{new Date(order.created_at).toLocaleString()}</span>
                   <span className="font-black">{money(order.total)}</span>
                 </div>
-              ))}
+              )) : <p className="p-4 text-sm font-semibold text-slate-500">No orders saved for this customer yet.</p>}
             </div>
           </Panel>
         </div>

@@ -9,6 +9,43 @@ export type User = {
   active: boolean;
 };
 
+export type Business = {
+  id: string;
+  name: string;
+  legal_name?: string | null;
+  slug?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  street_address?: string | null;
+  city?: string | null;
+  region?: string | null;
+  country: string;
+  currency: string;
+  logo_url?: string | null;
+  tax_id?: string | null;
+  active: boolean;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type BusinessInput = Partial<
+  Pick<
+    Business,
+    | "name"
+    | "legal_name"
+    | "slug"
+    | "phone"
+    | "email"
+    | "street_address"
+    | "city"
+    | "region"
+    | "country"
+    | "currency"
+    | "logo_url"
+    | "tax_id"
+  >
+>;
+
 export type Product = {
   id: string;
   name: string;

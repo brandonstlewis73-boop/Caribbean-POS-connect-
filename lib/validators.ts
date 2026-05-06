@@ -71,3 +71,18 @@ export const checkoutSchema = z.object({
 export const settingsSchema = z.record(
   z.union([z.string(), z.number(), z.boolean(), z.null(), z.record(z.coerce.number())])
 );
+
+export const businessSchema = z.object({
+  name: z.string().trim().min(1),
+  legal_name: optionalText,
+  slug: optionalText,
+  phone: optionalText,
+  email: z.string().email().optional().or(z.literal("")).nullable(),
+  street_address: optionalText,
+  city: optionalText,
+  region: z.enum(TT_REGIONS).optional().or(z.string().trim()).nullable(),
+  country: z.string().trim().default("Trinidad and Tobago").optional(),
+  currency: z.string().trim().default("TTD").optional(),
+  logo_url: optionalText,
+  tax_id: optionalText
+});

@@ -7,6 +7,7 @@ import {
   demoCreateOrder,
   demoCreateProduct,
   demoDashboardData,
+  demoCreateBusiness,
   demoGetCustomer,
   demoGetCustomerProfile,
   demoGetOrder,
@@ -14,6 +15,7 @@ import {
   demoGetReceiptNumber,
   demoGetSettings,
   demoListAuditLogs,
+  demoListBusinesses,
   demoListCustomers,
   demoListOrders,
   demoListProducts,
@@ -33,7 +35,9 @@ import type {
   OrderItem,
   Product,
   Settings,
-  User
+  User,
+  Business,
+  BusinessInput
 } from "./types";
 import { buildAddress, buildWazeLink } from "./waze";
 import {
@@ -169,6 +173,24 @@ function rowToProduct(row: any): Product {
     stock_quantity: Number(row.stock_quantity),
     low_stock_alert: Number(row.low_stock_alert),
     active: bool(row.active)
+  };
+}
+
+function slugify(value: string) {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+}
+
+function rowToBusiness(row: any): Business {
+  return {
+    ...row,
+    active: bool(row.active),
+    created_at: toDateString(row.created_at) || undefined,
+    updated_at: toDateString(row.updated_at) || undefined
   };
 }
 
@@ -338,6 +360,50 @@ export async function listUsers(role?: string): Promise<User[]> {
     params
   );
   return rows.rows.map((row) => ({ ...row, active: bool(row.active) })) as User[];
+}
+
+export async function listBusinesses(): Promise<Business[]> {
+  if (isDemoMode) return demoListBusinesses();
+  const rows = await query<any>(
+    `SELECT id, name, legal_name, slug, phone, email, street_address, city, region,
+            country, currency, logo_url, tax_id, active, created_at, updated_at
+     FROM businesses
+     ORDER BY created_at DESC, name ASC`
+  );
+  return rows.rows.map(rowToBusiness);
+}
+
+export async function createBusiness(input: BusinessInput, userId?: string) {
+  if (isDemoMode) return demoCreateBusiness(input, userId);
+  const id = createId("biz");
+  const name = input.name?.trim();
+  if (!name) return null;
+  const baseSlug = slugify(input.slug || name);
+  const slug = baseSlug ? `${baseSlug}-${id.slice(-8)}` : id;
+  await query(
+    `INSERT INTO businesses (
+      id, name, legal_name, slug, phone, email, street_address, city, region,
+      country, currency, logo_url, tax_id, active
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, TRUE)`,
+    [
+      id,
+      name,
+      input.legal_name || name,
+      slug,
+      input.phone ?? null,
+      input.email || null,
+      input.street_address ?? null,
+      input.city ?? null,
+      input.region ?? null,
+      input.country || "Trinidad and Tobago",
+      input.currency || CURRENCY_CODE,
+      input.logo_url ?? null,
+      input.tax_id ?? null
+    ]
+  );
+  await auditLog("business:create", "business", id, input, userId);
+  const rows = await query<any>("SELECT * FROM businesses WHERE id = $1", [id]);
+  return rows.rows[0] ? rowToBusiness(rows.rows[0]) : null;
 }
 
 export async function listProducts(search?: string, includeInactive = false): Promise<Product[]> {

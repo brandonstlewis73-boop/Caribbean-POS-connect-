@@ -1,14 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { Link2, MessageCircle, Save, ShieldCheck, Truck, UsersRound } from "lucide-react";
+import { Building2, Link2, MessageCircle, PlusCircle, Save, ShieldCheck, Truck, UsersRound } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
-import { Field, TextAreaField } from "@/components/ui/Field";
+import { Field, SelectField, TextAreaField } from "@/components/ui/Field";
 import { Panel, PanelHeader } from "@/components/ui/Panel";
 import { DEFAULT_DELIVERY_RATES, ROLE_LABELS, TT_REGIONS } from "@/lib/constants";
 import { readApiPayload } from "@/lib/client-response";
-import type { Settings, User } from "@/lib/types";
+import type { Business, Settings, User } from "@/lib/types";
 
 function Toggle({
   label,
@@ -27,8 +27,29 @@ function Toggle({
   );
 }
 
-export function SettingsClient({ settings, staff }: { settings: Settings; staff: User[] }) {
+const emptyBusinessDraft = {
+  name: "",
+  phone: "",
+  email: "",
+  street_address: "",
+  city: "",
+  region: "Port of Spain",
+  country: "Trinidad and Tobago",
+  currency: "TTD"
+};
+
+export function SettingsClient({
+  settings,
+  staff,
+  businesses
+}: {
+  settings: Settings;
+  staff: User[];
+  businesses: Business[];
+}) {
   const [draft, setDraft] = useState(settings);
+  const [businessItems, setBusinessItems] = useState(businesses);
+  const [businessDraft, setBusinessDraft] = useState(emptyBusinessDraft);
   const [message, setMessage] = useState("");
   const deliveryRates = { ...DEFAULT_DELIVERY_RATES, ...(draft.delivery_rates || {}) };
 
@@ -57,6 +78,27 @@ export function SettingsClient({ settings, staff }: { settings: Settings; staff:
     }
   }
 
+  async function createBusinessProfile() {
+    setMessage("");
+    const response = await fetch("/api/businesses", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(businessDraft)
+    });
+    const payload = await readApiPayload<{ business: Business }>(response);
+    if (!response.ok) {
+      setMessage(payload.error || "Business profile could not be created.");
+      return;
+    }
+    if (!payload.data?.business) {
+      setMessage("Business profile saved, but no profile was returned.");
+      return;
+    }
+    setBusinessItems((current) => [payload.data!.business, ...current]);
+    setBusinessDraft(emptyBusinessDraft);
+    setMessage("Business test profile created.");
+  }
+
   return (
     <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(360px,420px)]">
       <div className="grid min-w-0 gap-4">
@@ -69,6 +111,74 @@ export function SettingsClient({ settings, staff }: { settings: Settings; staff:
             <Field label="Email" type="email" value={draft.business_email} onChange={(event) => update("business_email", event.target.value)} />
             <Field label="Address" value={draft.business_address} onChange={(event) => update("business_address", event.target.value)} className="md:col-span-2" />
             <Field label="Currency" value={draft.currency} readOnly />
+          </div>
+        </Panel>
+
+        <Panel>
+          <PanelHeader
+            title="Business test profiles"
+            description="Create extra business records for testing branches, vendors, and client demos"
+          />
+          <div className="grid gap-4 p-4">
+            <div className="grid gap-3 md:grid-cols-2">
+              <Field
+                label="Business name"
+                value={businessDraft.name}
+                onChange={(event) => setBusinessDraft((current) => ({ ...current, name: event.target.value }))}
+              />
+              <Field
+                label="Phone"
+                value={businessDraft.phone}
+                onChange={(event) => setBusinessDraft((current) => ({ ...current, phone: event.target.value }))}
+              />
+              <Field
+                label="Email"
+                type="email"
+                value={businessDraft.email}
+                onChange={(event) => setBusinessDraft((current) => ({ ...current, email: event.target.value }))}
+              />
+              <Field
+                label="City/town"
+                value={businessDraft.city}
+                onChange={(event) => setBusinessDraft((current) => ({ ...current, city: event.target.value }))}
+              />
+              <Field
+                label="Street address"
+                value={businessDraft.street_address}
+                onChange={(event) => setBusinessDraft((current) => ({ ...current, street_address: event.target.value }))}
+                className="md:col-span-2"
+              />
+              <SelectField
+                label="Region/corporation"
+                value={businessDraft.region}
+                onChange={(event) => setBusinessDraft((current) => ({ ...current, region: event.target.value }))}
+              >
+                {TT_REGIONS.map((region) => (
+                  <option key={region}>{region}</option>
+                ))}
+              </SelectField>
+              <Field label="Country" value={businessDraft.country} readOnly />
+            </div>
+            <Button variant="primary" onClick={createBusinessProfile} disabled={!businessDraft.name.trim()}>
+              <PlusCircle className="h-4 w-4" />
+              Add business profile
+            </Button>
+            <div className="grid gap-3 md:grid-cols-2">
+              {businessItems.map((business) => (
+                <div key={business.id} className="min-w-0 rounded-card border border-caribbean-line bg-caribbean-cloud p-3 dark:border-slate-800 dark:bg-slate-950">
+                  <div className="flex min-w-0 items-start gap-3">
+                    <Building2 className="mt-0.5 h-5 w-5 shrink-0 text-caribbean-teal" />
+                    <div className="min-w-0">
+                      <p className="truncate font-black">{business.name}</p>
+                      <p className="text-xs font-semibold text-slate-500">
+                        {[business.street_address, business.city, business.region].filter(Boolean).join(", ") || "No address yet"}
+                      </p>
+                      <p className="mt-1 text-xs font-bold text-slate-400">{business.phone || business.email || business.currency}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </Panel>
 
