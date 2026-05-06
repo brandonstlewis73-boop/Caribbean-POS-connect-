@@ -2,6 +2,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import { OrdersClient } from "@/components/orders/OrdersClient";
 import { listOrders, listUsers } from "@/lib/data";
 import { requirePagePermission } from "@/lib/page-auth";
+import { hasPermission } from "@/lib/permissions";
 
 export default async function OrdersPage() {
   const user = await requirePagePermission("orders:read");
@@ -11,7 +12,11 @@ export default async function OrdersPage() {
   ]);
   return (
     <AppShell active="Orders" title="Orders">
-      <OrdersClient orders={orders} drivers={drivers} />
+      <OrdersClient
+        orders={orders}
+        drivers={drivers}
+        canUpdateOrders={hasPermission(user.role, "orders:update")}
+      />
     </AppShell>
   );
 }

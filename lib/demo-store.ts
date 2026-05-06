@@ -748,12 +748,35 @@ export async function demoUpdateDeliveryStatus(orderId: string, status: Order["d
 }
 
 export async function demoUpdateOrder(orderId: string, input: Partial<Order>, userId?: string) {
-  const order = store().orders.find((item) => item.id === orderId);
+  const state = store();
+  const order = state.orders.find((item) => item.id === orderId);
   if (!order) return null;
+  const isCancelling = order.status !== "cancelled" && input.status === "cancelled";
+  if (isCancelling && order.status === "completed") {
+    for (const item of order.items) {
+      const product = item.product_id
+        ? state.products.find((entry) => entry.id === item.product_id)
+        : null;
+      if (product) product.stock_quantity += item.quantity;
+    }
+    const customer = order.customer_id
+      ? state.customers.find((entry) => entry.id === order.customer_id)
+      : null;
+    if (customer) {
+      customer.total_spent = Math.max(0, moneyRound(customer.total_spent - order.total));
+      customer.orders_count = Math.max(0, customer.orders_count - 1);
+      customer.loyalty_points = Math.max(0, customer.loyalty_points - order.loyalty_points_earned);
+    }
+  }
   Object.assign(order, {
     status: input.status ?? order.status,
-    payment_status: input.payment_status ?? order.payment_status,
-    delivery_status: input.delivery_status ?? order.delivery_status,
+    payment_status:
+      input.payment_status ?? (isCancelling && order.payment_status === "paid" ? "refunded" : order.payment_status),
+    delivery_status:
+      input.delivery_status ??
+      (isCancelling && order.delivery_status !== "not_required" && order.delivery_status !== "delivered"
+        ? "failed"
+        : order.delivery_status),
     assigned_driver_id: input.assigned_driver_id ?? order.assigned_driver_id,
     assigned_driver_name:
       input.assigned_driver_id !== undefined

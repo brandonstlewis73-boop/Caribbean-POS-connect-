@@ -971,22 +971,88 @@ export async function updateOrder(id: string, input: Partial<Order>, userId?: st
   return transaction(async (client) => {
     const existing = await readOrderById(client, id);
     if (!existing) return null;
+    const nextStatus = input.status ?? existing.status;
+    const isCancelling = existing.status !== "cancelled" && nextStatus === "cancelled";
+    const nextPaymentStatus =
+      input.payment_status ?? (isCancelling && existing.payment_status === "paid" ? "refunded" : existing.payment_status);
+    const nextDeliveryStatus =
+      input.delivery_status ??
+      (isCancelling && existing.delivery_status !== "not_required" && existing.delivery_status !== "delivered"
+        ? "failed"
+        : existing.delivery_status);
     await query(
       `UPDATE orders SET
         status = $1, payment_status = $2, delivery_status = $3, assigned_driver_id = $4,
         notes = $5, updated_at = NOW()
        WHERE id = $6`,
       [
-        input.status ?? existing.status,
-        input.payment_status ?? existing.payment_status,
-        input.delivery_status ?? existing.delivery_status,
+        nextStatus,
+        nextPaymentStatus,
+        nextDeliveryStatus,
         input.assigned_driver_id ?? existing.assigned_driver_id ?? null,
         input.notes ?? existing.notes ?? null,
         id
       ],
       client
     );
+
+    if (isCancelling && existing.status === "completed") {
+      for (const item of existing.items) {
+        if (!item.product_id) continue;
+        await query(
+          "UPDATE products SET stock_quantity = stock_quantity + $1, updated_at = NOW() WHERE id = $2",
+          [item.quantity, item.product_id],
+          client
+        );
+        await query(
+          "INSERT INTO stock_movements (id, product_id, type, quantity_delta, reason, reference_id, user_id) VALUES ($1, $2, 'return', $3, $4, $5, $6)",
+          [createId("mov"), item.product_id, item.quantity, `Cancelled order #${existing.order_number}`, id, userId ?? null],
+          client
+        );
+      }
+
+      if (existing.customer_id) {
+        await query(
+          `UPDATE customers SET
+            total_spent = GREATEST(0, total_spent - $1),
+            orders_count = GREATEST(0, orders_count - 1),
+            loyalty_points = GREATEST(0, loyalty_points - $2),
+            updated_at = NOW()
+           WHERE id = $3`,
+          [existing.total, existing.loyalty_points_earned, existing.customer_id],
+          client
+        );
+        if (existing.loyalty_points_earned > 0) {
+          await query(
+            "INSERT INTO loyalty_transactions (id, customer_id, order_id, points_delta, type, notes) VALUES ($1, $2, $3, $4, 'manual_adjustment', $5)",
+            [
+              createId("loy"),
+              existing.customer_id,
+              id,
+              -existing.loyalty_points_earned,
+              `Reversed cancelled order #${existing.order_number}`
+            ],
+            client
+          );
+        }
+      }
+    }
+
     await auditLog("order:update", "order", id, input, userId, client);
+    if (isCancelling) {
+      await auditLog(
+        "order:cancel",
+        "order",
+        id,
+        {
+          order_number: existing.order_number,
+          restored_items: existing.items.length,
+          previous_payment_status: existing.payment_status
+        },
+        userId,
+        client
+      );
+    }
     return readOrderById(client, id);
   });
 }

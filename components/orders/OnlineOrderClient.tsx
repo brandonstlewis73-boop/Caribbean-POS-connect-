@@ -79,6 +79,12 @@ export function OnlineOrderClient({ products, settings }: { products: Product[];
       setError("GPS location is not available in this browser.");
       return;
     }
+    if (!window.isSecureContext) {
+      setError(
+        "Phone GPS requires HTTPS. Use the deployed Vercel link, or paste a shared Google Maps/Waze location link below while testing on the laptop network."
+      );
+      return;
+    }
     navigator.geolocation.getCurrentPosition(
       (position) => {
         setCoords({
@@ -263,6 +269,9 @@ export function OnlineOrderClient({ products, settings }: { products: Product[];
                     <LocateFixed className="h-4 w-4" />
                     Add GPS location
                   </Button>
+                  <p className="text-xs font-semibold text-slate-500">
+                    Phone GPS works only on HTTPS. If you are using the laptop address, paste a shared location link instead.
+                  </p>
                   <Field label="Shared location link optional" value={locationLink} onChange={(event) => setLocationLink(event.target.value)} />
                 </div>
               ) : null}

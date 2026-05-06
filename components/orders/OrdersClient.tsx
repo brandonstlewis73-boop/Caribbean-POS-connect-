@@ -17,11 +17,20 @@ function statusTone(status: string) {
   return "neutral";
 }
 
-export function OrdersClient({ orders, drivers }: { orders: Order[]; drivers: User[] }) {
+export function OrdersClient({
+  orders,
+  drivers,
+  canUpdateOrders
+}: {
+  orders: Order[];
+  drivers: User[];
+  canUpdateOrders: boolean;
+}) {
   const [items, setItems] = useState(orders);
   const [query, setQuery] = useState("");
   const [type, setType] = useState("all");
   const [selectedId, setSelectedId] = useState(orders[0]?.id || "");
+  const [message, setMessage] = useState("");
   const selected = items.find((order) => order.id === selectedId) || items[0];
 
   const filtered = useMemo(() => {
@@ -40,19 +49,49 @@ export function OrdersClient({ orders, drivers }: { orders: Order[]; drivers: Us
   }, [items, query, type]);
 
   async function patchOrder(orderId: string, body: Record<string, unknown>) {
+    setMessage("");
+    if (!canUpdateOrders) {
+      setMessage("Only an admin or manager can update or cancel orders.");
+      return;
+    }
     const response = await fetch(`/api/orders/${orderId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body)
     });
     const payload = await readApiPayload<{ order: Order }>(response);
+    if (!response.ok) {
+      setMessage(payload.error || "Order could not be updated.");
+      return;
+    }
     if (response.ok) {
       const updated = payload.data?.order;
       if (!updated) return;
       setItems((current) =>
         current.map((order) => (order.id === orderId ? updated : order))
       );
+      setSelectedId(updated.id);
+      setMessage(`Order #${updated.order_number} updated.`);
     }
+  }
+
+  async function cancelOrder(order: Order) {
+    if (order.status === "cancelled") {
+      setMessage(`Order #${order.order_number} is already cancelled.`);
+      return;
+    }
+    const confirmed = window.confirm(
+      `Cancel order #${order.order_number}? This will mark the order cancelled and return sold stock to inventory.`
+    );
+    if (!confirmed) return;
+    await patchOrder(order.id, {
+      status: "cancelled",
+      payment_status: order.payment_status === "paid" ? "refunded" : order.payment_status,
+      delivery_status:
+        order.delivery_status !== "not_required" && order.delivery_status !== "delivered"
+          ? "failed"
+          : order.delivery_status
+    });
   }
 
   return (
@@ -86,11 +125,12 @@ export function OrdersClient({ orders, drivers }: { orders: Order[]; drivers: Us
           </select>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[800px] text-left text-sm">
+          <table className="w-full min-w-[920px] text-left text-sm">
             <thead className="bg-caribbean-cloud text-xs uppercase tracking-normal text-slate-500 dark:bg-slate-950">
               <tr>
                 <th className="px-4 py-3">Order</th>
                 <th className="px-4 py-3">Customer</th>
+                <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Type</th>
                 <th className="px-4 py-3">Payment</th>
                 <th className="px-4 py-3">Delivery</th>
@@ -110,6 +150,9 @@ export function OrdersClient({ orders, drivers }: { orders: Order[]; drivers: Us
                   <td className="px-4 py-3">
                     <p className="font-bold">{order.customer_snapshot.name || "Walk-in customer"}</p>
                     <p className="text-xs font-semibold text-slate-500">{order.customer_snapshot.phone}</p>
+                  </td>
+                  <td className="px-4 py-3">
+                    <Badge tone={statusTone(order.status)}>{order.status}</Badge>
                   </td>
                   <td className="px-4 py-3">{ORDER_TYPE_LABELS[order.order_type] || order.order_type}</td>
                   <td className="px-4 py-3">
@@ -133,6 +176,15 @@ export function OrdersClient({ orders, drivers }: { orders: Order[]; drivers: Us
         <Panel>
           <PanelHeader title={`Order #${selected.order_number}`} description={new Date(selected.created_at).toLocaleString()} />
           <div className="grid min-w-0 gap-4 p-4">
+            {message ? (
+              <p className={`rounded-card p-3 text-sm font-bold ${
+                message.includes("could not") || message.includes("Only ")
+                  ? "bg-red-50 text-red-700"
+                  : "bg-teal-50 text-teal-800"
+              }`}>
+                {message}
+              </p>
+            ) : null}
             <div className="rounded-card bg-caribbean-cloud p-3 text-sm dark:bg-slate-950">
               <p className="font-black">{selected.customer_snapshot.name || "Walk-in customer"}</p>
               <p className="font-semibold text-slate-500">{selected.customer_snapshot.phone || "No phone"}</p>
@@ -141,6 +193,13 @@ export function OrdersClient({ orders, drivers }: { orders: Order[]; drivers: Us
                   .filter(Boolean)
                   .join(", ")}
               </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Badge tone={statusTone(selected.status)}>Order {selected.status}</Badge>
+              <Badge tone={statusTone(selected.payment_status)}>Payment {selected.payment_status}</Badge>
+              <Badge tone={statusTone(selected.delivery_status)}>
+                Delivery {selected.delivery_status.replaceAll("_", " ")}
+              </Badge>
             </div>
             <div className="grid min-w-0 gap-2">
               {selected.items.map((item) => (
@@ -157,15 +216,28 @@ export function OrdersClient({ orders, drivers }: { orders: Order[]; drivers: Us
               <div className="flex justify-between text-lg font-black"><span>Total</span><span>{money(selected.total)}</span></div>
             </div>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-2">
-              <Button variant="success" onClick={() => patchOrder(selected.id, { payment_status: "paid" })}>
+              <Button
+                variant="success"
+                onClick={() => patchOrder(selected.id, { payment_status: "paid" })}
+                disabled={!canUpdateOrders || selected.status === "cancelled"}
+              >
                 <CheckCircle2 className="h-4 w-4" />
                 Mark paid
               </Button>
-              <Button variant="danger" onClick={() => patchOrder(selected.id, { status: "cancelled" })}>
+              <Button
+                variant="danger"
+                onClick={() => cancelOrder(selected)}
+                disabled={!canUpdateOrders || selected.status === "cancelled"}
+              >
                 <XCircle className="h-4 w-4" />
-                Cancel
+                {selected.status === "cancelled" ? "Cancelled" : "Cancel order"}
               </Button>
             </div>
+            {!canUpdateOrders ? (
+              <p className="text-xs font-semibold text-slate-500">
+                Your role can view orders, but only admins and managers can cancel or update them.
+              </p>
+            ) : null}
             {selected.order_type === "delivery" ? (
               <div className="grid gap-3">
                 <SelectField

@@ -5,6 +5,7 @@ import {
   Banknote,
   Barcode,
   CreditCard,
+  LocateFixed,
   Minus,
   PackageCheck,
   Plus,
@@ -148,6 +149,30 @@ export function POSClient({
         marketing_consent: found.marketing_consent
       });
     }
+  }
+
+  function captureLocation() {
+    setError("");
+    if (!navigator.geolocation) {
+      setError("GPS location is not available in this browser.");
+      return;
+    }
+    if (!window.isSecureContext) {
+      setError(
+        "Phone GPS requires HTTPS. Use the deployed Vercel link, or paste a shared Google Maps/Waze location link while testing on the laptop network."
+      );
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLocation((current) => ({
+          ...current,
+          latitude: String(position.coords.latitude),
+          longitude: String(position.coords.longitude)
+        }));
+      },
+      () => setError("Unable to capture GPS location. Enter latitude/longitude or paste a shared location link.")
+    );
   }
 
   async function completeSale() {
@@ -382,6 +407,13 @@ export function POSClient({
                   <Field label="Latitude" value={location.latitude} onChange={(event) => setLocation({ ...location, latitude: event.target.value })} />
                   <Field label="Longitude" value={location.longitude} onChange={(event) => setLocation({ ...location, longitude: event.target.value })} />
                 </div>
+                <Button type="button" onClick={captureLocation}>
+                  <LocateFixed className="h-4 w-4" />
+                  Capture GPS
+                </Button>
+                <p className="text-xs font-semibold text-slate-500">
+                  Phone GPS works only on HTTPS. On the laptop network address, paste a shared location link instead.
+                </p>
                 <Field label="Shared location link" value={location.link} onChange={(event) => setLocation({ ...location, link: event.target.value })} />
                 <SelectField label="Assign driver" value={assignedDriver} onChange={(event) => setAssignedDriver(event.target.value)}>
                   <option value="">Unassigned</option>
