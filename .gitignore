@@ -1,0 +1,14 @@
+node_modules
+.next
+.npm-cache
+out
+data/*.sqlite
+data/*.sqlite-*
+backups
+*.log
+.dev-server.*
+.env
+.env.local
+.DS_Store
+*-admin.ps1
+web/qa-*.png
