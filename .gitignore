@@ -7,8 +7,9 @@ data/*.sqlite-*
 backups
 *.log
 .dev-server.*
-.env
-.env.local
+.env*
+!.env.example
+!.env*.example
 .DS_Store
 *-admin.ps1
 web/qa-*.png
