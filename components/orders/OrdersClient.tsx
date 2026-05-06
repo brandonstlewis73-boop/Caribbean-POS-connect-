@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Bike, CheckCircle2, CreditCard, ExternalLink, MessageCircle, PackageCheck, Search, XCircle } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -17,6 +17,15 @@ function statusTone(status: string) {
   return "neutral";
 }
 
+type PendingAction =
+  | "payment-paid"
+  | "payment-unpaid"
+  | "cancel"
+  | "driver"
+  | "delivery-out"
+  | "delivery-failed"
+  | "notes";
+
 export function OrdersClient({
   orders,
   drivers,
@@ -31,7 +40,14 @@ export function OrdersClient({
   const [type, setType] = useState("all");
   const [selectedId, setSelectedId] = useState(orders[0]?.id || "");
   const [message, setMessage] = useState("");
+  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
+  const [notesDraft, setNotesDraft] = useState("");
   const selected = items.find((order) => order.id === selectedId) || items[0];
+  const isBusy = pendingAction !== null;
+
+  useEffect(() => {
+    setNotesDraft(selected?.notes || "");
+  }, [selected?.id, selected?.notes]);
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase().trim();
@@ -48,30 +64,42 @@ export function OrdersClient({
     });
   }, [items, query, type]);
 
-  async function patchOrder(orderId: string, body: Record<string, unknown>) {
-    setMessage("");
+  async function patchOrder(orderId: string, body: Record<string, unknown>, action: PendingAction) {
+    if (isBusy) return null;
     if (!canUpdateOrders) {
       setMessage("Only an admin or manager can update or cancel orders.");
-      return;
+      return null;
     }
-    const response = await fetch(`/api/orders/${orderId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body)
-    });
-    const payload = await readApiPayload<{ order: Order }>(response);
-    if (!response.ok) {
-      setMessage(payload.error || "Order could not be updated.");
-      return;
-    }
-    if (response.ok) {
+    setMessage("");
+    setPendingAction(action);
+    try {
+      const response = await fetch(`/api/orders/${orderId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      const payload = await readApiPayload<{ order: Order }>(response);
+      if (!response.ok) {
+        setMessage(payload.error || "Order could not be updated.");
+        return null;
+      }
       const updated = payload.data?.order;
-      if (!updated) return;
+      if (!updated) {
+        setMessage("Order updated, but no order details were returned.");
+        return null;
+      }
       setItems((current) =>
         current.map((order) => (order.id === orderId ? updated : order))
       );
       setSelectedId(updated.id);
+      setNotesDraft(updated.notes || "");
       setMessage(`Order #${updated.order_number} updated.`);
+      return updated;
+    } catch {
+      setMessage("Order could not be updated.");
+      return null;
+    } finally {
+      setPendingAction(null);
     }
   }
 
@@ -80,10 +108,6 @@ export function OrdersClient({
       setMessage(`Order #${order.order_number} is already cancelled.`);
       return;
     }
-    const confirmed = window.confirm(
-      `Cancel order #${order.order_number}? This will mark the order cancelled and return sold stock to inventory.`
-    );
-    if (!confirmed) return;
     await patchOrder(order.id, {
       status: "cancelled",
       payment_status: order.payment_status === "paid" ? "refunded" : order.payment_status,
@@ -91,7 +115,38 @@ export function OrdersClient({
         order.delivery_status !== "not_required" && order.delivery_status !== "delivered"
           ? "failed"
           : order.delivery_status
-    });
+    }, "cancel");
+  }
+
+  async function updatePaymentStatus(status: Order["payment_status"]) {
+    if (!selected) return;
+    await patchOrder(selected.id, { payment_status: status }, status === "paid" ? "payment-paid" : "payment-unpaid");
+  }
+
+  async function assignDriver(driverId: string) {
+    if (!selected) return;
+    await patchOrder(
+      selected.id,
+      {
+        assigned_driver_id: driverId || null,
+        delivery_status: driverId ? "assigned" : "pending"
+      },
+      "driver"
+    );
+  }
+
+  async function updateDeliveryStatus(status: Order["delivery_status"]) {
+    if (!selected) return;
+    await patchOrder(
+      selected.id,
+      { delivery_status: status },
+      status === "failed" ? "delivery-failed" : "delivery-out"
+    );
+  }
+
+  async function saveNotes() {
+    if (!selected || notesDraft === (selected.notes || "")) return;
+    await patchOrder(selected.id, { notes: notesDraft }, "notes");
   }
 
   return (
@@ -218,19 +273,27 @@ export function OrdersClient({
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-2">
               <Button
                 variant="success"
-                onClick={() => patchOrder(selected.id, { payment_status: "paid" })}
-                disabled={!canUpdateOrders || selected.status === "cancelled"}
+                onClick={async () => updatePaymentStatus("paid")}
+                disabled={!canUpdateOrders || selected.status === "cancelled" || isBusy}
               >
                 <CheckCircle2 className="h-4 w-4" />
-                Mark paid
+                {pendingAction === "payment-paid" ? "Updating..." : "Mark paid"}
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={async () => updatePaymentStatus("unpaid")}
+                disabled={!canUpdateOrders || selected.status === "cancelled" || isBusy}
+              >
+                <CreditCard className="h-4 w-4" />
+                {pendingAction === "payment-unpaid" ? "Updating..." : "Mark payment unpaid"}
               </Button>
               <Button
                 variant="danger"
-                onClick={() => cancelOrder(selected)}
-                disabled={!canUpdateOrders || selected.status === "cancelled"}
+                onClick={async () => cancelOrder(selected)}
+                disabled={!canUpdateOrders || selected.status === "cancelled" || isBusy}
               >
                 <XCircle className="h-4 w-4" />
-                {selected.status === "cancelled" ? "Cancelled" : "Cancel order"}
+                {pendingAction === "cancel" ? "Cancelling..." : selected.status === "cancelled" ? "Cancelled" : "Cancel order"}
               </Button>
             </div>
             {!canUpdateOrders ? (
@@ -243,22 +306,44 @@ export function OrdersClient({
                 <SelectField
                   label="Assigned driver"
                   value={selected.assigned_driver_id || ""}
-                  onChange={(event) => patchOrder(selected.id, { assigned_driver_id: event.target.value || null, delivery_status: event.target.value ? "assigned" : "pending" })}
+                  onChange={async (event) => assignDriver(event.target.value)}
+                  disabled={!canUpdateOrders || selected.status === "cancelled" || isBusy}
                 >
                   <option value="">Unassigned</option>
                   {drivers.map((driver) => <option key={driver.id} value={driver.id}>{driver.name}</option>)}
                 </SelectField>
-                <Button variant="primary" onClick={() => patchOrder(selected.id, { delivery_status: "out_for_delivery" })}>
+                <Button
+                  variant="primary"
+                  onClick={async () => updateDeliveryStatus("out_for_delivery")}
+                  disabled={!canUpdateOrders || selected.status === "cancelled" || isBusy}
+                >
                   <Bike className="h-4 w-4" />
-                  Mark out for delivery
+                  {pendingAction === "delivery-out" ? "Updating..." : "Mark out for delivery"}
+                </Button>
+                <Button
+                  variant="danger"
+                  onClick={async () => updateDeliveryStatus("failed")}
+                  disabled={!canUpdateOrders || selected.status === "cancelled" || isBusy}
+                >
+                  <XCircle className="h-4 w-4" />
+                  {pendingAction === "delivery-failed" ? "Updating..." : "Mark delivery failed"}
                 </Button>
               </div>
             ) : null}
-            <TextAreaField
-              label="Order notes"
-              value={selected.notes || ""}
-              onChange={(event) => patchOrder(selected.id, { notes: event.target.value })}
-            />
+            <div className="grid gap-2">
+              <TextAreaField
+                label="Order notes"
+                value={notesDraft}
+                onChange={(event) => setNotesDraft(event.target.value)}
+              />
+              <Button
+                variant="secondary"
+                onClick={async () => saveNotes()}
+                disabled={!canUpdateOrders || selected.status === "cancelled" || isBusy || notesDraft === (selected.notes || "")}
+              >
+                {pendingAction === "notes" ? "Saving notes..." : "Save notes"}
+              </Button>
+            </div>
             <div className="grid gap-2">
               {selected.waze_link ? (
                 <a href={selected.waze_link} target="_blank" rel="noreferrer" className="inline-flex min-h-10 items-center justify-center gap-2 rounded-card border border-caribbean-line bg-white px-3 py-2 text-center text-sm font-black leading-tight dark:border-slate-700 dark:bg-slate-900">
