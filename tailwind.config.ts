@@ -11,21 +11,21 @@ const config: Config = {
     extend: {
       colors: {
         caribbean: {
-          ink: "#13201f",
-          teal: "#087e7a",
-          sea: "#14b8a6",
+          ink: "#eafffb",
+          teal: "#14b8a6",
+          sea: "#22d3ee",
           coral: "#f9735b",
-          mango: "#f6b53f",
-          palm: "#1f9d66",
-          cloud: "#f7fbfb",
-          line: "#d8e7e5"
+          mango: "#facc15",
+          palm: "#22c55e",
+          cloud: "#081311",
+          line: "#1f3f3a"
         }
       },
       boxShadow: {
-        soft: "0 12px 32px rgba(19, 32, 31, 0.08)"
+        soft: "0 18px 56px rgba(0, 0, 0, 0.32)"
       },
       borderRadius: {
-        card: "8px"
+        card: "18px"
       }
     }
   },

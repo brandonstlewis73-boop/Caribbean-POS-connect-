@@ -34,7 +34,6 @@ async function createQrBuffer(value?: string | null, width = 110) {
 function customerAddress(customer: CustomerInput) {
   return buildAddress([
     customer.street_address,
-    customer.community,
     customer.city,
     customer.region,
     customer.country || "Trinidad and Tobago"

@@ -83,7 +83,11 @@ const demoSettings: Settings = {
   payment_bank_enabled: true,
   payment_paypal_enabled: true,
   payment_wipay_enabled: true,
-  payment_pod_enabled: true
+  payment_pod_enabled: true,
+  receipt_print_customer_enabled: true,
+  receipt_print_kitchen_enabled: false,
+  receipt_email_enabled: true,
+  receipt_whatsapp_enabled: false
 };
 
 const demoBusiness: Business = {
@@ -162,94 +166,11 @@ function regionDeliveryFee(settings: Settings, region?: string | null) {
 }
 
 function seedProducts(): Product[] {
-  return [
-    ["prd_jerk", "Jerk Chicken Meal", "FOOD-JERK-001", "740001000001", "Food", 38, 55, 42, 8, "Island Fresh Foods", "868-555-2001"],
-    ["prd_doubles", "Doubles Pack", "FOOD-DOUB-002", "740001000002", "Food", 6, 12, 80, 15, "Central Curry Supply", "868-555-2002"],
-    ["prd_sorrel", "Sorrel Drink", "DRINK-SOR-003", "740001000003", "Drinks", 6, 15, 30, 10, "Tropical Bev Co", "868-555-2003"],
-    ["prd_mauby", "Mauby Bottle", "DRINK-MAU-004", "740001000004", "Drinks", 5, 14, 24, 10, "Tropical Bev Co", "868-555-2003"],
-    ["prd_plantain", "Plantain Chips", "SNACK-PLA-005", "740001000005", "Snacks", 7, 16, 12, 12, "SnackWorks TT", "868-555-2004"],
-    ["prd_tee", "Screen Printed Tee", "APP-TEE-006", "740001000006", "Apparel", 48, 120, 18, 5, "Queen Street Apparel", "868-555-2005"],
-    ["prd_topup", "Digital Top-Up", "DIG-TOP-007", "740001000007", "Digital services", 45, 50, 999, 100, "Local Digital Services", "868-555-2006"],
-    ["prd_repair", "Custom Repair Service", "SERV-REP-008", "740001000008", "Services", 80, 150, 999, 100, "In-house", "868-555-0100"]
-  ].map(
-    ([
-      productId,
-      name,
-      sku,
-      barcode,
-      category,
-      cost_price,
-      selling_price,
-      stock_quantity,
-      low_stock_alert,
-      supplier_name,
-      supplier_phone
-    ]) =>
-      ({
-        id: String(productId),
-        name: String(name),
-        sku: String(sku),
-        barcode: String(barcode),
-        category: String(category),
-        cost_price: Number(cost_price),
-        selling_price: Number(selling_price),
-        stock_quantity: Number(stock_quantity),
-        low_stock_alert: Number(low_stock_alert),
-        image_url: PRODUCT_IMAGE_URLS[String(sku)],
-        supplier_name: String(supplier_name),
-        supplier_phone: String(supplier_phone),
-        active: true
-      }) satisfies Product
-  );
+  return [];
 }
 
 function seedCustomers(): Customer[] {
-  return [
-    {
-      id: "cus_john",
-      name: "John Doe",
-      phone: "868-123-4567",
-      phone_normalized: "18681234567",
-      email: "john@example.com",
-      street_address: "25 Main Road",
-      community: "Montrose",
-      city: "Chaguanas",
-      region: "Chaguanas",
-      country: "Trinidad and Tobago",
-      delivery_notes: "Call when outside",
-      preferred_payment_method: "Cash",
-      notes: "Likes quick delivery.",
-      birthday: null,
-      marketing_consent: true,
-      loyalty_points: 44,
-      total_spent: 440,
-      orders_count: 4,
-      last_order_at: now(2),
-      tags: ["VIP", "Frequent Buyer"]
-    },
-    {
-      id: "cus_priya",
-      name: "Priya Singh",
-      phone: "868-222-9988",
-      phone_normalized: "18682229988",
-      email: "priya@example.com",
-      street_address: "7 Coffee Street",
-      community: "St. Augustine",
-      city: "Tunapuna",
-      region: "Tunapuna-Piarco",
-      country: "Trinidad and Tobago",
-      delivery_notes: "Leave at reception",
-      preferred_payment_method: "WiPay",
-      notes: "Prefers WhatsApp updates.",
-      birthday: null,
-      marketing_consent: true,
-      loyalty_points: 18,
-      total_spent: 180,
-      orders_count: 2,
-      last_order_at: now(3),
-      tags: ["New Customer"]
-    }
-  ];
+  return [];
 }
 
 function orderFromSeed(
@@ -295,7 +216,6 @@ function orderFromSeed(
     phone: input.customer.phone,
     email: input.customer.email,
     street_address: input.customer.street_address,
-    community: input.customer.community,
     city: input.customer.city,
     region: input.customer.region,
     country: input.customer.country,
@@ -305,7 +225,6 @@ function orderFromSeed(
   };
   const address = buildAddress([
     customerSnapshot.street_address,
-    customerSnapshot.community,
     customerSnapshot.city,
     customerSnapshot.region,
     customerSnapshot.country
@@ -374,36 +293,8 @@ function createStore(): DemoStore {
     orderCounter: 1027,
     receiptCounter: 4027
   };
-  store.orders = [
-    orderFromSeed(store, {
-      id: "ord_demo_delivery",
-      order_number: "1025",
-      receipt_number: "R-4025",
-      customer: customers[0],
-      items: [["prd_jerk", 2], ["prd_sorrel", 1]],
-      order_type: "delivery",
-      payment_method: "Pay on delivery",
-      payment_status: "unpaid",
-      delivery_status: "assigned",
-      assigned_driver_id: "usr_demo_driver",
-      created_by: "usr_demo_admin",
-      created_at: now(1)
-    }),
-    orderFromSeed(store, {
-      id: "ord_demo_pickup",
-      order_number: "1026",
-      receipt_number: "R-4026",
-      customer: customers[1],
-      items: [["prd_doubles", 6], ["prd_mauby", 2]],
-      order_type: "pickup",
-      payment_method: "WiPay",
-      payment_status: "paid",
-      delivery_status: "not_required",
-      created_by: "usr_demo_admin",
-      created_at: now(3)
-    })
-  ];
-  demoAuditLog("demo:init", "system", "demo", { mode: "memory" }, "usr_demo_admin", store);
+  store.orders = [];
+  demoAuditLog("workspace:init", "system", "local", { mode: "memory" }, "usr_demo_admin", store);
   return store;
 }
 
@@ -452,7 +343,6 @@ function upsertDemoCustomer(input?: CustomerInput | null) {
       phone_normalized: normalized || existing.phone_normalized,
       email: input.email || existing.email,
       street_address: input.street_address || existing.street_address,
-      community: input.community || existing.community,
       city: input.city || existing.city,
       region: input.region || existing.region,
       country: input.country || existing.country,
@@ -471,7 +361,6 @@ function upsertDemoCustomer(input?: CustomerInput | null) {
     phone_normalized: normalized || null,
     email: input.email || null,
     street_address: input.street_address || null,
-    community: input.community || null,
     city: input.city || null,
     region: input.region || null,
     country: input.country || "Trinidad and Tobago",
@@ -644,7 +533,6 @@ export async function demoCreateOrder(payload: CheckoutPayload, userId?: string)
   const customerInput: CustomerInput = {
     ...payload.customer,
     street_address: delivery.street_address || payload.customer?.street_address,
-    community: delivery.community || payload.customer?.community,
     city: delivery.city || payload.customer?.city,
     region: delivery.region || payload.customer?.region,
     country: delivery.country || payload.customer?.country || "Trinidad and Tobago",
@@ -658,7 +546,6 @@ export async function demoCreateOrder(payload: CheckoutPayload, userId?: string)
         phone: customer.phone,
         email: customer.email,
         street_address: customer.street_address,
-        community: customer.community,
         city: customer.city,
         region: customer.region,
         country: customer.country,
@@ -708,7 +595,7 @@ export async function demoCreateOrder(payload: CheckoutPayload, userId?: string)
         ? "assigned"
         : "pending"
       : "not_required";
-  const address = buildAddress([snapshot.street_address, snapshot.community, snapshot.city, snapshot.region, snapshot.country]);
+  const address = buildAddress([snapshot.street_address, snapshot.city, snapshot.region, snapshot.country]);
   const wazeLink = buildWazeLink({
     latitude: delivery.latitude,
     longitude: delivery.longitude,

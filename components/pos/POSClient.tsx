@@ -35,7 +35,6 @@ const emptyCustomer = {
   phone: "",
   email: "",
   street_address: "",
-  community: "",
   city: "",
   region: "Chaguanas",
   country: "Trinidad and Tobago",
@@ -48,7 +47,9 @@ const emptyCustomer = {
 function paymentMethodEnabled(method: string, settings: Settings) {
   if (method === "Cash") return settings.payment_cash_enabled;
   if (method === "Card") return settings.payment_card_enabled;
-  if (method === "Bank transfer") return settings.payment_bank_enabled;
+  if (method === "Transfer" || method === "Bank transfer") return settings.payment_bank_enabled;
+  if (method === "Digital Wallet") return settings.payment_wipay_enabled;
+  if (method === "Split Payment") return true;
   if (method === "PayPal") return settings.payment_paypal_enabled;
   if (method === "WiPay") return settings.payment_wipay_enabled;
   if (method === "Pay on delivery") return settings.payment_pod_enabled;
@@ -139,7 +140,6 @@ export function POSClient({
         phone: found.phone || value,
         email: found.email || "",
         street_address: found.street_address || "",
-        community: found.community || "",
         city: found.city || "",
         region: found.region || "Chaguanas",
         country: found.country || "Trinidad and Tobago",
@@ -204,7 +204,6 @@ export function POSClient({
             orderType === "delivery"
               ? {
                   street_address: customer.street_address,
-                  community: customer.community,
                   city: customer.city,
                   region: customer.region,
                   country: customer.country,
@@ -302,6 +301,14 @@ export function POSClient({
               </div>
             </button>
           ))}
+          {!filteredProducts.length ? (
+            <Panel className="grid min-h-64 place-items-center p-6 text-center sm:col-span-2 md:col-span-3 2xl:col-span-4">
+              <div>
+                <p className="text-lg font-black">No products yet.</p>
+                <p className="mt-2 text-sm font-semibold text-slate-500">Add your first product in Inventory to start selling.</p>
+              </div>
+            </Panel>
+          ) : null}
         </div>
       </div>
 
@@ -396,10 +403,10 @@ export function POSClient({
               <div className="grid gap-3">
                 <Field label="Street address" value={customer.street_address} onChange={(event) => setCustomer({ ...customer, street_address: event.target.value })} />
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label="Area/community" value={customer.community} onChange={(event) => setCustomer({ ...customer, community: event.target.value })} />
                   <Field label="City/town" value={customer.city} onChange={(event) => setCustomer({ ...customer, city: event.target.value })} />
+                  <Field label="Country" value={customer.country} onChange={(event) => setCustomer({ ...customer, country: event.target.value })} />
                 </div>
-                <SelectField label="Region/corporation" value={customer.region} onChange={(event) => setCustomer({ ...customer, region: event.target.value })}>
+                <SelectField label="Delivery region" value={customer.region} onChange={(event) => setCustomer({ ...customer, region: event.target.value })}>
                   {TT_REGIONS.map((region) => <option key={region}>{region}</option>)}
                 </SelectField>
                 <TextAreaField label="Delivery instructions" value={customer.delivery_notes} onChange={(event) => setCustomer({ ...customer, delivery_notes: event.target.value })} />

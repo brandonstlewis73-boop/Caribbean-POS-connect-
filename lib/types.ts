@@ -69,7 +69,6 @@ export type Customer = {
   phone_normalized?: string | null;
   email?: string | null;
   street_address?: string | null;
-  community?: string | null;
   city?: string | null;
   region?: string | null;
   country: string;
@@ -92,7 +91,6 @@ export type CustomerInput = Partial<
     | "phone"
     | "email"
     | "street_address"
-    | "community"
     | "city"
     | "region"
     | "country"
@@ -187,6 +185,10 @@ export type Settings = {
   payment_paypal_enabled: boolean;
   payment_wipay_enabled: boolean;
   payment_pod_enabled: boolean;
+  receipt_print_customer_enabled: boolean;
+  receipt_print_kitchen_enabled: boolean;
+  receipt_email_enabled: boolean;
+  receipt_whatsapp_enabled: boolean;
 };
 
 export type CheckoutPayload = {
@@ -207,7 +209,6 @@ export type CheckoutPayload = {
   assigned_driver_id?: string | null;
   delivery?: {
     street_address?: string | null;
-    community?: string | null;
     city?: string | null;
     region?: string | null;
     country?: string | null;
@@ -231,4 +232,35 @@ export type DashboardData = {
   paymentBreakdown: Array<{ method: string; total: number; count: number }>;
   cashierPerformance: Array<{ name: string; total: number; count: number }>;
   salesSeries: Array<{ date: string; total: number }>;
+};
+
+export type SubscriptionPlanId = "starter" | "business" | "pro";
+
+export type SubscriptionPlan = {
+  id: SubscriptionPlanId;
+  name: string;
+  audience: string;
+  monthly_price: number;
+  currency: string;
+  features: string[];
+};
+
+export type Subscription = {
+  id: string;
+  business_id?: string | null;
+  plan_id: SubscriptionPlanId;
+  plan_name: string;
+  status: "trialing" | "active" | "past_due" | "paused" | "cancelled";
+  seats: number;
+  monthly_price: number;
+  currency: string;
+  provider?: string | null;
+  provider_customer_id?: string | null;
+  provider_subscription_id?: string | null;
+  current_period_start?: string | null;
+  current_period_end?: string | null;
+  trial_ends_at?: string | null;
+  metadata?: Record<string, unknown>;
+  created_at?: string;
+  updated_at?: string;
 };

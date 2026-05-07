@@ -3,22 +3,22 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: light;
-  --background: #f7fbfb;
-  --foreground: #13201f;
-  --muted: #5c706d;
-  --line: #d8e7e5;
-  --surface: #ffffff;
-  --accent: #087e7a;
+  color-scheme: dark;
+  --background: #030807;
+  --foreground: #eafffb;
+  --muted: #8fb7b0;
+  --line: #1f3f3a;
+  --surface: #0b1715;
+  --accent: #14b8a6;
 }
 
 .dark {
   color-scheme: dark;
-  --background: #101817;
+  --background: #030807;
   --foreground: #eef8f6;
   --muted: #9fb3b0;
-  --line: #263936;
-  --surface: #172321;
+  --line: #1f3f3a;
+  --surface: #0b1715;
   --accent: #14b8a6;
 }
 
@@ -39,7 +39,10 @@ body {
   overflow-x: hidden;
   margin: 0;
   color: var(--foreground);
-  background: var(--background);
+  background:
+    radial-gradient(circle at 10% -10%, rgba(20, 184, 166, 0.18), transparent 32rem),
+    radial-gradient(circle at 85% 5%, rgba(250, 204, 21, 0.12), transparent 28rem),
+    linear-gradient(180deg, #030807 0%, #07110f 48%, #020403 100%);
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     sans-serif;

@@ -1,13 +1,13 @@
-export const APP_NAME = "Caribbean POS Connect";
+export const APP_NAME = "Caribbean Connect POS";
 export const CURRENCY_CODE = "TTD";
 export const CURRENCY_SYMBOL = "TT$";
 
 export const PRODUCT_CATEGORIES = [
-  "Food",
+  "Meals",
   "Drinks",
   "Snacks",
+  "Retail",
   "Services",
-  "Apparel",
   "Digital services",
   "Custom items"
 ] as const;
@@ -62,6 +62,9 @@ export const PRODUCT_IMAGE_URLS: Record<string, string> = {
 export const PAYMENT_METHODS = [
   "Cash",
   "Card",
+  "Transfer",
+  "Digital Wallet",
+  "Split Payment",
   "Bank transfer",
   "PayPal",
   "WiPay",
@@ -91,6 +94,52 @@ export const ROLE_LABELS: Record<string, string> = {
   driver: "Delivery driver",
   staff: "Staff"
 };
+
+export const SUBSCRIPTION_PLANS = [
+  {
+    id: "starter",
+    name: "Starter Plan",
+    audience: "For small food businesses",
+    monthly_price: 149,
+    currency: CURRENCY_CODE,
+    features: [
+      "Basic POS",
+      "Customer management",
+      "Order tracking",
+      "Basic reports"
+    ]
+  },
+  {
+    id: "business",
+    name: "Business Plan",
+    audience: "For growing retail and delivery teams",
+    monthly_price: 299,
+    currency: CURRENCY_CODE,
+    features: [
+      "Everything in Starter",
+      "Multi-user staff access",
+      "Inventory management",
+      "Delivery management",
+      "WhatsApp order alerts",
+      "Advanced reports"
+    ]
+  },
+  {
+    id: "pro",
+    name: "Pro Plan",
+    audience: "For multi-branch operators",
+    monthly_price: 499,
+    currency: CURRENCY_CODE,
+    features: [
+      "Everything in Business",
+      "Multi-branch support",
+      "Role permissions",
+      "Priority support",
+      "Custom branding",
+      "Full back office tools"
+    ]
+  }
+] as const;
 
 export function money(value: number | string | null | undefined) {
   const numeric = Number(value ?? 0);

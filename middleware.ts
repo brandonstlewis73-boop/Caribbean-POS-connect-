@@ -4,6 +4,9 @@ const PUBLIC_PREFIXES = ["/login", "/online", "/privacy", "/contact", "/api", "/
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  if (pathname === "/") {
+    return NextResponse.next();
+  }
   if (PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
     return NextResponse.next();
   }

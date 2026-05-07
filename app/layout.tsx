@@ -4,26 +4,26 @@ import "./globals.css";
 const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
 export const metadata: Metadata = {
-  title: "Caribbean POS Connect",
+  title: "Caribbean Connect POS",
   description:
-    "POS, customer management, inventory, deliveries, Waze, WhatsApp, loyalty, and reports for Trinidad and Tobago businesses.",
+    "Premium POS, orders, inventory, delivery, receipts, subscriptions, and customer management for Trinidad and Tobago businesses.",
   metadataBase: new URL(appUrl),
   icons: {
     icon: "/logo.svg"
   },
   openGraph: {
-    title: "Caribbean POS Connect",
+    title: "Caribbean Connect POS",
     description:
-      "Full-stack POS, storefront, delivery, Waze, WhatsApp, loyalty, inventory, and reporting for Trinidad and Tobago.",
+      "Premium POS, storefront, delivery, Waze, WhatsApp, inventory, and reporting for Trinidad and Tobago.",
     url: appUrl,
-    siteName: "Caribbean POS Connect",
+    siteName: "Caribbean Connect POS",
     type: "website"
   }
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <body>{children}</body>
     </html>
   );

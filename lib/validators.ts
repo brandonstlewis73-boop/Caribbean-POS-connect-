@@ -8,7 +8,6 @@ export const customerInputSchema = z.object({
   phone: optionalText,
   email: z.string().email().optional().or(z.literal("")).nullable(),
   street_address: optionalText,
-  community: optionalText,
   city: optionalText,
   region: z.enum(TT_REGIONS).optional().or(z.string().trim()).nullable(),
   country: z.string().trim().default("Trinidad and Tobago").optional(),
@@ -56,7 +55,6 @@ export const checkoutSchema = z.object({
   delivery: z
     .object({
       street_address: optionalText,
-      community: optionalText,
       city: optionalText,
       region: optionalText,
       country: z.string().trim().default("Trinidad and Tobago").optional(),

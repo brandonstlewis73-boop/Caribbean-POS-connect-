@@ -222,6 +222,14 @@ export function OrdersClient({
                   <td className="px-4 py-3 text-right font-black">{money(order.total)}</td>
                 </tr>
               ))}
+              {!filtered.length ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-10 text-center">
+                    <p className="font-black text-white">No orders yet.</p>
+                    <p className="mt-1 text-sm font-semibold text-teal-50/60">New POS, pickup, online, and delivery orders will appear here.</p>
+                  </td>
+                </tr>
+              ) : null}
             </tbody>
           </table>
         </div>
@@ -244,7 +252,7 @@ export function OrdersClient({
               <p className="font-black">{selected.customer_snapshot.name || "Walk-in customer"}</p>
               <p className="font-semibold text-slate-500">{selected.customer_snapshot.phone || "No phone"}</p>
               <p className="mt-2 text-slate-600 dark:text-slate-300">
-                {[selected.customer_snapshot.street_address, selected.customer_snapshot.community, selected.customer_snapshot.city, selected.customer_snapshot.region, selected.customer_snapshot.country]
+                {[selected.customer_snapshot.street_address, selected.customer_snapshot.city, selected.customer_snapshot.region, selected.customer_snapshot.country]
                   .filter(Boolean)
                   .join(", ")}
               </p>

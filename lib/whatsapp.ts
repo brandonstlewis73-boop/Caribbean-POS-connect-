@@ -35,7 +35,6 @@ export function buildOrderWhatsAppMessage(order: Order, settings: Settings) {
   const typeLabel = order.order_type === "delivery" ? "Delivery" : order.order_type === "pickup" ? "Pickup" : "In-store";
   const address = buildAddress([
     customer.street_address,
-    customer.community,
     customer.city,
     customer.region,
     customer.country || "Trinidad and Tobago"

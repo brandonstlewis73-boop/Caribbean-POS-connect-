@@ -14,7 +14,9 @@ type CartItem = Product & { quantity: number };
 function paymentMethodEnabled(method: string, settings: Settings) {
   if (method === "Cash") return settings.payment_cash_enabled;
   if (method === "Card") return settings.payment_card_enabled;
-  if (method === "Bank transfer") return settings.payment_bank_enabled;
+  if (method === "Transfer" || method === "Bank transfer") return settings.payment_bank_enabled;
+  if (method === "Digital Wallet") return settings.payment_wipay_enabled;
+  if (method === "Split Payment") return true;
   if (method === "PayPal") return settings.payment_paypal_enabled;
   if (method === "WiPay") return settings.payment_wipay_enabled;
   if (method === "Pay on delivery") return settings.payment_pod_enabled;
@@ -30,7 +32,6 @@ export function OnlineOrderClient({ products, settings }: { products: Product[];
     phone: "",
     email: "",
     street_address: "",
-    community: "",
     city: "",
     region: "Chaguanas",
     country: "Trinidad and Tobago",
@@ -117,7 +118,6 @@ export function OnlineOrderClient({ products, settings }: { products: Product[];
             fulfillment === "delivery"
               ? {
                   street_address: customer.street_address,
-                  community: customer.community,
                   city: customer.city,
                   region: customer.region,
                   country: customer.country,
@@ -210,6 +210,14 @@ export function OnlineOrderClient({ products, settings }: { products: Product[];
                 </div>
               </button>
             ))}
+            {!visibleProducts.length ? (
+              <div className="grid min-h-64 place-items-center rounded-card border border-caribbean-line bg-white p-6 text-center shadow-soft dark:border-slate-800 dark:bg-slate-900 sm:col-span-2 md:col-span-3 xl:col-span-4">
+                <div>
+                  <p className="text-lg font-black">No products yet.</p>
+                  <p className="mt-2 text-sm font-semibold text-slate-500">Products added by the business will appear here.</p>
+                </div>
+              </div>
+            ) : null}
           </div>
         </section>
 
@@ -259,9 +267,9 @@ export function OnlineOrderClient({ products, settings }: { products: Product[];
               {fulfillment === "delivery" ? (
                 <div className="grid gap-3">
                   <Field label="Street address" value={customer.street_address} onChange={(event) => setCustomer({ ...customer, street_address: event.target.value })} />
-                  <Field label="Area/community" value={customer.community} onChange={(event) => setCustomer({ ...customer, community: event.target.value })} />
                   <Field label="City/town" value={customer.city} onChange={(event) => setCustomer({ ...customer, city: event.target.value })} />
-                  <SelectField label="Region/corporation" value={customer.region} onChange={(event) => setCustomer({ ...customer, region: event.target.value })}>
+                  <Field label="Country" value={customer.country} onChange={(event) => setCustomer({ ...customer, country: event.target.value })} />
+                  <SelectField label="Delivery region" value={customer.region} onChange={(event) => setCustomer({ ...customer, region: event.target.value })}>
                     {TT_REGIONS.map((region) => <option key={region}>{region}</option>)}
                   </SelectField>
                   <TextAreaField label="Delivery instructions" value={customer.delivery_notes} onChange={(event) => setCustomer({ ...customer, delivery_notes: event.target.value })} />

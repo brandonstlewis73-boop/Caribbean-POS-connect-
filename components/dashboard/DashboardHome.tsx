@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Bike, CreditCard, DollarSign, TrendingUp, Users } from "lucide-react";
+import { AlertTriangle, Bike, CreditCard, DollarSign, ReceiptText, TrendingUp } from "lucide-react";
 import type { DashboardData } from "@/lib/types";
 import { money } from "@/lib/constants";
 import { Badge } from "@/components/ui/Badge";
@@ -34,11 +34,11 @@ function SalesBars({ series }: { series: DashboardData["salesSeries"] }) {
 export function DashboardHome({ data }: { data: DashboardData }) {
   const stats = [
     { label: "Daily sales", value: money(data.dailySales), icon: DollarSign },
+    { label: "Total orders", value: String(data.paymentBreakdown.reduce((sum, item) => sum + item.count, 0)), icon: ReceiptText },
+    { label: "Average sale", value: money(data.paymentBreakdown.reduce((sum, item) => sum + item.total, 0) / Math.max(1, data.paymentBreakdown.reduce((sum, item) => sum + item.count, 0))), icon: CreditCard },
+    { label: "Returns/cancellations", value: "0", icon: AlertTriangle },
     { label: "Weekly sales", value: money(data.weeklySales), icon: TrendingUp },
-    { label: "Monthly sales", value: money(data.monthlySales), icon: CreditCard },
-    { label: "Deliveries", value: String(data.deliveryOrderCount), icon: Bike },
-    { label: "Profit estimate", value: money(data.profitEstimate), icon: TrendingUp },
-    { label: "Top customers", value: String(data.topCustomers.length), icon: Users }
+    { label: "Deliveries", value: String(data.deliveryOrderCount), icon: Bike }
   ];
 
   return (
@@ -49,11 +49,11 @@ export function DashboardHome({ data }: { data: DashboardData }) {
           return (
             <div
               key={stat.label}
-              className="rounded-card border border-caribbean-line bg-white p-4 shadow-soft dark:border-slate-800 dark:bg-slate-900"
+              className="rounded-card border border-white/10 bg-white/[0.06] p-4 shadow-soft backdrop-blur-xl"
             >
               <div className="flex min-w-0 items-center justify-between gap-3">
-                <p className="min-w-0 text-sm font-bold text-slate-500 dark:text-slate-400">{stat.label}</p>
-                <Icon className="h-4 w-4 text-caribbean-teal" />
+                <p className="min-w-0 text-sm font-bold text-teal-50/60">{stat.label}</p>
+                <Icon className="h-4 w-4 text-cyan-200" />
               </div>
               <p className="mt-3 text-2xl font-black">{stat.value}</p>
             </div>

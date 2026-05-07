@@ -29,8 +29,8 @@ async function readLoginResponse(response: Response): Promise<LoginResponse> {
 export function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
-  const [email, setEmail] = useState("admin@demo.com");
-  const [password, setPassword] = useState("demo123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -49,7 +49,7 @@ export function LoginForm() {
         setError(payload.error || "Login failed");
         return;
       }
-      router.push(params.get("next") || "/");
+      router.push(params.get("next") || "/dashboard");
       router.refresh();
     } catch {
       setError("Login failed. Please check the server and try again.");
@@ -59,14 +59,12 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={submit} className="grid w-full max-w-md gap-4 rounded-card border border-caribbean-line bg-white p-6 shadow-soft dark:border-slate-800 dark:bg-slate-900">
+    <form onSubmit={submit} className="grid w-full max-w-md gap-4 rounded-card border border-white/10 bg-white/[0.06] p-6 shadow-soft backdrop-blur-xl">
       <div>
-        <div className="mb-4 grid h-12 w-12 place-items-center rounded-card bg-caribbean-teal text-lg font-black text-white">
-          CP
-        </div>
-        <h1 className="text-2xl font-black">Caribbean POS Connect</h1>
-        <p className="mt-2 text-sm font-semibold text-slate-500">
-          Sign in with the seeded admin account or another staff role.
+        <img src="/logo.svg" alt="" className="mb-4 h-14 w-14 rounded-2xl object-contain" />
+        <h1 className="text-2xl font-black">Caribbean Connect POS</h1>
+        <p className="mt-2 text-sm font-semibold text-teal-50/65">
+          Sign in to manage sales, customers, inventory, orders, delivery, reports, and subscriptions.
         </p>
       </div>
       <Field label="Email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
@@ -76,9 +74,6 @@ export function LoginForm() {
         <LogIn className="h-4 w-4" />
         {loading ? "Signing in..." : "Sign in"}
       </Button>
-      <div className="rounded-card bg-caribbean-cloud p-3 text-xs font-semibold text-slate-600 dark:bg-slate-950 dark:text-slate-300">
-        Demo login without Supabase: admin@demo.com / demo123. Seeded staff use Admin123! after database setup.
-      </div>
     </form>
   );
 }

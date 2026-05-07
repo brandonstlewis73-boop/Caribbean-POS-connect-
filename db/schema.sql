@@ -35,6 +35,17 @@ CREATE TABLE IF NOT EXISTS settings (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS categories (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE,
+  slug TEXT NOT NULL UNIQUE,
+  description TEXT,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS customers (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
@@ -42,7 +53,6 @@ CREATE TABLE IF NOT EXISTS customers (
   phone_normalized TEXT,
   email TEXT,
   street_address TEXT,
-  community TEXT,
   city TEXT,
   region TEXT,
   country TEXT NOT NULL DEFAULT 'Trinidad and Tobago',
@@ -195,4 +205,24 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   metadata JSONB,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS subscriptions (
+  id TEXT PRIMARY KEY,
+  business_id TEXT REFERENCES businesses(id) ON DELETE CASCADE,
+  plan_id TEXT NOT NULL DEFAULT 'starter',
+  plan_name TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'trialing' CHECK (status IN ('trialing', 'active', 'past_due', 'paused', 'cancelled')),
+  seats INTEGER NOT NULL DEFAULT 1,
+  monthly_price NUMERIC NOT NULL DEFAULT 0,
+  currency TEXT NOT NULL DEFAULT 'TTD',
+  provider TEXT,
+  provider_customer_id TEXT,
+  provider_subscription_id TEXT,
+  current_period_start TIMESTAMPTZ,
+  current_period_end TIMESTAMPTZ,
+  trial_ends_at TIMESTAMPTZ,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

@@ -570,6 +570,10 @@ INSERT INTO public.settings (key, business_id, value) VALUES
   ('payment_paypal_enabled', 'biz_savannah_sea', 'true'::jsonb),
   ('payment_wipay_enabled', 'biz_savannah_sea', 'true'::jsonb),
   ('payment_pod_enabled', 'biz_savannah_sea', 'true'::jsonb),
+  ('receipt_print_customer_enabled', 'biz_savannah_sea', 'true'::jsonb),
+  ('receipt_print_kitchen_enabled', 'biz_savannah_sea', 'false'::jsonb),
+  ('receipt_email_enabled', 'biz_savannah_sea', 'true'::jsonb),
+  ('receipt_whatsapp_enabled', 'biz_savannah_sea', 'false'::jsonb),
   ('order_counter', 'biz_savannah_sea', '1027'::jsonb),
   ('receipt_counter', 'biz_savannah_sea', '4027'::jsonb)
 ON CONFLICT (key) DO UPDATE SET

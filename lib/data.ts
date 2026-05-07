@@ -1,6 +1,6 @@
 import { subDays, startOfDay } from "date-fns";
 import { isDemoMode, query, transaction, createId, type PoolClient } from "./db";
-import { CURRENCY_CODE, DEFAULT_DELIVERY_RATES } from "./constants";
+import { CURRENCY_CODE, DEFAULT_DELIVERY_RATES, SUBSCRIPTION_PLANS } from "./constants";
 import {
   demoAdjustStock,
   demoCreateCustomer,
@@ -35,6 +35,9 @@ import type {
   OrderItem,
   Product,
   Settings,
+  Subscription,
+  SubscriptionPlan,
+  SubscriptionPlanId,
   User,
   Business,
   BusinessInput
@@ -80,7 +83,11 @@ const defaultSettings: Settings = {
   payment_bank_enabled: true,
   payment_paypal_enabled: true,
   payment_wipay_enabled: true,
-  payment_pod_enabled: true
+  payment_pod_enabled: true,
+  receipt_print_customer_enabled: true,
+  receipt_print_kitchen_enabled: false,
+  receipt_email_enabled: true,
+  receipt_whatsapp_enabled: false
 };
 
 function parseJson<T>(value: unknown, fallback: T): T {
@@ -189,6 +196,20 @@ function rowToBusiness(row: any): Business {
   return {
     ...row,
     active: bool(row.active),
+    created_at: toDateString(row.created_at) || undefined,
+    updated_at: toDateString(row.updated_at) || undefined
+  };
+}
+
+function rowToSubscription(row: any): Subscription {
+  return {
+    ...row,
+    monthly_price: Number(row.monthly_price),
+    seats: Number(row.seats),
+    metadata: parseJson<Record<string, unknown>>(row.metadata, {}),
+    current_period_start: toDateString(row.current_period_start),
+    current_period_end: toDateString(row.current_period_end),
+    trial_ends_at: toDateString(row.trial_ends_at),
     created_at: toDateString(row.created_at) || undefined,
     updated_at: toDateString(row.updated_at) || undefined
   };
@@ -406,6 +427,94 @@ export async function createBusiness(input: BusinessInput, userId?: string) {
   return rows.rows[0] ? rowToBusiness(rows.rows[0]) : null;
 }
 
+export function listSubscriptionPlans(): SubscriptionPlan[] {
+  return SUBSCRIPTION_PLANS.map((plan) => ({
+    id: plan.id,
+    name: plan.name,
+    audience: plan.audience,
+    monthly_price: plan.monthly_price,
+    currency: plan.currency,
+    features: [...plan.features]
+  })) as SubscriptionPlan[];
+}
+
+export async function getCurrentSubscription(): Promise<Subscription | null> {
+  if (isDemoMode) {
+    const plan = SUBSCRIPTION_PLANS[0];
+    return {
+      id: "sub_local_workspace",
+      business_id: "biz_savannah_sea",
+      plan_id: plan.id,
+      plan_name: plan.name,
+      status: "trialing",
+      seats: 1,
+      monthly_price: plan.monthly_price,
+      currency: plan.currency,
+      provider: "manual",
+      current_period_start: new Date().toISOString(),
+      current_period_end: subDays(new Date(), -30).toISOString(),
+      trial_ends_at: subDays(new Date(), -14).toISOString(),
+      metadata: {}
+    };
+  }
+  const rows = await query<any>(
+    `SELECT *
+     FROM subscriptions
+     ORDER BY created_at DESC
+     LIMIT 1`
+  );
+  return rows.rows[0] ? rowToSubscription(rows.rows[0]) : null;
+}
+
+export async function updateSubscriptionPlan(planId: SubscriptionPlanId, userId?: string) {
+  const plan = SUBSCRIPTION_PLANS.find((item) => item.id === planId);
+  if (!plan) return null;
+  if (isDemoMode) {
+    return {
+      id: "sub_local_workspace",
+      business_id: "biz_savannah_sea",
+      plan_id: plan.id,
+      plan_name: plan.name,
+      status: "trialing",
+      seats: plan.id === "starter" ? 1 : plan.id === "business" ? 5 : 15,
+      monthly_price: plan.monthly_price,
+      currency: plan.currency,
+      provider: "manual",
+      current_period_start: new Date().toISOString(),
+      current_period_end: subDays(new Date(), -30).toISOString(),
+      trial_ends_at: subDays(new Date(), -14).toISOString(),
+      metadata: {}
+    } satisfies Subscription;
+  }
+  const existing = await getCurrentSubscription();
+  const subscriptionId = existing?.id || createId("sub");
+  const businessId = existing?.business_id || (await listBusinesses())[0]?.id || "biz_savannah_sea";
+  await query(
+    `INSERT INTO subscriptions (
+      id, business_id, plan_id, plan_name, status, seats, monthly_price, currency,
+      provider, current_period_start, current_period_end, trial_ends_at, metadata
+    ) VALUES ($1, $2, $3, $4, 'trialing', $5, $6, $7, 'manual', NOW(), NOW() + INTERVAL '30 days', NOW() + INTERVAL '14 days', '{}'::jsonb)
+    ON CONFLICT (id) DO UPDATE SET
+      plan_id = EXCLUDED.plan_id,
+      plan_name = EXCLUDED.plan_name,
+      seats = EXCLUDED.seats,
+      monthly_price = EXCLUDED.monthly_price,
+      currency = EXCLUDED.currency,
+      updated_at = NOW()`,
+    [
+      subscriptionId,
+      businessId,
+      plan.id,
+      plan.name,
+      plan.id === "starter" ? 1 : plan.id === "business" ? 5 : 15,
+      plan.monthly_price,
+      plan.currency
+    ]
+  );
+  await auditLog("subscription:update_plan", "subscription", subscriptionId, { plan_id: plan.id }, userId);
+  return getCurrentSubscription();
+}
+
 export async function listProducts(search?: string, includeInactive = false): Promise<Product[]> {
   if (isDemoMode) return demoListProducts(search, includeInactive);
   const params: unknown[] = [];
@@ -582,24 +691,22 @@ async function upsertCustomer(client: DbClient, input?: CustomerInput | null) {
         phone_normalized = COALESCE(NULLIF($3, ''), phone_normalized),
         email = COALESCE(NULLIF($4, ''), email),
         street_address = COALESCE(NULLIF($5, ''), street_address),
-        community = COALESCE(NULLIF($6, ''), community),
-        city = COALESCE(NULLIF($7, ''), city),
-        region = COALESCE(NULLIF($8, ''), region),
-        country = COALESCE(NULLIF($9, ''), country),
-        delivery_notes = COALESCE(NULLIF($10, ''), delivery_notes),
-        preferred_payment_method = COALESCE(NULLIF($11, ''), preferred_payment_method),
-        notes = COALESCE(NULLIF($12, ''), notes),
-        birthday = COALESCE(NULLIF($13, ''), birthday),
-        marketing_consent = COALESCE($14::boolean, marketing_consent),
+        city = COALESCE(NULLIF($6, ''), city),
+        region = COALESCE(NULLIF($7, ''), region),
+        country = COALESCE(NULLIF($8, ''), country),
+        delivery_notes = COALESCE(NULLIF($9, ''), delivery_notes),
+        preferred_payment_method = COALESCE(NULLIF($10, ''), preferred_payment_method),
+        notes = COALESCE(NULLIF($11, ''), notes),
+        birthday = COALESCE(NULLIF($12, ''), birthday),
+        marketing_consent = COALESCE($13::boolean, marketing_consent),
         updated_at = NOW()
-       WHERE id = $15`,
+       WHERE id = $14`,
       [
         input.name ?? null,
         input.phone ?? null,
         normalized || null,
         input.email ?? null,
         input.street_address ?? null,
-        input.community ?? null,
         input.city ?? null,
         input.region ?? null,
         country,
@@ -615,9 +722,9 @@ async function upsertCustomer(client: DbClient, input?: CustomerInput | null) {
   } else {
     await query(
       `INSERT INTO customers (
-        id, name, phone, phone_normalized, email, street_address, community, city, region,
+        id, name, phone, phone_normalized, email, street_address, city, region,
         country, delivery_notes, preferred_payment_method, notes, birthday, marketing_consent, tags
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16::jsonb)`,
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15::jsonb)`,
       [
         customerId,
         input.name || "Customer",
@@ -625,7 +732,6 @@ async function upsertCustomer(client: DbClient, input?: CustomerInput | null) {
         normalized || null,
         input.email ?? null,
         input.street_address ?? null,
-        input.community ?? null,
         input.city ?? null,
         input.region ?? null,
         country,
@@ -661,17 +767,16 @@ export async function updateCustomer(id: string, input: CustomerInput, userId?: 
   await query(
     `UPDATE customers SET
       name = $1, phone = $2, phone_normalized = $3, email = $4, street_address = $5,
-      community = $6, city = $7, region = $8, country = $9, delivery_notes = $10,
-      preferred_payment_method = $11, notes = $12, birthday = $13, marketing_consent = $14,
+      city = $6, region = $7, country = $8, delivery_notes = $9,
+      preferred_payment_method = $10, notes = $11, birthday = $12, marketing_consent = $13,
       updated_at = NOW()
-     WHERE id = $15`,
+     WHERE id = $14`,
     [
       input.name ?? existing.name,
       input.phone ?? existing.phone,
       normalized || existing.phone_normalized,
       input.email ?? existing.email,
       input.street_address ?? existing.street_address,
-      input.community ?? existing.community,
       input.city ?? existing.city,
       input.region ?? existing.region,
       input.country ?? existing.country,
@@ -701,7 +806,6 @@ export async function createOrder(payload: CheckoutPayload, userId?: string) {
     const customerInput: CustomerInput = {
       ...payload.customer,
       street_address: deliveryInput.street_address || payload.customer?.street_address,
-      community: deliveryInput.community || payload.customer?.community,
       city: deliveryInput.city || payload.customer?.city,
       region: deliveryInput.region || payload.customer?.region,
       country: deliveryInput.country || payload.customer?.country || "Trinidad and Tobago",
@@ -716,7 +820,6 @@ export async function createOrder(payload: CheckoutPayload, userId?: string) {
           phone: customer.phone,
           email: customer.email,
           street_address: customer.street_address,
-          community: customer.community,
           city: customer.city,
           region: customer.region,
           country: customer.country,
@@ -731,7 +834,6 @@ export async function createOrder(payload: CheckoutPayload, userId?: string) {
           phone: customerInput.phone,
           email: customerInput.email,
           street_address: customerInput.street_address,
-          community: customerInput.community,
           city: customerInput.city,
           region: customerInput.region,
           country: customerInput.country || "Trinidad and Tobago",
@@ -791,7 +893,6 @@ export async function createOrder(payload: CheckoutPayload, userId?: string) {
         : "not_required";
     const fullAddress = buildAddress([
       customerSnapshot.street_address,
-      customerSnapshot.community,
       customerSnapshot.city,
       customerSnapshot.region,
       customerSnapshot.country

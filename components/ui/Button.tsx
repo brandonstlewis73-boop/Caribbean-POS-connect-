@@ -7,11 +7,11 @@ type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
 };
 
 const variants = {
-  primary: "bg-caribbean-teal text-white hover:bg-teal-700",
-  secondary: "border border-caribbean-line bg-white text-caribbean-ink hover:bg-caribbean-cloud dark:border-slate-700 dark:bg-slate-900 dark:text-white",
-  ghost: "text-caribbean-ink hover:bg-caribbean-cloud dark:text-white dark:hover:bg-slate-800",
-  danger: "bg-red-600 text-white hover:bg-red-700",
-  success: "bg-caribbean-palm text-white hover:bg-green-700"
+  primary: "bg-gradient-to-r from-teal-400 via-cyan-400 to-emerald-400 text-slate-950 shadow-[0_12px_34px_rgba(20,184,166,0.24)] hover:brightness-110",
+  secondary: "border border-white/10 bg-white/[0.07] text-white hover:bg-white/[0.12]",
+  ghost: "text-teal-50 hover:bg-white/[0.08]",
+  danger: "bg-red-500/90 text-white hover:bg-red-500",
+  success: "bg-emerald-500 text-slate-950 hover:bg-emerald-400"
 };
 
 const sizes = {
@@ -26,7 +26,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     <button
       ref={ref}
       className={cn(
-        "inline-flex min-w-0 items-center justify-center gap-2 rounded-card text-center font-semibold leading-tight transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-caribbean-teal disabled:cursor-not-allowed disabled:opacity-55",
+        "inline-flex min-w-0 items-center justify-center gap-2 rounded-card text-center font-black leading-tight transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 disabled:cursor-not-allowed disabled:opacity-55",
         variants[variant],
         sizes[size],
         className

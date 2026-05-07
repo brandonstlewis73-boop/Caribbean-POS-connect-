@@ -51,3 +51,9 @@ The final full QA run created order `1030` and verified:
 ## Known Limitation
 
 On this HP Windows laptop, PowerShell may block `npm.ps1` because scripts are disabled. Use `npm.cmd` directly or run through a terminal that allows Node commands. TypeScript also needed a larger Node heap locally; the project scripts now include that setting.
+
+## May 7, 2026 Continuation
+
+- TypeScript and production build passed after subscription and printer routes were added.
+- `/printer` now loads receipt preferences from settings and saves customer receipt, kitchen ticket, email receipt, and WhatsApp receipt toggles through `/api/settings`.
+- `/subscription` and `/printer` passed authenticated route smoke checks on the local dev server.

@@ -42,7 +42,7 @@ export function DeliveriesClient({ deliveries }: { deliveries: Order[] }) {
               <p className="text-base font-black">{order.customer_snapshot.name}</p>
               <p className="font-semibold text-slate-500">{order.customer_snapshot.phone}</p>
               <p className="font-semibold">
-                {[order.customer_snapshot.street_address, order.customer_snapshot.community, order.customer_snapshot.city, order.customer_snapshot.region, order.customer_snapshot.country]
+                {[order.customer_snapshot.street_address, order.customer_snapshot.city, order.customer_snapshot.region, order.customer_snapshot.country]
                   .filter(Boolean)
                   .join(", ")}
               </p>

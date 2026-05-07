@@ -10,7 +10,7 @@ export function Panel({
   return (
     <section
       className={cn(
-        "min-w-0 overflow-hidden rounded-card border border-caribbean-line bg-white shadow-soft dark:border-slate-800 dark:bg-slate-900",
+        "min-w-0 overflow-hidden rounded-card border border-white/10 bg-white/[0.055] shadow-soft backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.055]",
         className
       )}
     >
@@ -29,10 +29,10 @@ export function PanelHeader({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="flex min-w-0 flex-wrap items-start justify-between gap-3 border-b border-caribbean-line px-4 py-3 dark:border-slate-800">
+    <div className="flex min-w-0 flex-wrap items-start justify-between gap-3 border-b border-white/10 px-4 py-3">
       <div className="min-w-0">
-        <h2 className="min-w-0 text-base font-bold leading-tight text-caribbean-ink dark:text-white">{title}</h2>
-        {description ? <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{description}</p> : null}
+        <h2 className="min-w-0 text-base font-black leading-tight text-white">{title}</h2>
+        {description ? <p className="mt-1 text-sm font-semibold text-teal-100/60">{description}</p> : null}
       </div>
       {action}
     </div>

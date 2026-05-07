@@ -96,7 +96,7 @@ export function SettingsClient({
     }
     setBusinessItems((current) => [payload.data!.business, ...current]);
     setBusinessDraft(emptyBusinessDraft);
-    setMessage("Business test profile created.");
+    setMessage("Business profile created.");
   }
 
   return (
@@ -117,7 +117,7 @@ export function SettingsClient({
         <Panel>
           <PanelHeader
             title="Business test profiles"
-            description="Create extra business records for testing branches, vendors, and client demos"
+            description="Create business profiles for branches, vendors, and connected business accounts"
           />
           <div className="grid gap-4 p-4">
             <div className="grid gap-3 md:grid-cols-2">
@@ -221,7 +221,7 @@ export function SettingsClient({
             <Toggle label="Card" checked={draft.payment_card_enabled} onChange={(value) => update("payment_card_enabled", value)} />
             <Toggle label="Bank transfer" checked={draft.payment_bank_enabled} onChange={(value) => update("payment_bank_enabled", value)} />
             <Toggle label="PayPal" checked={draft.payment_paypal_enabled} onChange={(value) => update("payment_paypal_enabled", value)} />
-            <Toggle label="WiPay placeholder" checked={draft.payment_wipay_enabled} onChange={(value) => update("payment_wipay_enabled", value)} />
+            <Toggle label="WiPay / local digital wallet" checked={draft.payment_wipay_enabled} onChange={(value) => update("payment_wipay_enabled", value)} />
             <Toggle label="Pay on delivery" checked={draft.payment_pod_enabled} onChange={(value) => update("payment_pod_enabled", value)} />
           </div>
         </Panel>

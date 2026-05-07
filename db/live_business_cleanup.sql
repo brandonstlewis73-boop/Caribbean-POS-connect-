@@ -1,0 +1,58 @@
+-- Caribbean Connect POS live-business cleanup
+-- Run this once in Supabase SQL Editor after backing up if your database still contains launch/demo seed data.
+
+BEGIN;
+
+-- Remove seeded/fake customer-facing records.
+DELETE FROM public.delivery_events WHERE order_id IN ('ord_1025', 'ord_1026', 'ord_1027');
+DELETE FROM public.loyalty_transactions WHERE order_id IN ('ord_1025', 'ord_1026', 'ord_1027');
+DELETE FROM public.receipts WHERE order_id IN ('ord_1025', 'ord_1026', 'ord_1027');
+DELETE FROM public.payments WHERE order_id IN ('ord_1025', 'ord_1026', 'ord_1027');
+DELETE FROM public.inventory_logs WHERE reference_id IN ('ord_1025', 'ord_1026', 'ord_1027');
+DELETE FROM public.order_items WHERE order_id IN ('ord_1025', 'ord_1026', 'ord_1027');
+DELETE FROM public.orders WHERE id IN ('ord_1025', 'ord_1026', 'ord_1027');
+DELETE FROM public.customers WHERE id IN ('cus_john', 'cus_priya', 'cus_maria')
+   OR lower(name) IN ('john doe', 'joe doe', 'priya singh', 'maria joseph')
+   OR email IN ('john@example.com', 'priya@example.com', 'maria@example.com');
+
+-- Remove area/community from live schema and old JSON snapshots.
+ALTER TABLE public.customers DROP COLUMN IF EXISTS community;
+UPDATE public.orders
+SET customer_snapshot = customer_snapshot - 'community'
+WHERE customer_snapshot ? 'community';
+
+-- Subscription columns used by the app.
+ALTER TABLE public.subscriptions ADD COLUMN IF NOT EXISTS plan_id TEXT NOT NULL DEFAULT 'starter';
+ALTER TABLE public.subscriptions ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMPTZ;
+
+-- Ensure product categories exist, without inserting fake products/customers/orders.
+INSERT INTO public.categories (id, business_id, name, slug, sort_order, active) VALUES
+  ('cat_meals', 'biz_savannah_sea', 'Meals', 'meals', 10, TRUE),
+  ('cat_drinks', 'biz_savannah_sea', 'Drinks', 'drinks', 20, TRUE),
+  ('cat_snacks', 'biz_savannah_sea', 'Snacks', 'snacks', 30, TRUE),
+  ('cat_retail', 'biz_savannah_sea', 'Retail', 'retail', 40, TRUE),
+  ('cat_services', 'biz_savannah_sea', 'Services', 'services', 50, TRUE),
+  ('cat_digital', 'biz_savannah_sea', 'Digital services', 'digital-services', 60, TRUE),
+  ('cat_custom', 'biz_savannah_sea', 'Custom items', 'custom-items', 70, TRUE)
+ON CONFLICT (name) DO UPDATE SET
+  slug = EXCLUDED.slug,
+  sort_order = EXCLUDED.sort_order,
+  active = TRUE,
+  updated_at = NOW();
+
+-- Replace launch subscription text with a real plan record if needed.
+UPDATE public.subscriptions
+SET plan_id = CASE
+    WHEN lower(plan_name) LIKE '%pro%' THEN 'pro'
+    WHEN lower(plan_name) LIKE '%business%' THEN 'business'
+    ELSE 'starter'
+  END,
+  plan_name = CASE
+    WHEN lower(plan_name) LIKE '%pro%' THEN 'Pro Plan'
+    WHEN lower(plan_name) LIKE '%business%' THEN 'Business Plan'
+    ELSE 'Starter Plan'
+  END,
+  metadata = COALESCE(metadata, '{}'::jsonb) - 'notes'
+WHERE id = 'sub_demo_launch' OR lower(plan_name) LIKE '%launch%';
+
+COMMIT;

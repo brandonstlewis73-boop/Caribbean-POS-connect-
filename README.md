@@ -214,6 +214,7 @@ Known local limitation:
 - `/`
 - `/dashboard`
 - `/pos`
+- `/printer`
 - `/orders`
 - `/customers`
 - `/inventory`
@@ -221,6 +222,7 @@ Known local limitation:
 - `/deliveries`
 - `/reports`
 - `/settings`
+- `/subscription`
 - `/online`
 - `/privacy`
 - `/contact`

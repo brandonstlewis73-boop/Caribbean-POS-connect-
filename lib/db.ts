@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import bcrypt from "bcryptjs";
 import { Pool, type PoolClient, type QueryResult, type QueryResultRow } from "pg";
-import { DEFAULT_DELIVERY_RATES, PRODUCT_CATEGORIES, PRODUCT_IMAGE_URLS } from "./constants";
+import { DEFAULT_DELIVERY_RATES, PRODUCT_CATEGORIES } from "./constants";
 
 type DbClient = Pool | PoolClient;
 
@@ -92,8 +92,7 @@ async function initializeDatabase() {
   const schema = await readFile(schemaPath, "utf8");
   await getDb().query(schema);
   await seedSettings();
-  await seedDemoData();
-  await updateSeedProductImages();
+  await seedInitialData();
 }
 
 async function insertSetting(key: string, value: unknown) {
@@ -120,10 +119,7 @@ async function seedSettings() {
   await insertSetting("loyalty_points_per_ttd", 0.1);
   await insertSetting("loyalty_redeem_ttd_per_point", 0.1);
   await insertSetting("payment_links_enabled", true);
-  await insertSetting(
-    "payment_link_template",
-    "https://pay.example.com/caribbean-pos-connect?order={{order_number}}&amount={{amount}}&phone={{customer_phone}}"
-  );
+  await insertSetting("payment_link_template", "");
   await insertSetting("whatsapp_enabled", true);
   await insertSetting("whatsapp_business_number", "4437582368");
   await insertSetting("whatsapp_country_code", "+1");
@@ -131,8 +127,8 @@ async function seedSettings() {
     "whatsapp_order_template",
     "New Order - Caribbean POS Connect\n\nOrder #: {{order_number}}\nCustomer: {{customer_name}}\nPhone: {{customer_phone}}\nAddress: {{address}}\n\nItems:\n{{items}}\n\nTotal: {{total}}\nPayment: {{payment_method}}\nStatus: {{payment_status}}\nPayment link: {{payment_link}}\n\nWaze:\n{{waze_link}}"
   );
-  await insertSetting("facebook_url", "https://facebook.com/caribbeanposconnect");
-  await insertSetting("instagram_url", "https://instagram.com/caribbeanposconnect");
+  await insertSetting("facebook_url", "");
+  await insertSetting("instagram_url", "");
   await insertSetting("payment_cash_enabled", true);
   await insertSetting("payment_card_enabled", true);
   await insertSetting("payment_bank_enabled", true);
@@ -143,7 +139,23 @@ async function seedSettings() {
   await insertSetting("receipt_counter", 4024);
 }
 
-async function seedDemoData() {
+async function seedInitialData() {
+  await rawQuery(
+    `INSERT INTO businesses (id, name, legal_name, slug, phone, email, street_address, city, region, country, currency, logo_url)
+     VALUES ($1, $2, $2, $3, $4, $5, $6, $7, $8, 'Trinidad and Tobago', 'TTD', '/logo.svg')
+     ON CONFLICT (id) DO NOTHING`,
+    [
+      "biz_savannah_sea",
+      "Savannah & Sea Retail Ltd.",
+      "savannah-sea-retail",
+      "868-443-7582",
+      "hello@savannahsea.tt",
+      "18 Independence Square",
+      "Port of Spain",
+      "Port of Spain"
+    ]
+  );
+
   const userCount = Number((await rawQuery<{ count: string }>("SELECT COUNT(*) AS count FROM users")).rows[0]?.count || 0);
   if (!userCount) {
     const passwordHash = await bcrypt.hash("Admin123!", 12);
@@ -162,51 +174,17 @@ async function seedDemoData() {
     }
   }
 
-  const productCount = Number((await rawQuery<{ count: string }>("SELECT COUNT(*) AS count FROM products")).rows[0]?.count || 0);
-  if (!productCount) {
-    const products = [
-      ["Jerk Chicken Meal", "FOOD-JERK-001", "740001000001", PRODUCT_CATEGORIES[0], 38, 55, 42, 8, PRODUCT_IMAGE_URLS["FOOD-JERK-001"], "Island Fresh Foods", "868-555-2001"],
-      ["Doubles Pack", "FOOD-DOUB-002", "740001000002", PRODUCT_CATEGORIES[0], 6, 12, 80, 15, PRODUCT_IMAGE_URLS["FOOD-DOUB-002"], "Central Curry Supply", "868-555-2002"],
-      ["Sorrel Drink", "DRINK-SOR-003", "740001000003", PRODUCT_CATEGORIES[1], 6, 15, 30, 10, PRODUCT_IMAGE_URLS["DRINK-SOR-003"], "Tropical Bev Co", "868-555-2003"],
-      ["Mauby Bottle", "DRINK-MAU-004", "740001000004", PRODUCT_CATEGORIES[1], 5, 14, 24, 10, PRODUCT_IMAGE_URLS["DRINK-MAU-004"], "Tropical Bev Co", "868-555-2003"],
-      ["Plantain Chips", "SNACK-PLA-005", "740001000005", PRODUCT_CATEGORIES[2], 7, 16, 12, 12, PRODUCT_IMAGE_URLS["SNACK-PLA-005"], "SnackWorks TT", "868-555-2004"],
-      ["Screen Printed Tee", "APP-TEE-006", "740001000006", PRODUCT_CATEGORIES[4], 48, 120, 18, 5, PRODUCT_IMAGE_URLS["APP-TEE-006"], "Queen Street Apparel", "868-555-2005"],
-      ["Digital Top-Up", "DIG-TOP-007", "740001000007", PRODUCT_CATEGORIES[5], 45, 50, 999, 100, PRODUCT_IMAGE_URLS["DIG-TOP-007"], "Local Digital Services", "868-555-2006"],
-      ["Custom Repair Service", "SERV-REP-008", "740001000008", PRODUCT_CATEGORIES[3], 80, 150, 999, 100, PRODUCT_IMAGE_URLS["SERV-REP-008"], "In-house", "868-555-0100"]
-    ];
-    for (const product of products) {
-      await rawQuery(
-        `INSERT INTO products (
-          id, name, sku, barcode, category, cost_price, selling_price,
-          stock_quantity, low_stock_alert, image_url, supplier_name, supplier_phone
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-        [createId("prd"), ...product]
-      );
-    }
-  }
-
-  const customerCount = Number((await rawQuery<{ count: string }>("SELECT COUNT(*) AS count FROM customers")).rows[0]?.count || 0);
-  if (!customerCount) {
+  for (const [index, category] of PRODUCT_CATEGORIES.entries()) {
     await rawQuery(
-      `INSERT INTO customers (
-        id, name, phone, phone_normalized, email, street_address, community, city, region,
-        country, delivery_notes, preferred_payment_method, marketing_consent, loyalty_points,
-        total_spent, orders_count, last_order_at, tags
-      ) VALUES
-        ($1, 'John Doe', '868-123-4567', '18681234567', 'john@example.com', '25 Main Road', 'Montrose', 'Chaguanas', 'Chaguanas',
-         'Trinidad and Tobago', 'Call when outside', 'Cash', TRUE, 44, 440, 4, NOW() - INTERVAL '2 days', $2::jsonb),
-        ($3, 'Priya Singh', '868-222-9988', '18682229988', 'priya@example.com', '7 Coffee Street', 'St. Augustine', 'Tunapuna', 'Tunapuna-Piarco',
-         'Trinidad and Tobago', 'Leave at reception', 'WiPay', TRUE, 18, 180, 2, NOW() - INTERVAL '2 days', $4::jsonb)`,
-      [createId("cus"), JSON.stringify(["VIP", "Frequent Buyer"]), createId("cus"), JSON.stringify(["New Customer"])]
-    );
-  }
-}
-
-async function updateSeedProductImages() {
-  for (const [sku, imageUrl] of Object.entries(PRODUCT_IMAGE_URLS)) {
-    await rawQuery(
-      "UPDATE products SET image_url = $1, updated_at = NOW() WHERE sku = $2 AND (image_url IS NULL OR image_url = '')",
-      [imageUrl, sku]
+      `INSERT INTO categories (id, name, slug, sort_order, active)
+       VALUES ($1, $2, $3, $4, TRUE)
+       ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name, sort_order = EXCLUDED.sort_order, active = TRUE, updated_at = NOW()`,
+      [
+        `cat_${category.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "")}`,
+        category,
+        category.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""),
+        (index + 1) * 10
+      ]
     );
   }
 }

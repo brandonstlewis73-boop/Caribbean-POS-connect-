@@ -25,7 +25,6 @@ function emptyCustomerDraft(): Customer {
     phone_normalized: "",
     email: "",
     street_address: "",
-    community: "",
     city: "",
     region: "Chaguanas",
     country: "Trinidad and Tobago",
@@ -53,7 +52,6 @@ function toCustomerPayload(customer: Customer): CustomerInput {
     phone: nullableText(customer.phone),
     email: nullableText(customer.email),
     street_address: nullableText(customer.street_address),
-    community: nullableText(customer.community),
     city: nullableText(customer.city),
     region: nullableText(customer.region),
     country: nullableText(customer.country) || "Trinidad and Tobago",
@@ -77,7 +75,7 @@ export function CustomersClient({ customers }: { customers: Customer[] }) {
   const filtered = useMemo(() => {
     const q = query.toLowerCase().trim();
     return items.filter((customer) =>
-      !q || [customer.name, customer.phone, customer.email, customer.community, customer.city, customer.region]
+      !q || [customer.name, customer.phone, customer.email, customer.city, customer.region]
         .filter(Boolean)
         .join(" ")
         .toLowerCase()
@@ -155,11 +153,11 @@ export function CustomersClient({ customers }: { customers: Customer[] }) {
       <Panel>
         <PanelHeader
           title="Customers"
-          description="Search by phone, email, name, area, or city"
+          description="Search by phone, email, name, or city"
           action={
             <Button variant="primary" onClick={startNewCustomer}>
               <PlusCircle className="h-4 w-4" />
-              New customer
+              Add Customer
             </Button>
           }
         />
@@ -185,7 +183,7 @@ export function CustomersClient({ customers }: { customers: Customer[] }) {
             >
               <span className="font-black">{customer.name}</span>
               <span className="text-sm font-semibold text-slate-500">{customer.phone || customer.email}</span>
-              <span className="text-xs font-bold text-slate-400">{customer.community || customer.city || customer.region}</span>
+              <span className="text-xs font-bold text-slate-400">{customer.city || customer.region || customer.country}</span>
             </button>
           ))}
           {!filtered.length ? (
@@ -245,10 +243,10 @@ export function CustomersClient({ customers }: { customers: Customer[] }) {
               <div className="grid min-w-0 gap-3">
                 <Field label="Street address" value={draft.street_address || ""} onChange={(event) => setDraft({ ...draft, street_address: event.target.value })} />
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label="Area/community" value={draft.community || ""} onChange={(event) => setDraft({ ...draft, community: event.target.value })} />
                   <Field label="City/town" value={draft.city || ""} onChange={(event) => setDraft({ ...draft, city: event.target.value })} />
+                  <Field label="Country" value={draft.country || "Trinidad and Tobago"} onChange={(event) => setDraft({ ...draft, country: event.target.value })} />
                 </div>
-                <SelectField label="Region/corporation" value={draft.region || ""} onChange={(event) => setDraft({ ...draft, region: event.target.value })}>
+                <SelectField label="Delivery region" value={draft.region || ""} onChange={(event) => setDraft({ ...draft, region: event.target.value })}>
                   {TT_REGIONS.map((region) => <option key={region}>{region}</option>)}
                 </SelectField>
                 <TextAreaField label="Delivery notes" value={draft.delivery_notes || ""} onChange={(event) => setDraft({ ...draft, delivery_notes: event.target.value })} />
@@ -308,7 +306,11 @@ export function CustomersClient({ customers }: { customers: Customer[] }) {
         <Panel className="grid min-h-80 place-items-center">
           <div className="text-center">
             <UserRound className="mx-auto h-10 w-10 text-slate-400" />
-            <p className="mt-3 font-bold text-slate-500">Select a customer profile.</p>
+            <p className="mt-3 font-bold text-slate-500">No customers yet. Add your first customer.</p>
+            <Button className="mt-4" variant="primary" onClick={startNewCustomer}>
+              <PlusCircle className="h-4 w-4" />
+              Add Customer
+            </Button>
           </div>
         </Panel>
       )}

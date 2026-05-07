@@ -14,7 +14,7 @@ const emptyProduct = {
   name: "",
   sku: "",
   barcode: "",
-  category: "Food",
+  category: "Meals",
   cost_price: 0,
   selling_price: 0,
   stock_quantity: 0,
@@ -172,6 +172,14 @@ export function InventoryClient({ products }: { products: Product[] }) {
                   </td>
                 </tr>
               ))}
+              {!filtered.length ? (
+                <tr>
+                  <td colSpan={8} className="px-4 py-10 text-center">
+                    <p className="font-black text-white">No products yet. Add your first product.</p>
+                    <p className="mt-1 text-sm font-semibold text-teal-50/60">Products you add here will appear on the POS and storefront.</p>
+                  </td>
+                </tr>
+              ) : null}
             </tbody>
           </table>
         </div>
