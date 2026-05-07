@@ -17,9 +17,18 @@ DELETE FROM public.customers WHERE id IN ('cus_john', 'cus_priya', 'cus_maria')
 
 -- Remove area/community from live schema and old JSON snapshots.
 ALTER TABLE public.customers DROP COLUMN IF EXISTS community;
+ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS waze_link TEXT;
+ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS gps_latitude NUMERIC;
+ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS gps_longitude NUMERIC;
 UPDATE public.orders
 SET customer_snapshot = customer_snapshot - 'community'
 WHERE customer_snapshot ? 'community';
+
+-- Staff role options used by the staff management screen.
+ALTER TABLE public.staff_users DROP CONSTRAINT IF EXISTS staff_users_role_check;
+ALTER TABLE public.staff_users
+  ADD CONSTRAINT staff_users_role_check
+  CHECK (role IN ('owner', 'admin', 'manager', 'cashier', 'dispatcher', 'driver', 'kitchen', 'staff'));
 
 -- Subscription columns used by the app.
 ALTER TABLE public.subscriptions ADD COLUMN IF NOT EXISTS plan_id TEXT NOT NULL DEFAULT 'starter';

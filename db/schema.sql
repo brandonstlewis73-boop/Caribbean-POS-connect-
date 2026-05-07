@@ -22,12 +22,25 @@ CREATE TABLE IF NOT EXISTS users (
   name TEXT NOT NULL,
   email TEXT NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
-  role TEXT NOT NULL CHECK (role IN ('admin', 'manager', 'cashier', 'driver', 'staff')),
+  role TEXT NOT NULL CHECK (role IN ('owner', 'admin', 'manager', 'cashier', 'dispatcher', 'driver', 'kitchen', 'staff')),
   phone TEXT,
   active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public' AND c.relname = 'users' AND c.relkind = 'r'
+  ) THEN
+    ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
+    ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('owner', 'admin', 'manager', 'cashier', 'dispatcher', 'driver', 'kitchen', 'staff'));
+  END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
@@ -57,6 +70,9 @@ CREATE TABLE IF NOT EXISTS customers (
   region TEXT,
   country TEXT NOT NULL DEFAULT 'Trinidad and Tobago',
   delivery_notes TEXT,
+  waze_link TEXT,
+  gps_latitude NUMERIC,
+  gps_longitude NUMERIC,
   preferred_payment_method TEXT,
   notes TEXT,
   birthday TEXT,
@@ -72,6 +88,11 @@ CREATE TABLE IF NOT EXISTS customers (
 
 CREATE INDEX IF NOT EXISTS idx_customers_phone ON customers(phone_normalized);
 CREATE INDEX IF NOT EXISTS idx_customers_name ON customers(name);
+
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS waze_link TEXT;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS gps_latitude NUMERIC;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS gps_longitude NUMERIC;
+ALTER TABLE customers DROP COLUMN IF EXISTS community;
 
 CREATE TABLE IF NOT EXISTS products (
   id TEXT PRIMARY KEY,

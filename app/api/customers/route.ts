@@ -17,6 +17,10 @@ export async function POST(request: NextRequest) {
   if (!auth.user) return fail(auth.error, auth.status);
   const parsed = customerInputSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return fail("Invalid customer data", 422, parsed.error.flatten());
-  const customer = await createCustomer(parsed.data, auth.user.id);
-  return customer ? ok({ customer }, { status: 201 }) : fail("Customer data is required", 422);
+  try {
+    const customer = await createCustomer(parsed.data, auth.user.id);
+    return customer ? ok({ customer }, { status: 201 }) : fail("Customer name, phone, or email is required.", 422);
+  } catch (error) {
+    return fail(error instanceof Error ? error.message : "Customer could not be saved.", 500);
+  }
 }

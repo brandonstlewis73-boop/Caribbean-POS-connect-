@@ -20,6 +20,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const parsed = customerInputSchema.partial().safeParse(await request.json().catch(() => null));
   if (!parsed.success) return fail("Invalid customer update", 422, parsed.error.flatten());
   const { id } = await params;
-  const customer = await updateCustomer(id, parsed.data, auth.user.id);
-  return customer ? ok({ customer }) : fail("Customer not found", 404);
+  try {
+    const customer = await updateCustomer(id, parsed.data, auth.user.id);
+    return customer ? ok({ customer }) : fail("Customer not found", 404);
+  } catch (error) {
+    return fail(error instanceof Error ? error.message : "Customer could not be saved.", 500);
+  }
 }

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ORDER_TYPES, PAYMENT_METHODS, PRODUCT_CATEGORIES, TT_REGIONS } from "./constants";
+import { ORDER_TYPES, PAYMENT_METHODS, PRODUCT_CATEGORIES, STAFF_AVATAR_OPTIONS, STAFF_ROLES, TT_REGIONS } from "./constants";
 
 const optionalText = z.string().trim().optional().nullable();
 
@@ -12,6 +12,9 @@ export const customerInputSchema = z.object({
   region: z.enum(TT_REGIONS).optional().or(z.string().trim()).nullable(),
   country: z.string().trim().default("Trinidad and Tobago").optional(),
   delivery_notes: optionalText,
+  waze_link: optionalText,
+  gps_latitude: z.coerce.number().optional().nullable(),
+  gps_longitude: z.coerce.number().optional().nullable(),
   preferred_payment_method: optionalText,
   notes: optionalText,
   birthday: optionalText,
@@ -83,4 +86,17 @@ export const businessSchema = z.object({
   currency: z.string().trim().default("TTD").optional(),
   logo_url: optionalText,
   tax_id: optionalText
+});
+
+export const staffUserSchema = z.object({
+  name: z.string().trim().min(1, "Staff name is required."),
+  phone: optionalText,
+  email: z.string().trim().email("Enter a valid email address."),
+  role: z.enum(STAFF_ROLES),
+  active: z.boolean().optional().default(true),
+  avatar_key: z
+    .enum(STAFF_AVATAR_OPTIONS.map((avatar) => avatar.key) as [string, ...string[]])
+    .optional()
+    .nullable(),
+  avatar_url: optionalText
 });

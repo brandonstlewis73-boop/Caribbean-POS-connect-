@@ -1,4 +1,5 @@
 import { subDays, startOfDay } from "date-fns";
+import bcrypt from "bcryptjs";
 import { isDemoMode, query, transaction, createId, type PoolClient } from "./db";
 import { CURRENCY_CODE, DEFAULT_DELIVERY_RATES, SUBSCRIPTION_PLANS } from "./constants";
 import {
@@ -20,6 +21,8 @@ import {
   demoListOrders,
   demoListProducts,
   demoListUsers,
+  demoCreateStaffUser,
+  demoUpdateStaffUser,
   demoUpdateCustomer,
   demoUpdateDeliveryStatus,
   demoUpdateOrder,
@@ -35,6 +38,7 @@ import type {
   OrderItem,
   Product,
   Settings,
+  StaffInput,
   Subscription,
   SubscriptionPlan,
   SubscriptionPlanId,
@@ -201,6 +205,41 @@ function rowToBusiness(row: any): Business {
   };
 }
 
+type StaffAvatarMap = Record<string, Pick<User, "avatar_key" | "avatar_url">>;
+
+async function getStaffAvatarMap(client?: DbClient): Promise<StaffAvatarMap> {
+  const row = await query<{ value: unknown }>("SELECT value FROM settings WHERE key = 'staff_avatar_profiles'", [], client);
+  return parseJson<StaffAvatarMap>(row.rows[0]?.value, {});
+}
+
+async function saveStaffAvatar(userId: string, input: StaffInput, client?: DbClient) {
+  const avatars = await getStaffAvatarMap(client);
+  avatars[userId] = {
+    avatar_key: input.avatar_key || avatars[userId]?.avatar_key || "teal-register",
+    avatar_url: input.avatar_url ?? avatars[userId]?.avatar_url ?? null
+  };
+  await query(
+    `INSERT INTO settings (key, value, updated_at)
+     VALUES ('staff_avatar_profiles', $1::jsonb, NOW())
+     ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+    [JSON.stringify(avatars)],
+    client
+  );
+}
+
+function rowToUser(row: any, avatar?: Pick<User, "avatar_key" | "avatar_url">): User {
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    role: row.role,
+    phone: row.phone,
+    active: bool(row.active),
+    avatar_key: avatar?.avatar_key || null,
+    avatar_url: avatar?.avatar_url || null
+  };
+}
+
 function rowToSubscription(row: any): Subscription {
   return {
     ...row,
@@ -219,6 +258,8 @@ function rowToCustomer(row: any): Customer {
   return {
     ...row,
     marketing_consent: bool(row.marketing_consent),
+    gps_latitude: row.gps_latitude === null || row.gps_latitude === undefined ? null : Number(row.gps_latitude),
+    gps_longitude: row.gps_longitude === null || row.gps_longitude === undefined ? null : Number(row.gps_longitude),
     loyalty_points: Number(row.loyalty_points),
     total_spent: Number(row.total_spent),
     orders_count: Number(row.orders_count),
@@ -366,21 +407,83 @@ export async function listAuditLogs(limit = 100) {
   }));
 }
 
-export async function listUsers(role?: string): Promise<User[]> {
-  if (isDemoMode) return demoListUsers(role);
+export async function listUsers(role?: string, includeInactive = false): Promise<User[]> {
+  if (isDemoMode) return demoListUsers(role, includeInactive);
   const params: unknown[] = [];
-  const clauses = ["active = TRUE"];
+  const clauses = includeInactive ? ["TRUE"] : ["active = TRUE"];
   if (role) {
     clauses.push(`role = ${addParam(params, role)}`);
   }
-  const rows = await query<User>(
+  const [rows, avatars] = await Promise.all([
+    query<User>(
     `SELECT id, name, email, role, phone, active
      FROM users
      WHERE ${clauses.join(" AND ")}
      ORDER BY name ASC`,
     params
-  );
-  return rows.rows.map((row) => ({ ...row, active: bool(row.active) })) as User[];
+    ),
+    getStaffAvatarMap()
+  ]);
+  return rows.rows.map((row) => rowToUser(row, avatars[row.id]));
+}
+
+export async function createStaffUser(input: StaffInput, userId?: string) {
+  if (isDemoMode) return demoCreateStaffUser(input, userId);
+  const id = createId("usr");
+  const passwordHash = await bcrypt.hash("ChangeMe123!", 12);
+  return transaction(async (client) => {
+    await query(
+      `INSERT INTO users (id, name, email, password_hash, role, phone, active)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [
+        id,
+        input.name?.trim(),
+        input.email?.trim().toLowerCase(),
+        passwordHash,
+        input.role || "cashier",
+        input.phone || null,
+        input.active ?? true
+      ],
+      client
+    );
+    await saveStaffAvatar(id, input, client);
+    await auditLog("staff:create", "user", id, { ...input, avatar_url: input.avatar_url ? "[stored image]" : null }, userId, client);
+    const avatars = await getStaffAvatarMap(client);
+    const rows = await query<any>("SELECT id, name, email, role, phone, active FROM users WHERE id = $1", [id], client);
+    return rows.rows[0] ? rowToUser(rows.rows[0], avatars[id]) : null;
+  });
+}
+
+export async function updateStaffUser(id: string, input: StaffInput, userId?: string) {
+  if (isDemoMode) return demoUpdateStaffUser(id, input, userId);
+  return transaction(async (client) => {
+    const existing = await query<any>("SELECT id, name, email, role, phone, active FROM users WHERE id = $1", [id], client);
+    if (!existing.rows[0]) return null;
+    await query(
+      `UPDATE users SET
+        name = $1,
+        email = $2,
+        role = $3,
+        phone = $4,
+        active = $5,
+        updated_at = NOW()
+       WHERE id = $6`,
+      [
+        input.name?.trim() || existing.rows[0].name,
+        input.email?.trim().toLowerCase() || existing.rows[0].email,
+        input.role || existing.rows[0].role,
+        input.phone ?? existing.rows[0].phone,
+        input.active ?? bool(existing.rows[0].active),
+        id
+      ],
+      client
+    );
+    await saveStaffAvatar(id, input, client);
+    await auditLog("staff:update", "user", id, { ...input, avatar_url: input.avatar_url ? "[stored image]" : null }, userId, client);
+    const avatars = await getStaffAvatarMap(client);
+    const rows = await query<any>("SELECT id, name, email, role, phone, active FROM users WHERE id = $1", [id], client);
+    return rows.rows[0] ? rowToUser(rows.rows[0], avatars[id]) : null;
+  });
 }
 
 export async function listBusinesses(): Promise<Business[]> {
@@ -695,12 +798,15 @@ async function upsertCustomer(client: DbClient, input?: CustomerInput | null) {
         region = COALESCE(NULLIF($7, ''), region),
         country = COALESCE(NULLIF($8, ''), country),
         delivery_notes = COALESCE(NULLIF($9, ''), delivery_notes),
-        preferred_payment_method = COALESCE(NULLIF($10, ''), preferred_payment_method),
-        notes = COALESCE(NULLIF($11, ''), notes),
-        birthday = COALESCE(NULLIF($12, ''), birthday),
-        marketing_consent = COALESCE($13::boolean, marketing_consent),
+        waze_link = COALESCE(NULLIF($10, ''), waze_link),
+        gps_latitude = COALESCE($11::numeric, gps_latitude),
+        gps_longitude = COALESCE($12::numeric, gps_longitude),
+        preferred_payment_method = COALESCE(NULLIF($13, ''), preferred_payment_method),
+        notes = COALESCE(NULLIF($14, ''), notes),
+        birthday = COALESCE(NULLIF($15, ''), birthday),
+        marketing_consent = COALESCE($16::boolean, marketing_consent),
         updated_at = NOW()
-       WHERE id = $14`,
+       WHERE id = $17`,
       [
         input.name ?? null,
         input.phone ?? null,
@@ -711,6 +817,9 @@ async function upsertCustomer(client: DbClient, input?: CustomerInput | null) {
         input.region ?? null,
         country,
         input.delivery_notes ?? null,
+        input.waze_link ?? null,
+        input.gps_latitude ?? null,
+        input.gps_longitude ?? null,
         input.preferred_payment_method ?? null,
         input.notes ?? null,
         input.birthday ?? null,
@@ -723,8 +832,9 @@ async function upsertCustomer(client: DbClient, input?: CustomerInput | null) {
     await query(
       `INSERT INTO customers (
         id, name, phone, phone_normalized, email, street_address, city, region,
-        country, delivery_notes, preferred_payment_method, notes, birthday, marketing_consent, tags
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15::jsonb)`,
+        country, delivery_notes, waze_link, gps_latitude, gps_longitude,
+        preferred_payment_method, notes, birthday, marketing_consent, tags
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18::jsonb)`,
       [
         customerId,
         input.name || "Customer",
@@ -736,6 +846,9 @@ async function upsertCustomer(client: DbClient, input?: CustomerInput | null) {
         input.region ?? null,
         country,
         input.delivery_notes ?? null,
+        input.waze_link ?? null,
+        input.gps_latitude ?? null,
+        input.gps_longitude ?? null,
         input.preferred_payment_method ?? null,
         input.notes ?? null,
         input.birthday ?? null,
@@ -768,9 +881,10 @@ export async function updateCustomer(id: string, input: CustomerInput, userId?: 
     `UPDATE customers SET
       name = $1, phone = $2, phone_normalized = $3, email = $4, street_address = $5,
       city = $6, region = $7, country = $8, delivery_notes = $9,
-      preferred_payment_method = $10, notes = $11, birthday = $12, marketing_consent = $13,
+      waze_link = $10, gps_latitude = $11, gps_longitude = $12,
+      preferred_payment_method = $13, notes = $14, birthday = $15, marketing_consent = $16,
       updated_at = NOW()
-     WHERE id = $14`,
+     WHERE id = $17`,
     [
       input.name ?? existing.name,
       input.phone ?? existing.phone,
@@ -781,6 +895,9 @@ export async function updateCustomer(id: string, input: CustomerInput, userId?: 
       input.region ?? existing.region,
       input.country ?? existing.country,
       input.delivery_notes ?? existing.delivery_notes,
+      input.waze_link ?? existing.waze_link ?? null,
+      input.gps_latitude ?? existing.gps_latitude ?? null,
+      input.gps_longitude ?? existing.gps_longitude ?? null,
       input.preferred_payment_method ?? existing.preferred_payment_method,
       input.notes ?? existing.notes,
       input.birthday ?? existing.birthday,

@@ -10,6 +10,7 @@ import {
   Printer,
   Settings,
   ShoppingCart,
+  UserCog,
   UsersRound
 } from "lucide-react";
 import { APP_NAME } from "@/lib/constants";
@@ -37,6 +38,7 @@ const navGroups = [
   {
     label: "Business",
     items: [
+      { label: "Staff", href: "/staff", icon: UserCog },
       { label: "Subscription", href: "/subscription", icon: CreditCard },
       { label: "Settings", href: "/settings", icon: Settings }
     ]

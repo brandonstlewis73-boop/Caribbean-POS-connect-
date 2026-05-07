@@ -5,8 +5,8 @@ import { History, MessageCircle, PlusCircle, Search, UserRound } from "lucide-re
 import { Badge } from "@/components/ui/Badge";
 import { Panel, PanelHeader } from "@/components/ui/Panel";
 import { Button } from "@/components/ui/Button";
-import { Field, SelectField, TextAreaField } from "@/components/ui/Field";
-import { money, TT_REGIONS } from "@/lib/constants";
+import { Field, TextAreaField } from "@/components/ui/Field";
+import { money } from "@/lib/constants";
 import { readApiPayload } from "@/lib/client-response";
 import { cleanWhatsAppNumber } from "@/lib/whatsapp";
 import type { Customer, CustomerInput, Order } from "@/lib/types";
@@ -26,9 +26,12 @@ function emptyCustomerDraft(): Customer {
     email: "",
     street_address: "",
     city: "",
-    region: "Chaguanas",
+    region: null,
     country: "Trinidad and Tobago",
     delivery_notes: "",
+    waze_link: "",
+    gps_latitude: null,
+    gps_longitude: null,
     preferred_payment_method: "",
     notes: "",
     birthday: "",
@@ -53,14 +56,18 @@ function toCustomerPayload(customer: Customer): CustomerInput {
     email: nullableText(customer.email),
     street_address: nullableText(customer.street_address),
     city: nullableText(customer.city),
-    region: nullableText(customer.region),
     country: nullableText(customer.country) || "Trinidad and Tobago",
     delivery_notes: nullableText(customer.delivery_notes),
-    preferred_payment_method: nullableText(customer.preferred_payment_method),
-    notes: nullableText(customer.notes),
-    birthday: nullableText(customer.birthday),
-    marketing_consent: Boolean(customer.marketing_consent)
+    waze_link: nullableText(customer.waze_link),
+    gps_latitude: customer.gps_latitude ?? undefined,
+    gps_longitude: customer.gps_longitude ?? undefined
   };
+}
+
+function usefulError(payloadError?: string, details?: unknown) {
+  if (payloadError) return payloadError;
+  if (details && typeof details === "object") return "Check the highlighted customer fields and try again.";
+  return "Customer could not be saved. Please check the details and try again.";
 }
 
 export function CustomersClient({ customers }: { customers: Customer[] }) {
@@ -75,7 +82,7 @@ export function CustomersClient({ customers }: { customers: Customer[] }) {
   const filtered = useMemo(() => {
     const q = query.toLowerCase().trim();
     return items.filter((customer) =>
-      !q || [customer.name, customer.phone, customer.email, customer.city, customer.region]
+      !q || [customer.name, customer.phone, customer.email, customer.city, customer.country]
         .filter(Boolean)
         .join(" ")
         .toLowerCase()
@@ -106,6 +113,20 @@ export function CustomersClient({ customers }: { customers: Customer[] }) {
     setMessage("Enter the customer details, then save the profile.");
   }
 
+  async function refreshCustomers(customerId: string) {
+    const [listResponse, detailResponse] = await Promise.all([
+      fetch("/api/customers"),
+      fetch(`/api/customers/${customerId}`)
+    ]);
+    const listPayload = await readApiPayload<{ customers: Customer[] }>(listResponse);
+    const detailPayload = await readApiPayload<Profile>(detailResponse);
+    if (listPayload.data?.customers) setItems(listPayload.data.customers);
+    if (detailPayload.data) {
+      setProfile(detailPayload.data);
+      setDraft(detailPayload.data.customer);
+    }
+  }
+
   async function saveCustomer() {
     if (!draft) return;
     const payloadBody = toCustomerPayload(draft);
@@ -115,29 +136,30 @@ export function CustomersClient({ customers }: { customers: Customer[] }) {
     }
     setSaving(true);
     setMessage("");
-    const isNew = draft.id === "new";
-    const response = await fetch(isNew ? "/api/customers" : `/api/customers/${draft.id}`, {
-      method: isNew ? "POST" : "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payloadBody)
-    });
-    const payload = await readApiPayload<{ customer: Customer }>(response);
-    setSaving(false);
-    if (response.ok) {
-      const updated = payload.data?.customer;
-      if (!updated) return;
-      setItems((current) => {
-        if (isNew) {
-          return [updated, ...current.filter((customer) => customer.id !== updated.id)];
-        }
-        return current.map((customer) => (customer.id === draft.id ? updated : customer));
+    try {
+      const isNew = draft.id === "new";
+      const response = await fetch(isNew ? "/api/customers" : `/api/customers/${draft.id}`, {
+        method: isNew ? "POST" : "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payloadBody)
       });
+      const payload = await readApiPayload<{ customer: Customer }>(response);
+      if (!response.ok) {
+        setMessage(usefulError(payload.error, payload.details));
+        return;
+      }
+      const updated = payload.data?.customer;
+      if (!updated) {
+        setMessage("Customer saved, but the server did not return the customer profile.");
+        return;
+      }
       setSelectedId(updated.id);
-      setDraft(updated);
-      setProfile((current) => current && current.customer.id === updated.id ? { ...current, customer: updated } : null);
-      setMessage(isNew ? "Customer created." : "Customer profile saved.");
-    } else {
-      setMessage(payload.error || "Customer profile could not be saved.");
+      await refreshCustomers(updated.id);
+      setMessage("Customer saved successfully.");
+    } catch {
+      setMessage("Customer could not be saved. Check your connection and try again.");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -183,7 +205,7 @@ export function CustomersClient({ customers }: { customers: Customer[] }) {
             >
               <span className="font-black">{customer.name}</span>
               <span className="text-sm font-semibold text-slate-500">{customer.phone || customer.email}</span>
-              <span className="text-xs font-bold text-slate-400">{customer.city || customer.region || customer.country}</span>
+              <span className="text-xs font-bold text-slate-400">{customer.city || customer.country}</span>
             </button>
           ))}
           {!filtered.length ? (
@@ -232,33 +254,36 @@ export function CustomersClient({ customers }: { customers: Customer[] }) {
             ) : null}
             <div className="grid min-w-0 gap-4 p-4 xl:grid-cols-2">
               <div className="grid min-w-0 gap-3">
-                <Field label="Name" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} />
+                <Field label="Customer name" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} />
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label="Phone" value={draft.phone || ""} onChange={(event) => setDraft({ ...draft, phone: event.target.value })} />
-                  <Field label="Email" value={draft.email || ""} onChange={(event) => setDraft({ ...draft, email: event.target.value })} />
+                  <Field label="Phone number" value={draft.phone || ""} onChange={(event) => setDraft({ ...draft, phone: event.target.value })} />
+                  <Field label="Email optional" type="email" value={draft.email || ""} onChange={(event) => setDraft({ ...draft, email: event.target.value })} />
                 </div>
-                <Field label="Birthday optional" type="date" value={draft.birthday || ""} onChange={(event) => setDraft({ ...draft, birthday: event.target.value })} />
-                <TextAreaField label="Notes" value={draft.notes || ""} onChange={(event) => setDraft({ ...draft, notes: event.target.value })} />
-              </div>
-              <div className="grid min-w-0 gap-3">
                 <Field label="Street address" value={draft.street_address || ""} onChange={(event) => setDraft({ ...draft, street_address: event.target.value })} />
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Field label="City/town" value={draft.city || ""} onChange={(event) => setDraft({ ...draft, city: event.target.value })} />
                   <Field label="Country" value={draft.country || "Trinidad and Tobago"} onChange={(event) => setDraft({ ...draft, country: event.target.value })} />
                 </div>
-                <SelectField label="Delivery region" value={draft.region || ""} onChange={(event) => setDraft({ ...draft, region: event.target.value })}>
-                  {TT_REGIONS.map((region) => <option key={region}>{region}</option>)}
-                </SelectField>
                 <TextAreaField label="Delivery notes" value={draft.delivery_notes || ""} onChange={(event) => setDraft({ ...draft, delivery_notes: event.target.value })} />
-                <label className="flex items-start gap-2 text-sm font-semibold text-slate-600 dark:text-slate-300">
-                  <input
-                    type="checkbox"
-                    checked={draft.marketing_consent}
-                    onChange={(event) => setDraft({ ...draft, marketing_consent: event.target.checked })}
-                    className="mt-1"
+              </div>
+              <div className="grid min-w-0 gap-3">
+                <Field label="Waze link optional" value={draft.waze_link || ""} onChange={(event) => setDraft({ ...draft, waze_link: event.target.value })} />
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field
+                    label="GPS latitude optional"
+                    type="number"
+                    step="0.000001"
+                    value={draft.gps_latitude ?? ""}
+                    onChange={(event) => setDraft({ ...draft, gps_latitude: event.target.value ? Number(event.target.value) : null })}
                   />
-                  Marketing consent granted
-                </label>
+                  <Field
+                    label="GPS longitude optional"
+                    type="number"
+                    step="0.000001"
+                    value={draft.gps_longitude ?? ""}
+                    onChange={(event) => setDraft({ ...draft, gps_longitude: event.target.value ? Number(event.target.value) : null })}
+                  />
+                </div>
                 <Button variant="primary" onClick={saveCustomer} disabled={saving}>
                   {saving ? "Saving..." : draft.id === "new" ? "Create customer" : "Save profile"}
                 </Button>

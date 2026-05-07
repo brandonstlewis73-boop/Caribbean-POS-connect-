@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS public.staff_users (
   name TEXT NOT NULL,
   email TEXT NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
-  role TEXT NOT NULL CHECK (role IN ('admin', 'manager', 'cashier', 'driver', 'staff')),
+  role TEXT NOT NULL CHECK (role IN ('owner', 'admin', 'manager', 'cashier', 'dispatcher', 'driver', 'kitchen', 'staff')),
   phone TEXT,
   active BOOLEAN NOT NULL DEFAULT TRUE,
   last_login_at TIMESTAMPTZ,
@@ -93,11 +93,13 @@ CREATE TABLE IF NOT EXISTS public.customers (
   phone_normalized TEXT,
   email TEXT,
   street_address TEXT,
-  community TEXT,
   city TEXT,
   region TEXT,
   country TEXT NOT NULL DEFAULT 'Trinidad and Tobago',
   delivery_notes TEXT,
+  waze_link TEXT,
+  gps_latitude NUMERIC,
+  gps_longitude NUMERIC,
   preferred_payment_method TEXT,
   notes TEXT,
   birthday TEXT,
@@ -338,7 +340,9 @@ INSERT INTO public.staff_users (
   ('usr_demo_admin', 'biz_savannah_sea', 'Demo Admin', 'admin@demo.com', '$2a$12$.EhN3P5jYWD1jFGAchYcveUqU.74lCQCPc2aMca3hoAslDIxdIcTW', 'admin', '868-443-7582', TRUE),
   ('usr_manager_asha', 'biz_savannah_sea', 'Asha Maharaj', 'manager@savannahsea.tt', '$2a$12$.EhN3P5jYWD1jFGAchYcveUqU.74lCQCPc2aMca3hoAslDIxdIcTW', 'manager', '868-555-1002', TRUE),
   ('usr_cashier_renee', 'biz_savannah_sea', 'Renee Ali', 'cashier@savannahsea.tt', '$2a$12$.EhN3P5jYWD1jFGAchYcveUqU.74lCQCPc2aMca3hoAslDIxdIcTW', 'cashier', '868-555-1003', TRUE),
+  ('usr_dispatcher_nia', 'biz_savannah_sea', 'Nia George', 'dispatcher@savannahsea.tt', '$2a$12$.EhN3P5jYWD1jFGAchYcveUqU.74lCQCPc2aMca3hoAslDIxdIcTW', 'dispatcher', '868-555-1006', TRUE),
   ('usr_driver_malik', 'biz_savannah_sea', 'Malik Charles', 'driver@savannahsea.tt', '$2a$12$.EhN3P5jYWD1jFGAchYcveUqU.74lCQCPc2aMca3hoAslDIxdIcTW', 'driver', '868-555-1004', TRUE),
+  ('usr_kitchen_lena', 'biz_savannah_sea', 'Lena Baptiste', 'kitchen@savannahsea.tt', '$2a$12$.EhN3P5jYWD1jFGAchYcveUqU.74lCQCPc2aMca3hoAslDIxdIcTW', 'kitchen', '868-555-1007', TRUE),
   ('usr_staff_talia', 'biz_savannah_sea', 'Talia Joseph', 'staff@savannahsea.tt', '$2a$12$.EhN3P5jYWD1jFGAchYcveUqU.74lCQCPc2aMca3hoAslDIxdIcTW', 'staff', '868-555-1005', TRUE)
 ON CONFLICT (email) DO UPDATE SET
   name = EXCLUDED.name,
@@ -390,20 +394,19 @@ ON CONFLICT (sku) DO UPDATE SET
   updated_at = NOW();
 
 INSERT INTO public.customers (
-  id, business_id, name, phone, phone_normalized, email, street_address, community, city, region,
+  id, business_id, name, phone, phone_normalized, email, street_address, city, region,
   country, delivery_notes, preferred_payment_method, notes, marketing_consent, loyalty_points,
   total_spent, orders_count, last_order_at, tags
 ) VALUES
-  ('cus_john', 'biz_savannah_sea', 'John Doe', '868-123-4567', '18681234567', 'john@example.com', '25 Main Road', 'Montrose', 'Chaguanas', 'Chaguanas', 'Trinidad and Tobago', 'Call when outside', 'Cash', 'Prefers delivery after 5 PM', TRUE, 16, 165.63, 1, NOW() - INTERVAL '2 days', '["New Customer","Owes Balance"]'::jsonb),
-  ('cus_priya', 'biz_savannah_sea', 'Priya Singh', '868-222-9988', '18682229988', 'priya@example.com', '7 Coffee Street', 'St. Augustine', 'Tunapuna', 'Tunapuna-Piarco', 'Trinidad and Tobago', 'Leave at reception', 'WiPay', 'Likes sorrel and mauby', TRUE, 9, 85.50, 1, NOW() - INTERVAL '1 day', '["Frequent Buyer"]'::jsonb),
-  ('cus_maria', 'biz_savannah_sea', 'Maria Joseph', '868-333-4444', '18683334444', 'maria@example.com', '12 High Street', 'San Fernando', 'San Fernando', 'San Fernando', 'Trinidad and Tobago', 'Ring gate bell', 'Card', 'Pickup customer', FALSE, 14, 141.75, 1, NOW() - INTERVAL '4 hours', '["New Customer"]'::jsonb)
+  ('cus_john', 'biz_savannah_sea', 'John Doe', '868-123-4567', '18681234567', 'john@example.com', '25 Main Road', 'Chaguanas', 'Chaguanas', 'Trinidad and Tobago', 'Call when outside', 'Cash', 'Prefers delivery after 5 PM', TRUE, 16, 165.63, 1, NOW() - INTERVAL '2 days', '["New Customer","Owes Balance"]'::jsonb),
+  ('cus_priya', 'biz_savannah_sea', 'Priya Singh', '868-222-9988', '18682229988', 'priya@example.com', '7 Coffee Street', 'Tunapuna', 'Tunapuna-Piarco', 'Trinidad and Tobago', 'Leave at reception', 'WiPay', 'Likes sorrel and mauby', TRUE, 9, 85.50, 1, NOW() - INTERVAL '1 day', '["Frequent Buyer"]'::jsonb),
+  ('cus_maria', 'biz_savannah_sea', 'Maria Joseph', '868-333-4444', '18683334444', 'maria@example.com', '12 High Street', 'San Fernando', 'San Fernando', 'Trinidad and Tobago', 'Ring gate bell', 'Card', 'Pickup customer', FALSE, 14, 141.75, 1, NOW() - INTERVAL '4 hours', '["New Customer"]'::jsonb)
 ON CONFLICT (id) DO UPDATE SET
   name = EXCLUDED.name,
   phone = EXCLUDED.phone,
   phone_normalized = EXCLUDED.phone_normalized,
   email = EXCLUDED.email,
   street_address = EXCLUDED.street_address,
-  community = EXCLUDED.community,
   city = EXCLUDED.city,
   region = EXCLUDED.region,
   delivery_notes = EXCLUDED.delivery_notes,
@@ -426,11 +429,11 @@ INSERT INTO public.orders (
 ) VALUES
   (
     'ord_1025', 'biz_savannah_sea', '1025', 'cus_john',
-    '{"name":"John Doe","phone":"868-123-4567","email":"john@example.com","street_address":"25 Main Road","community":"Montrose","city":"Chaguanas","region":"Chaguanas","country":"Trinidad and Tobago","delivery_notes":"Call when outside","preferred_payment_method":"Cash","marketing_consent":true}'::jsonb,
+    '{"name":"John Doe","phone":"868-123-4567","email":"john@example.com","street_address":"25 Main Road","city":"Chaguanas","region":"Chaguanas","country":"Trinidad and Tobago","delivery_notes":"Call when outside","preferred_payment_method":"Cash","marketing_consent":true}'::jsonb,
     'delivery', 'completed', 'Pay on delivery', 'unpaid', 'assigned', 'usr_driver_malik',
     125.00, 0.00, 15.63, 0.00, 25.00, 165.63, 16, 'Customer requested delivery receipt by WhatsApp',
     NULL, NULL, NULL,
-    'https://waze.com/ul?q=25%20Main%20Road%20Montrose%20Chaguanas%20Trinidad%20and%20Tobago&navigate=yes',
+    'https://waze.com/ul?q=25%20Main%20Road%20Chaguanas%20Trinidad%20and%20Tobago&navigate=yes',
     'https://pay.example.com/caribbean-pos-connect?order=1025&amount=165.63&phone=18681234567',
     'https://wa.me/18684437582?text=New%20Order%20-%20Caribbean%20POS%20Connect%0AOrder%20%23%3A%201025',
     'https://wa.me/18681234567?text=Hi%20John%20Doe%2C%20your%20order%20%231025%20was%20received.%20Total%3A%20TT%24165.63.',
@@ -438,14 +441,14 @@ INSERT INTO public.orders (
   ),
   (
     'ord_1026', 'biz_savannah_sea', '1026', 'cus_priya',
-    '{"name":"Priya Singh","phone":"868-222-9988","email":"priya@example.com","street_address":"7 Coffee Street","community":"St. Augustine","city":"Tunapuna","region":"Tunapuna-Piarco","country":"Trinidad and Tobago","delivery_notes":"Leave at reception","preferred_payment_method":"WiPay","marketing_consent":true}'::jsonb,
+    '{"name":"Priya Singh","phone":"868-222-9988","email":"priya@example.com","street_address":"7 Coffee Street","city":"Tunapuna","region":"Tunapuna-Piarco","country":"Trinidad and Tobago","delivery_notes":"Leave at reception","preferred_payment_method":"WiPay","marketing_consent":true}'::jsonb,
     'in_store', 'completed', 'Cash', 'paid', 'not_required', NULL,
     76.00, 0.00, 9.50, 0.00, 0.00, 85.50, 9, 'In-store lunch sale',
     NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'usr_cashier_renee', NOW() - INTERVAL '1 day'
   ),
   (
     'ord_1027', 'biz_savannah_sea', '1027', 'cus_maria',
-    '{"name":"Maria Joseph","phone":"868-333-4444","email":"maria@example.com","street_address":"12 High Street","community":"San Fernando","city":"San Fernando","region":"San Fernando","country":"Trinidad and Tobago","delivery_notes":"Ring gate bell","preferred_payment_method":"Card","marketing_consent":false}'::jsonb,
+    '{"name":"Maria Joseph","phone":"868-333-4444","email":"maria@example.com","street_address":"12 High Street","city":"San Fernando","region":"San Fernando","country":"Trinidad and Tobago","delivery_notes":"Ring gate bell","preferred_payment_method":"Card","marketing_consent":false}'::jsonb,
     'pickup', 'completed', 'Card', 'paid', 'not_required', NULL,
     136.00, 10.00, 15.75, 0.00, 0.00, 141.75, 14, 'Pickup apparel order',
     NULL, NULL, NULL, NULL,

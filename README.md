@@ -43,11 +43,25 @@ Start the local web app:
 npm run dev
 ```
 
+The dev server binds to `0.0.0.0` for phone/tablet testing on the same Wi-Fi network. You can also run the explicit LAN script:
+
+```bash
+npm run dev:lan
+```
+
 Open:
 
 ```text
 http://localhost:3000/login
 ```
+
+From another device on the same network, open:
+
+```text
+http://YOUR_LOCAL_IP:3000/login
+```
+
+On Windows, allow Node.js/Next.js through Windows Defender Firewall when prompted for private networks.
 
 ## Required Environment Variables
 
@@ -217,6 +231,7 @@ Known local limitation:
 - `/printer`
 - `/orders`
 - `/customers`
+- `/staff`
 - `/inventory`
 - `/products`
 - `/deliveries`

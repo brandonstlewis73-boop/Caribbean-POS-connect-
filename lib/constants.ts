@@ -88,12 +88,35 @@ export const ORDER_TYPE_LABELS: Record<string, string> = {
 };
 
 export const ROLE_LABELS: Record<string, string> = {
-  admin: "Admin",
+  owner: "Owner",
+  admin: "Owner",
   manager: "Manager",
   cashier: "Cashier",
-  driver: "Delivery driver",
+  dispatcher: "Dispatcher",
+  driver: "Delivery Driver",
+  kitchen: "Kitchen Staff",
   staff: "Staff"
 };
+
+export const STAFF_ROLES = [
+  "owner",
+  "manager",
+  "cashier",
+  "dispatcher",
+  "driver",
+  "kitchen"
+] as const;
+
+export const STAFF_AVATAR_OPTIONS = [
+  { key: "teal-register", label: "Teal register", initials: "TR", gradient: "from-teal-300 to-cyan-400" },
+  { key: "emerald-store", label: "Emerald store", initials: "ES", gradient: "from-emerald-300 to-lime-400" },
+  { key: "amber-delivery", label: "Amber delivery", initials: "AD", gradient: "from-amber-200 to-orange-400" },
+  { key: "blue-dispatch", label: "Blue dispatch", initials: "BD", gradient: "from-sky-300 to-blue-500" },
+  { key: "rose-kitchen", label: "Rose kitchen", initials: "RK", gradient: "from-rose-300 to-pink-500" },
+  { key: "violet-manager", label: "Violet manager", initials: "VM", gradient: "from-violet-300 to-fuchsia-500" },
+  { key: "slate-owner", label: "Slate owner", initials: "SO", gradient: "from-slate-200 to-slate-500" },
+  { key: "gold-cashier", label: "Gold cashier", initials: "GC", gradient: "from-yellow-200 to-amber-500" }
+] as const;
 
 export const SUBSCRIPTION_PLANS = [
   {

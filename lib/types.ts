@@ -1,4 +1,4 @@
-export type Role = "admin" | "manager" | "cashier" | "driver" | "staff";
+export type Role = "owner" | "admin" | "manager" | "cashier" | "dispatcher" | "driver" | "kitchen" | "staff";
 
 export type User = {
   id: string;
@@ -7,7 +7,13 @@ export type User = {
   role: Role;
   phone?: string | null;
   active: boolean;
+  avatar_key?: string | null;
+  avatar_url?: string | null;
 };
+
+export type StaffInput = Partial<
+  Pick<User, "name" | "email" | "phone" | "role" | "active" | "avatar_key" | "avatar_url">
+>;
 
 export type Business = {
   id: string;
@@ -73,6 +79,9 @@ export type Customer = {
   region?: string | null;
   country: string;
   delivery_notes?: string | null;
+  waze_link?: string | null;
+  gps_latitude?: number | null;
+  gps_longitude?: number | null;
   preferred_payment_method?: string | null;
   notes?: string | null;
   birthday?: string | null;
@@ -95,6 +104,9 @@ export type CustomerInput = Partial<
     | "region"
     | "country"
     | "delivery_notes"
+    | "waze_link"
+    | "gps_latitude"
+    | "gps_longitude"
     | "preferred_payment_method"
     | "notes"
     | "birthday"

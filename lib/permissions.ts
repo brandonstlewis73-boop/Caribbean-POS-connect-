@@ -17,6 +17,22 @@ export type Permission =
   | "audit:read";
 
 export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
+  owner: [
+    "dashboard:read",
+    "pos:sell",
+    "orders:read",
+    "orders:update",
+    "customers:read",
+    "customers:write",
+    "inventory:read",
+    "inventory:write",
+    "deliveries:read_assigned",
+    "deliveries:manage",
+    "reports:read",
+    "settings:write",
+    "staff:manage",
+    "audit:read"
+  ],
   admin: [
     "dashboard:read",
     "pos:sell",
@@ -54,7 +70,16 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "customers:write",
     "inventory:read"
   ],
+  dispatcher: [
+    "dashboard:read",
+    "orders:read",
+    "orders:update",
+    "customers:read",
+    "deliveries:read_assigned",
+    "deliveries:manage"
+  ],
   driver: ["deliveries:read_assigned", "orders:read"],
+  kitchen: ["orders:read", "orders:update", "inventory:read"],
   staff: ["dashboard:read", "orders:read", "customers:read", "inventory:read"]
 };
 

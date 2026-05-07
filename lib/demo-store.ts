@@ -19,6 +19,7 @@ import type {
   OrderItem,
   Product,
   Settings,
+  StaffInput,
   User
 } from "./types";
 
@@ -282,8 +283,8 @@ function createStore(): DemoStore {
     settings: { ...demoSettings, delivery_rates: { ...demoSettings.delivery_rates } },
     businesses: [cloneBusiness(demoBusiness)],
     users: [
-      { id: "usr_demo_admin", name: "Demo Admin", email: "admin@demo.com", role: "admin", phone: "868-443-7582", active: true },
-      { id: "usr_demo_driver", name: "Malik Charles", email: "driver@demo.com", role: "driver", phone: "868-555-1004", active: true }
+      { id: "usr_demo_admin", name: "Demo Admin", email: "admin@demo.com", role: "admin", phone: "868-443-7582", active: true, avatar_key: "slate-owner" },
+      { id: "usr_demo_driver", name: "Malik Charles", email: "driver@demo.com", role: "driver", phone: "868-555-1004", active: true, avatar_key: "amber-delivery" }
     ],
     products,
     customers,
@@ -347,6 +348,9 @@ function upsertDemoCustomer(input?: CustomerInput | null) {
       region: input.region || existing.region,
       country: input.country || existing.country,
       delivery_notes: input.delivery_notes || existing.delivery_notes,
+      waze_link: input.waze_link || existing.waze_link,
+      gps_latitude: input.gps_latitude ?? existing.gps_latitude,
+      gps_longitude: input.gps_longitude ?? existing.gps_longitude,
       preferred_payment_method: input.preferred_payment_method || existing.preferred_payment_method,
       notes: input.notes || existing.notes,
       birthday: input.birthday || existing.birthday,
@@ -365,6 +369,9 @@ function upsertDemoCustomer(input?: CustomerInput | null) {
     region: input.region || null,
     country: input.country || "Trinidad and Tobago",
     delivery_notes: input.delivery_notes || null,
+    waze_link: input.waze_link || null,
+    gps_latitude: input.gps_latitude ?? null,
+    gps_longitude: input.gps_longitude ?? null,
     preferred_payment_method: input.preferred_payment_method || null,
     notes: input.notes || null,
     birthday: input.birthday || null,
@@ -391,8 +398,40 @@ export async function demoUpdateSettings(input: Partial<Settings>, userId?: stri
   return demoGetSettings();
 }
 
-export async function demoListUsers(role?: string) {
-  return store().users.filter((user) => user.active && (!role || user.role === role)).map((user) => ({ ...user }));
+export async function demoListUsers(role?: string, includeInactive = false) {
+  return store().users.filter((user) => (includeInactive || user.active) && (!role || user.role === role)).map((user) => ({ ...user }));
+}
+
+export async function demoCreateStaffUser(input: StaffInput, userId?: string) {
+  const staff: User = {
+    id: id("usr"),
+    name: input.name || "New Staff",
+    email: input.email || `staff.${Date.now()}@example.com`,
+    role: input.role || "cashier",
+    phone: input.phone || null,
+    active: input.active ?? true,
+    avatar_key: input.avatar_key || "teal-register",
+    avatar_url: input.avatar_url || null
+  };
+  store().users.unshift(staff);
+  demoAuditLog("staff:create", "user", staff.id, { ...input, avatar_url: input.avatar_url ? "[stored image]" : null }, userId);
+  return { ...staff };
+}
+
+export async function demoUpdateStaffUser(staffId: string, input: StaffInput, userId?: string) {
+  const staff = store().users.find((item) => item.id === staffId);
+  if (!staff) return null;
+  Object.assign(staff, {
+    name: input.name ?? staff.name,
+    email: input.email ?? staff.email,
+    phone: input.phone ?? staff.phone,
+    role: input.role ?? staff.role,
+    active: input.active ?? staff.active,
+    avatar_key: input.avatar_key ?? staff.avatar_key,
+    avatar_url: input.avatar_url ?? staff.avatar_url
+  });
+  demoAuditLog("staff:update", "user", staff.id, { ...input, avatar_url: input.avatar_url ? "[stored image]" : null }, userId);
+  return { ...staff };
 }
 
 export async function demoListBusinesses() {
