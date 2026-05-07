@@ -11,6 +11,7 @@ import {
   Plus,
   Printer,
   ReceiptText,
+  RefreshCw,
   Search,
   Send,
   Trash2
@@ -57,8 +58,8 @@ function paymentMethodEnabled(method: string, settings: Settings) {
 }
 
 export function POSClient({
-  products,
-  customers,
+  products: initialProducts,
+  customers: initialCustomers,
   settings,
   drivers
 }: {
@@ -67,6 +68,8 @@ export function POSClient({
   settings: Settings;
   drivers: User[];
 }) {
+  const [products, setProducts] = useState(initialProducts);
+  const [customers, setCustomers] = useState(initialCustomers);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("All");
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -78,6 +81,7 @@ export function POSClient({
   const [assignedDriver, setAssignedDriver] = useState("");
   const [location, setLocation] = useState({ latitude: "", longitude: "", link: "" });
   const [isSaving, setIsSaving] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [lastOrder, setLastOrder] = useState<Order | null>(null);
 
@@ -148,6 +152,22 @@ export function POSClient({
         birthday: found.birthday || "",
         marketing_consent: found.marketing_consent
       });
+    }
+  }
+
+  async function refreshSaleData() {
+    setError("");
+    setIsRefreshing(true);
+    try {
+      const response = await fetch("/api/pos");
+      const payload = await readApiPayload<{ products: Product[]; customers: Customer[] }>(response);
+      if (!response.ok) throw new Error(payload.error || "Could not refresh POS data.");
+      if (payload.data?.products) setProducts(payload.data.products);
+      if (payload.data?.customers) setCustomers(payload.data.customers);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not refresh POS data.");
+    } finally {
+      setIsRefreshing(false);
     }
   }
 
@@ -245,6 +265,10 @@ export function POSClient({
             <Button variant="primary" size="lg">
               <Barcode className="h-4 w-4" />
               Scan barcode
+            </Button>
+            <Button size="lg" onClick={refreshSaleData} disabled={isRefreshing}>
+              <RefreshCw className="h-4 w-4" />
+              {isRefreshing ? "Refreshing..." : "Refresh"}
             </Button>
           </div>
           <div className="flex gap-2 overflow-x-auto border-t border-caribbean-line px-4 py-3 dark:border-slate-800">

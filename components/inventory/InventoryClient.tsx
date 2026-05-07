@@ -10,26 +10,35 @@ import { money, PRODUCT_CATEGORIES } from "@/lib/constants";
 import { readApiPayload } from "@/lib/client-response";
 import type { Product } from "@/lib/types";
 
-const emptyProduct = {
-  name: "",
-  sku: "",
-  barcode: "",
-  category: "Meals",
-  cost_price: 0,
-  selling_price: 0,
-  stock_quantity: 0,
-  low_stock_alert: 5,
-  image_url: "",
-  supplier_name: "",
-  supplier_phone: ""
-};
+function emptyProduct() {
+  return {
+    name: "",
+    sku: "",
+    barcode: "",
+    category: "Meals",
+    cost_price: 0,
+    selling_price: 0,
+    stock_quantity: 0,
+    low_stock_alert: 5,
+    image_url: "",
+    supplier_name: "",
+    supplier_phone: ""
+  };
+}
+
+function usefulProductError(payloadError?: string, details?: unknown) {
+  if (payloadError) return payloadError;
+  if (details && typeof details === "object") return "Check the product fields and try again.";
+  return "Product could not be saved. Please check the details and try again.";
+}
 
 export function InventoryClient({ products }: { products: Product[] }) {
   const [items, setItems] = useState(products);
   const [query, setQuery] = useState("");
-  const [draft, setDraft] = useState(emptyProduct);
+  const [draft, setDraft] = useState(emptyProduct());
   const [adjustments, setAdjustments] = useState<Record<string, number>>({});
   const [message, setMessage] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase().trim();
@@ -42,53 +51,86 @@ export function InventoryClient({ products }: { products: Product[] }) {
     );
   }, [items, query]);
 
+  async function refreshProducts() {
+    const response = await fetch("/api/inventory");
+    const payload = await readApiPayload<{ products: Product[] }>(response);
+    if (!response.ok) throw new Error(payload.error || "Product list could not be refreshed.");
+    if (payload.data?.products) setItems(payload.data.products);
+  }
+
   async function createProduct() {
     setMessage("");
-    const response = await fetch("/api/inventory", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(draft)
-    });
-    const payload = await readApiPayload<{ product: Product }>(response);
-    if (response.ok) {
+    if (!draft.name.trim()) {
+      setMessage("Add a product name before saving.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const response = await fetch("/api/inventory", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(draft)
+      });
+      const payload = await readApiPayload<{ product: Product }>(response);
+      if (!response.ok) {
+        setMessage(usefulProductError(payload.error, payload.details));
+        return;
+      }
       const product = payload.data?.product;
       if (!product) return setMessage("Product saved, but no product details were returned.");
-      setItems((current) => [product, ...current]);
-      setDraft(emptyProduct);
-      setMessage("Product saved.");
-    } else {
-      setMessage(payload.error || "Product could not be saved.");
+      await refreshProducts();
+      setQuery("");
+      setDraft(emptyProduct());
+      setMessage("Product saved successfully.");
+    } catch {
+      setMessage("Product could not be saved. Check your connection and try again.");
+    } finally {
+      setSaving(false);
     }
   }
 
   async function adjust(productId: string) {
     const delta = Number(adjustments[productId] || 0);
     if (!delta) return;
-    const response = await fetch(`/api/inventory/${productId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ adjustment_delta: delta, reason: "Inventory screen adjustment" })
-    });
-    const payload = await readApiPayload<{ product: Product }>(response);
-    if (response.ok) {
+    try {
+      const response = await fetch(`/api/inventory/${productId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ adjustment_delta: delta, reason: "Inventory screen adjustment" })
+      });
+      const payload = await readApiPayload<{ product: Product }>(response);
+      if (!response.ok) {
+        setMessage(payload.error || "Stock could not be updated.");
+        return;
+      }
       const updated = payload.data?.product;
       if (!updated) return;
       setItems((current) =>
         current.map((product) => (product.id === productId ? updated : product))
       );
       setAdjustments((current) => ({ ...current, [productId]: 0 }));
+      setMessage("Stock updated.");
+    } catch {
+      setMessage("Stock could not be updated. Check your connection and try again.");
     }
   }
 
   async function archive(productId: string) {
-    const response = await fetch(`/api/inventory/${productId}`, { method: "DELETE" });
-    const payload = await readApiPayload<{ product: Product }>(response);
-    if (response.ok) {
+    try {
+      const response = await fetch(`/api/inventory/${productId}`, { method: "DELETE" });
+      const payload = await readApiPayload<{ product: Product }>(response);
+      if (!response.ok) {
+        setMessage(payload.error || "Product could not be archived.");
+        return;
+      }
       const updated = payload.data?.product;
       if (!updated) return;
       setItems((current) =>
         current.map((product) => (product.id === productId ? updated : product))
       );
+      setMessage("Product archived.");
+    } catch {
+      setMessage("Product could not be archived. Check your connection and try again.");
     }
   }
 
@@ -190,7 +232,7 @@ export function InventoryClient({ products }: { products: Product[] }) {
         <div className="grid gap-3 p-4">
           <Field label="Product name" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} />
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="SKU" value={draft.sku} onChange={(event) => setDraft({ ...draft, sku: event.target.value })} />
+            <Field label="SKU optional" value={draft.sku} onChange={(event) => setDraft({ ...draft, sku: event.target.value })} />
             <Field label="Barcode" value={draft.barcode} onChange={(event) => setDraft({ ...draft, barcode: event.target.value })} />
           </div>
           <SelectField label="Category" value={draft.category} onChange={(event) => setDraft({ ...draft, category: event.target.value })}>
@@ -208,9 +250,9 @@ export function InventoryClient({ products }: { products: Product[] }) {
           <Field label="Supplier" value={draft.supplier_name} onChange={(event) => setDraft({ ...draft, supplier_name: event.target.value })} />
           <Field label="Supplier phone" value={draft.supplier_phone} onChange={(event) => setDraft({ ...draft, supplier_phone: event.target.value })} />
           {message ? <p className="rounded-card bg-caribbean-cloud p-3 text-sm font-bold text-slate-700 dark:bg-slate-950 dark:text-slate-200">{message}</p> : null}
-          <Button variant="primary" onClick={createProduct}>
+          <Button variant="primary" onClick={createProduct} disabled={saving}>
             <PackagePlus className="h-4 w-4" />
-            Save product
+            {saving ? "Saving..." : "Save product"}
           </Button>
         </div>
       </Panel>

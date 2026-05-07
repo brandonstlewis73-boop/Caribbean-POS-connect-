@@ -9,7 +9,11 @@ export const runtime = "nodejs";
 export async function GET(request: NextRequest) {
   const auth = await requireUser(request, "customers:read");
   if (!auth.user) return fail(auth.error, auth.status);
-  return ok({ customers: await listCustomers(request.nextUrl.searchParams.get("q") || undefined) });
+  try {
+    return ok({ customers: await listCustomers(request.nextUrl.searchParams.get("q") || undefined) });
+  } catch (error) {
+    return fail(error instanceof Error ? error.message : "Customers could not be loaded.", 500);
+  }
 }
 
 export async function POST(request: NextRequest) {

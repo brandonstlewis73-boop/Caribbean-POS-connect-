@@ -155,6 +155,7 @@ export function CustomersClient({ customers }: { customers: Customer[] }) {
       }
       setSelectedId(updated.id);
       await refreshCustomers(updated.id);
+      setQuery("");
       setMessage("Customer saved successfully.");
     } catch {
       setMessage("Customer could not be saved. Check your connection and try again.");

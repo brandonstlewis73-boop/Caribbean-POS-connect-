@@ -10,8 +10,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const auth = await requireUser(request, "customers:read");
   if (!auth.user) return fail(auth.error, auth.status);
   const { id } = await params;
-  const profile = await getCustomerProfile(id);
-  return profile ? ok(profile) : fail("Customer not found", 404);
+  try {
+    const profile = await getCustomerProfile(id);
+    return profile ? ok(profile) : fail("Customer not found", 404);
+  } catch (error) {
+    return fail(error instanceof Error ? error.message : "Customer could not be loaded.", 500);
+  }
 }
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
