@@ -7,11 +7,18 @@ import { DEFAULT_DELIVERY_RATES, PRODUCT_CATEGORIES } from "./constants";
 
 type DbClient = Pool | PoolClient;
 
+const configuredDatabaseUrl = process.env.SUPABASE_DB_URL || process.env.DATABASE_URL;
+const hasFileDatabaseUrl = Boolean(
+  configuredDatabaseUrl?.startsWith("file:")
+);
+const explicitDemoMode =
+  process.env.FORCE_DEMO === "true" || process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+
 export const isDemoMode =
-  (!(process.env.SUPABASE_DB_URL || process.env.DATABASE_URL) ||
-    process.env.SUPABASE_DB_URL?.startsWith("file:") ||
-    process.env.DATABASE_URL?.startsWith("file:")) &&
-  process.env.FORCE_POSTGRES !== "true";
+  explicitDemoMode ||
+  (process.env.NODE_ENV !== "production" &&
+    (!configuredDatabaseUrl || hasFileDatabaseUrl) &&
+    process.env.FORCE_POSTGRES !== "true");
 
 declare global {
   // eslint-disable-next-line no-var
@@ -25,6 +32,18 @@ function databaseUrl() {
   return url && !url.startsWith("file:") ? url : null;
 }
 
+export function databaseConfigStatus() {
+  const url = databaseUrl();
+  return {
+    hasDatabaseUrl: Boolean(url),
+    hasSupabaseDbUrl: Boolean(process.env.SUPABASE_DB_URL && !process.env.SUPABASE_DB_URL.startsWith("file:")),
+    hasPrimaryDatabaseUrl: Boolean(process.env.DATABASE_URL && !process.env.DATABASE_URL.startsWith("file:")),
+    isDemoMode,
+    nodeEnv: process.env.NODE_ENV || "development",
+    vercelEnv: process.env.VERCEL_ENV || null
+  };
+}
+
 function shouldUseSsl(url: string) {
   if (process.env.PGSSL_DISABLE === "true") return false;
   return url.includes("supabase") || process.env.PGSSLMODE === "require";
@@ -33,7 +52,11 @@ function shouldUseSsl(url: string) {
 export function getDb() {
   if (globalThis.__cpcPool) return globalThis.__cpcPool;
   const url = databaseUrl();
-  if (!url) return undefined as unknown as Pool;
+  if (!url) {
+    throw new Error(
+      "Database is not configured. Add DATABASE_URL or SUPABASE_DB_URL in Vercel Environment Variables, then redeploy."
+    );
+  }
   globalThis.__cpcPool = new Pool({
     connectionString: url,
     max: Number(process.env.PG_POOL_MAX || 5),
