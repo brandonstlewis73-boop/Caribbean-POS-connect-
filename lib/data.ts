@@ -56,7 +56,7 @@ import {
 
 type DbClient = PoolClient;
 
-const defaultSettings: Settings = {
+export const defaultSettings: Settings = {
   business_name: "Savannah & Sea Retail Ltd.",
   business_phone: "868-555-2190",
   business_email: "hello@savannahsea.tt",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CreditCard, ExternalLink, LocateFixed, MessageCircle, Minus, Plus, Send, ShoppingBag, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Field, SelectField, TextAreaField } from "@/components/ui/Field";
@@ -23,7 +23,17 @@ function paymentMethodEnabled(method: string, settings: Settings) {
   return true;
 }
 
-export function OnlineOrderClient({ products, settings }: { products: Product[]; settings: Settings }) {
+export function OnlineOrderClient({
+  products: initialProducts,
+  settings: initialSettings,
+  initialStatusMessage = ""
+}: {
+  products: Product[];
+  settings: Settings;
+  initialStatusMessage?: string;
+}) {
+  const [products, setProducts] = useState(initialProducts);
+  const [settings, setSettings] = useState(initialSettings);
   const [category, setCategory] = useState("All");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [fulfillment, setFulfillment] = useState<"pickup" | "delivery">("delivery");
@@ -43,7 +53,36 @@ export function OnlineOrderClient({ products, settings }: { products: Product[];
   const [locationLink, setLocationLink] = useState("");
   const [order, setOrder] = useState<Order | null>(null);
   const [error, setError] = useState("");
+  const [statusMessage, setStatusMessage] = useState(initialStatusMessage);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadOnlineMenu() {
+      try {
+        const response = await fetch("/api/online", { cache: "no-store" });
+        const payload = await readApiPayload<{
+          products: Product[];
+          settings: Settings;
+          statusMessage?: string | null;
+        }>(response);
+        if (cancelled) return;
+        if (!response.ok) {
+          setStatusMessage(payload.error || "Online menu is temporarily unavailable.");
+          return;
+        }
+        setProducts(payload.data?.products || []);
+        setSettings(payload.data?.settings || initialSettings);
+        setStatusMessage(payload.data?.statusMessage || "");
+      } catch {
+        if (!cancelled) setStatusMessage("Online menu is temporarily unavailable.");
+      }
+    }
+    loadOnlineMenu();
+    return () => {
+      cancelled = true;
+    };
+  }, [initialSettings]);
 
   const visibleProducts = useMemo(
     () => products.filter((product) => category === "All" || product.category === category),
@@ -190,6 +229,11 @@ export function OnlineOrderClient({ products, settings }: { products: Product[];
             ))}
           </div>
           <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
+            {statusMessage ? (
+              <div className="rounded-card border border-caribbean-line bg-white p-4 text-sm font-bold text-slate-600 shadow-soft dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 sm:col-span-2 md:col-span-3 xl:col-span-4">
+                {statusMessage}
+              </div>
+            ) : null}
             {visibleProducts.map((product) => (
               <button key={product.id} onClick={() => add(product)} className="min-h-[220px] min-w-0 overflow-hidden rounded-card border border-caribbean-line bg-white text-left shadow-soft transition hover:-translate-y-0.5 dark:border-slate-800 dark:bg-slate-900">
                 <div className="relative h-28 bg-gradient-to-br from-teal-50 to-orange-50 dark:from-teal-950 dark:to-slate-900">
