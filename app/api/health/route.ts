@@ -3,6 +3,43 @@ import { databaseConfigStatus, getDb, isDemoMode } from "@/lib/db";
 
 export const runtime = "nodejs";
 
+async function getAuthStoreStatus() {
+  try {
+    const result = await getDb().query<{ admin_count: string }>(
+      "SELECT COUNT(*) AS admin_count FROM users WHERE email = $1 AND active = TRUE",
+      ["admin@demo.com"]
+    );
+    return {
+      source: "users",
+      usersViewAvailable: true,
+      adminUserPresent: Number(result.rows[0]?.admin_count ?? 0) > 0
+    };
+  } catch (usersError) {
+    try {
+      const result = await getDb().query<{ admin_count: string }>(
+        "SELECT COUNT(*) AS admin_count FROM staff_users WHERE email = $1 AND active = TRUE",
+        ["admin@demo.com"]
+      );
+      return {
+        source: "staff_users",
+        usersViewAvailable: false,
+        adminUserPresent: Number(result.rows[0]?.admin_count ?? 0) > 0,
+        message: "The users view is unavailable; auth is using staff_users fallback."
+      };
+    } catch {
+      return {
+        source: null,
+        usersViewAvailable: false,
+        adminUserPresent: false,
+        message:
+          usersError instanceof Error
+            ? usersError.message
+            : "Unable to inspect the auth user store."
+      };
+    }
+  }
+}
+
 export async function GET() {
   const config = databaseConfigStatus();
   const startedAt = Date.now();
@@ -21,6 +58,7 @@ export async function GET() {
 
   try {
     await getDb().query("SELECT 1");
+    const auth = await getAuthStoreStatus();
     return NextResponse.json({
       ok: true,
       mode: "postgres",
@@ -28,6 +66,7 @@ export async function GET() {
         connected: true,
         latencyMs: Date.now() - startedAt
       },
+      auth,
       config
     });
   } catch (error) {

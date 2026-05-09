@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { isDemoMode, query } from "@/lib/db";
-import { createSession, sessionCookieOptions, verifyPassword } from "@/lib/auth";
+import { isDemoMode } from "@/lib/db";
+import { createSession, getLoginUserByEmail, sessionCookieOptions, verifyPassword } from "@/lib/auth";
 import type { User } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -47,19 +47,7 @@ export async function POST(request: Request) {
       return jsonError("Demo mode is active. Use admin@demo.com / demo123.", 401);
     }
 
-    const result = await query<{
-      id: string;
-      name: string;
-      email: string;
-      password_hash: string;
-      role: "admin" | "manager" | "cashier" | "driver" | "staff";
-      phone: string | null;
-      active: boolean;
-    }>(
-      "SELECT id, name, email, password_hash, role, phone, active FROM users WHERE email = $1 AND active = TRUE",
-      [email]
-    );
-    const row = result.rows[0];
+    const row = await getLoginUserByEmail(email);
 
     if (!row || !(await verifyPassword(parsed.data.password, row.password_hash))) {
       return jsonError("Invalid email or password", 401);

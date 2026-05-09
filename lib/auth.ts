@@ -20,6 +20,19 @@ type RequireUserResult =
   | { user: User; error: null; status: 200 }
   | { user: undefined; error: string; status: 401 | 403 };
 
+type AuthUserRow = {
+  id: string;
+  name: string;
+  email: string;
+  role: Role;
+  phone: string | null;
+  active: boolean;
+};
+
+type LoginUserRow = AuthUserRow & {
+  password_hash: string;
+};
+
 function secretKey() {
   return new TextEncoder().encode(
     process.env.SESSION_SECRET || "dev-secret-change-me-caribbean-pos-connect"
@@ -47,6 +60,47 @@ export async function createSession(user: User) {
     .sign(secretKey());
 }
 
+function isMissingUsersRelation(error: unknown) {
+  if (!error || typeof error !== "object") return false;
+  const code = "code" in error ? String(error.code) : "";
+  const message = "message" in error ? String(error.message).toLowerCase() : "";
+  return code === "42P01" || message.includes('relation "users" does not exist');
+}
+
+export async function getActiveUserById(id: string) {
+  try {
+    const result = await query<AuthUserRow>(
+      "SELECT id, name, email, role, phone, active FROM users WHERE id = $1 AND active = TRUE",
+      [id]
+    );
+    return result.rows[0] ? { ...result.rows[0], active: Boolean(result.rows[0].active) } : null;
+  } catch (error) {
+    if (!isMissingUsersRelation(error)) throw error;
+    const result = await query<AuthUserRow>(
+      "SELECT id, name, email, role, phone, active FROM staff_users WHERE id = $1 AND active = TRUE",
+      [id]
+    );
+    return result.rows[0] ? { ...result.rows[0], active: Boolean(result.rows[0].active) } : null;
+  }
+}
+
+export async function getLoginUserByEmail(email: string) {
+  try {
+    const result = await query<LoginUserRow>(
+      "SELECT id, name, email, password_hash, role, phone, active FROM users WHERE email = $1 AND active = TRUE",
+      [email]
+    );
+    return result.rows[0] ? { ...result.rows[0], active: Boolean(result.rows[0].active) } : null;
+  } catch (error) {
+    if (!isMissingUsersRelation(error)) throw error;
+    const result = await query<LoginUserRow>(
+      "SELECT id, name, email, password_hash, role, phone, active FROM staff_users WHERE email = $1 AND active = TRUE",
+      [email]
+    );
+    return result.rows[0] ? { ...result.rows[0], active: Boolean(result.rows[0].active) } : null;
+  }
+}
+
 export async function getSessionUserFromRequest(request?: NextRequest): Promise<User | null> {
   const token =
     request?.cookies.get(COOKIE_NAME)?.value || (await cookies()).get(COOKIE_NAME)?.value;
@@ -59,11 +113,7 @@ export async function getSessionUserFromRequest(request?: NextRequest): Promise<
     if (isDemoMode && id === demoUser.id) {
       return demoUser;
     }
-    const row = await query<User>(
-      "SELECT id, name, email, role, phone, active FROM users WHERE id = $1 AND active = TRUE",
-      [id]
-    );
-    return row.rows[0] ? { ...row.rows[0], active: Boolean(row.rows[0].active) } : null;
+    return getActiveUserById(id);
   } catch {
     return null;
   }

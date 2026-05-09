@@ -30,6 +30,53 @@ ALTER TABLE public.staff_users
   ADD CONSTRAINT staff_users_role_check
   CHECK (role IN ('owner', 'admin', 'manager', 'cashier', 'dispatcher', 'driver', 'kitchen', 'staff'));
 
+-- Keep login compatible with both local Postgres and the Supabase staff_users table.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'staff_users'
+  )
+  AND NOT EXISTS (
+    SELECT 1
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public' AND c.relname = 'users' AND c.relkind = 'r'
+  ) THEN
+    EXECUTE 'CREATE OR REPLACE VIEW public.users AS
+      SELECT id, name, email, password_hash, role, phone, active, created_at, updated_at
+      FROM public.staff_users';
+  END IF;
+END $$;
+
+INSERT INTO public.staff_users (
+  id,
+  business_id,
+  name,
+  email,
+  password_hash,
+  role,
+  phone,
+  active
+) VALUES (
+  'usr_demo_admin',
+  'biz_savannah_sea',
+  'Demo Admin',
+  'admin@demo.com',
+  '$2a$12$.EhN3P5jYWD1jFGAchYcveUqU.74lCQCPc2aMca3hoAslDIxdIcTW',
+  'admin',
+  '868-443-7582',
+  TRUE
+)
+ON CONFLICT (email) DO UPDATE SET
+  name = EXCLUDED.name,
+  password_hash = EXCLUDED.password_hash,
+  role = EXCLUDED.role,
+  phone = EXCLUDED.phone,
+  active = TRUE,
+  updated_at = NOW();
+
 -- Subscription columns used by the app.
 ALTER TABLE public.subscriptions ADD COLUMN IF NOT EXISTS plan_id TEXT NOT NULL DEFAULT 'starter';
 ALTER TABLE public.subscriptions ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMPTZ;
