@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { isDemoMode } from "@/lib/db";
+import { databaseErrorMessage, isDemoMode } from "@/lib/db";
 import { createSession, getLoginUserByEmail, sessionCookieOptions, verifyPassword } from "@/lib/auth";
 import type { User } from "@/lib/types";
 
@@ -78,6 +78,6 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error("Login failed", error);
-    return jsonError("Login failed. Please check the server configuration.", 500);
+    return jsonError(databaseErrorMessage(error), 500);
   }
 }

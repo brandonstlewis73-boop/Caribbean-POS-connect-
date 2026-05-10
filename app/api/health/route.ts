@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { databaseConfigStatus, getDb, isDemoMode } from "@/lib/db";
+import { databaseConfigStatus, databaseErrorMessage, getDb, isDemoMode } from "@/lib/db";
 
 export const runtime = "nodejs";
 
@@ -79,7 +79,7 @@ export async function GET() {
         mode: "postgres",
         database: {
           connected: false,
-          message: error instanceof Error ? error.message : "Database health check failed."
+          message: databaseErrorMessage(error)
         },
         config
       },

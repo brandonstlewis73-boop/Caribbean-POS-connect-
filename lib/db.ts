@@ -1,9 +1,16 @@
 import { randomUUID } from "node:crypto";
+import dns from "node:dns";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import bcrypt from "bcryptjs";
 import { Pool, type PoolClient, type QueryResult, type QueryResultRow } from "pg";
 import { DEFAULT_DELIVERY_RATES, PRODUCT_CATEGORIES } from "./constants";
+
+try {
+  dns.setDefaultResultOrder("ipv4first");
+} catch {
+  // Older Node versions can ignore this; Vercel's supported runtimes honor it.
+}
 
 type DbClient = Pool | PoolClient;
 
@@ -44,6 +51,35 @@ export function databaseConfigStatus() {
   };
 }
 
+export function databaseErrorMessage(error: unknown) {
+  const code =
+    error && typeof error === "object" && "code" in error ? String(error.code) : "";
+  const message = error instanceof Error ? error.message : "Database request failed.";
+  const normalized = message.toLowerCase();
+
+  if (code === "ENETUNREACH" || normalized.includes("enetunreach")) {
+    return "Database connection failed from Vercel. Set DATABASE_URL to the Supabase pooled connection string, then redeploy.";
+  }
+
+  if (code === "ECONNREFUSED" || normalized.includes("econnrefused")) {
+    return "Database refused the connection. Check the Vercel DATABASE_URL host, port, password, and SSL settings.";
+  }
+
+  if (code === "ETIMEDOUT" || normalized.includes("timeout")) {
+    return "Database connection timed out. Check Vercel DATABASE_URL or use the Supabase pooled connection string.";
+  }
+
+  if (normalized.includes("password authentication failed")) {
+    return "Database login failed. Check the password in Vercel DATABASE_URL and redeploy.";
+  }
+
+  if (normalized.includes("database is not configured")) {
+    return message;
+  }
+
+  return `Database request failed: ${message}`;
+}
+
 function shouldUseSsl(url: string) {
   if (process.env.PGSSL_DISABLE === "true") return false;
   return url.includes("supabase") || process.env.PGSSLMODE === "require";
@@ -60,6 +96,7 @@ export function getDb() {
   globalThis.__cpcPool = new Pool({
     connectionString: url,
     max: Number(process.env.PG_POOL_MAX || 5),
+    connectionTimeoutMillis: Number(process.env.PG_CONNECT_TIMEOUT_MS || 10000),
     ssl: shouldUseSsl(url) ? { rejectUnauthorized: false } : undefined
   });
   return globalThis.__cpcPool;
