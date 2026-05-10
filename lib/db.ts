@@ -41,14 +41,28 @@ function databaseUrl() {
 
 export function databaseConfigStatus() {
   const url = databaseUrl();
+  const host = url ? databaseHost(url) : null;
+  const directSupabaseMatch = host?.match(/^db\.([a-z0-9]+)\.supabase\.co$/);
   return {
     hasDatabaseUrl: Boolean(url),
     hasSupabaseDbUrl: Boolean(process.env.SUPABASE_DB_URL && !process.env.SUPABASE_DB_URL.startsWith("file:")),
     hasPrimaryDatabaseUrl: Boolean(process.env.DATABASE_URL && !process.env.DATABASE_URL.startsWith("file:")),
+    databaseHost: host,
+    usesDirectSupabaseHost: Boolean(directSupabaseMatch),
+    supabaseProjectRef: directSupabaseMatch?.[1] || null,
     isDemoMode,
     nodeEnv: process.env.NODE_ENV || "development",
     vercelEnv: process.env.VERCEL_ENV || null
   };
+}
+
+function databaseHost(url: string) {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    const match = url.match(/@([^/:?]+)(?::\d+)?/);
+    return match?.[1] || null;
+  }
 }
 
 export function databaseErrorMessage(error: unknown) {
@@ -59,6 +73,10 @@ export function databaseErrorMessage(error: unknown) {
 
   if (code === "ENETUNREACH" || normalized.includes("enetunreach")) {
     return "Database connection failed from Vercel. Set DATABASE_URL to the Supabase pooled connection string, then redeploy.";
+  }
+
+  if (code === "ENOTFOUND" || normalized.includes("getaddrinfo enotfound")) {
+    return "Database host was not found from Vercel. Use the Supabase Transaction pooler connection string for DATABASE_URL or SUPABASE_DB_URL, then redeploy.";
   }
 
   if (code === "ECONNREFUSED" || normalized.includes("econnrefused")) {
