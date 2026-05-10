@@ -1,13 +1,29 @@
 import type { Metadata } from "next";
 import "./globals.css";
 
-const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+function getAppUrl() {
+  const configuredUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL || "";
+  const urlWithProtocol = configuredUrl
+    ? configuredUrl.includes("://")
+      ? configuredUrl
+      : `https://${configuredUrl}`
+    : "http://localhost:3000";
+
+  try {
+    return new URL(urlWithProtocol);
+  } catch {
+    return new URL("http://localhost:3000");
+  }
+}
+
+const appUrl = getAppUrl();
+const appUrlString = appUrl.toString();
 
 export const metadata: Metadata = {
   title: "Caribbean Connect POS",
   description:
     "Premium POS, orders, inventory, delivery, receipts, subscriptions, and customer management for Trinidad and Tobago businesses.",
-  metadataBase: new URL(appUrl),
+  metadataBase: appUrl,
   icons: {
     icon: "/logo.svg"
   },
@@ -15,7 +31,7 @@ export const metadata: Metadata = {
     title: "Caribbean Connect POS",
     description:
       "Premium POS, storefront, delivery, Waze, WhatsApp, inventory, and reporting for Trinidad and Tobago.",
-    url: appUrl,
+    url: appUrlString,
     siteName: "Caribbean Connect POS",
     type: "website"
   }
