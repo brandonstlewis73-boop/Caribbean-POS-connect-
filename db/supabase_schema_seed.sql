@@ -303,11 +303,13 @@ FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 -- Compatibility views for the current Next.js app code.
 -- The app queries "users" and writes "stock_movements".
-CREATE OR REPLACE VIEW public.users AS
+CREATE OR REPLACE VIEW public.users
+WITH (security_invoker = true) AS
 SELECT id, name, email, password_hash, role, phone, active, created_at, updated_at
 FROM public.staff_users;
 
-CREATE OR REPLACE VIEW public.stock_movements AS
+CREATE OR REPLACE VIEW public.stock_movements
+WITH (security_invoker = true) AS
 SELECT id, product_id, type, quantity_delta, reason, reference_id, user_id, created_at
 FROM public.inventory_logs;
 

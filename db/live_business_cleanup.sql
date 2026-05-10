@@ -56,9 +56,22 @@ BEGIN
     JOIN pg_namespace n ON n.oid = c.relnamespace
     WHERE n.nspname = 'public' AND c.relname = 'users' AND c.relkind = 'r'
   ) THEN
-    EXECUTE 'CREATE OR REPLACE VIEW public.users AS
+    EXECUTE 'CREATE OR REPLACE VIEW public.users
+      WITH (security_invoker = true) AS
       SELECT id, name, email, password_hash, role, phone, active, created_at, updated_at
       FROM public.staff_users';
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public' AND c.relname = 'users' AND c.relkind = 'v'
+  ) THEN
+    EXECUTE 'ALTER VIEW public.users SET (security_invoker = true)';
   END IF;
 END $$;
 
