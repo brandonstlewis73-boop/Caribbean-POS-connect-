@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ChangeEvent } from "react";
 import { Building2, Link2, MessageCircle, PlusCircle, Save, ShieldCheck, Truck, UsersRound } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -46,6 +46,18 @@ function createEmptyBusinessDraft(currency = "TTD") {
     country: getDefaultCountryForCurrency(currency),
     currency
   };
+}
+
+const MAX_LOGO_SIZE_BYTES = 750 * 1024;
+const LOGO_IMAGE_TYPES = ["image/png", "image/jpeg"];
+
+function readFileAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("Logo could not be read."));
+    reader.readAsDataURL(file);
+  });
 }
 
 export function SettingsClient({
@@ -154,6 +166,38 @@ export function SettingsClient({
     update("delivery_rates", { ...deliveryRates, [region]: value });
   }
 
+  async function uploadStoreLogo(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (!LOGO_IMAGE_TYPES.includes(file.type)) {
+      setMessage("Logo must be a PNG or JPG image so it can print on receipts.");
+      return;
+    }
+    if (file.size > MAX_LOGO_SIZE_BYTES) {
+      setMessage("Logo must be 750 KB or smaller.");
+      return;
+    }
+    const previousDraft = draft;
+    try {
+      const logoUrl = await readFileAsDataUrl(file);
+      const nextDraft = { ...draft, logo_url: logoUrl };
+      setDraft(nextDraft);
+      const saved = await saveSettings(nextDraft, "Store logo uploaded. It will appear on the storefront and receipts.");
+      if (!saved) setDraft(previousDraft);
+    } catch {
+      setMessage("Logo could not be uploaded. Try a smaller PNG or JPG.");
+    }
+  }
+
+  async function useDefaultLogo() {
+    const previousDraft = draft;
+    const nextDraft = { ...draft, logo_url: "/logo.svg" };
+    setDraft(nextDraft);
+    const saved = await saveSettings(nextDraft, "Default logo restored.");
+    if (!saved) setDraft(previousDraft);
+  }
+
   async function save() {
     await saveSettings(draft);
   }
@@ -163,7 +207,7 @@ export function SettingsClient({
     const response = await fetch("/api/businesses", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(businessDraft)
+      body: JSON.stringify({ ...businessDraft, logo_url: draft.logo_url || null })
     });
     const payload = await readApiPayload<{ business: Business }>(response);
     if (!response.ok) {
@@ -186,7 +230,25 @@ export function SettingsClient({
           <PanelHeader title="Business profile" />
           <div className="grid gap-3 p-4 md:grid-cols-2">
             <Field label="Business name" value={draft.business_name} onChange={(event) => update("business_name", event.target.value)} />
-            <Field label="Logo upload placeholder" type="file" />
+            <div className="grid gap-2 md:row-span-2">
+              <span className="text-sm font-bold text-teal-50">Storefront & receipt logo</span>
+              <div className="flex min-w-0 items-center gap-3 rounded-card border border-white/10 bg-black/30 p-3">
+                <img src={draft.logo_url || "/logo.svg"} alt="" className="h-14 w-14 shrink-0 rounded-card bg-white object-contain p-1" />
+                <div className="min-w-0 text-xs font-semibold text-teal-50/65">
+                  <p className="font-bold text-teal-50">Public storefront and receipt logo.</p>
+                  <p>PNG or JPG, 750 KB max.</p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <label className="inline-flex h-10 min-w-0 cursor-pointer items-center justify-center rounded-card border border-white/10 bg-white/[0.07] px-4 text-center text-sm font-black leading-tight text-white transition hover:bg-white/[0.12]">
+                  Upload logo
+                  <input type="file" accept="image/png,image/jpeg" className="sr-only" onChange={uploadStoreLogo} disabled={saving} />
+                </label>
+                <Button type="button" onClick={useDefaultLogo} disabled={saving}>
+                  Use default
+                </Button>
+              </div>
+            </div>
             <Field label="Phone" value={draft.business_phone} onChange={(event) => update("business_phone", event.target.value)} />
             <Field label="Email" type="email" value={draft.business_email} onChange={(event) => update("business_email", event.target.value)} />
             <Field label="Address" value={draft.business_address} onChange={(event) => update("business_address", event.target.value)} className="md:col-span-2" />
@@ -264,7 +326,15 @@ export function SettingsClient({
               {businessItems.map((business) => (
                 <div key={business.id} className="min-w-0 rounded-card border border-caribbean-line bg-caribbean-cloud p-3 dark:border-slate-800 dark:bg-slate-950">
                   <div className="flex min-w-0 items-start gap-3">
-                    <Building2 className="mt-0.5 h-5 w-5 shrink-0 text-caribbean-teal" />
+                    {business.logo_url || draft.logo_url ? (
+                      <img
+                        src={business.logo_url || draft.logo_url || "/logo.svg"}
+                        alt=""
+                        className="h-9 w-9 shrink-0 rounded-card bg-white object-contain p-1"
+                      />
+                    ) : (
+                      <Building2 className="mt-0.5 h-5 w-5 shrink-0 text-caribbean-teal" />
+                    )}
                     <div className="min-w-0">
                       <p className="truncate font-black">{business.name}</p>
                       <p className="text-xs font-semibold text-slate-500">

@@ -172,6 +172,7 @@ export type Settings = {
   business_phone: string;
   business_email: string;
   business_address: string;
+  logo_url?: string | null;
   currency: string;
   tax_enabled: boolean;
   tax_rate: number;

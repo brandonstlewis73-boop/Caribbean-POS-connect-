@@ -204,7 +204,7 @@ export function OnlineOrderClient({
       <header className="border-b border-caribbean-line bg-white px-4 py-4 dark:border-slate-800 dark:bg-slate-950">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            <img src="/logo.svg" alt="" className="h-11 w-11 shrink-0 rounded-card object-contain" />
+            <img src={settings.logo_url || "/logo.svg"} alt="" className="h-11 w-11 shrink-0 rounded-card bg-white object-contain p-1" />
             <div className="min-w-0">
               <h1 className="text-lg font-black leading-tight">{settings.business_name}</h1>
               <p className="text-sm font-semibold text-slate-500">Online ordering - {settings.currency}</p>

@@ -72,6 +72,7 @@ export const defaultSettings: Settings = {
   business_phone: "868-555-2190",
   business_email: "hello@savannahsea.tt",
   business_address: "18 Independence Square, Port of Spain, Trinidad and Tobago",
+  logo_url: "/logo.svg",
   currency: CURRENCY_CODE,
   tax_enabled: true,
   tax_rate: 12.5,

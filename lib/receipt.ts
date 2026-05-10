@@ -5,6 +5,8 @@ import { getReceiptNumber, getSettings } from "./data";
 import { buildAddress } from "./waze";
 import type { CustomerInput, Order } from "./types";
 
+const MAX_RECEIPT_LOGO_BYTES = 1024 * 1024;
+
 function pdfToBuffer(doc: PDFKit.PDFDocument) {
   const chunks: Buffer[] = [];
 
@@ -31,6 +33,42 @@ async function createQrBuffer(value?: string | null, width = 110) {
   }
 }
 
+async function createLogoBuffer(logoUrl?: string | null) {
+  const value = logoUrl?.trim();
+  if (!value || value === "/logo.svg" || value.toLowerCase().endsWith(".svg")) return null;
+
+  if (value.startsWith("data:image/")) {
+    const [metadata, base64Data] = value.split(",", 2);
+    if (!base64Data || !/^data:image\/(png|jpe?g);base64$/i.test(metadata)) return null;
+    const buffer = Buffer.from(base64Data.replace(/\s/g, ""), "base64");
+    return buffer.length <= MAX_RECEIPT_LOGO_BYTES ? buffer : null;
+  }
+
+  if (!/^https?:\/\//i.test(value)) return null;
+  try {
+    const response = await fetch(value);
+    if (!response.ok) return null;
+    const contentType = response.headers.get("content-type") || "";
+    if (!/^image\/(png|jpe?g)$/i.test(contentType)) return null;
+    const arrayBuffer = await response.arrayBuffer();
+    if (arrayBuffer.byteLength > MAX_RECEIPT_LOGO_BYTES) return null;
+    return Buffer.from(arrayBuffer);
+  } catch {
+    return null;
+  }
+}
+
+function drawCenteredLogo(doc: PDFKit.PDFDocument, logoBuffer: Buffer | null, width = 52) {
+  if (!logoBuffer) return;
+  try {
+    const x = doc.page.width / 2 - width / 2;
+    doc.image(logoBuffer, x, doc.y, { fit: [width, width] });
+    doc.y += width + 6;
+  } catch {
+    // Unsupported or corrupt logos should never block receipt generation.
+  }
+}
+
 function customerAddress(customer: CustomerInput) {
   return buildAddress([
     customer.street_address,
@@ -45,7 +83,9 @@ export async function createReceiptPdfBuffer(order: Order) {
   const doc = new PDFDocument({ size: [240, 720], margin: 18 });
   const done = pdfToBuffer(doc);
   const wazeQr = await createQrBuffer(order.waze_link);
+  const logoBuffer = await createLogoBuffer(settings.logo_url);
 
+  drawCenteredLogo(doc, logoBuffer, 54);
   doc.fontSize(13).text(settings.business_name, { align: "center" });
   doc.fontSize(8).text(settings.business_phone, { align: "center" });
   doc.text(settings.business_email, { align: "center" });
@@ -100,9 +140,11 @@ export async function createShippingLabelPdfBuffer(order: Order) {
   const doc = new PDFDocument({ size: [288, 432], margin: 18 });
   const done = pdfToBuffer(doc);
   const wazeQr = await createQrBuffer(order.waze_link, 132);
+  const logoBuffer = await createLogoBuffer(settings.logo_url);
   const address = customerAddress(order.customer_snapshot);
   const customer = order.customer_snapshot;
 
+  drawCenteredLogo(doc, logoBuffer, 44);
   doc.fontSize(8).font("Helvetica-Bold").text(settings.business_name.toUpperCase(), { align: "center" });
   doc.fontSize(7).font("Helvetica").text(settings.business_phone, { align: "center" });
   doc.text(settings.business_address, { align: "center" });
