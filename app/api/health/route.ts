@@ -46,9 +46,18 @@ async function getAuthStoreStatus() {
   }
 }
 
+function deploymentStatus() {
+  return {
+    vercelUrl: process.env.VERCEL_URL || null,
+    gitCommitSha: process.env.VERCEL_GIT_COMMIT_SHA || null,
+    gitCommitRef: process.env.VERCEL_GIT_COMMIT_REF || null
+  };
+}
+
 export async function GET() {
   const config = databaseConfigStatus();
   const diagnostics = databaseConnectionDiagnostics();
+  const deployment = deploymentStatus();
   const startedAt = Date.now();
 
   if (isDemoMode) {
@@ -60,7 +69,8 @@ export async function GET() {
         message: "Demo memory mode is active. Saves are not persistent across server restarts.",
         ...diagnostics
       },
-      config
+      config,
+      deployment
     });
   }
 
@@ -77,7 +87,8 @@ export async function GET() {
         latencyMs: Date.now() - startedAt
       },
       auth,
-      config
+      config,
+      deployment
     });
   } catch (error) {
     return NextResponse.json(
@@ -89,7 +100,8 @@ export async function GET() {
           message: databaseErrorMessage(error),
           ...diagnostics
         },
-        config
+        config,
+        deployment
       },
       { status: 500 }
     );
