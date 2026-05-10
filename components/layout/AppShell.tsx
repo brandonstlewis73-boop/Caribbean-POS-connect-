@@ -6,15 +6,15 @@ import {
   ClipboardList,
   LayoutDashboard,
   MapPinned,
-  PackageSearch,
   Printer,
   Settings,
   ShoppingCart,
   UserCog,
   UsersRound
 } from "lucide-react";
-import { APP_NAME } from "@/lib/constants";
+import { APP_NAME, CURRENCY_CODE, getDefaultCountryForCurrency } from "@/lib/constants";
 import { cn } from "@/lib/cn";
+import { getSettings } from "@/lib/data";
 
 const navGroups = [
   {
@@ -47,7 +47,7 @@ const navGroups = [
 
 const navItems = navGroups.flatMap((group) => group.items);
 
-export function AppShell({
+export async function AppShell({
   active,
   title,
   children,
@@ -58,6 +58,10 @@ export function AppShell({
   children: React.ReactNode;
   actions?: React.ReactNode;
 }) {
+  const settings = await getSettings().catch(() => null);
+  const currency = settings?.currency || CURRENCY_CODE;
+  const market = getDefaultCountryForCurrency(currency);
+
   return (
     <div className="min-h-screen overflow-x-hidden text-white">
       <aside className="fixed inset-y-0 left-0 z-20 hidden w-72 overflow-y-auto border-r border-white/10 bg-black/35 px-4 py-5 backdrop-blur-2xl lg:block">
@@ -65,7 +69,7 @@ export function AppShell({
           <img src="/logo.svg" alt="" className="h-12 w-12 shrink-0 rounded-2xl object-contain" />
           <span className="min-w-0">
             <span className="block text-sm font-black leading-tight text-white">{APP_NAME}</span>
-            <span className="text-xs font-bold text-cyan-200/70">Live POS • TTD</span>
+            <span className="text-xs font-bold text-cyan-200/70">Live POS / {currency}</span>
           </span>
         </Link>
         <nav className="grid gap-5">
@@ -101,7 +105,7 @@ export function AppShell({
           <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-200/60">
-                Trinidad and Tobago • TTD
+                {market} / {currency}
               </p>
               <h1 className="min-w-0 text-xl font-black leading-tight sm:text-2xl">{title}</h1>
             </div>

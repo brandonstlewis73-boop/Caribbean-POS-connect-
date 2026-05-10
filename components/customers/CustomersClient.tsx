@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Panel, PanelHeader } from "@/components/ui/Panel";
 import { Button } from "@/components/ui/Button";
 import { Field, TextAreaField } from "@/components/ui/Field";
-import { money } from "@/lib/constants";
+import { getDefaultCountryForCurrency, money } from "@/lib/constants";
 import { readApiPayload } from "@/lib/client-response";
 import { cleanWhatsAppNumber } from "@/lib/whatsapp";
 import type { Customer, CustomerInput, Order } from "@/lib/types";
@@ -17,7 +17,7 @@ type Profile = {
   favoriteProducts: Array<{ name: string; quantity: number }>;
 };
 
-function emptyCustomerDraft(): Customer {
+function emptyCustomerDraft(currency: string): Customer {
   return {
     id: "new",
     name: "",
@@ -27,7 +27,7 @@ function emptyCustomerDraft(): Customer {
     street_address: "",
     city: "",
     region: null,
-    country: "Trinidad and Tobago",
+    country: getDefaultCountryForCurrency(currency),
     delivery_notes: "",
     waze_link: "",
     gps_latitude: null,
@@ -49,14 +49,14 @@ function nullableText(value?: string | null) {
   return trimmed ? trimmed : undefined;
 }
 
-function toCustomerPayload(customer: Customer): CustomerInput {
+function toCustomerPayload(customer: Customer, currency: string): CustomerInput {
   return {
     name: nullableText(customer.name),
     phone: nullableText(customer.phone),
     email: nullableText(customer.email),
     street_address: nullableText(customer.street_address),
     city: nullableText(customer.city),
-    country: nullableText(customer.country) || "Trinidad and Tobago",
+    country: nullableText(customer.country) || getDefaultCountryForCurrency(currency),
     delivery_notes: nullableText(customer.delivery_notes),
     waze_link: nullableText(customer.waze_link),
     gps_latitude: customer.gps_latitude ?? undefined,
@@ -111,7 +111,7 @@ export function CustomersClient({ customers, currency }: { customers: Customer[]
   function startNewCustomer() {
     setSelectedId("new");
     setProfile(null);
-    setDraft(emptyCustomerDraft());
+    setDraft(emptyCustomerDraft(currency));
     setMessage("Enter the customer details, then save the profile.");
   }
 
@@ -131,7 +131,7 @@ export function CustomersClient({ customers, currency }: { customers: Customer[]
 
   async function saveCustomer() {
     if (!draft) return;
-    const payloadBody = toCustomerPayload(draft);
+    const payloadBody = toCustomerPayload(draft, currency);
     if (!payloadBody.name && !payloadBody.phone && !payloadBody.email) {
       setMessage("Add at least a customer name, phone, or email before saving.");
       return;
@@ -291,7 +291,7 @@ export function CustomersClient({ customers, currency }: { customers: Customer[]
                 <Field label="Street address" value={draft.street_address || ""} onChange={(event) => setDraft({ ...draft, street_address: event.target.value })} />
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Field label="City/town" value={draft.city || ""} onChange={(event) => setDraft({ ...draft, city: event.target.value })} />
-                  <Field label="Country" value={draft.country || "Trinidad and Tobago"} onChange={(event) => setDraft({ ...draft, country: event.target.value })} />
+                  <Field label="Country" value={draft.country || getDefaultCountryForCurrency(currency)} onChange={(event) => setDraft({ ...draft, country: event.target.value })} />
                 </div>
                 <TextAreaField label="Delivery notes" value={draft.delivery_notes || ""} onChange={(event) => setDraft({ ...draft, delivery_notes: event.target.value })} />
               </div>

@@ -105,15 +105,16 @@ export function OnlineOrderClient({
   const deliveryRegions = getDeliveryRegionsForCurrency(settings.currency);
   const defaultDeliveryRegion = deliveryRegions[0] || "";
   const defaultCountry = getDefaultCountryForCurrency(settings.currency);
+  const initialCountry = getDefaultCountryForCurrency(initialSettings.currency);
 
   useEffect(() => {
     setCustomer((current) => {
       const nextRegion = deliveryRegions.includes(current.region) ? current.region : defaultDeliveryRegion;
-      const nextCountry = current.country && current.country !== "Trinidad and Tobago" ? current.country : defaultCountry;
+      const nextCountry = current.country && current.country !== initialCountry ? current.country : defaultCountry;
       if (nextRegion === current.region && nextCountry === current.country) return current;
       return { ...current, region: nextRegion, country: nextCountry };
     });
-  }, [defaultCountry, defaultDeliveryRegion, deliveryRegions]);
+  }, [defaultCountry, defaultDeliveryRegion, deliveryRegions, initialCountry]);
 
   function add(product: Product) {
     setCart((current) => {

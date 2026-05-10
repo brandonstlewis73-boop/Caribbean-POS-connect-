@@ -8,7 +8,7 @@ const business = {
   phone: "868-555-2190",
   email: "hello@savannahsea.tt",
   whatsapp: "4437582368",
-  address: "18 Independence Square, Port of Spain, Trinidad and Tobago"
+  address: "Caribbean service area"
 };
 
 const whatsAppLink = `https://wa.me/${cleanWhatsAppNumber(business.whatsapp)}?text=${encodeURIComponent(

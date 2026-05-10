@@ -14,13 +14,13 @@ const previews = [
   {
     title: "Dashboard",
     icon: BarChart3,
-    lines: ["Today TT$0.00", "Orders 0", "Low stock clear"],
+    lines: ["Today $0.00", "Orders 0", "Low stock clear"],
     accent: "from-teal-300 to-cyan-300"
   },
   {
     title: "Checkout/Register",
     icon: ShoppingCart,
-    lines: ["Cart", "Cash • Card • Transfer", "TTD receipt"],
+    lines: ["Cart", "Cash / Card / Transfer", "Store currency receipt"],
     accent: "from-emerald-300 to-lime-300"
   },
   {
@@ -46,7 +46,7 @@ export default function LandingPage() {
             </div>
           </div>
           <p className="mt-5 max-w-xl text-lg font-bold leading-8 text-teal-50/72">
-            POS System • Orders • Inventory • Delivery
+            POS System / Orders / Inventory / Delivery
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
             <Link href="/login" className="inline-flex min-h-12 items-center justify-center rounded-card bg-gradient-to-r from-teal-300 via-cyan-300 to-emerald-300 px-5 text-sm font-black text-slate-950 shadow-[0_18px_48px_rgba(20,184,166,0.3)]">

@@ -22,7 +22,7 @@ const appUrlString = appUrl.toString();
 export const metadata: Metadata = {
   title: "Caribbean Connect POS",
   description:
-    "Premium POS, orders, inventory, delivery, receipts, subscriptions, and customer management for Trinidad and Tobago businesses.",
+    "Premium POS, orders, inventory, delivery, receipts, subscriptions, and customer management for Caribbean businesses.",
   metadataBase: appUrl,
   icons: {
     icon: "/logo.svg"
@@ -30,7 +30,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Caribbean Connect POS",
     description:
-      "Premium POS, storefront, delivery, Waze, WhatsApp, inventory, and reporting for Trinidad and Tobago.",
+      "Premium POS, storefront, delivery, Waze, WhatsApp, inventory, and reporting for Caribbean businesses.",
     url: appUrlString,
     siteName: "Caribbean Connect POS",
     type: "website"
