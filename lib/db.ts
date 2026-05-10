@@ -14,7 +14,19 @@ try {
 
 type DbClient = Pool | PoolClient;
 
-const configuredDatabaseUrl = process.env.SUPABASE_DB_URL || process.env.DATABASE_URL;
+function selectedDatabaseEnv() {
+  if (process.env.DATABASE_URL && !process.env.DATABASE_URL.startsWith("file:")) {
+    return "DATABASE_URL";
+  }
+  if (process.env.SUPABASE_DB_URL && !process.env.SUPABASE_DB_URL.startsWith("file:")) {
+    return "SUPABASE_DB_URL";
+  }
+  return null;
+}
+
+const configuredDatabaseUrl = selectedDatabaseEnv()
+  ? process.env[selectedDatabaseEnv() as "DATABASE_URL" | "SUPABASE_DB_URL"]
+  : undefined;
 const hasFileDatabaseUrl = Boolean(
   configuredDatabaseUrl?.startsWith("file:")
 );
@@ -35,11 +47,13 @@ declare global {
 }
 
 function databaseUrl() {
-  const url = process.env.SUPABASE_DB_URL || process.env.DATABASE_URL;
+  const envName = selectedDatabaseEnv();
+  const url = envName ? process.env[envName] : null;
   return url && !url.startsWith("file:") ? url : null;
 }
 
 export function databaseConfigStatus() {
+  const envName = selectedDatabaseEnv();
   const url = databaseUrl();
   const host = url ? databaseHost(url) : null;
   const directSupabaseMatch = host?.match(/^db\.([a-z0-9]+)\.supabase\.co$/);
@@ -47,6 +61,7 @@ export function databaseConfigStatus() {
     hasDatabaseUrl: Boolean(url),
     hasSupabaseDbUrl: Boolean(process.env.SUPABASE_DB_URL && !process.env.SUPABASE_DB_URL.startsWith("file:")),
     hasPrimaryDatabaseUrl: Boolean(process.env.DATABASE_URL && !process.env.DATABASE_URL.startsWith("file:")),
+    selectedDatabaseEnv: envName,
     databaseHost: host,
     usesDirectSupabaseHost: Boolean(directSupabaseMatch),
     supabaseProjectRef: directSupabaseMatch?.[1] || null,

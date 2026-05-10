@@ -20,7 +20,7 @@ async function readEnvFile() {
 
 await readEnvFile();
 
-const connectionString = process.env.SUPABASE_DB_URL || process.env.DATABASE_URL;
+const connectionString = process.env.DATABASE_URL || process.env.SUPABASE_DB_URL;
 if (!connectionString || connectionString.startsWith("file:")) {
   throw new Error("DATABASE_URL or SUPABASE_DB_URL is required to run the live cleanup migration.");
 }
