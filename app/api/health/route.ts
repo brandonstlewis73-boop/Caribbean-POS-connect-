@@ -4,26 +4,29 @@ import { databaseConfigStatus, getDb, isDemoMode } from "@/lib/db";
 export const runtime = "nodejs";
 
 async function getAuthStoreStatus() {
+  const adminEmails = ["admin@demo.com", "admin@caribbeanpos.test"];
   try {
     const result = await getDb().query<{ admin_count: string }>(
-      "SELECT COUNT(*) AS admin_count FROM users WHERE email = $1 AND active = TRUE",
-      ["admin@demo.com"]
+      "SELECT COUNT(*) AS admin_count FROM users WHERE email = ANY($1::text[]) AND active = TRUE",
+      [adminEmails]
     );
     return {
       source: "users",
       usersViewAvailable: true,
-      adminUserPresent: Number(result.rows[0]?.admin_count ?? 0) > 0
+      adminUserPresent: Number(result.rows[0]?.admin_count ?? 0) > 0,
+      adminUserCount: Number(result.rows[0]?.admin_count ?? 0)
     };
   } catch (usersError) {
     try {
       const result = await getDb().query<{ admin_count: string }>(
-        "SELECT COUNT(*) AS admin_count FROM staff_users WHERE email = $1 AND active = TRUE",
-        ["admin@demo.com"]
+        "SELECT COUNT(*) AS admin_count FROM staff_users WHERE email = ANY($1::text[]) AND active = TRUE",
+        [adminEmails]
       );
       return {
         source: "staff_users",
         usersViewAvailable: false,
         adminUserPresent: Number(result.rows[0]?.admin_count ?? 0) > 0,
+        adminUserCount: Number(result.rows[0]?.admin_count ?? 0),
         message: "The users view is unavailable; auth is using staff_users fallback."
       };
     } catch {

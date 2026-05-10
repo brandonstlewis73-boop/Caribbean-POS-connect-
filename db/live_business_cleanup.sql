@@ -68,6 +68,15 @@ INSERT INTO public.staff_users (
   'admin',
   '868-443-7582',
   TRUE
+), (
+  'usr_setup_admin',
+  'biz_savannah_sea',
+  'Asha Maharaj',
+  'admin@caribbeanpos.test',
+  '$2a$12$EvyU.jIQ.g5shOMcdNYal.qgL3OgrSPazfLaM8qbGpc8T4ZJDMpIa',
+  'admin',
+  '868-555-1001',
+  TRUE
 )
 ON CONFLICT (email) DO UPDATE SET
   name = EXCLUDED.name,
