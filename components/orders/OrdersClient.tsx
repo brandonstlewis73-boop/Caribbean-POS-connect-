@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { Bike, CheckCircle2, CreditCard, ExternalLink, MessageCircle, PackageCheck, Search, XCircle } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -44,13 +44,14 @@ export function OrdersClient({
   const [notesDraft, setNotesDraft] = useState("");
   const selected = items.find((order) => order.id === selectedId) || items[0];
   const isBusy = pendingAction !== null;
+  const deferredQuery = useDeferredValue(query);
 
   useEffect(() => {
     setNotesDraft(selected?.notes || "");
   }, [selected?.id, selected?.notes]);
 
   const filtered = useMemo(() => {
-    const q = query.toLowerCase().trim();
+    const q = deferredQuery.toLowerCase().trim();
     return items.filter((order) => {
       const typeMatch = type === "all" || order.order_type === type;
       const queryMatch =
@@ -62,7 +63,7 @@ export function OrdersClient({
           .includes(q);
       return typeMatch && queryMatch;
     });
-  }, [items, query, type]);
+  }, [items, deferredQuery, type]);
 
   async function patchOrder(orderId: string, body: Record<string, unknown>, action: PendingAction) {
     if (isBusy) return null;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useDeferredValue, useMemo, useState } from "react";
 import { PackagePlus, Search, SlidersHorizontal, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -39,9 +39,10 @@ export function InventoryClient({ products }: { products: Product[] }) {
   const [adjustments, setAdjustments] = useState<Record<string, number>>({});
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
+  const deferredQuery = useDeferredValue(query);
 
   const filtered = useMemo(() => {
-    const q = query.toLowerCase().trim();
+    const q = deferredQuery.toLowerCase().trim();
     return items.filter((product) =>
       !q || [product.name, product.sku, product.barcode, product.category, product.supplier_name]
         .filter(Boolean)
@@ -49,7 +50,7 @@ export function InventoryClient({ products }: { products: Product[] }) {
         .toLowerCase()
         .includes(q)
     );
-  }, [items, query]);
+  }, [items, deferredQuery]);
 
   async function refreshProducts() {
     const response = await fetch("/api/inventory");

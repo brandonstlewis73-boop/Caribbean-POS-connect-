@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { History, MessageCircle, PlusCircle, Search, UserRound } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Panel, PanelHeader } from "@/components/ui/Panel";
@@ -78,9 +78,10 @@ export function CustomersClient({ customers }: { customers: Customer[] }) {
   const [draft, setDraft] = useState<Customer | null>(customers[0] || null);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
+  const deferredQuery = useDeferredValue(query);
 
   const filtered = useMemo(() => {
-    const q = query.toLowerCase().trim();
+    const q = deferredQuery.toLowerCase().trim();
     return items.filter((customer) =>
       !q || [customer.name, customer.phone, customer.email, customer.city, customer.country]
         .filter(Boolean)
@@ -88,7 +89,7 @@ export function CustomersClient({ customers }: { customers: Customer[] }) {
         .toLowerCase()
         .includes(q)
     );
-  }, [items, query]);
+  }, [items, deferredQuery]);
 
   useEffect(() => {
     if (!selectedId || selectedId === "new") {

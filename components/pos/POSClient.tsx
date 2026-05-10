@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useDeferredValue, useMemo, useState } from "react";
 import {
   Banknote,
   Barcode,
@@ -84,9 +84,18 @@ export function POSClient({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [lastOrder, setLastOrder] = useState<Order | null>(null);
+  const deferredQuery = useDeferredValue(query);
+  const customerByPhoneSuffix = useMemo(() => {
+    const lookup = new Map<string, Customer>();
+    for (const item of customers) {
+      const digits = item.phone?.replace(/[^\d]/g, "");
+      if (digits && digits.length >= 7) lookup.set(digits.slice(-7), item);
+    }
+    return lookup;
+  }, [customers]);
 
   const filteredProducts = useMemo(() => {
-    const normalized = query.trim().toLowerCase();
+    const normalized = deferredQuery.trim().toLowerCase();
     return products.filter((product) => {
       const categoryMatch = category === "All" || product.category === category;
       const queryMatch =
@@ -98,7 +107,7 @@ export function POSClient({
           .includes(normalized);
       return categoryMatch && queryMatch;
     });
-  }, [products, query, category]);
+  }, [products, deferredQuery, category]);
   const enabledPaymentMethods = PAYMENT_METHODS.filter((method) => paymentMethodEnabled(method, settings));
 
   const subtotal = cart.reduce((sum, item) => sum + item.selling_price * item.quantity, 0);
@@ -137,7 +146,7 @@ export function POSClient({
     setCustomer((current) => ({ ...current, phone: value }));
     const digits = value.replace(/[^\d]/g, "");
     if (digits.length < 7) return;
-    const found = customers.find((item) => item.phone?.replace(/[^\d]/g, "").endsWith(digits.slice(-7)));
+    const found = customerByPhoneSuffix.get(digits.slice(-7));
     if (found) {
       setCustomer({
         name: found.name || "",

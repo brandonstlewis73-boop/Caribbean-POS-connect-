@@ -10,7 +10,7 @@ export function Field({ label, className, ...props }: Props) {
       <span className="min-w-0 leading-tight">{label}</span>
       <input
         className={cn(
-          "h-10 w-full min-w-0 rounded-card border border-white/10 bg-black/30 px-3 text-sm font-semibold text-white outline-none transition placeholder:text-slate-500 focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/15",
+          "h-10 w-full min-w-0 rounded-card border border-white/10 bg-black/30 px-3 text-sm font-semibold text-white outline-none transition-colors duration-100 placeholder:text-slate-500 focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/15",
           className
         )}
         {...props}
@@ -30,7 +30,7 @@ export function SelectField({
       <span className="min-w-0 leading-tight">{label}</span>
       <select
         className={cn(
-          "h-10 w-full min-w-0 rounded-card border border-white/10 bg-black/30 px-3 text-sm font-semibold text-white outline-none transition focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/15",
+          "h-10 w-full min-w-0 rounded-card border border-white/10 bg-black/30 px-3 text-sm font-semibold text-white outline-none transition-colors duration-100 focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/15",
           className
         )}
         {...props}
@@ -51,7 +51,7 @@ export function TextAreaField({
       <span className="min-w-0 leading-tight">{label}</span>
       <textarea
         className={cn(
-          "min-h-24 w-full min-w-0 rounded-card border border-white/10 bg-black/30 px-3 py-2 text-sm font-semibold text-white outline-none transition placeholder:text-slate-500 focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/15",
+          "min-h-24 w-full min-w-0 rounded-card border border-white/10 bg-black/30 px-3 py-2 text-sm font-semibold text-white outline-none transition-colors duration-100 placeholder:text-slate-500 focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/15",
           className
         )}
         {...props}
