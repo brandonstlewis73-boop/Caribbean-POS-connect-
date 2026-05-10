@@ -21,29 +21,33 @@ import { Badge } from "@/components/ui/Badge";
 import { Field, SelectField, TextAreaField } from "@/components/ui/Field";
 import { Panel, PanelHeader } from "@/components/ui/Panel";
 import {
+  getDefaultCountryForCurrency,
+  getDeliveryRegionsForCurrency,
   money,
   PAYMENT_METHODS,
-  PRODUCT_CATEGORIES,
-  TT_REGIONS
+  PRODUCT_CATEGORIES
 } from "@/lib/constants";
 import { readApiPayload } from "@/lib/client-response";
 import type { Customer, Order, Product, Settings, User } from "@/lib/types";
 
 type CartItem = Product & { quantity: number; discount: number };
 
-const emptyCustomer = {
-  name: "",
-  phone: "",
-  email: "",
-  street_address: "",
-  city: "",
-  region: "Chaguanas",
-  country: "Trinidad and Tobago",
-  delivery_notes: "",
-  notes: "",
-  birthday: "",
-  marketing_consent: false
-};
+function emptyCustomer(currency: string) {
+  const regions = getDeliveryRegionsForCurrency(currency);
+  return {
+    name: "",
+    phone: "",
+    email: "",
+    street_address: "",
+    city: "",
+    region: regions[0] || "",
+    country: getDefaultCountryForCurrency(currency),
+    delivery_notes: "",
+    notes: "",
+    birthday: "",
+    marketing_consent: false
+  };
+}
 
 function paymentMethodEnabled(method: string, settings: Settings) {
   if (method === "Cash") return settings.payment_cash_enabled;
@@ -73,7 +77,7 @@ export function POSClient({
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("All");
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [customer, setCustomer] = useState(emptyCustomer);
+  const [customer, setCustomer] = useState(() => emptyCustomer(settings.currency));
   const [orderType, setOrderType] = useState<"in_store" | "pickup" | "delivery">("in_store");
   const [paymentMethod, setPaymentMethod] = useState("Cash");
   const [paymentStatus, setPaymentStatus] = useState<"paid" | "unpaid" | "partial">("paid");
@@ -120,6 +124,9 @@ export function POSClient({
       : 0;
   const total = taxable + tax + deliveryFee;
   const formatMoney = (value: number | string | null | undefined) => money(value, settings.currency);
+  const deliveryRegions = getDeliveryRegionsForCurrency(settings.currency);
+  const defaultDeliveryRegion = deliveryRegions[0] || "";
+  const defaultCountry = getDefaultCountryForCurrency(settings.currency);
 
   function addProduct(product: Product) {
     setCart((current) => {
@@ -155,8 +162,8 @@ export function POSClient({
         email: found.email || "",
         street_address: found.street_address || "",
         city: found.city || "",
-        region: found.region || "Chaguanas",
-        country: found.country || "Trinidad and Tobago",
+        region: found.region && deliveryRegions.includes(found.region) ? found.region : defaultDeliveryRegion,
+        country: found.country || defaultCountry,
         delivery_notes: found.delivery_notes || "",
         notes: found.notes || "",
         birthday: found.birthday || "",
@@ -441,7 +448,7 @@ export function POSClient({
                   <Field label="Country" value={customer.country} onChange={(event) => setCustomer({ ...customer, country: event.target.value })} />
                 </div>
                 <SelectField label="Delivery region" value={customer.region} onChange={(event) => setCustomer({ ...customer, region: event.target.value })}>
-                  {TT_REGIONS.map((region) => <option key={region}>{region}</option>)}
+                  {deliveryRegions.map((region) => <option key={region}>{region}</option>)}
                 </SelectField>
                 <TextAreaField label="Delivery instructions" value={customer.delivery_notes} onChange={(event) => setCustomer({ ...customer, delivery_notes: event.target.value })} />
                 <div className="grid gap-3 sm:grid-cols-2">

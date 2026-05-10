@@ -6,7 +6,14 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Field, SelectField, TextAreaField } from "@/components/ui/Field";
 import { Panel, PanelHeader } from "@/components/ui/Panel";
-import { CARIBBEAN_CURRENCIES, DEFAULT_DELIVERY_RATES, ROLE_LABELS, TT_REGIONS, currencyOptionLabel } from "@/lib/constants";
+import {
+  CARIBBEAN_CURRENCIES,
+  ROLE_LABELS,
+  currencyOptionLabel,
+  getDefaultCountryForCurrency,
+  getDefaultDeliveryRatesForCurrency,
+  getDeliveryRegionsForCurrency
+} from "@/lib/constants";
 import { readApiPayload } from "@/lib/client-response";
 import type { Business, Settings, User } from "@/lib/types";
 
@@ -27,16 +34,19 @@ function Toggle({
   );
 }
 
-const emptyBusinessDraft = {
-  name: "",
-  phone: "",
-  email: "",
-  street_address: "",
-  city: "",
-  region: "Port of Spain",
-  country: "Trinidad and Tobago",
-  currency: "TTD"
-};
+function createEmptyBusinessDraft(currency = "TTD") {
+  const regions = getDeliveryRegionsForCurrency(currency);
+  return {
+    name: "",
+    phone: "",
+    email: "",
+    street_address: "",
+    city: "",
+    region: regions[0] || "",
+    country: getDefaultCountryForCurrency(currency),
+    currency
+  };
+}
 
 export function SettingsClient({
   settings,
@@ -49,12 +59,48 @@ export function SettingsClient({
 }) {
   const [draft, setDraft] = useState(settings);
   const [businessItems, setBusinessItems] = useState(businesses);
-  const [businessDraft, setBusinessDraft] = useState(emptyBusinessDraft);
+  const [businessDraft, setBusinessDraft] = useState(() => createEmptyBusinessDraft(settings.currency));
   const [message, setMessage] = useState("");
-  const deliveryRates = { ...DEFAULT_DELIVERY_RATES, ...(draft.delivery_rates || {}) };
+  const deliveryRegions = getDeliveryRegionsForCurrency(draft.currency);
+  const defaultDeliveryRates = getDefaultDeliveryRatesForCurrency(draft.currency);
+  const deliveryRates = Object.fromEntries(
+    deliveryRegions.map((region) => [
+      region,
+      Number((draft.delivery_rates || {})[region] ?? defaultDeliveryRates[region] ?? draft.delivery_fee ?? 0)
+    ])
+  ) as Record<string, number>;
 
   function update<K extends keyof Settings>(key: K, value: Settings[K]) {
     setDraft((current) => ({ ...current, [key]: value }));
+  }
+
+  function updateCurrency(currency: string) {
+    const rates = getDefaultDeliveryRatesForCurrency(currency);
+    setDraft((current) => ({
+      ...current,
+      currency,
+      delivery_rates: Object.fromEntries(
+        getDeliveryRegionsForCurrency(currency).map((region) => [
+          region,
+          Number((current.delivery_rates || {})[region] ?? rates[region] ?? current.delivery_fee ?? 0)
+        ])
+      )
+    }));
+    setBusinessDraft((current) => ({
+      ...current,
+      currency,
+      region: getDeliveryRegionsForCurrency(currency)[0] || "",
+      country: getDefaultCountryForCurrency(currency)
+    }));
+  }
+
+  function updateBusinessCurrency(currency: string) {
+    setBusinessDraft((current) => ({
+      ...current,
+      currency,
+      region: getDeliveryRegionsForCurrency(currency)[0] || "",
+      country: getDefaultCountryForCurrency(currency)
+    }));
   }
 
   function updateDeliveryRate(region: string, value: number) {
@@ -95,7 +141,7 @@ export function SettingsClient({
       return;
     }
     setBusinessItems((current) => [payload.data!.business, ...current]);
-    setBusinessDraft(emptyBusinessDraft);
+    setBusinessDraft(createEmptyBusinessDraft(draft.currency));
     setMessage("Business profile created.");
   }
 
@@ -110,7 +156,7 @@ export function SettingsClient({
             <Field label="Phone" value={draft.business_phone} onChange={(event) => update("business_phone", event.target.value)} />
             <Field label="Email" type="email" value={draft.business_email} onChange={(event) => update("business_email", event.target.value)} />
             <Field label="Address" value={draft.business_address} onChange={(event) => update("business_address", event.target.value)} className="md:col-span-2" />
-            <SelectField label="Currency" value={draft.currency} onChange={(event) => update("currency", event.target.value)}>
+            <SelectField label="Currency" value={draft.currency} onChange={(event) => updateCurrency(event.target.value)}>
               {CARIBBEAN_CURRENCIES.map((currency) => (
                 <option key={currency.code} value={currency.code}>
                   {currencyOptionLabel(currency)} - {currency.territories}
@@ -159,15 +205,15 @@ export function SettingsClient({
                 value={businessDraft.region}
                 onChange={(event) => setBusinessDraft((current) => ({ ...current, region: event.target.value }))}
               >
-                {TT_REGIONS.map((region) => (
+                {getDeliveryRegionsForCurrency(businessDraft.currency).map((region) => (
                   <option key={region}>{region}</option>
                 ))}
               </SelectField>
-              <Field label="Country" value={businessDraft.country} readOnly />
+              <Field label="Country/market" value={businessDraft.country} onChange={(event) => setBusinessDraft((current) => ({ ...current, country: event.target.value }))} />
               <SelectField
                 label="Currency"
                 value={businessDraft.currency}
-                onChange={(event) => setBusinessDraft((current) => ({ ...current, currency: event.target.value }))}
+                onChange={(event) => updateBusinessCurrency(event.target.value)}
               >
                 {CARIBBEAN_CURRENCIES.map((currency) => (
                   <option key={currency.code} value={currency.code}>
@@ -215,9 +261,9 @@ export function SettingsClient({
         </Panel>
 
         <Panel>
-          <PanelHeader title="Delivery rates by location" description="Used by POS and storefront delivery checkout" />
+          <PanelHeader title={`Delivery rates by location (${draft.currency})`} description="Areas update to match the selected store currency" />
           <div className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
-            {TT_REGIONS.map((region) => (
+            {deliveryRegions.map((region) => (
               <Field
                 key={region}
                 label={region}

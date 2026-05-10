@@ -85,6 +85,63 @@ export const DEFAULT_DELIVERY_RATES: Record<(typeof TT_REGIONS)[number], number>
   Tobago: 75
 };
 
+export const DELIVERY_REGIONS_BY_CURRENCY = {
+  AWG: ["Oranjestad", "Noord", "Paradera", "Santa Cruz", "Savaneta", "San Nicolas"],
+  BSD: ["New Providence", "Grand Bahama", "Abaco", "Eleuthera", "Exuma", "Andros", "Bimini", "Long Island", "Cat Island"],
+  BBD: ["Bridgetown", "Christ Church", "St. Michael", "St. George", "St. James", "St. Philip", "St. Thomas", "St. John", "St. Joseph", "St. Lucy", "St. Peter", "St. Andrew"],
+  BZD: ["Belize District", "Cayo", "Corozal", "Orange Walk", "Stann Creek", "Toledo"],
+  BMD: ["Hamilton", "St. George's", "Sandys", "Southampton", "Warwick", "Paget", "Pembroke", "Devonshire", "Smith's", "Hamilton Parish", "St. George's Parish"],
+  KYD: ["Grand Cayman", "Cayman Brac", "Little Cayman"],
+  CUP: ["Havana", "Santiago de Cuba", "Camaguey", "Holguin", "Matanzas", "Villa Clara", "Cienfuegos", "Pinar del Rio", "Granma", "Guantanamo", "Las Tunas", "Sancti Spiritus", "Ciego de Avila", "Artemisa", "Mayabeque", "Isla de la Juventud"],
+  DOP: ["Santo Domingo", "Distrito Nacional", "Santiago", "La Altagracia", "Puerto Plata", "La Romana", "San Pedro de Macoris", "San Cristobal", "La Vega", "Duarte", "Espaillat", "Samana", "Barahona"],
+  XCD: ["Anguilla", "Antigua and Barbuda", "Dominica", "Grenada", "Montserrat", "St. Kitts and Nevis", "Saint Lucia", "St. Vincent and the Grenadines"],
+  XCG: ["Curacao", "Sint Maarten"],
+  HTG: ["Ouest", "Artibonite", "Nord", "Nord-Est", "Nord-Ouest", "Centre", "Sud", "Sud-Est", "Grand'Anse", "Nippes"],
+  GYD: ["Georgetown", "Demerara-Mahaica", "Essequibo Islands-West Demerara", "Pomeroon-Supenaam", "Mahaica-Berbice", "East Berbice-Corentyne", "Cuyuni-Mazaruni", "Potaro-Siparuni", "Upper Takutu-Upper Essequibo", "Barima-Waini"],
+  JMD: ["Kingston", "St. Andrew", "St. Catherine", "Clarendon", "Manchester", "St. Elizabeth", "Westmoreland", "Hanover", "St. James", "Trelawny", "St. Ann", "St. Mary", "Portland", "St. Thomas"],
+  SRD: ["Paramaribo", "Wanica", "Nickerie", "Commewijne", "Para", "Marowijne", "Saramacca", "Brokopondo", "Coronie", "Sipaliwini"],
+  TTD: TT_REGIONS,
+  USD: ["Puerto Rico", "US Virgin Islands", "British Virgin Islands", "Turks and Caicos", "Bonaire", "Saba", "Sint Eustatius"],
+  EUR: ["Guadeloupe", "Martinique", "Saint Martin", "Saint Barthelemy"]
+} as const satisfies Record<CaribbeanCurrencyCode, readonly string[]>;
+
+export const DEFAULT_COUNTRY_BY_CURRENCY: Record<CaribbeanCurrencyCode, string> = {
+  AWG: "Aruba",
+  BSD: "Bahamas",
+  BBD: "Barbados",
+  BZD: "Belize",
+  BMD: "Bermuda",
+  KYD: "Cayman Islands",
+  CUP: "Cuba",
+  DOP: "Dominican Republic",
+  XCD: "Eastern Caribbean",
+  XCG: "Curacao and Sint Maarten",
+  HTG: "Haiti",
+  GYD: "Guyana",
+  JMD: "Jamaica",
+  SRD: "Suriname",
+  TTD: "Trinidad and Tobago",
+  USD: "US dollar Caribbean territories",
+  EUR: "French Caribbean territories"
+};
+
+export function getDeliveryRegionsForCurrency(currency?: string | null): readonly string[] {
+  return DELIVERY_REGIONS_BY_CURRENCY[(currency || CURRENCY_CODE) as CaribbeanCurrencyCode] || DELIVERY_REGIONS_BY_CURRENCY.TTD;
+}
+
+export function getDefaultCountryForCurrency(currency?: string | null) {
+  return DEFAULT_COUNTRY_BY_CURRENCY[(currency || CURRENCY_CODE) as CaribbeanCurrencyCode] || DEFAULT_COUNTRY_BY_CURRENCY.TTD;
+}
+
+export function getDefaultDeliveryRatesForCurrency(currency?: string | null) {
+  return Object.fromEntries(
+    getDeliveryRegionsForCurrency(currency).map((region) => [
+      region,
+      DEFAULT_DELIVERY_RATES[region as (typeof TT_REGIONS)[number]] ?? 25
+    ])
+  ) as Record<string, number>;
+}
+
 export const PRODUCT_IMAGE_URLS: Record<string, string> = {
   "FOOD-JERK-001": "https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?auto=format&fit=crop&w=900&q=80",
   "FOOD-DOUB-002": "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=900&q=80",

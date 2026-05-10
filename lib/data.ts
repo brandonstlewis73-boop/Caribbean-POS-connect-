@@ -1,7 +1,14 @@
 import { subDays, startOfDay } from "date-fns";
 import bcrypt from "bcryptjs";
 import { isDemoMode, query, transaction, createId, type PoolClient } from "./db";
-import { CURRENCY_CODE, DEFAULT_DELIVERY_RATES, SUBSCRIPTION_PLANS, money } from "./constants";
+import {
+  CURRENCY_CODE,
+  DEFAULT_DELIVERY_RATES,
+  SUBSCRIPTION_PLANS,
+  getDefaultDeliveryRatesForCurrency,
+  getDeliveryRegionsForCurrency,
+  money
+} from "./constants";
 import {
   demoAdjustStock,
   demoCreateCustomer,
@@ -124,15 +131,15 @@ function roundMoney(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
-function normalizeDeliveryRates(value?: Record<string, number> | null) {
+function normalizeDeliveryRates(value?: Record<string, number> | null, currency?: string | null) {
   return {
-    ...DEFAULT_DELIVERY_RATES,
+    ...getDefaultDeliveryRatesForCurrency(currency),
     ...(value || {})
   };
 }
 
 function getDeliveryFeeForRegion(settings: Settings, region?: string | null) {
-  const rates: Record<string, number> = normalizeDeliveryRates(settings.delivery_rates);
+  const rates: Record<string, number> = normalizeDeliveryRates(settings.delivery_rates, settings.currency);
   if (region && rates[region] !== undefined) {
     return Number(rates[region]);
   }
@@ -367,14 +374,26 @@ export async function getSettings(): Promise<Settings> {
   for (const row of rows.rows) {
     settings[row.key] = parseJson(row.value, row.value);
   }
-  settings.delivery_rates = normalizeDeliveryRates(settings.delivery_rates as Record<string, number>);
+  settings.delivery_rates = normalizeDeliveryRates(settings.delivery_rates as Record<string, number>, settings.currency as string);
   return settings as Settings;
 }
 
 export async function updateSettings(input: Partial<Settings>, userId?: string) {
   if (isDemoMode) return demoUpdateSettings(input, userId);
+  const current = await getSettings();
+  const nextCurrency = input.currency || current.currency;
+  const nextInput = { ...input };
+  if (input.currency || input.delivery_rates) {
+    const defaults = getDefaultDeliveryRatesForCurrency(nextCurrency);
+    nextInput.delivery_rates = Object.fromEntries(
+      getDeliveryRegionsForCurrency(nextCurrency).map((region) => [
+        region,
+        Number(input.delivery_rates?.[region] ?? current.delivery_rates?.[region] ?? defaults[region] ?? current.delivery_fee ?? 0)
+      ])
+    );
+  }
   await transaction(async (client) => {
-    for (const [key, value] of Object.entries(input)) {
+    for (const [key, value] of Object.entries(nextInput)) {
       await query(
         `INSERT INTO settings (key, value, updated_at)
          VALUES ($1, $2::jsonb, NOW())
@@ -383,7 +402,7 @@ export async function updateSettings(input: Partial<Settings>, userId?: string) 
         client
       );
     }
-    await auditLog("settings:update", "settings", "global", input, userId, client);
+    await auditLog("settings:update", "settings", "global", nextInput, userId, client);
   });
   return getSettings();
 }

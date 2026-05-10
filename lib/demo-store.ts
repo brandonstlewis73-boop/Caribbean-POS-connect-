@@ -1,6 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { subDays, startOfDay } from "date-fns";
-import { CURRENCY_CODE, DEFAULT_DELIVERY_RATES, money } from "./constants";
+import {
+  CURRENCY_CODE,
+  DEFAULT_DELIVERY_RATES,
+  getDefaultDeliveryRatesForCurrency,
+  getDeliveryRegionsForCurrency,
+  money
+} from "./constants";
 import { buildAddress, buildWazeLink } from "./waze";
 import {
   buildCustomerConfirmationMessage,
@@ -161,7 +167,7 @@ function buildPaymentLink(
 }
 
 function regionDeliveryFee(settings: Settings, region?: string | null) {
-  const rates: Record<string, number> = { ...DEFAULT_DELIVERY_RATES, ...settings.delivery_rates };
+  const rates: Record<string, number> = { ...getDefaultDeliveryRatesForCurrency(settings.currency), ...settings.delivery_rates };
   return region && rates[region] !== undefined ? Number(rates[region]) : Number(settings.delivery_fee || 0);
 }
 
@@ -285,13 +291,30 @@ function upsertDemoCustomer(input?: CustomerInput | null) {
 
 export async function demoGetSettings() {
   const settings = store().settings;
-  return { ...settings, delivery_rates: { ...settings.delivery_rates } };
+  return {
+    ...settings,
+    delivery_rates: {
+      ...getDefaultDeliveryRatesForCurrency(settings.currency),
+      ...settings.delivery_rates
+    }
+  };
 }
 
 export async function demoUpdateSettings(input: Partial<Settings>, userId?: string) {
   const state = store();
-  state.settings = { ...state.settings, ...input, delivery_rates: { ...state.settings.delivery_rates, ...input.delivery_rates } };
-  demoAuditLog("settings:update", "settings", "global", input, userId, state);
+  const nextCurrency = input.currency || state.settings.currency;
+  const defaults = getDefaultDeliveryRatesForCurrency(nextCurrency);
+  const delivery_rates =
+    input.currency || input.delivery_rates
+      ? Object.fromEntries(
+          getDeliveryRegionsForCurrency(nextCurrency).map((region) => [
+            region,
+            Number(input.delivery_rates?.[region] ?? state.settings.delivery_rates?.[region] ?? defaults[region] ?? state.settings.delivery_fee ?? 0)
+          ])
+        )
+      : { ...state.settings.delivery_rates };
+  state.settings = { ...state.settings, ...input, delivery_rates };
+  demoAuditLog("settings:update", "settings", "global", { ...input, delivery_rates }, userId, state);
   return demoGetSettings();
 }
 

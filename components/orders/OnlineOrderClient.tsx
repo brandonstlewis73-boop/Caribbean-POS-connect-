@@ -5,11 +5,26 @@ import { CreditCard, ExternalLink, LocateFixed, MessageCircle, Minus, Plus, Send
 import { Button } from "@/components/ui/Button";
 import { Field, SelectField, TextAreaField } from "@/components/ui/Field";
 import { Badge } from "@/components/ui/Badge";
-import { money, PAYMENT_METHODS, PRODUCT_CATEGORIES, TT_REGIONS } from "@/lib/constants";
+import { getDefaultCountryForCurrency, getDeliveryRegionsForCurrency, money, PAYMENT_METHODS, PRODUCT_CATEGORIES } from "@/lib/constants";
 import { readApiPayload } from "@/lib/client-response";
 import type { Order, Product, Settings } from "@/lib/types";
 
 type CartItem = Product & { quantity: number };
+
+function emptyCustomer(currency: string) {
+  const regions = getDeliveryRegionsForCurrency(currency);
+  return {
+    name: "",
+    phone: "",
+    email: "",
+    street_address: "",
+    city: "",
+    region: regions[0] || "",
+    country: getDefaultCountryForCurrency(currency),
+    delivery_notes: "",
+    marketing_consent: false
+  };
+}
 
 function paymentMethodEnabled(method: string, settings: Settings) {
   if (method === "Cash") return settings.payment_cash_enabled;
@@ -37,17 +52,7 @@ export function OnlineOrderClient({
   const [category, setCategory] = useState("All");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [fulfillment, setFulfillment] = useState<"pickup" | "delivery">("delivery");
-  const [customer, setCustomer] = useState({
-    name: "",
-    phone: "",
-    email: "",
-    street_address: "",
-    city: "",
-    region: "Chaguanas",
-    country: "Trinidad and Tobago",
-    delivery_notes: "",
-    marketing_consent: false
-  });
+  const [customer, setCustomer] = useState(() => emptyCustomer(initialSettings.currency));
   const [paymentMethod, setPaymentMethod] = useState("Pay on delivery");
   const [coords, setCoords] = useState({ latitude: "", longitude: "" });
   const [locationLink, setLocationLink] = useState("");
@@ -97,6 +102,18 @@ export function OnlineOrderClient({
       : 0;
   const total = subtotal + tax + deliveryFee;
   const formatMoney = (value: number | string | null | undefined) => money(value, settings.currency);
+  const deliveryRegions = getDeliveryRegionsForCurrency(settings.currency);
+  const defaultDeliveryRegion = deliveryRegions[0] || "";
+  const defaultCountry = getDefaultCountryForCurrency(settings.currency);
+
+  useEffect(() => {
+    setCustomer((current) => {
+      const nextRegion = deliveryRegions.includes(current.region) ? current.region : defaultDeliveryRegion;
+      const nextCountry = current.country && current.country !== "Trinidad and Tobago" ? current.country : defaultCountry;
+      if (nextRegion === current.region && nextCountry === current.country) return current;
+      return { ...current, region: nextRegion, country: nextCountry };
+    });
+  }, [defaultCountry, defaultDeliveryRegion, deliveryRegions]);
 
   function add(product: Product) {
     setCart((current) => {
@@ -315,7 +332,7 @@ export function OnlineOrderClient({
                   <Field label="City/town" value={customer.city} onChange={(event) => setCustomer({ ...customer, city: event.target.value })} />
                   <Field label="Country" value={customer.country} onChange={(event) => setCustomer({ ...customer, country: event.target.value })} />
                   <SelectField label="Delivery region" value={customer.region} onChange={(event) => setCustomer({ ...customer, region: event.target.value })}>
-                    {TT_REGIONS.map((region) => <option key={region}>{region}</option>)}
+                    {deliveryRegions.map((region) => <option key={region}>{region}</option>)}
                   </SelectField>
                   <TextAreaField label="Delivery instructions" value={customer.delivery_notes} onChange={(event) => setCustomer({ ...customer, delivery_notes: event.target.value })} />
                   <Button type="button" onClick={captureLocation}>
