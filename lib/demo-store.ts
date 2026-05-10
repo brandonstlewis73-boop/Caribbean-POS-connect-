@@ -64,6 +64,7 @@ const demoSettings: Settings = {
   business_email: "hello@savannahsea.tt",
   business_address: "18 Independence Square, Port of Spain, Trinidad and Tobago",
   logo_url: "/logo.svg",
+  active_business_id: "biz_savannah_sea",
   currency: CURRENCY_CODE,
   tax_enabled: true,
   tax_rate: 12.5,
@@ -402,6 +403,24 @@ export async function demoCreateBusiness(input: BusinessInput, userId?: string) 
   };
   store().businesses.unshift(business);
   demoAuditLog("business:create", "business", business.id, input, userId);
+  return cloneBusiness(business);
+}
+
+export async function demoDeleteBusiness(businessId: string, userId?: string) {
+  const state = store();
+  const index = state.businesses.findIndex((item) => item.id === businessId);
+  if (index < 0) return null;
+  if (businessId === "biz_savannah_sea") {
+    throw new Error("The default business profile is tied to store data and cannot be deleted.");
+  }
+  if (state.settings.active_business_id === businessId) {
+    throw new Error("Switch to another business before deleting the live business profile.");
+  }
+  if (state.businesses.length <= 1) {
+    throw new Error("Keep at least one business profile in the store.");
+  }
+  const [business] = state.businesses.splice(index, 1);
+  demoAuditLog("business:delete", "business", businessId, { name: business.name, currency: business.currency }, userId, state);
   return cloneBusiness(business);
 }
 

@@ -551,6 +551,8 @@ INSERT INTO public.settings (key, business_id, value) VALUES
   ('business_phone', 'biz_savannah_sea', to_jsonb('868-443-7582'::text)),
   ('business_email', 'biz_savannah_sea', to_jsonb('hello@savannahsea.tt'::text)),
   ('business_address', 'biz_savannah_sea', to_jsonb('18 Independence Square, Port of Spain, Trinidad and Tobago'::text)),
+  ('logo_url', 'biz_savannah_sea', to_jsonb('/logo.svg'::text)),
+  ('active_business_id', 'biz_savannah_sea', to_jsonb('biz_savannah_sea'::text)),
   ('currency', 'biz_savannah_sea', to_jsonb('TTD'::text)),
   ('tax_enabled', 'biz_savannah_sea', 'true'::jsonb),
   ('tax_rate', 'biz_savannah_sea', '12.5'::jsonb),

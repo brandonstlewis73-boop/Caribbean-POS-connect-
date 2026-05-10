@@ -173,6 +173,7 @@ export type Settings = {
   business_email: string;
   business_address: string;
   logo_url?: string | null;
+  active_business_id?: string | null;
   currency: string;
   tax_enabled: boolean;
   tax_rate: number;

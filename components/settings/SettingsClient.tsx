@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ChangeEvent } from "react";
-import { Building2, Link2, MessageCircle, PlusCircle, Save, ShieldCheck, Truck, UsersRound } from "lucide-react";
+import { Building2, Link2, MessageCircle, PlusCircle, RefreshCw, Save, ShieldCheck, Trash2, Truck, UsersRound } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Field, SelectField, TextAreaField } from "@/components/ui/Field";
@@ -48,6 +48,10 @@ function createEmptyBusinessDraft(currency = "TTD") {
   };
 }
 
+function businessAddress(business: Business) {
+  return [business.street_address, business.city, business.region, business.country].filter(Boolean).join(", ");
+}
+
 const MAX_LOGO_SIZE_BYTES = 750 * 1024;
 const LOGO_IMAGE_TYPES = ["image/png", "image/jpeg"];
 
@@ -74,6 +78,7 @@ export function SettingsClient({
   const [businessDraft, setBusinessDraft] = useState(() => createEmptyBusinessDraft(settings.currency));
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
+  const [businessBusyId, setBusinessBusyId] = useState("");
   const deliveryRegions = getDeliveryRegionsForCurrency(draft.currency);
   const defaultDeliveryRates = getDefaultDeliveryRatesForCurrency(draft.currency);
   const deliveryRates = Object.fromEntries(
@@ -164,6 +169,68 @@ export function SettingsClient({
 
   function updateDeliveryRate(region: string, value: number) {
     update("delivery_rates", { ...deliveryRates, [region]: value });
+  }
+
+  function isLiveBusiness(business: Business) {
+    if (draft.active_business_id) return draft.active_business_id === business.id;
+    return draft.business_name === business.name && draft.currency === business.currency;
+  }
+
+  async function switchBusinessProfile(business: Business) {
+    const previousDraft = draft;
+    const currency = business.currency || draft.currency;
+    const nextDraft = settingsWithCurrency(
+      {
+        ...draft,
+        active_business_id: business.id,
+        business_name: business.name,
+        business_phone: business.phone || "",
+        business_email: business.email || "",
+        business_address: businessAddress(business) || draft.business_address,
+        logo_url: business.logo_url || draft.logo_url || "/logo.svg"
+      },
+      currency
+    );
+    setDraft(nextDraft);
+    setBusinessDraft((current) => ({
+      ...current,
+      currency,
+      region: getDeliveryRegionsForCurrency(currency)[0] || "",
+      country: getDefaultCountryForCurrency(currency)
+    }));
+    setBusinessBusyId(business.id);
+    setMessage(`Switching live business to ${business.name}...`);
+    const saved = await saveSettings(nextDraft, `${business.name} is now the live business.`);
+    if (!saved) setDraft(previousDraft);
+    setBusinessBusyId("");
+  }
+
+  async function deleteBusinessProfile(business: Business) {
+    if (isLiveBusiness(business)) {
+      setMessage("Switch to another business before deleting the live business profile.");
+      return;
+    }
+    if (business.id === "biz_savannah_sea") {
+      setMessage("The default business profile is tied to store data and cannot be deleted.");
+      return;
+    }
+    if (!window.confirm(`Delete ${business.name}? Store settings stay as-is, but this business profile will be removed.`)) return;
+    setBusinessBusyId(business.id);
+    setMessage("");
+    try {
+      const response = await fetch(`/api/businesses/${business.id}`, { method: "DELETE" });
+      const payload = await readApiPayload<{ business: Business }>(response);
+      if (!response.ok) {
+        setMessage(payload.error || "Business profile could not be deleted.");
+        return;
+      }
+      setBusinessItems((current) => current.filter((item) => item.id !== business.id));
+      setMessage("Business profile deleted.");
+    } catch {
+      setMessage("Business profile could not be deleted. Check your connection and try again.");
+    } finally {
+      setBusinessBusyId("");
+    }
   }
 
   async function uploadStoreLogo(event: ChangeEvent<HTMLInputElement>) {
@@ -264,8 +331,8 @@ export function SettingsClient({
 
         <Panel>
           <PanelHeader
-            title="Business test profiles"
-            description="Create business profiles for branches, vendors, and connected business accounts"
+            title="Business profiles"
+            description="Switch the live store between saved businesses, branches, and vendor profiles"
           />
           <div className="grid gap-4 p-4">
             <div className="grid gap-3 md:grid-cols-2">
@@ -335,13 +402,36 @@ export function SettingsClient({
                     ) : (
                       <Building2 className="mt-0.5 h-5 w-5 shrink-0 text-caribbean-teal" />
                     )}
-                    <div className="min-w-0">
-                      <p className="truncate font-black">{business.name}</p>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex min-w-0 flex-wrap items-center gap-2">
+                        <p className="truncate font-black">{business.name}</p>
+                        {isLiveBusiness(business) ? <Badge tone="teal">Live</Badge> : null}
+                      </div>
                       <p className="text-xs font-semibold text-slate-500">
-                        {[business.street_address, business.city, business.region].filter(Boolean).join(", ") || "No address yet"}
+                        {businessAddress(business) || "No address yet"}
                       </p>
                       <p className="mt-1 text-xs font-bold text-slate-400">{business.phone || business.email || business.currency}</p>
                     </div>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      variant={isLiveBusiness(business) ? "success" : "secondary"}
+                      onClick={() => switchBusinessProfile(business)}
+                      disabled={saving || businessBusyId === business.id || isLiveBusiness(business)}
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                      {isLiveBusiness(business) ? "Live business" : "Switch"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      onClick={() => deleteBusinessProfile(business)}
+                      disabled={saving || businessBusyId === business.id || isLiveBusiness(business)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Delete
+                    </Button>
                   </div>
                 </div>
               ))}

@@ -16,6 +16,7 @@ import {
   demoCreateProduct,
   demoDashboardData,
   demoCreateBusiness,
+  demoDeleteBusiness,
   demoGetCustomer,
   demoGetCustomerProfile,
   demoGetOrder,
@@ -73,6 +74,7 @@ export const defaultSettings: Settings = {
   business_email: "hello@savannahsea.tt",
   business_address: "18 Independence Square, Port of Spain, Trinidad and Tobago",
   logo_url: "/logo.svg",
+  active_business_id: "biz_savannah_sea",
   currency: CURRENCY_CODE,
   tax_enabled: true,
   tax_rate: 12.5,
@@ -584,6 +586,30 @@ export async function createBusiness(input: BusinessInput, userId?: string) {
   await auditLog("business:create", "business", id, input, userId);
   const rows = await query<any>("SELECT * FROM businesses WHERE id = $1", [id]);
   return rows.rows[0] ? rowToBusiness(rows.rows[0]) : null;
+}
+
+export async function deleteBusiness(id: string, userId?: string) {
+  if (isDemoMode) return demoDeleteBusiness(id, userId);
+  return transaction(async (client) => {
+    const rows = await query<any>("SELECT * FROM businesses WHERE id = $1", [id], client);
+    const existing = rows.rows[0];
+    if (!existing) return null;
+    if (id === "biz_savannah_sea") {
+      throw new Error("The default business profile is tied to store data and cannot be deleted.");
+    }
+    const activeRows = await query<{ value: unknown }>("SELECT value FROM settings WHERE key = 'active_business_id'", [], client);
+    const activeBusinessId = parseJson<string | null>(activeRows.rows[0]?.value, null);
+    if (activeBusinessId === id) {
+      throw new Error("Switch to another business before deleting the live business profile.");
+    }
+    const countRows = await query<{ count: number }>("SELECT COUNT(*)::int AS count FROM businesses", [], client);
+    if (Number(countRows.rows[0]?.count || 0) <= 1) {
+      throw new Error("Keep at least one business profile in the store.");
+    }
+    await auditLog("business:delete", "business", id, { name: existing.name, currency: existing.currency }, userId, client);
+    await query("DELETE FROM businesses WHERE id = $1", [id], client);
+    return rowToBusiness(existing);
+  });
 }
 
 export function listSubscriptionPlans(): SubscriptionPlan[] {

@@ -444,6 +444,7 @@ async function seedSettings() {
   await insertSetting("business_email", "hello@savannahsea.tt");
   await insertSetting("business_address", "18 Independence Square, Port of Spain, Trinidad and Tobago");
   await insertSetting("logo_url", "/logo.svg");
+  await insertSetting("active_business_id", "biz_savannah_sea");
   await insertSetting("currency", "TTD");
   await insertSetting("tax_enabled", true);
   await insertSetting("tax_rate", 12.5);
