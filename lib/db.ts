@@ -68,15 +68,8 @@ export const isDemoMode =
     process.env.FORCE_POSTGRES !== "true");
 
 declare global {
-  // eslint-disable-next-line no-var
   var __cpcPool: Pool | undefined;
-  // eslint-disable-next-line no-var
   var __cpcDbInit: Promise<void> | undefined;
-}
-
-function databaseUrl() {
-  const { connectionString } = getDatabaseConnectionConfig();
-  return connectionString;
 }
 
 function normalizeDatabaseUrl(url: string) {
@@ -264,9 +257,25 @@ export function databaseConfigStatus() {
 }
 
 export function databaseConnectionDiagnostics() {
-  const { connectionString: _connectionString, ssl: _ssl, ...diagnostics } =
-    getDatabaseConnectionConfig();
-  return diagnostics;
+  const config = getDatabaseConnectionConfig();
+  return {
+    selectedDatabaseEnv: config.selectedDatabaseEnv,
+    databaseHost: config.databaseHost,
+    databasePort: config.databasePort,
+    databaseName: config.databaseName,
+    databaseUser: config.databaseUser,
+    databaseUserLooksLikeSupabasePooler: config.databaseUserLooksLikeSupabasePooler,
+    databasePasswordLength: config.databasePasswordLength,
+    databasePasswordHasWhitespace: config.databasePasswordHasWhitespace,
+    databasePasswordHasWrappingBrackets: config.databasePasswordHasWrappingBrackets,
+    databasePasswordContainsBrackets: config.databasePasswordContainsBrackets,
+    sslMode: config.sslMode,
+    sslConfigured: config.sslConfigured,
+    sslRejectUnauthorized: config.sslRejectUnauthorized,
+    usesSupabasePooler: config.usesSupabasePooler,
+    usesDirectSupabaseHost: config.usesDirectSupabaseHost,
+    supabaseProjectRef: config.supabaseProjectRef
+  };
 }
 
 function databaseHost(url: string) {
@@ -283,6 +292,20 @@ export function databaseErrorMessage(error: unknown) {
     error && typeof error === "object" && "code" in error ? String(error.code) : "";
   const message = error instanceof Error ? error.message : "Database request failed.";
   const normalized = message.toLowerCase();
+  const diagnostics = databaseConnectionDiagnostics();
+
+  if (
+    diagnostics.usesDirectSupabaseHost &&
+    (process.env.VERCEL ||
+      code === "EACCES" ||
+      code === "ENETUNREACH" ||
+      code === "ENOTFOUND" ||
+      normalized.includes("eacces") ||
+      normalized.includes("enetunreach") ||
+      normalized.includes("getaddrinfo enotfound"))
+  ) {
+    return "Database URL is using the direct Supabase host. Use the Supabase Transaction pooler host on port 6543 for DATABASE_URL, then redeploy.";
+  }
 
   if (
     code === "SELF_SIGNED_CERT_IN_CHAIN" ||
@@ -309,7 +332,6 @@ export function databaseErrorMessage(error: unknown) {
   }
 
   if (code === "28P01" || normalized.includes("password authentication failed")) {
-    const diagnostics = databaseConnectionDiagnostics();
     if (diagnostics.databasePasswordHasWrappingBrackets) {
       return "Database login failed. Vercel DATABASE_URL password appears to include wrapping square brackets; remove the brackets and redeploy.";
     }

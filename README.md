@@ -68,7 +68,7 @@ On Windows, allow Node.js/Next.js through Windows Defender Firewall when prompte
 Put these in `.env.local` for local development and in Vercel Project Settings -> Environment Variables for deployment:
 
 ```text
-DATABASE_URL=postgresql://postgres:<password>@<your-supabase-host>:5432/postgres
+DATABASE_URL=postgresql://postgres.<project-ref>:<database-password>@aws-1-us-east-1.pooler.supabase.com:6543/postgres?sslmode=no-verify
 SUPABASE_DB_URL=
 PGSSLMODE=require
 SESSION_SECRET=<long-random-secret>
@@ -83,8 +83,8 @@ Notes:
 
 - `DATABASE_URL` is required for real Supabase mode.
 - `SUPABASE_DB_URL` is an optional fallback if you prefer that name.
-- Local development can use the direct Supabase Postgres URI on port `5432`.
-- Vercel should use the Supabase pooled connection string when possible.
+- Use the Supabase transaction pooler URI on port `6543` for Vercel and for local LAN testing.
+- Do not use the direct Supabase Postgres URI on port `5432` for production.
 - `SESSION_SECRET` should be a long random value before production use.
 - Never commit `.env.local`.
 

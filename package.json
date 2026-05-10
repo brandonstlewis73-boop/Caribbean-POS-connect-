@@ -8,7 +8,7 @@
     "dev:lan": "node --max-old-space-size=768 ./node_modules/next/dist/bin/next dev -H 0.0.0.0 -p 3000",
     "build": "node --max-old-space-size=2048 ./node_modules/next/dist/bin/next build",
     "start": "node ./node_modules/next/dist/bin/next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "typecheck": "node --max-old-space-size=2048 ./node_modules/typescript/bin/tsc --noEmit --incremental false",
     "qa:supabase": "node scripts/qa-supabase.mjs",
     "qa:save-flow": "node scripts/qa-save-flow.mjs",

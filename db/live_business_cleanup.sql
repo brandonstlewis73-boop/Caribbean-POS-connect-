@@ -3,6 +3,18 @@
 
 BEGIN;
 
+-- Fix Supabase "Function Search Path Mutable" lint for updated_at triggers.
+CREATE OR REPLACE FUNCTION public.set_updated_at()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = pg_catalog, public
+AS $function$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$function$;
+
 -- Remove seeded/fake customer-facing records.
 DELETE FROM public.delivery_events WHERE order_id IN ('ord_1025', 'ord_1026', 'ord_1027');
 DELETE FROM public.loyalty_transactions WHERE order_id IN ('ord_1025', 'ord_1026', 'ord_1027');

@@ -160,7 +160,6 @@ try {
         phone: qaPhone,
         email: `qa-${stamp}@example.com`,
         street_address: "25 Main Road",
-        community: "Montrose",
         city: "Chaguanas",
         region: "Chaguanas",
         country: "Trinidad and Tobago",
@@ -174,7 +173,6 @@ try {
       notes: `QA checkout ${stamp}`,
       delivery: {
         street_address: "25 Main Road",
-        community: "Montrose",
         city: "Chaguanas",
         region: "Chaguanas",
         country: "Trinidad and Tobago",

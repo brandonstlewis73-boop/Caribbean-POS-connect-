@@ -14,7 +14,7 @@
 ## Required Vercel Environment Variables
 
 ```text
-DATABASE_URL=postgresql://postgres:<password>@<your-supabase-host>:6543/postgres?pgbouncer=true
+DATABASE_URL=postgresql://postgres.<project-ref>:<database-password>@aws-1-us-east-1.pooler.supabase.com:6543/postgres?sslmode=no-verify
 SUPABASE_DB_URL=
 PGSSLMODE=require
 SESSION_SECRET=<long-random-secret>
@@ -25,7 +25,7 @@ ADMIN_EMAIL=admin@demo.com
 DEFAULT_WHATSAPP_NUMBER=4437582368
 ```
 
-Use the Supabase pooled Postgres connection string for Vercel when possible. Local development can use the direct `5432` URI.
+Use the Supabase transaction pooler connection string for Vercel. For this project, the host should end with `pooler.supabase.com:6543`; do not use the direct `db.<project-ref>.supabase.co:5432` host for production.
 
 ## Supabase Setup
 
