@@ -75,6 +75,18 @@ BEGIN
   END IF;
 END $$;
 
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public' AND c.relname = 'stock_movements' AND c.relkind = 'v'
+  ) THEN
+    EXECUTE 'ALTER VIEW public.stock_movements SET (security_invoker = true)';
+  END IF;
+END $$;
+
 INSERT INTO public.staff_users (
   id,
   business_id,
