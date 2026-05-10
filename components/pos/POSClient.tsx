@@ -119,6 +119,7 @@ export function POSClient({
       ? Number((settings.delivery_rates || {})[customer.region] ?? settings.delivery_fee ?? 0)
       : 0;
   const total = taxable + tax + deliveryFee;
+  const formatMoney = (value: number | string | null | undefined) => money(value, settings.currency);
 
   function addProduct(product: Product) {
     setCart((current) => {
@@ -330,7 +331,7 @@ export function POSClient({
               <div className="p-3">
                 <p className="line-clamp-2 min-h-10 text-sm font-black leading-tight">{product.name}</p>
                 <p className="mt-1 text-xs font-semibold text-slate-500">{product.sku}</p>
-                <p className="mt-3 text-lg font-black text-caribbean-teal">{money(product.selling_price)}</p>
+                <p className="mt-3 text-lg font-black text-caribbean-teal">{formatMoney(product.selling_price)}</p>
               </div>
             </button>
           ))}
@@ -355,7 +356,7 @@ export function POSClient({
                   <div className="flex min-w-0 justify-between gap-3">
                     <div className="min-w-0">
                       <p className="text-sm font-black leading-tight">{item.name}</p>
-                      <p className="text-xs font-semibold text-slate-500">{money(item.selling_price)}</p>
+                      <p className="text-xs font-semibold text-slate-500">{formatMoney(item.selling_price)}</p>
                     </div>
                     <Button
                       variant="ghost"
@@ -378,7 +379,7 @@ export function POSClient({
                         <Plus className="h-4 w-4" />
                       </Button>
                     </div>
-                    <p className="font-black">{money(item.quantity * item.selling_price - item.discount)}</p>
+                    <p className="font-black">{formatMoney(item.quantity * item.selling_price - item.discount)}</p>
                   </div>
                 </div>
               ))
@@ -396,12 +397,12 @@ export function POSClient({
               onChange={(event) => setDiscount(Number(event.target.value))}
             />
             <div className="grid gap-1 text-sm">
-              <div className="flex justify-between"><span>Subtotal</span><strong>{money(subtotal)}</strong></div>
-              <div className="flex justify-between"><span>Discount</span><strong>-{money(discountTotal)}</strong></div>
-              <div className="flex justify-between"><span>Tax/Fee</span><strong>{money(tax)}</strong></div>
-              <div className="flex justify-between"><span>Delivery</span><strong>{money(deliveryFee)}</strong></div>
+              <div className="flex justify-between"><span>Subtotal</span><strong>{formatMoney(subtotal)}</strong></div>
+              <div className="flex justify-between"><span>Discount</span><strong>-{formatMoney(discountTotal)}</strong></div>
+              <div className="flex justify-between"><span>Tax/Fee</span><strong>{formatMoney(tax)}</strong></div>
+              <div className="flex justify-between"><span>Delivery</span><strong>{formatMoney(deliveryFee)}</strong></div>
               <div className="mt-2 flex justify-between text-xl font-black">
-                <span>Total</span><span>{money(total)}</span>
+                <span>Total</span><span>{formatMoney(total)}</span>
               </div>
             </div>
           </div>
@@ -512,7 +513,7 @@ export function POSClient({
             <PanelHeader title={`Receipt #${lastOrder.order_number}`} description="Sale saved, inventory and loyalty updated" />
             <div className="grid gap-3 p-4 text-sm">
               <div className="rounded-card bg-caribbean-cloud p-3 dark:bg-slate-950">
-                <div className="flex justify-between"><span>Total</span><strong>{money(lastOrder.total)}</strong></div>
+                <div className="flex justify-between"><span>Total</span><strong>{formatMoney(lastOrder.total)}</strong></div>
                 <div className="flex justify-between"><span>Payment</span><strong>{lastOrder.payment_method}</strong></div>
                 <div className="flex justify-between"><span>Loyalty earned</span><strong>{lastOrder.loyalty_points_earned}</strong></div>
               </div>

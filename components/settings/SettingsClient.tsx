@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Field, SelectField, TextAreaField } from "@/components/ui/Field";
 import { Panel, PanelHeader } from "@/components/ui/Panel";
-import { DEFAULT_DELIVERY_RATES, ROLE_LABELS, TT_REGIONS } from "@/lib/constants";
+import { CARIBBEAN_CURRENCIES, DEFAULT_DELIVERY_RATES, ROLE_LABELS, TT_REGIONS, currencyOptionLabel } from "@/lib/constants";
 import { readApiPayload } from "@/lib/client-response";
 import type { Business, Settings, User } from "@/lib/types";
 
@@ -110,7 +110,13 @@ export function SettingsClient({
             <Field label="Phone" value={draft.business_phone} onChange={(event) => update("business_phone", event.target.value)} />
             <Field label="Email" type="email" value={draft.business_email} onChange={(event) => update("business_email", event.target.value)} />
             <Field label="Address" value={draft.business_address} onChange={(event) => update("business_address", event.target.value)} className="md:col-span-2" />
-            <Field label="Currency" value={draft.currency} readOnly />
+            <SelectField label="Currency" value={draft.currency} onChange={(event) => update("currency", event.target.value)}>
+              {CARIBBEAN_CURRENCIES.map((currency) => (
+                <option key={currency.code} value={currency.code}>
+                  {currencyOptionLabel(currency)} - {currency.territories}
+                </option>
+              ))}
+            </SelectField>
           </div>
         </Panel>
 
@@ -158,6 +164,17 @@ export function SettingsClient({
                 ))}
               </SelectField>
               <Field label="Country" value={businessDraft.country} readOnly />
+              <SelectField
+                label="Currency"
+                value={businessDraft.currency}
+                onChange={(event) => setBusinessDraft((current) => ({ ...current, currency: event.target.value }))}
+              >
+                {CARIBBEAN_CURRENCIES.map((currency) => (
+                  <option key={currency.code} value={currency.code}>
+                    {currencyOptionLabel(currency)}
+                  </option>
+                ))}
+              </SelectField>
             </div>
             <Button variant="primary" onClick={createBusinessProfile} disabled={!businessDraft.name.trim()}>
               <PlusCircle className="h-4 w-4" />
@@ -191,8 +208,8 @@ export function SettingsClient({
             <Field label="Service fee rate %" type="number" value={draft.service_fee_rate} onChange={(event) => update("service_fee_rate", Number(event.target.value))} />
             <Field label="Default delivery fee" type="number" value={draft.delivery_fee} onChange={(event) => update("delivery_fee", Number(event.target.value))} />
             <Toggle label="Enable loyalty" checked={draft.loyalty_enabled} onChange={(value) => update("loyalty_enabled", value)} />
-            <Field label="Points per TTD" type="number" step="0.01" value={draft.loyalty_points_per_ttd} onChange={(event) => update("loyalty_points_per_ttd", Number(event.target.value))} />
-            <Field label="TTD value per point" type="number" step="0.01" value={draft.loyalty_redeem_ttd_per_point} onChange={(event) => update("loyalty_redeem_ttd_per_point", Number(event.target.value))} />
+            <Field label={`Points per ${draft.currency}`} type="number" step="0.01" value={draft.loyalty_points_per_ttd} onChange={(event) => update("loyalty_points_per_ttd", Number(event.target.value))} />
+            <Field label={`${draft.currency} value per point`} type="number" step="0.01" value={draft.loyalty_redeem_ttd_per_point} onChange={(event) => update("loyalty_redeem_ttd_per_point", Number(event.target.value))} />
             <TextAreaField label="Receipt message" value={draft.receipt_message} onChange={(event) => update("receipt_message", event.target.value)} className="md:col-span-2" />
           </div>
         </Panel>

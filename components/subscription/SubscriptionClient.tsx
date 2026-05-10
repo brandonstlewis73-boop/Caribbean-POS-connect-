@@ -84,7 +84,7 @@ export function SubscriptionClient({
                     </div>
                     {active ? <Badge tone="teal">Current</Badge> : null}
                   </div>
-                  <p className="mt-4 text-3xl font-black">{money(plan.monthly_price)}<span className="text-sm text-teal-50/55"> / month</span></p>
+                  <p className="mt-4 text-3xl font-black">{money(plan.monthly_price, plan.currency)}<span className="text-sm text-teal-50/55"> / month</span></p>
                 </div>
                 <div className="grid gap-2">
                   {plan.features.map((feature) => (

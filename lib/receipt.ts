@@ -59,17 +59,17 @@ export async function createReceiptPdfBuffer(order: Order) {
 
   for (const item of order.items) {
     doc.fontSize(9).text(`${item.quantity} x ${item.product_name}`);
-    doc.fontSize(8).text(`${money(item.unit_price)} each  ${money(item.line_total)}`, {
+    doc.fontSize(8).text(`${money(item.unit_price, settings.currency)} each  ${money(item.line_total, settings.currency)}`, {
       align: "right"
     });
   }
 
   doc.moveDown();
-  doc.fontSize(9).text(`Subtotal: ${money(order.subtotal)}`, { align: "right" });
-  if (order.discount_total) doc.text(`Discount: -${money(order.discount_total)}`, { align: "right" });
-  if (order.tax_total) doc.text(`Tax/Fee: ${money(order.tax_total)}`, { align: "right" });
-  if (order.delivery_fee) doc.text(`Delivery: ${money(order.delivery_fee)}`, { align: "right" });
-  doc.fontSize(12).text(`Total: ${money(order.total)}`, { align: "right" });
+  doc.fontSize(9).text(`Subtotal: ${money(order.subtotal, settings.currency)}`, { align: "right" });
+  if (order.discount_total) doc.text(`Discount: -${money(order.discount_total, settings.currency)}`, { align: "right" });
+  if (order.tax_total) doc.text(`Tax/Fee: ${money(order.tax_total, settings.currency)}`, { align: "right" });
+  if (order.delivery_fee) doc.text(`Delivery: ${money(order.delivery_fee, settings.currency)}`, { align: "right" });
+  doc.fontSize(12).text(`Total: ${money(order.total, settings.currency)}`, { align: "right" });
   doc.moveDown();
   doc.fontSize(9).text(`Payment: ${order.payment_method}`);
   doc.text(`Status: ${order.payment_status}`);
@@ -113,7 +113,7 @@ export async function createShippingLabelPdfBuffer(order: Order) {
   doc.fontSize(11).font("Helvetica-Bold").text(`DELIVERY LABEL - ORDER #${order.order_number}`);
   doc.fontSize(8).font("Helvetica").text(`Created: ${new Date(order.created_at).toLocaleString()}`);
   doc.text(`Payment: ${order.payment_status.toUpperCase()} - ${order.payment_method}`);
-  doc.text(`Total: ${money(order.total)}`);
+  doc.text(`Total: ${money(order.total, settings.currency)}`);
   doc.moveDown(0.8);
 
   doc.fontSize(8).font("Helvetica-Bold").text("SHIP TO");

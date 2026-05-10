@@ -233,6 +233,7 @@ export type CheckoutPayload = {
 };
 
 export type DashboardData = {
+  currency: string;
   dailySales: number;
   weeklySales: number;
   monthlySales: number;

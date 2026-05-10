@@ -30,11 +30,13 @@ type PendingAction =
 export function OrdersClient({
   orders,
   drivers,
-  canUpdateOrders
+  canUpdateOrders,
+  currency
 }: {
   orders: Order[];
   drivers: User[];
   canUpdateOrders: boolean;
+  currency: string;
 }) {
   const [items, setItems] = useState(orders);
   const [query, setQuery] = useState("");
@@ -46,6 +48,7 @@ export function OrdersClient({
   const selected = items.find((order) => order.id === selectedId) || items[0];
   const isBusy = pendingAction !== null;
   const deferredQuery = useDeferredValue(query);
+  const formatMoney = (value: number | string | null | undefined) => money(value, currency);
 
   useEffect(() => {
     setNotesDraft(selected?.notes || "");
@@ -248,7 +251,7 @@ export function OrdersClient({
                   <td className="px-4 py-3">
                     <Badge tone={statusTone(order.delivery_status)}>{order.delivery_status.replaceAll("_", " ")}</Badge>
                   </td>
-                  <td className="px-4 py-3 text-right font-black">{money(order.total)}</td>
+                  <td className="px-4 py-3 text-right font-black">{formatMoney(order.total)}</td>
                 </tr>
               ))}
               {!filtered.length ? (
@@ -297,15 +300,15 @@ export function OrdersClient({
               {selected.items.map((item) => (
                 <div key={item.id} className="flex min-w-0 justify-between gap-3 text-sm">
                   <span className="min-w-0 font-bold">{item.quantity} x {item.product_name}</span>
-                  <span className="font-black">{money(item.line_total)}</span>
+                  <span className="font-black">{formatMoney(item.line_total)}</span>
                 </div>
               ))}
             </div>
             <div className="grid gap-1 border-t border-caribbean-line pt-3 text-sm dark:border-slate-800">
-              <div className="flex justify-between"><span>Subtotal</span><strong>{money(selected.subtotal)}</strong></div>
-              <div className="flex justify-between"><span>Tax/Fee</span><strong>{money(selected.tax_total)}</strong></div>
-              <div className="flex justify-between"><span>Delivery</span><strong>{money(selected.delivery_fee)}</strong></div>
-              <div className="flex justify-between text-lg font-black"><span>Total</span><span>{money(selected.total)}</span></div>
+              <div className="flex justify-between"><span>Subtotal</span><strong>{formatMoney(selected.subtotal)}</strong></div>
+              <div className="flex justify-between"><span>Tax/Fee</span><strong>{formatMoney(selected.tax_total)}</strong></div>
+              <div className="flex justify-between"><span>Delivery</span><strong>{formatMoney(selected.delivery_fee)}</strong></div>
+              <div className="flex justify-between text-lg font-black"><span>Total</span><span>{formatMoney(selected.total)}</span></div>
             </div>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-2">
               <Button

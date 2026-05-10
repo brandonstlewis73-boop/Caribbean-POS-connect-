@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { subDays, startOfDay } from "date-fns";
-import { CURRENCY_CODE, DEFAULT_DELIVERY_RATES } from "./constants";
+import { CURRENCY_CODE, DEFAULT_DELIVERY_RATES, money } from "./constants";
 import { buildAddress, buildWazeLink } from "./waze";
 import {
   buildCustomerConfirmationMessage,
@@ -154,7 +154,7 @@ function buildPaymentLink(
     .replaceAll("{{receipt_number}}", encodeURIComponent(receiptNumber))
     .replaceAll("{{amount}}", encodeURIComponent(total.toFixed(2)))
     .replaceAll("{{total}}", encodeURIComponent(total.toFixed(2)))
-    .replaceAll("{{total_label}}", encodeURIComponent(`${CURRENCY_CODE} ${total.toFixed(2)}`))
+    .replaceAll("{{total_label}}", encodeURIComponent(money(total, settings.currency)))
     .replaceAll("{{customer_name}}", encodeURIComponent(customer.name || "Customer"))
     .replaceAll("{{customer_phone}}", encodeURIComponent(cleanWhatsAppNumber(customer.phone) || ""))
     .replaceAll("{{payment_method}}", encodeURIComponent(paymentMethod));
@@ -784,6 +784,7 @@ export async function demoDashboardData(): Promise<DashboardData> {
     }
   }
   return {
+    currency: state.settings.currency,
     dailySales: since(startOfDay(new Date())),
     weeklySales: since(subDays(new Date(), 7)),
     monthlySales: since(month),

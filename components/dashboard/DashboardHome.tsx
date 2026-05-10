@@ -6,7 +6,7 @@ import { money } from "@/lib/constants";
 import { Badge } from "@/components/ui/Badge";
 import { Panel, PanelHeader } from "@/components/ui/Panel";
 
-function SalesBars({ series }: { series: DashboardData["salesSeries"] }) {
+function SalesBars({ series, currency }: { series: DashboardData["salesSeries"]; currency: string }) {
   const max = Math.max(...series.map((item) => item.total), 1);
 
   return (
@@ -16,7 +16,7 @@ function SalesBars({ series }: { series: DashboardData["salesSeries"] }) {
           <div key={item.date} className="flex h-full min-w-8 flex-1 flex-col justify-end gap-2">
             <div
               className="min-h-2 rounded-t-card bg-caribbean-teal"
-              title={`${item.date}: ${money(item.total)}`}
+              title={`${item.date}: ${money(item.total, currency)}`}
               style={{ height: `${Math.max(8, (item.total / max) * 100)}%` }}
             />
             <span className="rotate-45 text-[10px] font-bold text-slate-500">{item.date.slice(5)}</span>
@@ -32,12 +32,13 @@ function SalesBars({ series }: { series: DashboardData["salesSeries"] }) {
 }
 
 export function DashboardHome({ data }: { data: DashboardData }) {
+  const formatMoney = (value: number | string | null | undefined) => money(value, data.currency);
   const stats = [
-    { label: "Daily sales", value: money(data.dailySales), icon: DollarSign },
+    { label: "Daily sales", value: formatMoney(data.dailySales), icon: DollarSign },
     { label: "Total orders", value: String(data.paymentBreakdown.reduce((sum, item) => sum + item.count, 0)), icon: ReceiptText },
-    { label: "Average sale", value: money(data.paymentBreakdown.reduce((sum, item) => sum + item.total, 0) / Math.max(1, data.paymentBreakdown.reduce((sum, item) => sum + item.count, 0))), icon: CreditCard },
+    { label: "Average sale", value: formatMoney(data.paymentBreakdown.reduce((sum, item) => sum + item.total, 0) / Math.max(1, data.paymentBreakdown.reduce((sum, item) => sum + item.count, 0))), icon: CreditCard },
     { label: "Returns/cancellations", value: "0", icon: AlertTriangle },
-    { label: "Weekly sales", value: money(data.weeklySales), icon: TrendingUp },
+    { label: "Weekly sales", value: formatMoney(data.weeklySales), icon: TrendingUp },
     { label: "Deliveries", value: String(data.deliveryOrderCount), icon: Bike }
   ];
 
@@ -63,9 +64,9 @@ export function DashboardHome({ data }: { data: DashboardData }) {
 
       <div className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
         <Panel>
-          <PanelHeader title="Sales trend" description="Last 30 days in TTD" />
+          <PanelHeader title="Sales trend" description={`Last 30 days in ${data.currency}`} />
           <div className="h-80 p-4">
-            <SalesBars series={data.salesSeries} />
+            <SalesBars series={data.salesSeries} currency={data.currency} />
           </div>
         </Panel>
 
@@ -112,7 +113,7 @@ export function DashboardHome({ data }: { data: DashboardData }) {
             {data.paymentBreakdown.map((item) => (
               <div key={item.method} className="flex min-w-0 justify-between gap-3 px-4 py-3 text-sm">
                 <span className="min-w-0 font-bold">{item.method}</span>
-                <span className="font-semibold text-slate-500">{money(item.total)}</span>
+                <span className="font-semibold text-slate-500">{formatMoney(item.total)}</span>
               </div>
             ))}
           </div>
@@ -123,7 +124,7 @@ export function DashboardHome({ data }: { data: DashboardData }) {
             {data.cashierPerformance.map((item) => (
               <div key={item.name} className="flex min-w-0 justify-between gap-3 px-4 py-3 text-sm">
                 <span className="min-w-0 font-bold">{item.name}</span>
-                <span className="font-semibold text-slate-500">{money(item.total)}</span>
+                <span className="font-semibold text-slate-500">{formatMoney(item.total)}</span>
               </div>
             ))}
           </div>

@@ -1,14 +1,15 @@
 import { AppShell } from "@/components/layout/AppShell";
 import { OrdersClient } from "@/components/orders/OrdersClient";
-import { listOrders, listUsers } from "@/lib/data";
+import { getSettings, listOrders, listUsers } from "@/lib/data";
 import { requirePagePermission } from "@/lib/page-auth";
 import { hasPermission } from "@/lib/permissions";
 
 export default async function OrdersPage() {
   const user = await requirePagePermission("orders:read");
-  const [orders, drivers] = await Promise.all([
+  const [orders, drivers, settings] = await Promise.all([
     listOrders({ driverId: user.role === "driver" ? user.id : undefined }),
-    listUsers("driver")
+    listUsers("driver"),
+    getSettings()
   ]);
   return (
     <AppShell active="Orders" title="Orders">
@@ -16,6 +17,7 @@ export default async function OrdersPage() {
         orders={orders}
         drivers={drivers}
         canUpdateOrders={hasPermission(user.role, "orders:update")}
+        currency={settings.currency}
       />
     </AppShell>
   );

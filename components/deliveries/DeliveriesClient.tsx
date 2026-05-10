@@ -9,8 +9,9 @@ import { money } from "@/lib/constants";
 import { readApiPayload } from "@/lib/client-response";
 import type { Order } from "@/lib/types";
 
-export function DeliveriesClient({ deliveries }: { deliveries: Order[] }) {
+export function DeliveriesClient({ deliveries, currency }: { deliveries: Order[]; currency: string }) {
   const [items, setItems] = useState(deliveries);
+  const formatMoney = (value: number | string | null | undefined) => money(value, currency);
 
   async function setStatus(orderId: string, status: string) {
     const response = await fetch(`/api/deliveries/${orderId}/status`, {
@@ -54,7 +55,7 @@ export function DeliveriesClient({ deliveries }: { deliveries: Order[] }) {
               {order.items.map((item) => (
                 <div key={item.id} className="flex min-w-0 justify-between gap-3 text-sm">
                   <span className="min-w-0 font-bold">{item.quantity} x {item.product_name}</span>
-                  <span className="font-black">{money(item.line_total)}</span>
+                  <span className="font-black">{formatMoney(item.line_total)}</span>
                 </div>
               ))}
             </div>
@@ -65,7 +66,7 @@ export function DeliveriesClient({ deliveries }: { deliveries: Order[] }) {
               </div>
               <div className="rounded-card border border-caribbean-line p-3 dark:border-slate-800">
                 <p className="font-bold text-slate-500">Total</p>
-                <p className="font-black">{money(order.total)}</p>
+                <p className="font-black">{formatMoney(order.total)}</p>
               </div>
             </div>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">

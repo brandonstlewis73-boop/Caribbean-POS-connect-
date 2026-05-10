@@ -7,7 +7,7 @@ import type { DashboardData } from "@/lib/types";
 
 const colors = ["#087e7a", "#f9735b", "#1f9d66", "#f6b53f", "#14b8a6", "#334155"];
 
-function SalesBars({ series }: { series: DashboardData["salesSeries"] }) {
+function SalesBars({ series, currency }: { series: DashboardData["salesSeries"]; currency: string }) {
   const max = Math.max(...series.map((item) => item.total), 1);
 
   return (
@@ -17,7 +17,7 @@ function SalesBars({ series }: { series: DashboardData["salesSeries"] }) {
           <div key={item.date} className="flex h-full min-w-8 flex-1 flex-col justify-end gap-2">
             <div
               className="min-h-2 rounded-t-card bg-caribbean-teal"
-              title={`${item.date}: ${money(item.total)}`}
+              title={`${item.date}: ${money(item.total, currency)}`}
               style={{ height: `${Math.max(8, (item.total / max) * 100)}%` }}
             />
             <span className="rotate-45 text-[10px] font-bold text-slate-500">{item.date.slice(5)}</span>
@@ -32,8 +32,9 @@ function SalesBars({ series }: { series: DashboardData["salesSeries"] }) {
   );
 }
 
-function PaymentBreakdown({ items }: { items: DashboardData["paymentBreakdown"] }) {
+function PaymentBreakdown({ items, currency }: { items: DashboardData["paymentBreakdown"]; currency: string }) {
   const total = items.reduce((sum, item) => sum + item.total, 0);
+  const formatMoney = (value: number | string | null | undefined) => money(value, currency);
   let start = 0;
   const gradient = total
     ? items
@@ -54,7 +55,7 @@ function PaymentBreakdown({ items }: { items: DashboardData["paymentBreakdown"] 
         aria-label="Payment method breakdown chart"
       >
         <div className="grid h-24 w-24 place-items-center rounded-full bg-white text-center text-sm font-black shadow-soft dark:bg-slate-900">
-          {money(total)}
+          {formatMoney(total)}
         </div>
       </div>
       <div className="grid min-w-0 gap-2">
@@ -67,7 +68,7 @@ function PaymentBreakdown({ items }: { items: DashboardData["paymentBreakdown"] 
               />
               <span className="min-w-0">{item.method}</span>
             </span>
-            <strong>{money(item.total)}</strong>
+            <strong>{formatMoney(item.total)}</strong>
           </div>
         ))}
       </div>
@@ -76,6 +77,7 @@ function PaymentBreakdown({ items }: { items: DashboardData["paymentBreakdown"] 
 }
 
 export function ReportsClient({ data }: { data: DashboardData }) {
+  const formatMoney = (value: number | string | null | undefined) => money(value, data.currency);
   return (
     <div className="grid gap-4">
       <div className="flex flex-wrap gap-2">
@@ -97,7 +99,7 @@ export function ReportsClient({ data }: { data: DashboardData }) {
         ].map(([label, value]) => (
           <div key={label as string} className="rounded-card border border-caribbean-line bg-white p-4 shadow-soft dark:border-slate-800 dark:bg-slate-900">
             <p className="text-sm font-bold text-slate-500">{label}</p>
-            <p className="mt-2 text-2xl font-black">{money(Number(value))}</p>
+            <p className="mt-2 text-2xl font-black">{formatMoney(Number(value))}</p>
           </div>
         ))}
       </div>
@@ -106,12 +108,12 @@ export function ReportsClient({ data }: { data: DashboardData }) {
         <Panel>
           <PanelHeader title="Sales by day" />
           <div className="h-80 p-4">
-            <SalesBars series={data.salesSeries} />
+            <SalesBars series={data.salesSeries} currency={data.currency} />
           </div>
         </Panel>
         <Panel>
           <PanelHeader title="Payment method breakdown" />
-          <PaymentBreakdown items={data.paymentBreakdown} />
+          <PaymentBreakdown items={data.paymentBreakdown} currency={data.currency} />
         </Panel>
       </div>
 
@@ -122,7 +124,7 @@ export function ReportsClient({ data }: { data: DashboardData }) {
             {data.bestSellers.map((item) => (
               <div key={item.name} className="flex min-w-0 justify-between gap-3 px-4 py-3 text-sm">
                 <span className="min-w-0 font-bold">{item.name}</span>
-                <span className="font-black">{money(item.total)}</span>
+                <span className="font-black">{formatMoney(item.total)}</span>
               </div>
             ))}
           </div>
@@ -133,7 +135,7 @@ export function ReportsClient({ data }: { data: DashboardData }) {
             {data.topCustomers.map((item) => (
               <div key={item.name} className="flex min-w-0 justify-between gap-3 px-4 py-3 text-sm">
                 <span className="min-w-0 font-bold">{item.name}</span>
-                <span className="font-black">{money(item.total_spent)}</span>
+                <span className="font-black">{formatMoney(item.total_spent)}</span>
               </div>
             ))}
           </div>

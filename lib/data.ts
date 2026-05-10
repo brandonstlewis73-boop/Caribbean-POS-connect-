@@ -1,7 +1,7 @@
 import { subDays, startOfDay } from "date-fns";
 import bcrypt from "bcryptjs";
 import { isDemoMode, query, transaction, createId, type PoolClient } from "./db";
-import { CURRENCY_CODE, DEFAULT_DELIVERY_RATES, SUBSCRIPTION_PLANS } from "./constants";
+import { CURRENCY_CODE, DEFAULT_DELIVERY_RATES, SUBSCRIPTION_PLANS, money } from "./constants";
 import {
   demoAdjustStock,
   demoCreateCustomer,
@@ -168,7 +168,7 @@ function buildPaymentLink({
     "{{receipt_number}}": receiptNumber,
     "{{amount}}": total.toFixed(2),
     "{{total}}": total.toFixed(2),
-    "{{total_label}}": `${CURRENCY_CODE} ${total.toFixed(2)}`,
+    "{{total_label}}": money(total, settings.currency),
     "{{customer_name}}": customer.name || "Customer",
     "{{customer_phone}}": cleanWhatsAppNumber(customer.phone) || "",
     "{{payment_method}}": paymentMethod
@@ -1488,6 +1488,7 @@ export async function getDashboardData(): Promise<DashboardData> {
   };
 
   const [
+    settings,
     dailySales,
     weeklySales,
     monthlySales,
@@ -1500,6 +1501,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     cashierRows,
     seriesRows
   ] = await Promise.all([
+    getSettings(),
     totalSince(today),
     totalSince(week),
     totalSince(month),
@@ -1555,6 +1557,7 @@ export async function getDashboardData(): Promise<DashboardData> {
   ]);
 
   return {
+    currency: settings.currency,
     dailySales,
     weeklySales,
     monthlySales,

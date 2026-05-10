@@ -96,6 +96,7 @@ export function OnlineOrderClient({
       ? Number((settings.delivery_rates || {})[customer.region] ?? settings.delivery_fee ?? 0)
       : 0;
   const total = subtotal + tax + deliveryFee;
+  const formatMoney = (value: number | string | null | undefined) => money(value, settings.currency);
 
   function add(product: Product) {
     setCart((current) => {
@@ -188,7 +189,7 @@ export function OnlineOrderClient({
             <img src="/logo.svg" alt="" className="h-11 w-11 shrink-0 rounded-card object-contain" />
             <div className="min-w-0">
               <h1 className="text-lg font-black leading-tight">{settings.business_name}</h1>
-              <p className="text-sm font-semibold text-slate-500">Online ordering - TTD</p>
+              <p className="text-sm font-semibold text-slate-500">Online ordering - {settings.currency}</p>
             </div>
           </div>
           <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -205,7 +206,7 @@ export function OnlineOrderClient({
               </a>
             ) : null}
             <div className="rounded-card border border-caribbean-line bg-caribbean-cloud px-3 py-2 text-sm font-bold dark:border-slate-700 dark:bg-slate-900">
-              Cart {cart.length} - {money(total)}
+              Cart {cart.length} - {formatMoney(total)}
             </div>
           </div>
         </div>
@@ -250,7 +251,7 @@ export function OnlineOrderClient({
                 </div>
                 <div className="p-3">
                   <p className="line-clamp-2 min-h-10 text-sm font-black leading-tight">{product.name}</p>
-                  <p className="mt-2 text-lg font-black text-caribbean-teal">{money(product.selling_price)}</p>
+                  <p className="mt-2 text-lg font-black text-caribbean-teal">{formatMoney(product.selling_price)}</p>
                 </div>
               </button>
             ))}
@@ -285,17 +286,17 @@ export function OnlineOrderClient({
                       <span className="grid h-9 w-9 place-items-center font-black">{item.quantity}</span>
                       <button className="grid h-9 w-9 place-items-center" onClick={() => update(item.id, 1)}><Plus className="h-4 w-4" /></button>
                     </div>
-                    <strong>{money(item.selling_price * item.quantity)}</strong>
+                    <strong>{formatMoney(item.selling_price * item.quantity)}</strong>
                   </div>
                 </div>
               ))}
               {!cart.length ? <p className="p-4 text-sm font-semibold text-slate-500">Select products to start.</p> : null}
             </div>
             <div className="grid gap-1 p-4 text-sm">
-              <div className="flex justify-between"><span>Subtotal</span><strong>{money(subtotal)}</strong></div>
-              <div className="flex justify-between"><span>Tax/Fee</span><strong>{money(tax)}</strong></div>
-              <div className="flex justify-between"><span>Delivery</span><strong>{money(deliveryFee)}</strong></div>
-              <div className="mt-2 flex justify-between text-xl font-black"><span>Total</span><span>{money(total)}</span></div>
+              <div className="flex justify-between"><span>Subtotal</span><strong>{formatMoney(subtotal)}</strong></div>
+              <div className="flex justify-between"><span>Tax/Fee</span><strong>{formatMoney(tax)}</strong></div>
+              <div className="flex justify-between"><span>Delivery</span><strong>{formatMoney(deliveryFee)}</strong></div>
+              <div className="mt-2 flex justify-between text-xl font-black"><span>Total</span><span>{formatMoney(total)}</span></div>
             </div>
           </section>
 
@@ -350,7 +351,7 @@ export function OnlineOrderClient({
           {order ? (
             <section className="rounded-card border border-caribbean-line bg-white p-4 shadow-soft dark:border-slate-800 dark:bg-slate-900">
               <h2 className="font-black">Order #{order.order_number} received</h2>
-              <p className="mt-2 text-sm font-semibold text-slate-500">Total: {money(order.total)}</p>
+              <p className="mt-2 text-sm font-semibold text-slate-500">Total: {formatMoney(order.total)}</p>
               <div className="mt-4 grid gap-2">
                 {order.whatsapp_business_link ? (
                   <a href={order.whatsapp_business_link} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-card bg-caribbean-palm px-3 py-2 text-center text-sm font-black leading-tight text-white">

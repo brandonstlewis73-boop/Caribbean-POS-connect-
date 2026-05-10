@@ -40,7 +40,7 @@ export function buildOrderWhatsAppMessage(order: Order, settings: Settings) {
     customer.country || "Trinidad and Tobago"
   ]);
   const items = order.items
-    .map((item) => `${item.quantity} x ${item.product_name} - ${money(item.line_total)}`)
+    .map((item) => `${item.quantity} x ${item.product_name} - ${money(item.line_total, settings.currency)}`)
     .join("\n");
 
   const template = settings.whatsapp_order_template?.trim();
@@ -49,7 +49,7 @@ export function buildOrderWhatsAppMessage(order: Order, settings: Settings) {
       .replaceAll("{{order_number}}", order.order_number)
       .replaceAll("{{customer_name}}", customer.name || "Walk-in customer")
       .replaceAll("{{customer_phone}}", customer.phone || "")
-      .replaceAll("{{total}}", money(order.total))
+      .replaceAll("{{total}}", money(order.total, settings.currency))
       .replaceAll("{{payment_method}}", order.payment_method)
       .replaceAll("{{payment_status}}", order.payment_status)
       .replaceAll("{{payment_link}}", order.payment_link || "")
@@ -73,7 +73,7 @@ export function buildOrderWhatsAppMessage(order: Order, settings: Settings) {
     "Items:",
     items,
     "",
-    `Total: ${money(order.total)}`,
+    `Total: ${money(order.total, settings.currency)}`,
     `Payment: ${order.payment_method}`,
     `Status: ${order.payment_status}`,
     order.notes ? `Notes: ${order.notes}` : null,
@@ -90,5 +90,5 @@ export function buildOrderWhatsAppMessage(order: Order, settings: Settings) {
 
 export function buildCustomerConfirmationMessage(order: Order, settings: Settings) {
   const name = order.customer_snapshot.name || "there";
-  return `Hi ${name}, your order #${order.order_number} was received. Total: ${money(order.total)}. We will contact you shortly. - ${settings.business_name}`;
+  return `Hi ${name}, your order #${order.order_number} was received. Total: ${money(order.total, settings.currency)}. We will contact you shortly. - ${settings.business_name}`;
 }

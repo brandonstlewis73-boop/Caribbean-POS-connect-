@@ -70,7 +70,7 @@ function usefulError(payloadError?: string, details?: unknown) {
   return "Customer could not be saved. Please check the details and try again.";
 }
 
-export function CustomersClient({ customers }: { customers: Customer[] }) {
+export function CustomersClient({ customers, currency }: { customers: Customer[]; currency: string }) {
   const [items, setItems] = useState(customers);
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState(customers[0]?.id || "");
@@ -79,6 +79,7 @@ export function CustomersClient({ customers }: { customers: Customer[] }) {
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const deferredQuery = useDeferredValue(query);
+  const formatMoney = (value: number | string | null | undefined) => money(value, currency);
 
   const filtered = useMemo(() => {
     const q = deferredQuery.toLowerCase().trim();
@@ -247,7 +248,7 @@ export function CustomersClient({ customers }: { customers: Customer[] }) {
           <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-card border border-caribbean-line bg-white p-4 shadow-soft dark:border-slate-800 dark:bg-slate-900">
               <p className="text-sm font-bold text-slate-500">Total spent</p>
-              <p className="mt-2 text-2xl font-black">{money(draft.total_spent)}</p>
+              <p className="mt-2 text-2xl font-black">{formatMoney(draft.total_spent)}</p>
             </div>
             <div className="rounded-card border border-caribbean-line bg-white p-4 shadow-soft dark:border-slate-800 dark:bg-slate-900">
               <p className="text-sm font-bold text-slate-500">Orders</p>
@@ -357,7 +358,7 @@ export function CustomersClient({ customers }: { customers: Customer[] }) {
                     <span className="font-black">#{order.order_number}</span>
                   </div>
                   <span className="text-sm font-semibold text-slate-500">{new Date(order.created_at).toLocaleString()}</span>
-                  <span className="font-black">{money(order.total)}</span>
+                  <span className="font-black">{formatMoney(order.total)}</span>
                 </div>
               )) : <p className="p-4 text-sm font-semibold text-slate-500">No orders saved for this customer yet.</p>}
             </div>

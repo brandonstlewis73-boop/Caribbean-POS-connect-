@@ -1,7 +1,9 @@
 import { z } from "zod";
-import { ORDER_TYPES, PAYMENT_METHODS, PRODUCT_CATEGORIES, STAFF_AVATAR_OPTIONS, STAFF_ROLES, TT_REGIONS } from "./constants";
+import { CARIBBEAN_CURRENCIES, ORDER_TYPES, PAYMENT_METHODS, PRODUCT_CATEGORIES, STAFF_AVATAR_OPTIONS, STAFF_ROLES, TT_REGIONS } from "./constants";
 
 const optionalText = z.string().trim().optional().nullable();
+const caribbeanCurrencyCodes = CARIBBEAN_CURRENCIES.map((currency) => currency.code) as [string, ...string[]];
+const currencySchema = z.enum(caribbeanCurrencyCodes);
 
 export const customerInputSchema = z.object({
   name: z.string().trim().min(1).optional(),
@@ -69,9 +71,17 @@ export const checkoutSchema = z.object({
     .optional()
 });
 
-export const settingsSchema = z.record(
-  z.union([z.string(), z.number(), z.boolean(), z.null(), z.record(z.coerce.number())])
-);
+export const settingsSchema = z
+  .record(z.union([z.string(), z.number(), z.boolean(), z.null(), z.record(z.coerce.number())]))
+  .superRefine((value, ctx) => {
+    if (typeof value.currency === "string" && !caribbeanCurrencyCodes.includes(value.currency)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["currency"],
+        message: "Choose a supported Caribbean currency."
+      });
+    }
+  });
 
 export const businessSchema = z.object({
   name: z.string().trim().min(1),
@@ -83,7 +93,7 @@ export const businessSchema = z.object({
   city: optionalText,
   region: z.enum(TT_REGIONS).optional().or(z.string().trim()).nullable(),
   country: z.string().trim().default("Trinidad and Tobago").optional(),
-  currency: z.string().trim().default("TTD").optional(),
+  currency: currencySchema.default("TTD").optional(),
   logo_url: optionalText,
   tax_id: optionalText
 });

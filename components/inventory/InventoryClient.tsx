@@ -32,7 +32,7 @@ function usefulProductError(payloadError?: string, details?: unknown) {
   return "Product could not be saved. Please check the details and try again.";
 }
 
-export function InventoryClient({ products }: { products: Product[] }) {
+export function InventoryClient({ products, currency }: { products: Product[]; currency: string }) {
   const [items, setItems] = useState(products);
   const [query, setQuery] = useState("");
   const [draft, setDraft] = useState(emptyProduct());
@@ -40,6 +40,7 @@ export function InventoryClient({ products }: { products: Product[] }) {
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const deferredQuery = useDeferredValue(query);
+  const formatMoney = (value: number | string | null | undefined) => money(value, currency);
 
   const filtered = useMemo(() => {
     const q = deferredQuery.toLowerCase().trim();
@@ -180,8 +181,8 @@ export function InventoryClient({ products }: { products: Product[] }) {
                     </div>
                   </td>
                   <td className="px-4 py-3">{product.category}</td>
-                  <td className="px-4 py-3">{money(product.cost_price)}</td>
-                  <td className="px-4 py-3 font-black">{money(product.selling_price)}</td>
+                  <td className="px-4 py-3">{formatMoney(product.cost_price)}</td>
+                  <td className="px-4 py-3 font-black">{formatMoney(product.selling_price)}</td>
                   <td className="px-4 py-3">
                     <Badge tone={product.stock_quantity <= product.low_stock_alert ? "red" : "green"}>
                       {product.stock_quantity} / alert {product.low_stock_alert}

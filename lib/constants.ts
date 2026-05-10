@@ -2,6 +2,43 @@ export const APP_NAME = "Caribbean Connect POS";
 export const CURRENCY_CODE = "TTD";
 export const CURRENCY_SYMBOL = "TT$";
 
+export const CARIBBEAN_CURRENCIES = [
+  { code: "AWG", name: "Aruban florin", symbol: "Afl ", territories: "Aruba" },
+  { code: "BSD", name: "Bahamian dollar", symbol: "B$", territories: "Bahamas" },
+  { code: "BBD", name: "Barbadian dollar", symbol: "Bds$", territories: "Barbados" },
+  { code: "BZD", name: "Belize dollar", symbol: "BZ$", territories: "Belize" },
+  { code: "BMD", name: "Bermudian dollar", symbol: "BD$", territories: "Bermuda" },
+  { code: "KYD", name: "Cayman Islands dollar", symbol: "CI$", territories: "Cayman Islands" },
+  { code: "CUP", name: "Cuban peso", symbol: "CUP$", territories: "Cuba" },
+  { code: "DOP", name: "Dominican peso", symbol: "RD$", territories: "Dominican Republic" },
+  { code: "XCD", name: "East Caribbean dollar", symbol: "EC$", territories: "OECS countries and territories" },
+  { code: "XCG", name: "Caribbean guilder", symbol: "Cg ", territories: "Curacao and Sint Maarten" },
+  { code: "HTG", name: "Haitian gourde", symbol: "G ", territories: "Haiti" },
+  { code: "GYD", name: "Guyanese dollar", symbol: "G$", territories: "Guyana" },
+  { code: "JMD", name: "Jamaican dollar", symbol: "J$", territories: "Jamaica" },
+  { code: "SRD", name: "Surinamese dollar", symbol: "Sr$", territories: "Suriname" },
+  { code: "TTD", name: "Trinidad and Tobago dollar", symbol: "TT$", territories: "Trinidad and Tobago" },
+  { code: "USD", name: "United States dollar", symbol: "US$", territories: "Puerto Rico, USVI, BVI, Turks and Caicos, Caribbean Netherlands" },
+  { code: "EUR", name: "Euro", symbol: "EUR ", territories: "French Caribbean territories" }
+] as const;
+
+export type CaribbeanCurrencyCode = (typeof CARIBBEAN_CURRENCIES)[number]["code"];
+
+export function getCurrencyMeta(currency?: string | null) {
+  return (
+    CARIBBEAN_CURRENCIES.find((item) => item.code === currency) || {
+      code: currency || CURRENCY_CODE,
+      name: currency || "Currency",
+      symbol: currency ? `${currency} ` : CURRENCY_SYMBOL,
+      territories: ""
+    }
+  );
+}
+
+export function currencyOptionLabel(currency: (typeof CARIBBEAN_CURRENCIES)[number]) {
+  return `${currency.code} - ${currency.name} (${currency.symbol.trim() || currency.code})`;
+}
+
 export const PRODUCT_CATEGORIES = [
   "Meals",
   "Drinks",
@@ -164,7 +201,7 @@ export const SUBSCRIPTION_PLANS = [
   }
 ] as const;
 
-export function money(value: number | string | null | undefined) {
+export function money(value: number | string | null | undefined, currency = CURRENCY_CODE) {
   const numeric = Number(value ?? 0);
-  return `${CURRENCY_SYMBOL}${numeric.toFixed(2)}`;
+  return `${getCurrencyMeta(currency).symbol}${numeric.toFixed(2)}`;
 }
