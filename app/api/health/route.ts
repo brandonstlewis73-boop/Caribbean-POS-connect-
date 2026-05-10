@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
-import { databaseConfigStatus, databaseErrorMessage, getDb, isDemoMode } from "@/lib/db";
+import {
+  databaseConfigStatus,
+  databaseConnectionDiagnostics,
+  databaseErrorMessage,
+  getDb,
+  isDemoMode
+} from "@/lib/db";
 
 export const runtime = "nodejs";
 
@@ -34,10 +40,7 @@ async function getAuthStoreStatus() {
         source: null,
         usersViewAvailable: false,
         adminUserPresent: false,
-        message:
-          usersError instanceof Error
-            ? usersError.message
-            : "Unable to inspect the auth user store."
+        message: databaseErrorMessage(usersError)
       };
     }
   }
@@ -45,6 +48,7 @@ async function getAuthStoreStatus() {
 
 export async function GET() {
   const config = databaseConfigStatus();
+  const diagnostics = databaseConnectionDiagnostics();
   const startedAt = Date.now();
 
   if (isDemoMode) {
@@ -53,7 +57,8 @@ export async function GET() {
       mode: "demo",
       database: {
         connected: false,
-        message: "Demo memory mode is active. Saves are not persistent across server restarts."
+        message: "Demo memory mode is active. Saves are not persistent across server restarts.",
+        ...diagnostics
       },
       config
     });
@@ -67,6 +72,8 @@ export async function GET() {
       mode: "postgres",
       database: {
         connected: true,
+        message: "Connected",
+        ...diagnostics,
         latencyMs: Date.now() - startedAt
       },
       auth,
@@ -79,7 +86,8 @@ export async function GET() {
         mode: "postgres",
         database: {
           connected: false,
-          message: databaseErrorMessage(error)
+          message: databaseErrorMessage(error),
+          ...diagnostics
         },
         config
       },

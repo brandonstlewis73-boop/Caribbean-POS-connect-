@@ -3,7 +3,7 @@ import dns from "node:dns";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import bcrypt from "bcryptjs";
-import { Pool, type PoolClient, type QueryResult, type QueryResultRow } from "pg";
+import { Pool, type PoolClient, type PoolConfig, type QueryResult, type QueryResultRow } from "pg";
 import { DEFAULT_DELIVERY_RATES, PRODUCT_CATEGORIES } from "./constants";
 
 try {
@@ -13,8 +13,27 @@ try {
 }
 
 type DbClient = Pool | PoolClient;
+type DatabaseEnvName = "DATABASE_URL" | "SUPABASE_DB_URL";
+type DatabaseSslConfig = PoolConfig["ssl"];
 
-function selectedDatabaseEnv() {
+type DatabaseConnectionConfig = {
+  selectedDatabaseEnv: DatabaseEnvName | null;
+  connectionString: string | null;
+  databaseHost: string | null;
+  databasePort: string | null;
+  databaseName: string | null;
+  sslMode: string | null;
+  sslConfigured: boolean;
+  sslRejectUnauthorized: boolean | null;
+  usesSupabasePooler: boolean;
+  usesDirectSupabaseHost: boolean;
+  supabaseProjectRef: string | null;
+  ssl: DatabaseSslConfig;
+};
+
+const SSL_QUERY_PARAMS = ["sslmode", "ssl", "sslcert", "sslkey", "sslrootcert"];
+
+function getSelectedDatabaseEnv(): DatabaseEnvName | null {
   if (process.env.DATABASE_URL && !process.env.DATABASE_URL.startsWith("file:")) {
     return "DATABASE_URL";
   }
@@ -24,9 +43,12 @@ function selectedDatabaseEnv() {
   return null;
 }
 
-const configuredDatabaseUrl = selectedDatabaseEnv()
-  ? process.env[selectedDatabaseEnv() as "DATABASE_URL" | "SUPABASE_DB_URL"]
-  : undefined;
+function rawDatabaseUrl() {
+  const envName = getSelectedDatabaseEnv();
+  return envName ? process.env[envName] || null : null;
+}
+
+const configuredDatabaseUrl = rawDatabaseUrl() || undefined;
 const hasFileDatabaseUrl = Boolean(
   configuredDatabaseUrl?.startsWith("file:")
 );
@@ -47,28 +69,169 @@ declare global {
 }
 
 function databaseUrl() {
-  const envName = selectedDatabaseEnv();
-  const url = envName ? process.env[envName] : null;
-  return url && !url.startsWith("file:") ? url : null;
+  const { connectionString } = getDatabaseConnectionConfig();
+  return connectionString;
+}
+
+function normalizeDatabaseUrl(url: string) {
+  try {
+    const parsed = new URL(url);
+    const sslMode =
+      parsed.searchParams.get("sslmode")?.toLowerCase() ||
+      parsed.searchParams.get("ssl")?.toLowerCase() ||
+      null;
+    for (const param of SSL_QUERY_PARAMS) {
+      parsed.searchParams.delete(param);
+    }
+    return {
+      connectionString: parsed.toString(),
+      databaseHost: parsed.hostname || null,
+      databasePort: parsed.port || null,
+      databaseName: parsed.pathname.replace(/^\/+/, "") || null,
+      sslMode
+    };
+  } catch {
+    return {
+      connectionString: url,
+      databaseHost: databaseHost(url),
+      databasePort: databasePort(url),
+      databaseName: null,
+      sslMode: extractSslMode(url)
+    };
+  }
+}
+
+function databasePort(url: string) {
+  try {
+    return new URL(url).port || null;
+  } catch {
+    const match = url.match(/@[^/:?]+:(\d+)/);
+    return match?.[1] || null;
+  }
+}
+
+function extractSslMode(url: string) {
+  const match = url.match(/[?&](?:sslmode|ssl)=([^&]+)/i);
+  return match?.[1]?.toLowerCase() || null;
+}
+
+function sslConfigForDatabase({
+  sslMode,
+  usesSupabasePooler,
+  usesDirectSupabaseHost
+}: Pick<DatabaseConnectionConfig, "sslMode" | "usesSupabasePooler" | "usesDirectSupabaseHost">): DatabaseSslConfig {
+  const isProduction = process.env.NODE_ENV === "production" || process.env.VERCEL_ENV === "production";
+
+  if (
+    process.env.PGSSL_DISABLE === "true" &&
+    !isProduction &&
+    !usesSupabasePooler &&
+    !usesDirectSupabaseHost
+  ) {
+    return false;
+  }
+
+  if (sslMode === "disable" && !isProduction && !usesSupabasePooler && !usesDirectSupabaseHost) {
+    return false;
+  }
+
+  if (
+    sslMode === "no-verify" ||
+    usesSupabasePooler ||
+    usesDirectSupabaseHost
+  ) {
+    return { rejectUnauthorized: false };
+  }
+
+  if (sslMode === "require" || sslMode === "true" || isProduction || process.env.PGSSLMODE === "require") {
+    return true;
+  }
+
+  return undefined;
+}
+
+function describeSslConfig(ssl: DatabaseSslConfig) {
+  if (!ssl) {
+    return {
+      sslConfigured: false,
+      sslRejectUnauthorized: null
+    };
+  }
+  if (ssl === true) {
+    return {
+      sslConfigured: true,
+      sslRejectUnauthorized: true
+    };
+  }
+  return {
+    sslConfigured: true,
+    sslRejectUnauthorized: ssl.rejectUnauthorized !== false
+  };
+}
+
+function getDatabaseConnectionConfig(): DatabaseConnectionConfig {
+  const selectedDatabaseEnv = getSelectedDatabaseEnv();
+  const url = rawDatabaseUrl();
+  if (!url || url.startsWith("file:")) {
+    return {
+      selectedDatabaseEnv,
+      connectionString: null,
+      databaseHost: null,
+      databasePort: null,
+      databaseName: null,
+      sslMode: null,
+      sslConfigured: false,
+      sslRejectUnauthorized: null,
+      usesSupabasePooler: false,
+      usesDirectSupabaseHost: false,
+      supabaseProjectRef: null,
+      ssl: undefined
+    };
+  }
+
+  const normalized = normalizeDatabaseUrl(url);
+  const databaseHost = normalized.databaseHost;
+  const directSupabaseMatch = databaseHost?.match(/^db\.([a-z0-9]+)\.supabase\.co$/);
+  const usesSupabasePooler = Boolean(
+    databaseHost === "pooler.supabase.com" || databaseHost?.endsWith(".pooler.supabase.com")
+  );
+  const usesDirectSupabaseHost = Boolean(directSupabaseMatch);
+  const ssl = sslConfigForDatabase({
+    sslMode: normalized.sslMode,
+    usesSupabasePooler,
+    usesDirectSupabaseHost
+  });
+  const sslDescription = describeSslConfig(ssl);
+
+  return {
+    selectedDatabaseEnv,
+    connectionString: normalized.connectionString,
+    databaseHost,
+    databasePort: normalized.databasePort,
+    databaseName: normalized.databaseName,
+    sslMode: normalized.sslMode,
+    ...sslDescription,
+    usesSupabasePooler,
+    usesDirectSupabaseHost,
+    supabaseProjectRef: directSupabaseMatch?.[1] || null,
+    ssl
+  };
 }
 
 export function databaseConfigStatus() {
-  const envName = selectedDatabaseEnv();
-  const url = databaseUrl();
-  const host = url ? databaseHost(url) : null;
-  const directSupabaseMatch = host?.match(/^db\.([a-z0-9]+)\.supabase\.co$/);
   return {
-    hasDatabaseUrl: Boolean(url),
+    hasDatabaseUrl: Boolean(process.env.DATABASE_URL && !process.env.DATABASE_URL.startsWith("file:")),
     hasSupabaseDbUrl: Boolean(process.env.SUPABASE_DB_URL && !process.env.SUPABASE_DB_URL.startsWith("file:")),
-    hasPrimaryDatabaseUrl: Boolean(process.env.DATABASE_URL && !process.env.DATABASE_URL.startsWith("file:")),
-    selectedDatabaseEnv: envName,
-    databaseHost: host,
-    usesDirectSupabaseHost: Boolean(directSupabaseMatch),
-    supabaseProjectRef: directSupabaseMatch?.[1] || null,
     isDemoMode,
     nodeEnv: process.env.NODE_ENV || "development",
     vercelEnv: process.env.VERCEL_ENV || null
   };
+}
+
+export function databaseConnectionDiagnostics() {
+  const { connectionString: _connectionString, ssl: _ssl, ...diagnostics } =
+    getDatabaseConnectionConfig();
+  return diagnostics;
 }
 
 function databaseHost(url: string) {
@@ -86,6 +249,14 @@ export function databaseErrorMessage(error: unknown) {
   const message = error instanceof Error ? error.message : "Database request failed.";
   const normalized = message.toLowerCase();
 
+  if (
+    code === "SELF_SIGNED_CERT_IN_CHAIN" ||
+    normalized.includes("self-signed certificate") ||
+    normalized.includes("certificate chain")
+  ) {
+    return "Database SSL verification failed. Check that Vercel is using the Supabase pooler URL and that the latest deployment includes server-side pooler SSL handling.";
+  }
+
   if (code === "ENETUNREACH" || normalized.includes("enetunreach")) {
     return "Database connection failed from Vercel. Set DATABASE_URL to the Supabase pooled connection string, then redeploy.";
   }
@@ -102,7 +273,7 @@ export function databaseErrorMessage(error: unknown) {
     return "Database connection timed out. Check Vercel DATABASE_URL or use the Supabase pooled connection string.";
   }
 
-  if (normalized.includes("password authentication failed")) {
+  if (code === "28P01" || normalized.includes("password authentication failed")) {
     return "Database login failed. Check the password in Vercel DATABASE_URL and redeploy.";
   }
 
@@ -113,24 +284,29 @@ export function databaseErrorMessage(error: unknown) {
   return `Database request failed: ${message}`;
 }
 
-function shouldUseSsl(url: string) {
-  if (process.env.PGSSL_DISABLE === "true") return false;
-  return url.includes("supabase") || process.env.PGSSLMODE === "require";
+export function safeDatabaseErrorDetails(error: unknown) {
+  const code =
+    error && typeof error === "object" && "code" in error ? String(error.code) : null;
+  return {
+    code,
+    message: databaseErrorMessage(error),
+    database: databaseConnectionDiagnostics()
+  };
 }
 
 export function getDb() {
   if (globalThis.__cpcPool) return globalThis.__cpcPool;
-  const url = databaseUrl();
-  if (!url) {
+  const connection = getDatabaseConnectionConfig();
+  if (!connection.connectionString) {
     throw new Error(
       "Database is not configured. Add DATABASE_URL or SUPABASE_DB_URL in Vercel Environment Variables, then redeploy."
     );
   }
   globalThis.__cpcPool = new Pool({
-    connectionString: url,
+    connectionString: connection.connectionString,
     max: Number(process.env.PG_POOL_MAX || 5),
     connectionTimeoutMillis: Number(process.env.PG_CONNECT_TIMEOUT_MS || 10000),
-    ssl: shouldUseSsl(url) ? { rejectUnauthorized: false } : undefined
+    ssl: connection.ssl
   });
   return globalThis.__cpcPool;
 }

@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { Pool } from "pg";
+import { createPoolConfig } from "./db-pool-config.mjs";
 
 const baseUrl = process.env.QA_BASE_URL || "http://localhost:3000";
 
@@ -59,10 +60,7 @@ assertOk(
 assertOk(Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL), "NEXT_PUBLIC_SUPABASE_URL is missing");
 assertOk(Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY), "NEXT_PUBLIC_SUPABASE_ANON_KEY is missing");
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
-});
+const pool = new Pool(createPoolConfig(process.env.DATABASE_URL));
 
 const summary = {
   env: {

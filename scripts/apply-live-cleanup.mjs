@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { Pool } from "pg";
+import { createPoolConfig } from "./db-pool-config.mjs";
 
 async function readEnvFile() {
   try {
@@ -26,12 +27,7 @@ if (!connectionString || connectionString.startsWith("file:")) {
 }
 
 const sql = await readFile(resolve("db/live_business_cleanup.sql"), "utf8");
-const pool = new Pool({
-  connectionString,
-  ssl: connectionString.includes("supabase") || process.env.PGSSLMODE === "require"
-    ? { rejectUnauthorized: false }
-    : undefined
-});
+const pool = new Pool(createPoolConfig(connectionString));
 
 try {
   await pool.query(sql);

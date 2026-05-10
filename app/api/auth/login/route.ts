@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { databaseErrorMessage, isDemoMode } from "@/lib/db";
+import { isDemoMode, safeDatabaseErrorDetails } from "@/lib/db";
 import { createSession, getLoginUserByEmail, sessionCookieOptions, verifyPassword } from "@/lib/auth";
 import type { User } from "@/lib/types";
 
@@ -77,7 +77,11 @@ export async function POST(request: Request) {
       active: row.active
     });
   } catch (error) {
-    console.error("Login failed", error);
-    return jsonError(databaseErrorMessage(error), 500);
+    const details = safeDatabaseErrorDetails(error);
+    console.error("Login failed", details);
+    return jsonError(details.message, 500, {
+      code: details.code,
+      database: details.database
+    });
   }
 }
