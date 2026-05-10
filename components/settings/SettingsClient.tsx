@@ -61,6 +61,7 @@ export function SettingsClient({
   const [businessItems, setBusinessItems] = useState(businesses);
   const [businessDraft, setBusinessDraft] = useState(() => createEmptyBusinessDraft(settings.currency));
   const [message, setMessage] = useState("");
+  const [saving, setSaving] = useState(false);
   const deliveryRegions = getDeliveryRegionsForCurrency(draft.currency);
   const defaultDeliveryRates = getDefaultDeliveryRatesForCurrency(draft.currency);
   const deliveryRates = Object.fromEntries(
@@ -74,9 +75,9 @@ export function SettingsClient({
     setDraft((current) => ({ ...current, [key]: value }));
   }
 
-  function updateCurrency(currency: string) {
+  function settingsWithCurrency(current: Settings, currency: string): Settings {
     const rates = getDefaultDeliveryRatesForCurrency(currency);
-    setDraft((current) => ({
+    return {
       ...current,
       currency,
       delivery_rates: Object.fromEntries(
@@ -85,13 +86,59 @@ export function SettingsClient({
           Number((current.delivery_rates || {})[region] ?? rates[region] ?? current.delivery_fee ?? 0)
         ])
       )
-    }));
+    };
+  }
+
+  async function saveSettings(nextDraft: Settings, successMessage = "Settings saved.") {
+    setMessage("");
+    setSaving(true);
+    try {
+      const response = await fetch("/api/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(nextDraft)
+      });
+      const payload = await readApiPayload<{ settings: Settings }>(response);
+      if (response.ok) {
+        if (!payload.data?.settings) {
+          setMessage("Settings saved, but no settings were returned.");
+          return false;
+        }
+        setDraft(payload.data.settings);
+        setMessage(successMessage);
+        return true;
+      }
+      setMessage(payload.error || "Settings could not be saved.");
+      return false;
+    } catch {
+      setMessage("Settings could not be saved. Check your connection and try again.");
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function updateCurrency(currency: string) {
+    const previousDraft = draft;
+    const nextDraft = settingsWithCurrency(draft, currency);
+    setDraft(nextDraft);
     setBusinessDraft((current) => ({
       ...current,
       currency,
       region: getDeliveryRegionsForCurrency(currency)[0] || "",
       country: getDefaultCountryForCurrency(currency)
     }));
+    setMessage(`Switching store currency to ${currency}...`);
+    const saved = await saveSettings(nextDraft, `Store currency switched to ${currency}.`);
+    if (!saved) {
+      setDraft(previousDraft);
+      setBusinessDraft((current) => ({
+        ...current,
+        currency: previousDraft.currency,
+        region: getDeliveryRegionsForCurrency(previousDraft.currency)[0] || "",
+        country: getDefaultCountryForCurrency(previousDraft.currency)
+      }));
+    }
   }
 
   function updateBusinessCurrency(currency: string) {
@@ -108,20 +155,7 @@ export function SettingsClient({
   }
 
   async function save() {
-    setMessage("");
-    const response = await fetch("/api/settings", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(draft)
-    });
-    const payload = await readApiPayload<{ settings: Settings }>(response);
-    if (response.ok) {
-      if (!payload.data?.settings) return setMessage("Settings saved, but no settings were returned.");
-      setDraft(payload.data.settings);
-      setMessage("Settings saved.");
-    } else {
-      setMessage(payload.error || "Settings could not be saved.");
-    }
+    await saveSettings(draft);
   }
 
   async function createBusinessProfile() {
@@ -156,7 +190,7 @@ export function SettingsClient({
             <Field label="Phone" value={draft.business_phone} onChange={(event) => update("business_phone", event.target.value)} />
             <Field label="Email" type="email" value={draft.business_email} onChange={(event) => update("business_email", event.target.value)} />
             <Field label="Address" value={draft.business_address} onChange={(event) => update("business_address", event.target.value)} className="md:col-span-2" />
-            <SelectField label="Currency" value={draft.currency} onChange={(event) => updateCurrency(event.target.value)}>
+            <SelectField label="Store currency" value={draft.currency} onChange={(event) => updateCurrency(event.target.value)} disabled={saving}>
               {CARIBBEAN_CURRENCIES.map((currency) => (
                 <option key={currency.code} value={currency.code}>
                   {currencyOptionLabel(currency)} - {currency.territories}
@@ -211,7 +245,7 @@ export function SettingsClient({
               </SelectField>
               <Field label="Country/market" value={businessDraft.country} onChange={(event) => setBusinessDraft((current) => ({ ...current, country: event.target.value }))} />
               <SelectField
-                label="Currency"
+                label="Profile currency"
                 value={businessDraft.currency}
                 onChange={(event) => updateBusinessCurrency(event.target.value)}
               >
@@ -360,9 +394,9 @@ export function SettingsClient({
         </Panel>
 
         {message ? <p className="rounded-card bg-caribbean-cloud p-3 text-sm font-black text-slate-700 dark:bg-slate-900 dark:text-slate-200">{message}</p> : null}
-        <Button variant="primary" size="lg" onClick={save}>
+        <Button variant="primary" size="lg" onClick={save} disabled={saving}>
           <Save className="h-4 w-4" />
-          Save settings
+          {saving ? "Saving..." : "Save settings"}
         </Button>
       </aside>
     </div>
