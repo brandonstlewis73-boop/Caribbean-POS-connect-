@@ -22,6 +22,10 @@ import {
   demoListProducts,
   demoListUsers,
   demoCreateStaffUser,
+  demoDeleteCustomer,
+  demoDeleteOrder,
+  demoDeleteProduct,
+  demoDeleteStaffUser,
   demoUpdateStaffUser,
   demoUpdateCustomer,
   demoUpdateDeliveryStatus,
@@ -218,6 +222,18 @@ async function saveStaffAvatar(userId: string, input: StaffInput, client?: DbCli
     avatar_key: input.avatar_key || avatars[userId]?.avatar_key || "teal-register",
     avatar_url: input.avatar_url ?? avatars[userId]?.avatar_url ?? null
   };
+  await query(
+    `INSERT INTO settings (key, value, updated_at)
+     VALUES ('staff_avatar_profiles', $1::jsonb, NOW())
+     ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+    [JSON.stringify(avatars)],
+    client
+  );
+}
+
+async function deleteStaffAvatar(userId: string, client?: DbClient) {
+  const avatars = await getStaffAvatarMap(client);
+  delete avatars[userId];
   await query(
     `INSERT INTO settings (key, value, updated_at)
      VALUES ('staff_avatar_profiles', $1::jsonb, NOW())
@@ -486,6 +502,26 @@ export async function updateStaffUser(id: string, input: StaffInput, userId?: st
   });
 }
 
+export async function deleteStaffUser(id: string, userId?: string) {
+  if (isDemoMode) return demoDeleteStaffUser(id, userId);
+  return transaction(async (client) => {
+    const existing = await query<any>("SELECT id, name, email, role, phone, active FROM users WHERE id = $1", [id], client);
+    if (!existing.rows[0]) return null;
+    const avatars = await getStaffAvatarMap(client);
+    await deleteStaffAvatar(id, client);
+    await auditLog(
+      "staff:delete",
+      "user",
+      id,
+      { name: existing.rows[0].name, email: existing.rows[0].email },
+      userId,
+      client
+    );
+    await query("DELETE FROM users WHERE id = $1", [id], client);
+    return rowToUser(existing.rows[0], avatars[id]);
+  });
+}
+
 export async function listBusinesses(): Promise<Business[]> {
   if (isDemoMode) return demoListBusinesses();
   const rows = await query<any>(
@@ -668,6 +704,24 @@ export async function createProduct(input: Omit<Product, "id" | "active">, userI
   );
   await auditLog("product:create", "product", id, input, userId);
   return getProduct(id);
+}
+
+export async function deleteProduct(id: string, userId?: string) {
+  if (isDemoMode) return demoDeleteProduct(id, userId);
+  return transaction(async (client) => {
+    const existing = await query<any>("SELECT * FROM products WHERE id = $1", [id], client);
+    if (!existing.rows[0]) return null;
+    await auditLog(
+      "product:delete",
+      "product",
+      id,
+      { name: existing.rows[0].name, sku: existing.rows[0].sku },
+      userId,
+      client
+    );
+    await query("DELETE FROM products WHERE id = $1", [id], client);
+    return rowToProduct(existing.rows[0]);
+  });
 }
 
 export async function updateProduct(id: string, input: Partial<Product>, userId?: string) {
@@ -907,6 +961,24 @@ export async function updateCustomer(id: string, input: CustomerInput, userId?: 
   );
   await auditLog("customer:update", "customer", id, input, userId);
   return getCustomer(id);
+}
+
+export async function deleteCustomer(id: string, userId?: string) {
+  if (isDemoMode) return demoDeleteCustomer(id, userId);
+  return transaction(async (client) => {
+    const existing = await query<any>("SELECT * FROM customers WHERE id = $1", [id], client);
+    if (!existing.rows[0]) return null;
+    await auditLog(
+      "customer:delete",
+      "customer",
+      id,
+      { name: existing.rows[0].name, phone: existing.rows[0].phone, email: existing.rows[0].email },
+      userId,
+      client
+    );
+    await query("DELETE FROM customers WHERE id = $1", [id], client);
+    return rowToCustomer(existing.rows[0]);
+  });
 }
 
 export async function createOrder(payload: CheckoutPayload, userId?: string) {
@@ -1338,6 +1410,57 @@ export async function updateOrder(id: string, input: Partial<Order>, userId?: st
       );
     }
     return readOrderById(client, id);
+  });
+}
+
+export async function deleteOrder(id: string, userId?: string) {
+  if (isDemoMode) return demoDeleteOrder(id, userId);
+  return transaction(async (client) => {
+    const existing = await readOrderById(client, id);
+    if (!existing) return null;
+    const shouldRestoreStock = existing.status !== "cancelled" && existing.status !== "draft";
+    const shouldReverseCustomer = Boolean(existing.customer_id) && existing.status !== "cancelled";
+
+    if (shouldRestoreStock) {
+      for (const item of existing.items) {
+        if (!item.product_id) continue;
+        await query(
+          "UPDATE products SET stock_quantity = stock_quantity + $1, updated_at = NOW() WHERE id = $2",
+          [item.quantity, item.product_id],
+          client
+        );
+      }
+    }
+
+    if (shouldReverseCustomer && existing.customer_id) {
+      await query(
+        `UPDATE customers SET
+          total_spent = GREATEST(0, total_spent - $1),
+          orders_count = GREATEST(0, orders_count - 1),
+          loyalty_points = GREATEST(0, loyalty_points - $2),
+          updated_at = NOW()
+         WHERE id = $3`,
+        [existing.total, existing.loyalty_points_earned, existing.customer_id],
+        client
+      );
+    }
+
+    await query("DELETE FROM loyalty_transactions WHERE order_id = $1", [id], client);
+    await query("DELETE FROM stock_movements WHERE reference_id = $1", [id], client);
+    await auditLog(
+      "order:delete",
+      "order",
+      id,
+      {
+        order_number: existing.order_number,
+        restored_items: shouldRestoreStock ? existing.items.length : 0,
+        customer_id: existing.customer_id
+      },
+      userId,
+      client
+    );
+    await query("DELETE FROM orders WHERE id = $1", [id], client);
+    return existing;
   });
 }
 

@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { fail, ok } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
-import { adjustStock, getProduct, updateProduct } from "@/lib/data";
+import { adjustStock, deleteProduct, getProduct, updateProduct } from "@/lib/data";
 import { productSchema } from "@/lib/validators";
 
 export const runtime = "nodejs";
@@ -57,9 +57,9 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   if (!auth.user) return fail(auth.error, auth.status);
   const { id } = await params;
   try {
-    const product = await updateProduct(id, { active: false }, auth.user.id);
+    const product = await deleteProduct(id, auth.user.id);
     return product ? ok({ product }) : fail("Product not found", 404);
   } catch (error) {
-    return fail(productSaveError(error), 500);
+    return fail(error instanceof Error ? error.message : "Product could not be deleted.", 500);
   }
 }

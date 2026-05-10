@@ -194,6 +194,46 @@ assertOk(
   "Saved order did not appear on the customer detail payload."
 );
 
+const staffCreate = await request(
+  "/api/staff",
+  authJson(cookie, {
+    name: `QA Delete Staff ${stamp}`,
+    phone: "8685552222",
+    email: `qa.staff.${stamp}@example.com`,
+    role: "cashier",
+    active: true,
+    avatar_key: "gold-cashier",
+    avatar_url: ""
+  })
+);
+assertOk(staffCreate.status === 201, `Staff create failed: ${staffCreate.text}`);
+const staff = staffCreate.payload?.data?.staff;
+assertOk(staff?.id, "Staff create did not return an id.");
+
+const staffDelete = await request(`/api/staff/${staff.id}`, {
+  method: "DELETE",
+  headers: { Cookie: cookie }
+});
+assertOk(staffDelete.status === 200, `Staff delete failed: ${staffDelete.text}`);
+
+const orderDelete = await request(`/api/orders/${order.id}`, {
+  method: "DELETE",
+  headers: { Cookie: cookie }
+});
+assertOk(orderDelete.status === 200, `Order delete failed: ${orderDelete.text}`);
+
+const productDelete = await request(`/api/products/${product.id}`, {
+  method: "DELETE",
+  headers: { Cookie: cookie }
+});
+assertOk(productDelete.status === 200, `Product delete failed: ${productDelete.text}`);
+
+const customerDelete = await request(`/api/customers/${customer.id}`, {
+  method: "DELETE",
+  headers: { Cookie: cookie }
+});
+assertOk(customerDelete.status === 200, `Customer delete failed: ${customerDelete.text}`);
+
 console.log(
   JSON.stringify(
     {
@@ -211,7 +251,11 @@ console.log(
         "pos-data",
         "order-create",
         "stock-decrement",
-        "customer-order-history"
+        "customer-order-history",
+        "staff-delete",
+        "order-delete",
+        "product-delete",
+        "customer-delete"
       ]
     },
     null,

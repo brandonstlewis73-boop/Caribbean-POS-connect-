@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { fail, ok } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
-import { getCustomerProfile, updateCustomer } from "@/lib/data";
+import { deleteCustomer, getCustomerProfile, updateCustomer } from "@/lib/data";
 import { customerInputSchema } from "@/lib/validators";
 
 export const runtime = "nodejs";
@@ -29,5 +29,17 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     return customer ? ok({ customer }) : fail("Customer not found", 404);
   } catch (error) {
     return fail(error instanceof Error ? error.message : "Customer could not be saved.", 500);
+  }
+}
+
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireUser(request, "customers:write");
+  if (!auth.user) return fail(auth.error, auth.status);
+  const { id } = await params;
+  try {
+    const customer = await deleteCustomer(id, auth.user.id);
+    return customer ? ok({ customer }) : fail("Customer not found", 404);
+  } catch (error) {
+    return fail(error instanceof Error ? error.message : "Customer could not be deleted.", 500);
   }
 }

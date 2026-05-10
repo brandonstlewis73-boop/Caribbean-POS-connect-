@@ -1,7 +1,7 @@
 "use client";
 
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
-import { History, MessageCircle, PlusCircle, Search, UserRound } from "lucide-react";
+import { History, MessageCircle, PlusCircle, Search, Trash2, UserRound } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Panel, PanelHeader } from "@/components/ui/Panel";
 import { Button } from "@/components/ui/Button";
@@ -165,6 +165,32 @@ export function CustomersClient({ customers }: { customers: Customer[] }) {
     }
   }
 
+  async function deleteCustomer() {
+    if (!draft || draft.id === "new") return;
+    if (!window.confirm(`Delete ${draft.name || "this customer"}? Existing orders keep their history, but this customer profile will be removed.`)) return;
+    setSaving(true);
+    setMessage("");
+    try {
+      const response = await fetch(`/api/customers/${draft.id}`, { method: "DELETE" });
+      const payload = await readApiPayload<{ customer: Customer }>(response);
+      if (!response.ok) {
+        setMessage(payload.error || "Customer could not be deleted.");
+        return;
+      }
+      const remaining = items.filter((customer) => customer.id !== draft.id);
+      setItems(remaining);
+      setProfile(null);
+      setQuery("");
+      setSelectedId(remaining[0]?.id || "");
+      setDraft(remaining[0] || null);
+      setMessage("Customer deleted.");
+    } catch {
+      setMessage("Customer could not be deleted. Check your connection and try again.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   const whatsAppMessage =
     draft && `Hi ${draft.name}, thank you for shopping with Caribbean POS Connect.`;
   const whatsAppLink =
@@ -286,9 +312,17 @@ export function CustomersClient({ customers }: { customers: Customer[] }) {
                     onChange={(event) => setDraft({ ...draft, gps_longitude: event.target.value ? Number(event.target.value) : null })}
                   />
                 </div>
-                <Button variant="primary" onClick={saveCustomer} disabled={saving}>
-                  {saving ? "Saving..." : draft.id === "new" ? "Create customer" : "Save profile"}
-                </Button>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <Button variant="primary" onClick={saveCustomer} disabled={saving}>
+                    {saving ? "Saving..." : draft.id === "new" ? "Create customer" : "Save profile"}
+                  </Button>
+                  {draft.id !== "new" ? (
+                    <Button variant="danger" onClick={deleteCustomer} disabled={saving}>
+                      <Trash2 className="h-4 w-4" />
+                      Delete
+                    </Button>
+                  ) : null}
+                </div>
               </div>
             </div>
           </Panel>

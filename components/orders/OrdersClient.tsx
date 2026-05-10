@@ -1,11 +1,11 @@
 "use client";
 
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
-import { Bike, CheckCircle2, CreditCard, ExternalLink, MessageCircle, PackageCheck, Search, XCircle } from "lucide-react";
+import { Bike, CheckCircle2, CreditCard, ExternalLink, MessageCircle, PackageCheck, Search, Trash2, XCircle } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Panel, PanelHeader } from "@/components/ui/Panel";
-import { Field, SelectField, TextAreaField } from "@/components/ui/Field";
+import { SelectField, TextAreaField } from "@/components/ui/Field";
 import { money, ORDER_TYPE_LABELS } from "@/lib/constants";
 import { readApiPayload } from "@/lib/client-response";
 import type { Order, User } from "@/lib/types";
@@ -24,7 +24,8 @@ type PendingAction =
   | "driver"
   | "delivery-out"
   | "delivery-failed"
-  | "notes";
+  | "notes"
+  | "delete";
 
 export function OrdersClient({
   orders,
@@ -117,6 +118,33 @@ export function OrdersClient({
           ? "failed"
           : order.delivery_status
     }, "cancel");
+  }
+
+  async function deleteOrder(order: Order) {
+    if (isBusy) return;
+    if (!canUpdateOrders) {
+      setMessage("Only an admin or manager can delete orders.");
+      return;
+    }
+    if (!window.confirm(`Delete order #${order.order_number}? Product stock and customer totals will be reversed when needed.`)) return;
+    setMessage("");
+    setPendingAction("delete");
+    try {
+      const response = await fetch(`/api/orders/${order.id}`, { method: "DELETE" });
+      const payload = await readApiPayload<{ order: Order }>(response);
+      if (!response.ok) {
+        setMessage(payload.error || "Order could not be deleted.");
+        return;
+      }
+      const remaining = items.filter((item) => item.id !== order.id);
+      setItems(remaining);
+      setSelectedId(remaining[0]?.id || "");
+      setMessage(`Order #${order.order_number} deleted.`);
+    } catch {
+      setMessage("Order could not be deleted.");
+    } finally {
+      setPendingAction(null);
+    }
   }
 
   async function updatePaymentStatus(status: Order["payment_status"]) {
@@ -303,6 +331,14 @@ export function OrdersClient({
               >
                 <XCircle className="h-4 w-4" />
                 {pendingAction === "cancel" ? "Cancelling..." : selected.status === "cancelled" ? "Cancelled" : "Cancel order"}
+              </Button>
+              <Button
+                variant="danger"
+                onClick={async () => deleteOrder(selected)}
+                disabled={!canUpdateOrders || isBusy}
+              >
+                <Trash2 className="h-4 w-4" />
+                {pendingAction === "delete" ? "Deleting..." : "Delete order"}
               </Button>
             </div>
             {!canUpdateOrders ? (

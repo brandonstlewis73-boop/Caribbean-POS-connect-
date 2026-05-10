@@ -116,22 +116,19 @@ export function InventoryClient({ products }: { products: Product[] }) {
     }
   }
 
-  async function archive(productId: string) {
+  async function deleteProduct(productId: string, productName: string) {
+    if (!window.confirm(`Delete ${productName}? Existing orders keep their item history, but this product will be removed from inventory.`)) return;
     try {
       const response = await fetch(`/api/inventory/${productId}`, { method: "DELETE" });
       const payload = await readApiPayload<{ product: Product }>(response);
       if (!response.ok) {
-        setMessage(payload.error || "Product could not be archived.");
+        setMessage(payload.error || "Product could not be deleted.");
         return;
       }
-      const updated = payload.data?.product;
-      if (!updated) return;
-      setItems((current) =>
-        current.map((product) => (product.id === productId ? updated : product))
-      );
-      setMessage("Product archived.");
+      setItems((current) => current.filter((product) => product.id !== productId));
+      setMessage("Product deleted.");
     } catch {
-      setMessage("Product could not be archived. Check your connection and try again.");
+      setMessage("Product could not be deleted. Check your connection and try again.");
     }
   }
 
@@ -209,7 +206,7 @@ export function InventoryClient({ products }: { products: Product[] }) {
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <Button variant="ghost" size="icon" onClick={() => archive(product.id)} aria-label={`Archive ${product.name}`}>
+                    <Button variant="danger" size="icon" onClick={() => deleteProduct(product.id, product.name)} aria-label={`Delete ${product.name}`}>
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </td>

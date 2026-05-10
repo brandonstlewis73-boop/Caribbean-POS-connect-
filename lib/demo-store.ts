@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { subDays, startOfDay } from "date-fns";
-import { CURRENCY_CODE, DEFAULT_DELIVERY_RATES, PRODUCT_IMAGE_URLS } from "./constants";
+import { CURRENCY_CODE, DEFAULT_DELIVERY_RATES } from "./constants";
 import { buildAddress, buildWazeLink } from "./waze";
 import {
   buildCustomerConfirmationMessage,
@@ -49,7 +49,6 @@ type DemoStore = {
 };
 
 declare global {
-  // eslint-disable-next-line no-var
   var __cpcDemoStore: DemoStore | undefined;
 }
 
@@ -172,108 +171,6 @@ function seedProducts(): Product[] {
 
 function seedCustomers(): Customer[] {
   return [];
-}
-
-function orderFromSeed(
-  store: Pick<DemoStore, "products" | "settings" | "receipts">,
-  input: {
-    id: string;
-    order_number: string;
-    receipt_number: string;
-    customer: Customer;
-    items: Array<[string, number]>;
-    order_type: Order["order_type"];
-    payment_method: string;
-    payment_status: Order["payment_status"];
-    delivery_status: Order["delivery_status"];
-    assigned_driver_id?: string | null;
-    created_by?: string | null;
-    created_at: string;
-  }
-) {
-  const items = input.items.map(([productId, quantity]) => {
-    const product = store.products.find((item) => item.id === productId);
-    if (!product) throw new Error(`Missing demo product ${productId}`);
-    const lineTotal = moneyRound(product.selling_price * quantity);
-    return {
-      id: id("itm"),
-      order_id: input.id,
-      product_id: product.id,
-      product_name: product.name,
-      sku: product.sku,
-      quantity,
-      unit_price: product.selling_price,
-      cost_price: product.cost_price,
-      discount: 0,
-      line_total: lineTotal
-    } satisfies OrderItem;
-  });
-  const subtotal = moneyRound(items.reduce((sum, item) => sum + item.line_total, 0));
-  const deliveryFee = input.order_type === "delivery" ? regionDeliveryFee(store.settings, input.customer.region) : 0;
-  const taxTotal = store.settings.tax_enabled ? moneyRound(subtotal * (store.settings.tax_rate / 100)) : 0;
-  const total = moneyRound(subtotal + taxTotal + deliveryFee);
-  const customerSnapshot: CustomerInput = {
-    name: input.customer.name,
-    phone: input.customer.phone,
-    email: input.customer.email,
-    street_address: input.customer.street_address,
-    city: input.customer.city,
-    region: input.customer.region,
-    country: input.customer.country,
-    delivery_notes: input.customer.delivery_notes,
-    preferred_payment_method: input.payment_method,
-    marketing_consent: input.customer.marketing_consent
-  };
-  const address = buildAddress([
-    customerSnapshot.street_address,
-    customerSnapshot.city,
-    customerSnapshot.region,
-    customerSnapshot.country
-  ]);
-  const wazeLink = input.order_type === "delivery" ? buildWazeLink({ address }) : null;
-  const paymentLink = buildPaymentLink(
-    store.settings,
-    input.order_number,
-    input.receipt_number,
-    total,
-    input.payment_method,
-    customerSnapshot
-  );
-  const order: Order = {
-    id: input.id,
-    order_number: input.order_number,
-    customer_id: input.customer.id,
-    customer_snapshot: customerSnapshot,
-    order_type: input.order_type,
-    status: "completed",
-    payment_method: input.payment_method,
-    payment_status: input.payment_status,
-    delivery_status: input.delivery_status,
-    assigned_driver_id: input.assigned_driver_id || null,
-    assigned_driver_name: input.assigned_driver_id ? "Malik Charles" : null,
-    subtotal,
-    discount_total: 0,
-    tax_total: taxTotal,
-    service_fee: 0,
-    delivery_fee: deliveryFee,
-    total,
-    loyalty_points_earned: Math.floor(total * store.settings.loyalty_points_per_ttd),
-    loyalty_points_redeemed: 0,
-    notes: null,
-    delivery_latitude: null,
-    delivery_longitude: null,
-    delivery_location_link: null,
-    waze_link: wazeLink,
-    payment_link: paymentLink,
-    created_by: input.created_by || null,
-    created_at: input.created_at,
-    updated_at: input.created_at,
-    items
-  };
-  order.whatsapp_business_link = buildWhatsAppLink(store.settings.whatsapp_business_number, buildOrderWhatsAppMessage(order, store.settings));
-  order.whatsapp_customer_link = buildWhatsAppLink(order.customer_snapshot.phone, buildCustomerConfirmationMessage(order, store.settings));
-  store.receipts[order.id] = input.receipt_number;
-  return order;
 }
 
 function createStore(): DemoStore {
@@ -434,6 +331,22 @@ export async function demoUpdateStaffUser(staffId: string, input: StaffInput, us
   return { ...staff };
 }
 
+export async function demoDeleteStaffUser(staffId: string, userId?: string) {
+  const state = store();
+  const index = state.users.findIndex((item) => item.id === staffId);
+  if (index < 0) return null;
+  const [staff] = state.users.splice(index, 1);
+  for (const order of state.orders) {
+    if (order.assigned_driver_id === staffId) {
+      order.assigned_driver_id = null;
+      order.assigned_driver_name = null;
+    }
+    if (order.created_by === staffId) order.created_by = null;
+  }
+  demoAuditLog("staff:delete", "user", staff.id, { name: staff.name, email: staff.email }, userId, state);
+  return { ...staff };
+}
+
 export async function demoListBusinesses() {
   return store().businesses.map(cloneBusiness);
 }
@@ -502,6 +415,20 @@ export async function demoUpdateProduct(productId: string, input: Partial<Produc
   return cloneProduct(product);
 }
 
+export async function demoDeleteProduct(productId: string, userId?: string) {
+  const state = store();
+  const index = state.products.findIndex((item) => item.id === productId);
+  if (index < 0) return null;
+  const [product] = state.products.splice(index, 1);
+  for (const order of state.orders) {
+    for (const item of order.items) {
+      if (item.product_id === productId) item.product_id = null;
+    }
+  }
+  demoAuditLog("product:delete", "product", productId, { name: product.name, sku: product.sku }, userId, state);
+  return cloneProduct(product);
+}
+
 export async function demoAdjustStock(productId: string, delta: number, reason: string, userId?: string) {
   const product = store().products.find((item) => item.id === productId);
   if (!product) return null;
@@ -559,6 +486,18 @@ export async function demoUpdateCustomer(customerId: string, input: CustomerInpu
     marketing_consent: input.marketing_consent ?? customer.marketing_consent
   });
   demoAuditLog("customer:update", "customer", customerId, input, userId);
+  return cloneCustomer(customer);
+}
+
+export async function demoDeleteCustomer(customerId: string, userId?: string) {
+  const state = store();
+  const index = state.customers.findIndex((item) => item.id === customerId);
+  if (index < 0) return null;
+  const [customer] = state.customers.splice(index, 1);
+  for (const order of state.orders) {
+    if (order.customer_id === customerId) order.customer_id = null;
+  }
+  demoAuditLog("customer:delete", "customer", customerId, { name: customer.name, phone: customer.phone }, userId, state);
   return cloneCustomer(customer);
 }
 
@@ -772,6 +711,44 @@ export async function demoUpdateOrder(orderId: string, input: Partial<Order>, us
     updated_at: new Date().toISOString()
   });
   demoAuditLog("order:update", "order", orderId, input, userId);
+  return cloneOrder(order);
+}
+
+export async function demoDeleteOrder(orderId: string, userId?: string) {
+  const state = store();
+  const index = state.orders.findIndex((item) => item.id === orderId);
+  if (index < 0) return null;
+  const [order] = state.orders.splice(index, 1);
+  const shouldRestoreStock = order.status !== "cancelled" && order.status !== "draft";
+  const shouldReverseCustomer = Boolean(order.customer_id) && order.status !== "cancelled";
+
+  if (shouldRestoreStock) {
+    for (const item of order.items) {
+      const product = item.product_id
+        ? state.products.find((entry) => entry.id === item.product_id)
+        : null;
+      if (product) product.stock_quantity += item.quantity;
+    }
+  }
+
+  if (shouldReverseCustomer && order.customer_id) {
+    const customer = state.customers.find((entry) => entry.id === order.customer_id);
+    if (customer) {
+      customer.total_spent = Math.max(0, moneyRound(customer.total_spent - order.total));
+      customer.orders_count = Math.max(0, customer.orders_count - 1);
+      customer.loyalty_points = Math.max(0, customer.loyalty_points - order.loyalty_points_earned);
+    }
+  }
+
+  delete state.receipts[order.id];
+  demoAuditLog(
+    "order:delete",
+    "order",
+    orderId,
+    { order_number: order.order_number, restored_items: shouldRestoreStock ? order.items.length : 0 },
+    userId,
+    state
+  );
   return cloneOrder(order);
 }
 

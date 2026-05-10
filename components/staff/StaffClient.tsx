@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Bike, ChefHat, CircleUserRound, Headset, ShieldCheck, Store, Upload, UserCog, UsersRound } from "lucide-react";
+import { Bike, ChefHat, CircleUserRound, Headset, ShieldCheck, Store, Trash2, Upload, UserCog, UsersRound } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Field, SelectField } from "@/components/ui/Field";
@@ -142,6 +142,31 @@ export function StaffClient({ staff }: { staff: User[] }) {
     }
   }
 
+  async function deleteStaff() {
+    if (selectedId === "new") return;
+    if (!window.confirm(`Delete ${draft.name || "this staff profile"}? Assigned orders will stay in order history but this staff profile will be removed.`)) return;
+    setSaving(true);
+    setMessage("");
+    try {
+      const response = await fetch(`/api/staff/${selectedId}`, { method: "DELETE" });
+      const payload = await readApiPayload<{ staff: User }>(response);
+      if (!response.ok) {
+        setMessage(payload.error || "Staff profile could not be deleted.");
+        return;
+      }
+      const remaining = items.filter((user) => user.id !== selectedId);
+      setItems(remaining);
+      const next = remaining[0] || emptyDraft();
+      setSelectedId(remaining[0]?.id || "new");
+      setDraft(next);
+      setMessage("Staff profile deleted.");
+    } catch {
+      setMessage("Staff profile could not be deleted. Check your connection and try again.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   function uploadAvatar(file?: File) {
     if (!file) return;
     if (file.size > 250_000) {
@@ -244,9 +269,17 @@ export function StaffClient({ staff }: { staff: User[] }) {
                 <option value="inactive">Inactive</option>
               </SelectField>
             </div>
-            <Button variant="primary" onClick={saveStaff} disabled={saving}>
-              {saving ? "Saving..." : "Save Staff Profile"}
-            </Button>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <Button variant="primary" onClick={saveStaff} disabled={saving}>
+                {saving ? "Saving..." : "Save Staff Profile"}
+              </Button>
+              {selectedId !== "new" ? (
+                <Button variant="danger" onClick={deleteStaff} disabled={saving}>
+                  <Trash2 className="h-4 w-4" />
+                  Delete
+                </Button>
+              ) : null}
+            </div>
             {message ? <p className="rounded-card bg-cyan-300/10 p-3 text-sm font-black text-cyan-100">{message}</p> : null}
           </div>
         </div>
