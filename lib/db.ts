@@ -22,6 +22,12 @@ type DatabaseConnectionConfig = {
   databaseHost: string | null;
   databasePort: string | null;
   databaseName: string | null;
+  databaseUser: string | null;
+  databaseUserLooksLikeSupabasePooler: boolean;
+  databasePasswordLength: number | null;
+  databasePasswordHasWhitespace: boolean;
+  databasePasswordHasWrappingBrackets: boolean;
+  databasePasswordContainsBrackets: boolean;
   sslMode: string | null;
   sslConfigured: boolean;
   sslRejectUnauthorized: boolean | null;
@@ -76,6 +82,8 @@ function databaseUrl() {
 function normalizeDatabaseUrl(url: string) {
   try {
     const parsed = new URL(url);
+    const databaseUser = decodeUrlValue(parsed.username) || null;
+    const databasePassword = decodeUrlValue(parsed.password);
     const sslMode =
       parsed.searchParams.get("sslmode")?.toLowerCase() ||
       parsed.searchParams.get("ssl")?.toLowerCase() ||
@@ -88,6 +96,8 @@ function normalizeDatabaseUrl(url: string) {
       databaseHost: parsed.hostname || null,
       databasePort: parsed.port || null,
       databaseName: parsed.pathname.replace(/^\/+/, "") || null,
+      databaseUser,
+      databasePassword,
       sslMode
     };
   } catch {
@@ -96,8 +106,18 @@ function normalizeDatabaseUrl(url: string) {
       databaseHost: databaseHost(url),
       databasePort: databasePort(url),
       databaseName: null,
+      databaseUser: null,
+      databasePassword: "",
       sslMode: extractSslMode(url)
     };
+  }
+}
+
+function decodeUrlValue(value: string) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
   }
 }
 
@@ -179,6 +199,12 @@ function getDatabaseConnectionConfig(): DatabaseConnectionConfig {
       databaseHost: null,
       databasePort: null,
       databaseName: null,
+      databaseUser: null,
+      databaseUserLooksLikeSupabasePooler: false,
+      databasePasswordLength: null,
+      databasePasswordHasWhitespace: false,
+      databasePasswordHasWrappingBrackets: false,
+      databasePasswordContainsBrackets: false,
       sslMode: null,
       sslConfigured: false,
       sslRejectUnauthorized: null,
@@ -192,9 +218,11 @@ function getDatabaseConnectionConfig(): DatabaseConnectionConfig {
   const normalized = normalizeDatabaseUrl(url);
   const databaseHost = normalized.databaseHost;
   const directSupabaseMatch = databaseHost?.match(/^db\.([a-z0-9]+)\.supabase\.co$/);
+  const poolerUserMatch = normalized.databaseUser?.match(/^postgres\.([a-z0-9]+)$/);
   const usesSupabasePooler = Boolean(
     databaseHost === "pooler.supabase.com" || databaseHost?.endsWith(".pooler.supabase.com")
   );
+  const databasePassword = normalized.databasePassword || "";
   const usesDirectSupabaseHost = Boolean(directSupabaseMatch);
   const ssl = sslConfigForDatabase({
     sslMode: normalized.sslMode,
@@ -209,11 +237,18 @@ function getDatabaseConnectionConfig(): DatabaseConnectionConfig {
     databaseHost,
     databasePort: normalized.databasePort,
     databaseName: normalized.databaseName,
+    databaseUser: normalized.databaseUser,
+    databaseUserLooksLikeSupabasePooler: !usesSupabasePooler || Boolean(poolerUserMatch),
+    databasePasswordLength: databasePassword.length,
+    databasePasswordHasWhitespace: /\s/.test(databasePassword),
+    databasePasswordHasWrappingBrackets:
+      databasePassword.startsWith("[") && databasePassword.endsWith("]"),
+    databasePasswordContainsBrackets: /[\[\]]/.test(databasePassword),
     sslMode: normalized.sslMode,
     ...sslDescription,
     usesSupabasePooler,
     usesDirectSupabaseHost,
-    supabaseProjectRef: directSupabaseMatch?.[1] || null,
+    supabaseProjectRef: directSupabaseMatch?.[1] || poolerUserMatch?.[1] || null,
     ssl
   };
 }
@@ -274,6 +309,16 @@ export function databaseErrorMessage(error: unknown) {
   }
 
   if (code === "28P01" || normalized.includes("password authentication failed")) {
+    const diagnostics = databaseConnectionDiagnostics();
+    if (diagnostics.databasePasswordHasWrappingBrackets) {
+      return "Database login failed. Vercel DATABASE_URL password appears to include wrapping square brackets; remove the brackets and redeploy.";
+    }
+    if (diagnostics.databasePasswordHasWhitespace) {
+      return "Database login failed. Vercel DATABASE_URL password appears to include whitespace; remove extra spaces or line breaks and redeploy.";
+    }
+    if (!diagnostics.databaseUserLooksLikeSupabasePooler) {
+      return "Database login failed. For the Supabase pooler, the username should look like postgres.PROJECT_REF.";
+    }
     return "Database login failed. Check the password in Vercel DATABASE_URL and redeploy.";
   }
 
