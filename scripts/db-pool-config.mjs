@@ -1,8 +1,9 @@
 const SSL_QUERY_PARAMS = ["sslmode", "ssl", "sslcert", "sslkey", "sslrootcert"];
 
 function normalizeConnectionString(connectionString) {
+  const trimmedConnectionString = connectionString.trim();
   try {
-    const parsed = new URL(connectionString);
+    const parsed = new URL(trimmedConnectionString);
     const sslMode =
       parsed.searchParams.get("sslmode")?.toLowerCase() ||
       parsed.searchParams.get("ssl")?.toLowerCase() ||
@@ -16,10 +17,10 @@ function normalizeConnectionString(connectionString) {
       sslMode
     };
   } catch {
-    const host = connectionString.match(/@([^/:?]+)(?::\d+)?/)?.[1] || "";
-    const sslMode = connectionString.match(/[?&](?:sslmode|ssl)=([^&]+)/i)?.[1]?.toLowerCase() || null;
+    const host = trimmedConnectionString.match(/@([^/:?]+)(?::\d+)?/)?.[1] || "";
+    const sslMode = trimmedConnectionString.match(/[?&](?:sslmode|ssl)=([^&]+)/i)?.[1]?.toLowerCase() || null;
     return {
-      connectionString,
+      connectionString: trimmedConnectionString,
       host,
       sslMode
     };

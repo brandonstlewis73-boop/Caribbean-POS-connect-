@@ -82,6 +82,7 @@ export async function GET() {
       mode: "postgres",
       database: {
         connected: true,
+        select1: true,
         message: "Connected",
         ...diagnostics,
         latencyMs: Date.now() - startedAt
@@ -97,6 +98,7 @@ export async function GET() {
         mode: "postgres",
         database: {
           connected: false,
+          select1: false,
           message: databaseErrorMessage(error),
           ...diagnostics
         },

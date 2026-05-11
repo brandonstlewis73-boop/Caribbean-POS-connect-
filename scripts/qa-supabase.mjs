@@ -52,15 +52,17 @@ async function request(path, options = {}) {
 
 await loadEnvFile(await readFile(".env.local", "utf8"));
 
-assertOk(Boolean(process.env.DATABASE_URL), "DATABASE_URL is missing");
+const qaDatabaseUrl = process.env.DATABASE_URL || process.env.SUPABASE_DB_URL;
+
+assertOk(Boolean(qaDatabaseUrl), "DATABASE_URL or SUPABASE_DB_URL is missing");
 assertOk(
-  /^postgres(ql)?:\/\//.test(process.env.DATABASE_URL),
-  "DATABASE_URL is not a Postgres connection string"
+  /^postgres(ql)?:\/\//.test(qaDatabaseUrl),
+  "DATABASE_URL or SUPABASE_DB_URL is not a Postgres connection string"
 );
 assertOk(Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL), "NEXT_PUBLIC_SUPABASE_URL is missing");
 assertOk(Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY), "NEXT_PUBLIC_SUPABASE_ANON_KEY is missing");
 
-const pool = new Pool(createPoolConfig(process.env.DATABASE_URL));
+const pool = new Pool(createPoolConfig(qaDatabaseUrl));
 
 const summary = {
   env: {

@@ -28,16 +28,29 @@ type DatabaseConnectionConfig = {
   databasePasswordHasWhitespace: boolean;
   databasePasswordHasWrappingBrackets: boolean;
   databasePasswordContainsBrackets: boolean;
+  databaseUrlHasWhitespace: boolean;
   sslMode: string | null;
+  sslModeKnown: boolean;
   sslConfigured: boolean;
   sslRejectUnauthorized: boolean | null;
   usesSupabasePooler: boolean;
   usesDirectSupabaseHost: boolean;
   supabaseProjectRef: string | null;
+  warnings: string[];
   ssl: DatabaseSslConfig;
 };
 
 const SSL_QUERY_PARAMS = ["sslmode", "ssl", "sslcert", "sslkey", "sslrootcert"];
+const KNOWN_SSL_MODES = new Set([
+  "disable",
+  "allow",
+  "prefer",
+  "require",
+  "verify-ca",
+  "verify-full",
+  "true",
+  "no-verify"
+]);
 
 function getSelectedDatabaseEnv(): DatabaseEnvName | null {
   if (process.env.DATABASE_URL && !process.env.DATABASE_URL.startsWith("file:")) {
@@ -70,11 +83,13 @@ export const isDemoMode =
 declare global {
   var __cpcPool: Pool | undefined;
   var __cpcDbInit: Promise<void> | undefined;
+  var __cpcDbConfigLogged: boolean | undefined;
 }
 
 function normalizeDatabaseUrl(url: string) {
+  const trimmedUrl = url.trim();
   try {
-    const parsed = new URL(url);
+    const parsed = new URL(trimmedUrl);
     const databaseUser = decodeUrlValue(parsed.username) || null;
     const databasePassword = decodeUrlValue(parsed.password);
     const sslMode =
@@ -95,13 +110,13 @@ function normalizeDatabaseUrl(url: string) {
     };
   } catch {
     return {
-      connectionString: url,
-      databaseHost: databaseHost(url),
-      databasePort: databasePort(url),
+      connectionString: trimmedUrl,
+      databaseHost: databaseHost(trimmedUrl),
+      databasePort: databasePort(trimmedUrl),
       databaseName: null,
       databaseUser: null,
       databasePassword: "",
-      sslMode: extractSslMode(url)
+      sslMode: extractSslMode(trimmedUrl)
     };
   }
 }
@@ -198,12 +213,15 @@ function getDatabaseConnectionConfig(): DatabaseConnectionConfig {
       databasePasswordHasWhitespace: false,
       databasePasswordHasWrappingBrackets: false,
       databasePasswordContainsBrackets: false,
+      databaseUrlHasWhitespace: false,
       sslMode: null,
+      sslModeKnown: true,
       sslConfigured: false,
       sslRejectUnauthorized: null,
       usesSupabasePooler: false,
       usesDirectSupabaseHost: false,
       supabaseProjectRef: null,
+      warnings: [],
       ssl: undefined
     };
   }
@@ -217,6 +235,21 @@ function getDatabaseConnectionConfig(): DatabaseConnectionConfig {
   );
   const databasePassword = normalized.databasePassword || "";
   const usesDirectSupabaseHost = Boolean(directSupabaseMatch);
+  const sslModeKnown = !normalized.sslMode || KNOWN_SSL_MODES.has(normalized.sslMode);
+  const databaseUrlHasWhitespace = url !== url.trim() || /\s/.test(url);
+  const warnings: string[] = [];
+  if (databaseUrlHasWhitespace) {
+    warnings.push("The selected database URL contains whitespace. Remove spaces or line breaks in Vercel, then redeploy.");
+  }
+  if (normalized.sslMode && !sslModeKnown) {
+    warnings.push(`The selected database URL has an unrecognized sslmode value: ${normalized.sslMode}. Use sslmode=no-verify for the Supabase pooler.`);
+  }
+  if (usesSupabasePooler && normalized.databasePort !== "6543") {
+    warnings.push("The Supabase transaction pooler should use port 6543 for serverless deployments.");
+  }
+  if (usesDirectSupabaseHost) {
+    warnings.push("The selected database URL uses the direct Supabase host. Vercel should use the Supabase transaction pooler host on port 6543.");
+  }
   const ssl = sslConfigForDatabase({
     sslMode: normalized.sslMode,
     usesSupabasePooler,
@@ -237,11 +270,14 @@ function getDatabaseConnectionConfig(): DatabaseConnectionConfig {
     databasePasswordHasWrappingBrackets:
       databasePassword.startsWith("[") && databasePassword.endsWith("]"),
     databasePasswordContainsBrackets: /[\[\]]/.test(databasePassword),
+    databaseUrlHasWhitespace,
     sslMode: normalized.sslMode,
+    sslModeKnown,
     ...sslDescription,
     usesSupabasePooler,
     usesDirectSupabaseHost,
     supabaseProjectRef: directSupabaseMatch?.[1] || poolerUserMatch?.[1] || null,
+    warnings,
     ssl
   };
 }
@@ -269,12 +305,15 @@ export function databaseConnectionDiagnostics() {
     databasePasswordHasWhitespace: config.databasePasswordHasWhitespace,
     databasePasswordHasWrappingBrackets: config.databasePasswordHasWrappingBrackets,
     databasePasswordContainsBrackets: config.databasePasswordContainsBrackets,
+    databaseUrlHasWhitespace: config.databaseUrlHasWhitespace,
     sslMode: config.sslMode,
+    sslModeKnown: config.sslModeKnown,
     sslConfigured: config.sslConfigured,
     sslRejectUnauthorized: config.sslRejectUnauthorized,
     usesSupabasePooler: config.usesSupabasePooler,
     usesDirectSupabaseHost: config.usesDirectSupabaseHost,
-    supabaseProjectRef: config.supabaseProjectRef
+    supabaseProjectRef: config.supabaseProjectRef,
+    warnings: config.warnings
   };
 }
 
@@ -341,7 +380,7 @@ export function databaseErrorMessage(error: unknown) {
     if (!diagnostics.databaseUserLooksLikeSupabasePooler) {
       return "Database login failed. For the Supabase pooler, the username should look like postgres.PROJECT_REF.";
     }
-    return "Database login failed. Check the password in Vercel DATABASE_URL and redeploy.";
+    return "Postgres authentication failed. The app reached the Supabase pooler, but Supabase rejected the username/password saved in the selected Vercel database environment variable. Confirm the Production DATABASE_URL value and redeploy.";
   }
 
   if (normalized.includes("database is not configured")) {
@@ -361,6 +400,21 @@ export function safeDatabaseErrorDetails(error: unknown) {
   };
 }
 
+function safeConnectionLogDetails(connection: DatabaseConnectionConfig) {
+  return {
+    selectedDatabaseEnv: connection.selectedDatabaseEnv,
+    databaseHost: connection.databaseHost,
+    databasePort: connection.databasePort,
+    databaseName: connection.databaseName,
+    sslMode: connection.sslMode,
+    sslConfigured: connection.sslConfigured,
+    sslRejectUnauthorized: connection.sslRejectUnauthorized,
+    usesSupabasePooler: connection.usesSupabasePooler,
+    usesDirectSupabaseHost: connection.usesDirectSupabaseHost,
+    warnings: connection.warnings
+  };
+}
+
 export function getDb() {
   if (globalThis.__cpcPool) return globalThis.__cpcPool;
   const connection = getDatabaseConnectionConfig();
@@ -368,6 +422,10 @@ export function getDb() {
     throw new Error(
       "Database is not configured. Add DATABASE_URL or SUPABASE_DB_URL in Vercel Environment Variables, then redeploy."
     );
+  }
+  if (!globalThis.__cpcDbConfigLogged) {
+    console.info("Database connection configuration", safeConnectionLogDetails(connection));
+    globalThis.__cpcDbConfigLogged = true;
   }
   globalThis.__cpcPool = new Pool({
     connectionString: connection.connectionString,
