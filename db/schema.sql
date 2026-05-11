@@ -155,7 +155,7 @@ CREATE TABLE IF NOT EXISTS orders (
 
 ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_status_check;
 ALTER TABLE orders ADD CONSTRAINT orders_status_check CHECK (status IN ('draft', 'new', 'accepted', 'preparing', 'ready', 'out_for_delivery', 'completed', 'cancelled'));
-ALTER TABLE orders ADD COLUMN IF NOT EXISTS completed_by TEXT REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS completed_by TEXT;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS inventory_applied BOOLEAN NOT NULL DEFAULT FALSE;
 UPDATE orders
