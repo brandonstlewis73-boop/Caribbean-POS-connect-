@@ -125,6 +125,70 @@ export const DEFAULT_COUNTRY_BY_CURRENCY: Record<CaribbeanCurrencyCode, string> 
   EUR: "French Caribbean territories"
 };
 
+export const CARIBBEAN_MARKETS_BY_COUNTRY = {
+  AG: { country: "Antigua and Barbuda", currency: "XCD", aliases: ["antigua", "barbuda"] },
+  AI: { country: "Anguilla", currency: "XCD" },
+  AW: { country: "Aruba", currency: "AWG" },
+  BB: { country: "Barbados", currency: "BBD" },
+  BL: { country: "Saint Barthelemy", currency: "EUR", aliases: ["st barthelemy", "st. barthelemy", "saint barth"] },
+  BM: { country: "Bermuda", currency: "BMD" },
+  BQ: { country: "Caribbean Netherlands", currency: "USD", aliases: ["bonaire", "saba", "sint eustatius"] },
+  BS: { country: "Bahamas", currency: "BSD", aliases: ["the bahamas"] },
+  BZ: { country: "Belize", currency: "BZD" },
+  CU: { country: "Cuba", currency: "CUP" },
+  CW: { country: "Curacao", currency: "XCG", aliases: ["curacao"] },
+  DM: { country: "Dominica", currency: "XCD" },
+  DO: { country: "Dominican Republic", currency: "DOP" },
+  GD: { country: "Grenada", currency: "XCD" },
+  GP: { country: "Guadeloupe", currency: "EUR" },
+  GY: { country: "Guyana", currency: "GYD" },
+  HT: { country: "Haiti", currency: "HTG" },
+  JM: { country: "Jamaica", currency: "JMD" },
+  KN: { country: "Saint Kitts and Nevis", currency: "XCD", aliases: ["st kitts and nevis", "st. kitts and nevis"] },
+  KY: { country: "Cayman Islands", currency: "KYD" },
+  LC: { country: "Saint Lucia", currency: "XCD", aliases: ["st lucia", "st. lucia"] },
+  MF: { country: "Saint Martin", currency: "EUR", aliases: ["st martin", "st. martin"] },
+  MQ: { country: "Martinique", currency: "EUR" },
+  MS: { country: "Montserrat", currency: "XCD" },
+  PR: { country: "Puerto Rico", currency: "USD" },
+  SR: { country: "Suriname", currency: "SRD" },
+  SX: { country: "Sint Maarten", currency: "XCG", aliases: ["saint maarten"] },
+  TC: { country: "Turks and Caicos", currency: "USD", aliases: ["turks and caicos islands"] },
+  TT: { country: "Trinidad and Tobago", currency: "TTD" },
+  US: { country: "United States", currency: "USD", aliases: ["usa", "united states of america"] },
+  VC: {
+    country: "Saint Vincent and the Grenadines",
+    currency: "XCD",
+    aliases: ["st vincent and the grenadines", "st. vincent and the grenadines"]
+  },
+  VG: { country: "British Virgin Islands", currency: "USD", aliases: ["bvi"] },
+  VI: { country: "US Virgin Islands", currency: "USD", aliases: ["u.s. virgin islands", "united states virgin islands", "usvi"] }
+} as const satisfies Record<
+  string,
+  {
+    country: string;
+    currency: CaribbeanCurrencyCode;
+    aliases?: readonly string[];
+  }
+>;
+
+export function getMarketForCountry(country?: string | null) {
+  const value = country?.trim();
+  if (!value) return null;
+  const upper = value.toUpperCase();
+  const exact = CARIBBEAN_MARKETS_BY_COUNTRY[upper as keyof typeof CARIBBEAN_MARKETS_BY_COUNTRY];
+  if (exact) return { countryCode: upper, ...exact };
+
+  const normalized = value.toLowerCase();
+  const entry = Object.entries(CARIBBEAN_MARKETS_BY_COUNTRY).find(([, market]) => {
+    const aliases = "aliases" in market ? market.aliases : [];
+    const names = [market.country.toLowerCase(), ...aliases.map((alias) => alias.toLowerCase())];
+    return names.includes(normalized);
+  });
+
+  return entry ? { countryCode: entry[0], ...entry[1] } : null;
+}
+
 export function getDeliveryRegionsForCurrency(currency?: string | null): readonly string[] {
   return DELIVERY_REGIONS_BY_CURRENCY[(currency || CURRENCY_CODE) as CaribbeanCurrencyCode] || DELIVERY_REGIONS_BY_CURRENCY.TTD;
 }

@@ -7,6 +7,7 @@ import { Field, SelectField, TextAreaField } from "@/components/ui/Field";
 import { Badge } from "@/components/ui/Badge";
 import { getDefaultCountryForCurrency, getDeliveryRegionsForCurrency, money, PAYMENT_METHODS, PRODUCT_CATEGORIES } from "@/lib/constants";
 import { readApiPayload } from "@/lib/client-response";
+import type { OnlineMarket } from "@/lib/online-market";
 import type { Order, Product, Settings } from "@/lib/types";
 
 type CartItem = Product & { quantity: number };
@@ -41,14 +42,17 @@ function paymentMethodEnabled(method: string, settings: Settings) {
 export function OnlineOrderClient({
   products: initialProducts,
   settings: initialSettings,
+  market: initialMarket = null,
   initialStatusMessage = ""
 }: {
   products: Product[];
   settings: Settings;
+  market?: OnlineMarket | null;
   initialStatusMessage?: string;
 }) {
   const [products, setProducts] = useState(initialProducts);
   const [settings, setSettings] = useState(initialSettings);
+  const [market, setMarket] = useState<OnlineMarket | null>(initialMarket);
   const [category, setCategory] = useState("All");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [fulfillment, setFulfillment] = useState<"pickup" | "delivery">("delivery");
@@ -65,10 +69,11 @@ export function OnlineOrderClient({
     let cancelled = false;
     async function loadOnlineMenu() {
       try {
-        const response = await fetch("/api/online", { cache: "no-store" });
+        const response = await fetch(`/api/online${window.location.search || ""}`, { cache: "no-store" });
         const payload = await readApiPayload<{
           products: Product[];
           settings: Settings;
+          market?: OnlineMarket;
           statusMessage?: string | null;
         }>(response);
         if (cancelled) return;
@@ -78,6 +83,7 @@ export function OnlineOrderClient({
         }
         setProducts(payload.data?.products || []);
         setSettings(payload.data?.settings || initialSettings);
+        setMarket(payload.data?.market || null);
         setStatusMessage(payload.data?.statusMessage || "");
       } catch {
         if (!cancelled) setStatusMessage("Online menu is temporarily unavailable.");
@@ -106,15 +112,16 @@ export function OnlineOrderClient({
   const defaultDeliveryRegion = deliveryRegions[0] || "";
   const defaultCountry = getDefaultCountryForCurrency(settings.currency);
   const initialCountry = getDefaultCountryForCurrency(initialSettings.currency);
+  const marketCountry = market?.country || defaultCountry;
 
   useEffect(() => {
     setCustomer((current) => {
       const nextRegion = deliveryRegions.includes(current.region) ? current.region : defaultDeliveryRegion;
-      const nextCountry = current.country && current.country !== initialCountry ? current.country : defaultCountry;
+      const nextCountry = current.country && current.country !== initialCountry ? current.country : marketCountry;
       if (nextRegion === current.region && nextCountry === current.country) return current;
       return { ...current, region: nextRegion, country: nextCountry };
     });
-  }, [defaultCountry, defaultDeliveryRegion, deliveryRegions, initialCountry]);
+  }, [defaultDeliveryRegion, deliveryRegions, initialCountry, marketCountry]);
 
   function add(product: Product) {
     setCart((current) => {
@@ -207,7 +214,7 @@ export function OnlineOrderClient({
             <img src={settings.logo_url || "/logo.svg"} alt="" className="h-11 w-11 shrink-0 rounded-card bg-white object-contain p-1" />
             <div className="min-w-0">
               <h1 className="text-lg font-black leading-tight">{settings.business_name}</h1>
-              <p className="text-sm font-semibold text-slate-500">Online ordering - {settings.currency}</p>
+              <p className="text-sm font-semibold text-slate-500">Online ordering - {marketCountry} / {settings.currency}</p>
             </div>
           </div>
           <div className="flex min-w-0 flex-wrap items-center gap-2">
