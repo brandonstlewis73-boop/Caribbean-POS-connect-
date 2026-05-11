@@ -1,9 +1,10 @@
 "use client";
 
-import { useDeferredValue, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import {
   Banknote,
   Barcode,
+  Camera,
   CreditCard,
   LocateFixed,
   Minus,
@@ -14,7 +15,8 @@ import {
   RefreshCw,
   Search,
   Send,
-  Trash2
+  Trash2,
+  X
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -31,6 +33,9 @@ import { readApiPayload } from "@/lib/client-response";
 import type { Customer, Order, Product, Settings, User } from "@/lib/types";
 
 type CartItem = Product & { quantity: number; discount: number };
+type BarcodeDetectorResult = { rawValue?: string };
+type BarcodeDetectorInstance = { detect(source: HTMLVideoElement): Promise<BarcodeDetectorResult[]> };
+type BarcodeDetectorConstructor = new (options?: { formats?: string[] }) => BarcodeDetectorInstance;
 
 function emptyCustomer(currency: string) {
   const regions = getDeliveryRegionsForCurrency(currency);
@@ -87,7 +92,15 @@ export function POSClient({
   const [isSaving, setIsSaving] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState("");
+  const [barcodeInput, setBarcodeInput] = useState("");
+  const [barcodeMessage, setBarcodeMessage] = useState("");
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [scannerError, setScannerError] = useState("");
   const [lastOrder, setLastOrder] = useState<Order | null>(null);
+  const barcodeInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const scannerStreamRef = useRef<MediaStream | null>(null);
+  const addProductByBarcodeRef = useRef<(rawCode: string) => boolean>(() => false);
   const deferredQuery = useDeferredValue(query);
   const customerByPhoneSuffix = useMemo(() => {
     const lookup = new Map<string, Customer>();
@@ -128,6 +141,69 @@ export function POSClient({
   const defaultDeliveryRegion = deliveryRegions[0] || "";
   const defaultCountry = getDefaultCountryForCurrency(settings.currency);
 
+  useEffect(() => {
+    barcodeInputRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    if (!scannerOpen) {
+      scannerStreamRef.current?.getTracks().forEach((track) => track.stop());
+      scannerStreamRef.current = null;
+      return;
+    }
+
+    let stopped = false;
+    async function startScanner() {
+      setScannerError("");
+      const Detector = (window as unknown as { BarcodeDetector?: BarcodeDetectorConstructor }).BarcodeDetector;
+      if (!Detector) {
+        setScannerError("Camera barcode scanning is not supported in this browser. Use manual barcode entry or a USB scanner.");
+        return;
+      }
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setScannerError("Camera access is not available in this browser.");
+        return;
+      }
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment" },
+          audio: false
+        });
+        scannerStreamRef.current = stream;
+        if (!videoRef.current) return;
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+        const detector = new Detector({
+          formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "code_39", "qr_code"]
+        });
+        const scan = async () => {
+          if (stopped || !videoRef.current) return;
+          try {
+            const results = await detector.detect(videoRef.current);
+            const code = results[0]?.rawValue;
+            if (code && addProductByBarcodeRef.current(code)) {
+              setScannerOpen(false);
+              return;
+            }
+          } catch {
+            // Keep scanning; unsupported frames should not close the scanner.
+          }
+          window.setTimeout(scan, 350);
+        };
+        scan();
+      } catch {
+        setScannerError("Camera permission was denied or the camera is unavailable.");
+      }
+    }
+
+    startScanner();
+    return () => {
+      stopped = true;
+      scannerStreamRef.current?.getTracks().forEach((track) => track.stop());
+      scannerStreamRef.current = null;
+    };
+  }, [scannerOpen]);
+
   function addProduct(product: Product) {
     setCart((current) => {
       const existing = current.find((item) => item.id === product.id);
@@ -138,6 +214,60 @@ export function POSClient({
       }
       return [...current, { ...product, quantity: 1, discount: 0 }];
     });
+  }
+
+  function normalizeBarcode(value: string) {
+    return value.trim().replace(/\s/g, "").toLowerCase();
+  }
+
+  function playScanBeep() {
+    try {
+      const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!AudioContextClass) return;
+      const audio = new AudioContextClass();
+      const oscillator = audio.createOscillator();
+      const gain = audio.createGain();
+      oscillator.frequency.value = 880;
+      gain.gain.value = 0.04;
+      oscillator.connect(gain);
+      gain.connect(audio.destination);
+      oscillator.start();
+      window.setTimeout(() => {
+        oscillator.stop();
+        audio.close();
+      }, 90);
+    } catch {
+      // Audio feedback is optional.
+    }
+  }
+
+  function addProductByBarcode(rawCode: string) {
+    const code = normalizeBarcode(rawCode);
+    if (!code) return false;
+    const product = products.find((item) =>
+      [item.barcode, item.sku]
+        .filter(Boolean)
+        .map((value) => normalizeBarcode(String(value)))
+        .includes(code)
+    );
+    if (!product) {
+      setBarcodeMessage(`Barcode ${rawCode.trim()} was not found.`);
+      setError(`Barcode ${rawCode.trim()} was not found in inventory.`);
+      return false;
+    }
+    addProduct(product);
+    playScanBeep();
+    setError("");
+    setBarcodeInput("");
+    setBarcodeMessage(`${product.name} added from barcode.`);
+    window.setTimeout(() => barcodeInputRef.current?.focus(), 50);
+    return true;
+  }
+  addProductByBarcodeRef.current = addProductByBarcode;
+
+  function submitBarcode(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    addProductByBarcode(barcodeInput);
   }
 
   function updateQuantity(productId: string, delta: number) {
@@ -269,7 +399,7 @@ export function POSClient({
     <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(360px,420px)]">
       <div className="grid min-w-0 gap-4">
         <Panel>
-          <div className="grid min-w-0 gap-3 p-4 lg:grid-cols-[minmax(0,1fr)_auto]">
+          <div className="grid min-w-0 gap-3 p-4 xl:grid-cols-[minmax(0,1fr)_minmax(260px,360px)_auto_auto]">
             <label className="relative min-w-0">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
@@ -279,15 +409,36 @@ export function POSClient({
                 className="h-12 w-full rounded-card border border-caribbean-line bg-white pl-10 pr-3 text-base font-semibold outline-none focus:border-caribbean-teal focus:ring-2 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-900"
               />
             </label>
-            <Button variant="primary" size="lg">
+            <form onSubmit={submitBarcode} className="relative min-w-0">
+              <Barcode className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                ref={barcodeInputRef}
+                value={barcodeInput}
+                onChange={(event) => setBarcodeInput(event.target.value)}
+                placeholder="Scan or enter barcode"
+                className="h-12 w-full rounded-card border border-caribbean-line bg-white pl-10 pr-3 text-base font-semibold outline-none focus:border-caribbean-teal focus:ring-2 focus:ring-teal-100 dark:border-slate-700 dark:bg-slate-900"
+              />
+            </form>
+            <Button variant="primary" size="lg" onClick={() => addProductByBarcode(barcodeInput)} disabled={!barcodeInput.trim()}>
               <Barcode className="h-4 w-4" />
-              Scan barcode
+              Add
+            </Button>
+            <Button size="lg" onClick={() => setScannerOpen(true)}>
+              <Camera className="h-4 w-4" />
+              Camera
             </Button>
             <Button size="lg" onClick={refreshSaleData} disabled={isRefreshing}>
               <RefreshCw className="h-4 w-4" />
               {isRefreshing ? "Refreshing..." : "Refresh"}
             </Button>
           </div>
+          {barcodeMessage ? (
+            <p className={`mx-4 mb-4 rounded-card p-3 text-sm font-bold ${
+              barcodeMessage.includes("not found") ? "bg-red-50 text-red-700" : "bg-teal-50 text-teal-800"
+            }`}>
+              {barcodeMessage}
+            </p>
+          ) : null}
           <div className="flex gap-2 overflow-x-auto border-t border-caribbean-line px-4 py-3 dark:border-slate-800">
             {["All", ...PRODUCT_CATEGORIES].map((item) => (
               <button
@@ -560,6 +711,32 @@ export function POSClient({
           </Panel>
         ) : null}
       </aside>
+      {scannerOpen ? (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/80 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md overflow-hidden rounded-card border border-white/10 bg-slate-950 text-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-white/10 p-4">
+              <div>
+                <p className="text-lg font-black">Scan barcode</p>
+                <p className="text-sm font-semibold text-slate-400">Point the camera at the product barcode.</p>
+              </div>
+              <Button size="icon" variant="ghost" onClick={() => setScannerOpen(false)} aria-label="Close scanner">
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="grid gap-3 p-4">
+              <video ref={videoRef} className="aspect-video w-full rounded-card bg-black object-cover" muted playsInline />
+              {scannerError ? (
+                <p className="rounded-card bg-red-50 p-3 text-sm font-bold text-red-700">{scannerError}</p>
+              ) : (
+                <p className="rounded-card bg-teal-50 p-3 text-sm font-bold text-teal-800">
+                  Camera scanner is active. The product will be added when a barcode is detected.
+                </p>
+              )}
+              <Button variant="secondary" onClick={() => setScannerOpen(false)}>Close scanner</Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

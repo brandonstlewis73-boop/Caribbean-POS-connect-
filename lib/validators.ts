@@ -4,6 +4,16 @@ import { CARIBBEAN_CURRENCIES, ORDER_TYPES, PAYMENT_METHODS, PRODUCT_CATEGORIES,
 const optionalText = z.string().trim().optional().nullable();
 const caribbeanCurrencyCodes = CARIBBEAN_CURRENCIES.map((currency) => currency.code) as [string, ...string[]];
 const currencySchema = z.enum(caribbeanCurrencyCodes);
+const orderStatusSchema = z.enum([
+  "draft",
+  "new",
+  "accepted",
+  "preparing",
+  "ready",
+  "out_for_delivery",
+  "completed",
+  "cancelled"
+]);
 
 export const customerInputSchema = z.object({
   name: z.string().trim().min(1).optional(),
@@ -51,7 +61,7 @@ export const checkoutSchema = z.object({
   order_type: z.enum(ORDER_TYPES),
   payment_method: z.enum(PAYMENT_METHODS).or(z.string().trim().min(1)),
   payment_status: z.enum(["paid", "unpaid", "partial"]).optional(),
-  status: z.enum(["draft", "completed"]).optional(),
+  status: orderStatusSchema.optional(),
   discount_amount: z.coerce.number().min(0).optional().default(0),
   service_fee: z.coerce.number().min(0).optional(),
   delivery_fee: z.coerce.number().min(0).optional(),

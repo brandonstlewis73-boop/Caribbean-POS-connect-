@@ -49,6 +49,7 @@ import type {
   Order,
   OrderItem,
   Product,
+  Receipt,
   Settings,
   StaffInput,
   Subscription,
@@ -61,9 +62,11 @@ import type {
 import { buildAddress, buildWazeLink } from "./waze";
 import {
   buildCustomerConfirmationMessage,
+  buildCustomerReceiptWhatsAppMessage,
   buildOrderWhatsAppMessage,
   buildWhatsAppLink,
-  cleanWhatsAppNumber
+  cleanWhatsAppNumber,
+  sendWhatsAppMessage
 } from "./whatsapp";
 
 type DbClient = PoolClient;
@@ -92,8 +95,12 @@ export const defaultSettings: Settings = {
   whatsapp_enabled: true,
   whatsapp_business_number: "4437582368",
   whatsapp_country_code: "+1",
+  whatsapp_owner_alerts_enabled: true,
+  whatsapp_customer_receipts_enabled: false,
   whatsapp_order_template:
-    "New Order - Caribbean POS Connect\n\nOrder #: {{order_number}}\nCustomer: {{customer_name}}\nPhone: {{customer_phone}}\nAddress: {{address}}\n\nItems:\n{{items}}\n\nTotal: {{total}}\nPayment: {{payment_method}}\nStatus: {{payment_status}}\nPayment link: {{payment_link}}\n\nWaze:\n{{waze_link}}",
+    "New Order - {{business_name}}\n\nOrder #: {{order_number}}\nCustomer: {{customer_name}}\nPhone: {{customer_phone}}\nType: {{order_type}}\nAddress: {{address}}\n\nItems:\n{{items}}\n\nTotal: {{total}}\nPayment: {{payment_method}}\nPayment status: {{payment_status}}\nOrder status: {{order_status}}\nDate/time: {{date_time}}\nDashboard: {{dashboard_link}}\nPayment link: {{payment_link}}\n\nWaze:\n{{waze_link}}",
+  whatsapp_customer_receipt_template:
+    "Hi {{customer_name}}, your receipt for order #{{order_number}} from {{business_name}} is ready.\n\nItems:\n{{items}}\n\nTotal: {{total}}\nPayment: {{payment_method}}\nCompleted: {{completed_at}}\n\n{{receipt_message}}\nContact: {{business_phone}}",
   facebook_url: "https://facebook.com/caribbeanposconnect",
   instagram_url: "https://instagram.com/caribbeanposconnect",
   payment_cash_enabled: true,
@@ -309,6 +316,7 @@ function rowToOrder(row: any, items: OrderItem[]): Order {
   return {
     ...row,
     customer_snapshot: parseJson<CustomerInput>(row.customer_snapshot, {}),
+    inventory_applied: bool(row.inventory_applied),
     subtotal: Number(row.subtotal),
     discount_total: Number(row.discount_total),
     tax_total: Number(row.tax_total),
@@ -320,8 +328,43 @@ function rowToOrder(row: any, items: OrderItem[]): Order {
     delivery_latitude: row.delivery_latitude === null ? null : Number(row.delivery_latitude),
     delivery_longitude: row.delivery_longitude === null ? null : Number(row.delivery_longitude),
     created_at: toDateString(row.created_at) || "",
+    completed_at: toDateString(row.completed_at),
     updated_at: toDateString(row.updated_at) || "",
     items
+  };
+}
+
+function rowToReceipt(row: any): Receipt {
+  return {
+    id: row.id,
+    order_id: row.order_id,
+    order_number: row.order_number || "",
+    receipt_number: row.receipt_number,
+    customer_id: row.customer_id,
+    customer_name: row.customer_name,
+    customer_phone: row.customer_phone,
+    items: parseJson<OrderItem[]>(row.items, []).map((item) => ({
+      ...item,
+      quantity: Number(item.quantity),
+      unit_price: Number(item.unit_price),
+      cost_price: Number(item.cost_price),
+      discount: Number(item.discount),
+      line_total: Number(item.line_total)
+    })),
+    subtotal: Number(row.subtotal || 0),
+    discount_total: Number(row.discount_total || 0),
+    tax_total: Number(row.tax_total || 0),
+    delivery_fee: Number(row.delivery_fee || 0),
+    total: Number(row.total || 0),
+    payment_method: row.payment_method || "",
+    payment_status: row.payment_status || "paid",
+    completed_by: row.completed_by,
+    completed_by_name: row.completed_by_name,
+    completed_at: toDateString(row.completed_at),
+    channel: row.channel || "print",
+    whatsapp_sent_at: toDateString(row.whatsapp_sent_at),
+    created_at: toDateString(row.created_at) || "",
+    updated_at: toDateString(row.updated_at)
   };
 }
 
@@ -1027,16 +1070,201 @@ export async function deleteCustomer(id: string, userId?: string) {
   });
 }
 
+function initialOrderStatus(payload: CheckoutPayload): Order["status"] {
+  if (payload.status) return payload.status;
+  return payload.order_type === "in_store" ? "completed" : "new";
+}
+
+async function applyCompletedOrderEffects(client: DbClient, order: Order, userId?: string | null) {
+  for (const item of order.items) {
+    if (!item.product_id) continue;
+    await query(
+      "UPDATE products SET stock_quantity = stock_quantity - $1, updated_at = NOW() WHERE id = $2",
+      [item.quantity, item.product_id],
+      client
+    );
+    await query(
+      "INSERT INTO stock_movements (id, product_id, type, quantity_delta, reason, reference_id, user_id) VALUES ($1, $2, 'sale', $3, $4, $5, $6)",
+      [createId("mov"), item.product_id, -item.quantity, `Completed order #${order.order_number}`, order.id, userId ?? null],
+      client
+    );
+  }
+
+  if (order.customer_id) {
+    const row = await query<any>("SELECT tags, orders_count FROM customers WHERE id = $1", [order.customer_id], client);
+    const existingTags = parseJson<string[]>(row.rows[0]?.tags, []);
+    const existingOrderCount = Number(row.rows[0]?.orders_count || 0);
+    const nextTags = new Set(existingTags);
+    if (existingOrderCount + 1 >= 3) nextTags.add("Frequent Buyer");
+    if (order.total >= 500) nextTags.add("VIP");
+    if (order.payment_status !== "paid") nextTags.add("Owes Balance");
+    await query(
+      `UPDATE customers SET
+        total_spent = total_spent + $1,
+        orders_count = orders_count + 1,
+        last_order_at = NOW(),
+        loyalty_points = loyalty_points + $2,
+        tags = $3::jsonb,
+        updated_at = NOW()
+       WHERE id = $4`,
+      [order.total, order.loyalty_points_earned, JSON.stringify(Array.from(nextTags)), order.customer_id],
+      client
+    );
+
+    if (order.loyalty_points_earned > 0) {
+      await query(
+        "INSERT INTO loyalty_transactions (id, customer_id, order_id, points_delta, type, notes) VALUES ($1, $2, $3, $4, 'earned', $5)",
+        [createId("loy"), order.customer_id, order.id, order.loyalty_points_earned, `Earned on order #${order.order_number}`],
+        client
+      );
+    }
+  }
+
+  await query(
+    "UPDATE orders SET inventory_applied = TRUE, completed_by = COALESCE($1, completed_by), completed_at = COALESCE(completed_at, NOW()), updated_at = NOW() WHERE id = $2",
+    [userId ?? null, order.id],
+    client
+  );
+}
+
+async function reverseCompletedOrderEffects(client: DbClient, order: Order, userId?: string | null) {
+  for (const item of order.items) {
+    if (!item.product_id) continue;
+    await query(
+      "UPDATE products SET stock_quantity = stock_quantity + $1, updated_at = NOW() WHERE id = $2",
+      [item.quantity, item.product_id],
+      client
+    );
+    await query(
+      "INSERT INTO stock_movements (id, product_id, type, quantity_delta, reason, reference_id, user_id) VALUES ($1, $2, 'return', $3, $4, $5, $6)",
+      [createId("mov"), item.product_id, item.quantity, `Cancelled order #${order.order_number}`, order.id, userId ?? null],
+      client
+    );
+  }
+
+  if (order.customer_id) {
+    await query(
+      `UPDATE customers SET
+        total_spent = GREATEST(0, total_spent - $1),
+        orders_count = GREATEST(0, orders_count - 1),
+        loyalty_points = GREATEST(0, loyalty_points - $2),
+        updated_at = NOW()
+       WHERE id = $3`,
+      [order.total, order.loyalty_points_earned, order.customer_id],
+      client
+    );
+    if (order.loyalty_points_earned > 0) {
+      await query(
+        "INSERT INTO loyalty_transactions (id, customer_id, order_id, points_delta, type, notes) VALUES ($1, $2, $3, $4, 'manual_adjustment', $5)",
+        [
+          createId("loy"),
+          order.customer_id,
+          order.id,
+          -order.loyalty_points_earned,
+          `Reversed cancelled order #${order.order_number}`
+        ],
+        client
+      );
+    }
+  }
+
+  await query(
+    "UPDATE orders SET inventory_applied = FALSE, updated_at = NOW() WHERE id = $1",
+    [order.id],
+    client
+  );
+}
+
+async function createOrUpdateReceiptRecord(
+  client: DbClient,
+  order: Order,
+  receiptNumber: string,
+  completedBy?: string | null
+) {
+  await query(
+    `INSERT INTO receipts (
+      id, order_id, receipt_number, order_number, customer_id, customer_name, customer_phone,
+      items, subtotal, discount_total, tax_total, delivery_fee, total, payment_method,
+      payment_status, completed_by, completed_at, channel, updated_at
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11, $12, $13, $14, $15, $16, COALESCE($17::timestamptz, NOW()), 'print', NOW())
+    ON CONFLICT (order_id) DO UPDATE SET
+      order_number = EXCLUDED.order_number,
+      customer_id = EXCLUDED.customer_id,
+      customer_name = EXCLUDED.customer_name,
+      customer_phone = EXCLUDED.customer_phone,
+      items = EXCLUDED.items,
+      subtotal = EXCLUDED.subtotal,
+      discount_total = EXCLUDED.discount_total,
+      tax_total = EXCLUDED.tax_total,
+      delivery_fee = EXCLUDED.delivery_fee,
+      total = EXCLUDED.total,
+      payment_method = EXCLUDED.payment_method,
+      payment_status = EXCLUDED.payment_status,
+      completed_by = EXCLUDED.completed_by,
+      completed_at = EXCLUDED.completed_at,
+      updated_at = NOW()`,
+    [
+      createId("rcp"),
+      order.id,
+      receiptNumber,
+      order.order_number,
+      order.customer_id ?? null,
+      order.customer_snapshot.name || "Walk-in customer",
+      order.customer_snapshot.phone || null,
+      JSON.stringify(order.items),
+      order.subtotal,
+      order.discount_total,
+      order.tax_total,
+      order.delivery_fee,
+      order.total,
+      order.payment_method,
+      order.payment_status,
+      completedBy ?? order.completed_by ?? null,
+      order.completed_at ?? null
+    ],
+    client
+  );
+}
+
+async function nextReceiptNumber(client: DbClient) {
+  const receiptFloor = await getMaxNumericValue(client, "receipts", "receipt_number", 4024);
+  return `R-${await getCounter(client, "receipt_counter", 4024, receiptFloor)}`;
+}
+
+async function notifyOwnerOfNewOrder(order: Order, settings: Settings) {
+  if (!settings.whatsapp_enabled || !settings.whatsapp_owner_alerts_enabled) return;
+  const to = process.env.BUSINESS_WHATSAPP_NUMBER || settings.whatsapp_business_number;
+  const result = await sendWhatsAppMessage(to, buildOrderWhatsAppMessage(order, settings), {
+    defaultCountryCode: settings.whatsapp_country_code
+  });
+  if (!result.ok && !result.skipped) {
+    console.warn("Owner WhatsApp alert was not sent", { orderId: order.id, reason: result.message });
+  }
+}
+
+async function notifyCustomerReceipt(order: Order, settings: Settings) {
+  if (!settings.whatsapp_enabled || !(settings.whatsapp_customer_receipts_enabled || settings.receipt_whatsapp_enabled)) return;
+  const result = await sendWhatsAppMessage(order.customer_snapshot.phone, buildCustomerReceiptWhatsAppMessage(order, settings), {
+    defaultCountryCode: settings.whatsapp_country_code
+  });
+  if (result.ok) {
+    await query("UPDATE receipts SET whatsapp_sent_at = NOW(), updated_at = NOW() WHERE order_id = $1", [order.id]);
+  } else if (!result.skipped) {
+    console.warn("Customer receipt WhatsApp was not sent", { orderId: order.id, reason: result.message });
+  }
+}
+
 export async function createOrder(payload: CheckoutPayload, userId?: string) {
   if (isDemoMode) return demoCreateOrder(payload, userId);
   const settings = await getSettings();
 
-  return transaction(async (client) => {
+  const order = await transaction(async (client) => {
     const orderId = createId("ord");
     const orderFloor = await getMaxNumericValue(client, "orders", "order_number", 1024);
-    const receiptFloor = await getMaxNumericValue(client, "receipts", "receipt_number", 4024);
     const orderNumber = String(await getCounter(client, "order_counter", 1024, orderFloor));
-    const receiptNumber = `R-${await getCounter(client, "receipt_counter", 4024, receiptFloor)}`;
+    const receiptNumber = await nextReceiptNumber(client);
+    const orderStatus = initialOrderStatus(payload);
+    const shouldCompleteNow = orderStatus === "completed";
     const deliveryInput = payload.delivery || {};
     const customerInput: CustomerInput = {
       ...payload.customer,
@@ -1116,7 +1344,9 @@ export async function createOrder(payload: CheckoutPayload, userId?: string) {
       : 0;
     const total = roundMoney(taxableBase + taxTotal + Number(serviceFee || 0) + Number(deliveryFee || 0));
     const pointsEarned =
-      settings.loyalty_enabled && customer ? Math.floor(total * Number(settings.loyalty_points_per_ttd || 0)) : 0;
+      shouldCompleteNow && settings.loyalty_enabled && customer
+        ? Math.floor(total * Number(settings.loyalty_points_per_ttd || 0))
+        : 0;
     const paymentStatus =
       payload.payment_status ||
       (payload.payment_method === "Pay on delivery" ? "unpaid" : "paid");
@@ -1153,15 +1383,15 @@ export async function createOrder(payload: CheckoutPayload, userId?: string) {
         payment_status, delivery_status, assigned_driver_id, subtotal, discount_total,
         tax_total, service_fee, delivery_fee, total, loyalty_points_earned,
         notes, delivery_latitude, delivery_longitude, delivery_location_link, waze_link,
-        payment_link, created_by
-      ) VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)`,
+        payment_link, created_by, completed_by, completed_at, inventory_applied
+      ) VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)`,
       [
         orderId,
         orderNumber,
         customer?.id ?? null,
         JSON.stringify(customerSnapshot),
         payload.order_type,
-        payload.status || "completed",
+        orderStatus,
         payload.payment_method,
         paymentStatus,
         deliveryStatus,
@@ -1179,7 +1409,10 @@ export async function createOrder(payload: CheckoutPayload, userId?: string) {
         deliveryInput.location_link ?? null,
         wazeLink,
         paymentLink,
-        payload.created_by || userId || null
+        payload.created_by || userId || null,
+        shouldCompleteNow ? payload.created_by || userId || null : null,
+        shouldCompleteNow ? new Date().toISOString() : null,
+        shouldCompleteNow
       ],
       client
     );
@@ -1205,7 +1438,7 @@ export async function createOrder(payload: CheckoutPayload, userId?: string) {
         client
       );
 
-      if ((payload.status || "completed") !== "draft") {
+      if (shouldCompleteNow) {
         await query(
           "UPDATE products SET stock_quantity = stock_quantity - $1, updated_at = NOW() WHERE id = $2",
           [item.quantity, item.product.id],
@@ -1219,13 +1452,7 @@ export async function createOrder(payload: CheckoutPayload, userId?: string) {
       }
     }
 
-    await query(
-      "INSERT INTO receipts (id, order_id, receipt_number, channel) VALUES ($1, $2, $3, 'print')",
-      [createId("rcp"), orderId, receiptNumber],
-      client
-    );
-
-    if (customer) {
+    if (customer && shouldCompleteNow) {
       const existingTags = customer.tags;
       const nextTags = new Set(existingTags);
       if (customer.orders_count + 1 >= 3) nextTags.add("Frequent Buyer");
@@ -1263,11 +1490,16 @@ export async function createOrder(payload: CheckoutPayload, userId?: string) {
 
     let order = await readOrderById(client, orderId);
     if (!order) throw new Error("Order not found");
+    if (shouldCompleteNow) {
+      await createOrUpdateReceiptRecord(client, order, receiptNumber, payload.created_by || userId || null);
+      order = await readOrderById(client, orderId);
+      if (!order) throw new Error("Order not found");
+    }
     if (settings.whatsapp_enabled) {
       const businessMessage = buildOrderWhatsAppMessage(order, settings);
       const customerMessage = buildCustomerConfirmationMessage(order, settings);
-      const businessLink = buildWhatsAppLink(settings.whatsapp_business_number, businessMessage);
-      const customerLink = buildWhatsAppLink(order.customer_snapshot.phone, customerMessage);
+      const businessLink = buildWhatsAppLink(settings.whatsapp_business_number, businessMessage, settings.whatsapp_country_code);
+      const customerLink = buildWhatsAppLink(order.customer_snapshot.phone, customerMessage, settings.whatsapp_country_code);
       await query(
         "UPDATE orders SET whatsapp_business_link = $1, whatsapp_customer_link = $2, updated_at = NOW() WHERE id = $3",
         [businessLink, customerLink, orderId],
@@ -1280,13 +1512,17 @@ export async function createOrder(payload: CheckoutPayload, userId?: string) {
     await auditLog("order:create", "order", orderId, { order_number: orderNumber, total }, userId, client);
     return order;
   });
+  await notifyOwnerOfNewOrder(order, settings);
+  if (order.status === "completed") await notifyCustomerReceipt(order, settings);
+  return order;
 }
 
 async function readOrderById(client: DbClient | undefined, id: string) {
   const row = await query<any>(
-    `SELECT o.*, u.name AS assigned_driver_name
+    `SELECT o.*, u.name AS assigned_driver_name, completed_user.name AS completed_by_name
      FROM orders o
      LEFT JOIN users u ON u.id = o.assigned_driver_id
+     LEFT JOIN users completed_user ON completed_user.id = o.completed_by
      WHERE o.id = $1`,
     [id],
     client
@@ -1336,10 +1572,11 @@ export async function listOrders(options: {
 
   const limitPlaceholder = addParam(params, Math.min(options.limit ?? 100, 300));
   const rows = await query<any>(
-    `SELECT o.*, c.name AS customer_name, u.name AS assigned_driver_name
+    `SELECT o.*, c.name AS customer_name, u.name AS assigned_driver_name, completed_user.name AS completed_by_name
      FROM orders o
      LEFT JOIN customers c ON c.id = o.customer_id
      LEFT JOIN users u ON u.id = o.assigned_driver_id
+     LEFT JOIN users completed_user ON completed_user.id = o.completed_by
      WHERE ${clauses.join(" AND ")}
      ORDER BY o.created_at DESC
      LIMIT ${limitPlaceholder}`,
@@ -1370,74 +1607,78 @@ export async function updateDeliveryStatus(orderId: string, status: Order["deliv
 
 export async function updateOrder(id: string, input: Partial<Order>, userId?: string) {
   if (isDemoMode) return demoUpdateOrder(id, input, userId);
-  return transaction(async (client) => {
+  const settings = await getSettings();
+  let shouldNotifyCustomerReceipt = false;
+  const updatedOrder = await transaction(async (client) => {
     const existing = await readOrderById(client, id);
     if (!existing) return null;
     const nextStatus = input.status ?? existing.status;
     const isCancelling = existing.status !== "cancelled" && nextStatus === "cancelled";
+    const isCompleting = existing.status !== "completed" && nextStatus === "completed";
+    const nextPointsEarned =
+      isCompleting && existing.customer_id && settings.loyalty_enabled
+        ? Math.floor(existing.total * Number(settings.loyalty_points_per_ttd || 0))
+        : existing.loyalty_points_earned;
     const nextPaymentStatus =
       input.payment_status ?? (isCancelling && existing.payment_status === "paid" ? "refunded" : existing.payment_status);
     const nextDeliveryStatus =
       input.delivery_status ??
+      (isCompleting && existing.delivery_status === "out_for_delivery"
+        ? "delivered"
+        : isCompleting && existing.delivery_status !== "not_required" && existing.delivery_status !== "failed"
+          ? existing.delivery_status
+          : undefined) ??
       (isCancelling && existing.delivery_status !== "not_required" && existing.delivery_status !== "delivered"
         ? "failed"
         : existing.delivery_status);
     await query(
       `UPDATE orders SET
         status = $1, payment_status = $2, delivery_status = $3, assigned_driver_id = $4,
-        notes = $5, updated_at = NOW()
-       WHERE id = $6`,
+        notes = $5, loyalty_points_earned = $6,
+        completed_by = CASE WHEN $7 THEN $8 ELSE completed_by END,
+        completed_at = CASE WHEN $7 THEN COALESCE(completed_at, NOW()) ELSE completed_at END,
+        updated_at = NOW()
+       WHERE id = $9`,
       [
         nextStatus,
         nextPaymentStatus,
         nextDeliveryStatus,
         input.assigned_driver_id ?? existing.assigned_driver_id ?? null,
         input.notes ?? existing.notes ?? null,
+        nextPointsEarned,
+        isCompleting,
+        userId ?? null,
         id
       ],
       client
     );
 
-    if (isCancelling && existing.status === "completed") {
-      for (const item of existing.items) {
-        if (!item.product_id) continue;
-        await query(
-          "UPDATE products SET stock_quantity = stock_quantity + $1, updated_at = NOW() WHERE id = $2",
-          [item.quantity, item.product_id],
-          client
-        );
-        await query(
-          "INSERT INTO stock_movements (id, product_id, type, quantity_delta, reason, reference_id, user_id) VALUES ($1, $2, 'return', $3, $4, $5, $6)",
-          [createId("mov"), item.product_id, item.quantity, `Cancelled order #${existing.order_number}`, id, userId ?? null],
-          client
-        );
+    if (isCompleting && !existing.inventory_applied) {
+      let completed = await readOrderById(client, id);
+      if (completed) {
+        await applyCompletedOrderEffects(client, completed, userId ?? null);
+        completed = await readOrderById(client, id);
       }
+      if (completed) {
+        const existingReceipt = await query<{ receipt_number: string }>(
+          "SELECT receipt_number FROM receipts WHERE order_id = $1",
+          [id],
+          client
+        );
+        const receiptNumber = existingReceipt.rows[0]?.receipt_number || await nextReceiptNumber(client);
+        await createOrUpdateReceiptRecord(client, completed, receiptNumber, userId ?? null);
+        const receiptMessage = buildCustomerReceiptWhatsAppMessage(completed, settings);
+        await query(
+          "UPDATE orders SET whatsapp_customer_link = $1, updated_at = NOW() WHERE id = $2",
+          [buildWhatsAppLink(completed.customer_snapshot.phone, receiptMessage, settings.whatsapp_country_code), id],
+          client
+        );
+        shouldNotifyCustomerReceipt = true;
+      }
+    }
 
-      if (existing.customer_id) {
-        await query(
-          `UPDATE customers SET
-            total_spent = GREATEST(0, total_spent - $1),
-            orders_count = GREATEST(0, orders_count - 1),
-            loyalty_points = GREATEST(0, loyalty_points - $2),
-            updated_at = NOW()
-           WHERE id = $3`,
-          [existing.total, existing.loyalty_points_earned, existing.customer_id],
-          client
-        );
-        if (existing.loyalty_points_earned > 0) {
-          await query(
-            "INSERT INTO loyalty_transactions (id, customer_id, order_id, points_delta, type, notes) VALUES ($1, $2, $3, $4, 'manual_adjustment', $5)",
-            [
-              createId("loy"),
-              existing.customer_id,
-              id,
-              -existing.loyalty_points_earned,
-              `Reversed cancelled order #${existing.order_number}`
-            ],
-            client
-          );
-        }
-      }
+    if (isCancelling && existing.inventory_applied) {
+      await reverseCompletedOrderEffects(client, existing, userId ?? null);
     }
 
     await auditLog("order:update", "order", id, input, userId, client);
@@ -1457,6 +1698,10 @@ export async function updateOrder(id: string, input: Partial<Order>, userId?: st
     }
     return readOrderById(client, id);
   });
+  if (updatedOrder && shouldNotifyCustomerReceipt) {
+    await notifyCustomerReceipt(updatedOrder, settings);
+  }
+  return updatedOrder;
 }
 
 export async function deleteOrder(id: string, userId?: string) {
@@ -1464,8 +1709,8 @@ export async function deleteOrder(id: string, userId?: string) {
   return transaction(async (client) => {
     const existing = await readOrderById(client, id);
     if (!existing) return null;
-    const shouldRestoreStock = existing.status !== "cancelled" && existing.status !== "draft";
-    const shouldReverseCustomer = Boolean(existing.customer_id) && existing.status !== "cancelled";
+    const shouldRestoreStock = Boolean(existing.inventory_applied);
+    const shouldReverseCustomer = Boolean(existing.customer_id) && Boolean(existing.inventory_applied);
 
     if (shouldRestoreStock) {
       for (const item of existing.items) {
@@ -1656,6 +1901,101 @@ export async function exportSalesCsv() {
   return rows
     .map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(","))
     .join("\n");
+}
+
+export async function listReceipts(options: { query?: string; limit?: number } = {}): Promise<Receipt[]> {
+  if (isDemoMode) {
+    const orders = await demoListOrders({ query: options.query, limit: options.limit || 100 });
+    return orders
+      .filter((order) => order.status === "completed")
+      .map((order) => ({
+        id: `demo-${order.id}`,
+        order_id: order.id,
+        order_number: order.order_number,
+        receipt_number: `R-${order.order_number}`,
+        customer_id: order.customer_id,
+        customer_name: order.customer_snapshot.name || "Walk-in customer",
+        customer_phone: order.customer_snapshot.phone || null,
+        items: order.items,
+        subtotal: order.subtotal,
+        discount_total: order.discount_total,
+        tax_total: order.tax_total,
+        delivery_fee: order.delivery_fee,
+        total: order.total,
+        payment_method: order.payment_method,
+        payment_status: order.payment_status,
+        completed_by: order.completed_by,
+        completed_by_name: order.completed_by_name,
+        completed_at: order.completed_at || order.updated_at,
+        channel: "print",
+        whatsapp_sent_at: null,
+        created_at: order.created_at,
+        updated_at: order.updated_at
+      }));
+  }
+
+  const params: unknown[] = [];
+  const clauses = ["TRUE"];
+  if (options.query?.trim()) {
+    const like = addParam(params, `%${options.query.trim()}%`);
+    clauses.push(`(
+      r.receipt_number ILIKE ${like}
+      OR r.order_number ILIKE ${like}
+      OR r.customer_name ILIKE ${like}
+      OR r.customer_phone ILIKE ${like}
+      OR TO_CHAR(r.created_at, 'YYYY-MM-DD') ILIKE ${like}
+    )`);
+  }
+  const limit = addParam(params, Math.min(options.limit || 100, 300));
+  const rows = await query<any>(
+    `SELECT r.*, u.name AS completed_by_name
+     FROM receipts r
+     LEFT JOIN users u ON u.id = r.completed_by
+     WHERE ${clauses.join(" AND ")}
+     ORDER BY COALESCE(r.completed_at, r.created_at) DESC
+     LIMIT ${limit}`,
+    params
+  );
+  return rows.rows.map(rowToReceipt);
+}
+
+export async function getReceipt(id: string) {
+  if (isDemoMode) {
+    const receipts = await listReceipts({ limit: 300 });
+    return receipts.find((receipt) => receipt.id === id || receipt.order_id === id) || null;
+  }
+  const row = await query<any>(
+    `SELECT r.*, u.name AS completed_by_name
+     FROM receipts r
+     LEFT JOIN users u ON u.id = r.completed_by
+     WHERE r.id = $1 OR r.order_id = $1
+     LIMIT 1`,
+    [id]
+  );
+  return row.rows[0] ? rowToReceipt(row.rows[0]) : null;
+}
+
+export async function resendReceiptWhatsApp(receiptId: string, userId?: string) {
+  if (isDemoMode) {
+    const receipt = await getReceipt(receiptId);
+    return receipt ? { receipt, message: "WhatsApp is not configured in demo mode." } : null;
+  }
+  const receipt = await getReceipt(receiptId);
+  if (!receipt) return null;
+  const order = await getOrder(receipt.order_id);
+  if (!order) return null;
+  const settings = await getSettings();
+  const result = await sendWhatsAppMessage(order.customer_snapshot.phone, buildCustomerReceiptWhatsAppMessage(order, settings), {
+    defaultCountryCode: settings.whatsapp_country_code
+  });
+  if (result.ok) {
+    await query("UPDATE receipts SET whatsapp_sent_at = NOW(), updated_at = NOW() WHERE id = $1", [receipt.id]);
+    await auditLog("receipt:whatsapp_resend", "receipt", receipt.id, { order_id: receipt.order_id }, userId);
+  }
+  return {
+    receipt: await getReceipt(receipt.id),
+    message: result.message
+  };
 }
 
 export async function getReceiptNumber(orderId: string) {

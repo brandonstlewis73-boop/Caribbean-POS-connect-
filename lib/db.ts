@@ -519,9 +519,15 @@ async function seedSettings() {
   await insertSetting("whatsapp_enabled", true);
   await insertSetting("whatsapp_business_number", "4437582368");
   await insertSetting("whatsapp_country_code", "+1");
+  await insertSetting("whatsapp_owner_alerts_enabled", true);
+  await insertSetting("whatsapp_customer_receipts_enabled", false);
   await insertSetting(
     "whatsapp_order_template",
-    "New Order - Caribbean POS Connect\n\nOrder #: {{order_number}}\nCustomer: {{customer_name}}\nPhone: {{customer_phone}}\nAddress: {{address}}\n\nItems:\n{{items}}\n\nTotal: {{total}}\nPayment: {{payment_method}}\nStatus: {{payment_status}}\nPayment link: {{payment_link}}\n\nWaze:\n{{waze_link}}"
+    "New Order - {{business_name}}\n\nOrder #: {{order_number}}\nCustomer: {{customer_name}}\nPhone: {{customer_phone}}\nType: {{order_type}}\nAddress: {{address}}\n\nItems:\n{{items}}\n\nTotal: {{total}}\nPayment: {{payment_method}}\nPayment status: {{payment_status}}\nOrder status: {{order_status}}\nDate/time: {{date_time}}\nDashboard: {{dashboard_link}}\nPayment link: {{payment_link}}\n\nWaze:\n{{waze_link}}"
+  );
+  await insertSetting(
+    "whatsapp_customer_receipt_template",
+    "Hi {{customer_name}}, your receipt for order #{{order_number}} from {{business_name}} is ready.\n\nItems:\n{{items}}\n\nTotal: {{total}}\nPayment: {{payment_method}}\nCompleted: {{completed_at}}\n\n{{receipt_message}}\nContact: {{business_phone}}"
   );
   await insertSetting("facebook_url", "");
   await insertSetting("instagram_url", "");

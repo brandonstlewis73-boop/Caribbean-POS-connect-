@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   MapPinned,
   Printer,
+  ReceiptText,
   Settings,
   ShoppingCart,
   UserCog,
@@ -22,6 +23,7 @@ const navGroups = [
     items: [
       { label: "POS", href: "/pos", icon: ShoppingCart },
       { label: "Orders", href: "/orders", icon: ClipboardList },
+      { label: "Receipts", href: "/receipts", icon: ReceiptText },
       { label: "Deliveries", href: "/deliveries", icon: MapPinned },
       { label: "Printer", href: "/printer", icon: Printer }
     ]
@@ -136,8 +138,34 @@ export async function AppShell({
             ))}
           </nav>
         </header>
-        <main className="min-w-0 max-w-full overflow-x-hidden px-4 py-4 sm:px-5 lg:px-6">{children}</main>
+        <main className="min-w-0 max-w-full overflow-x-hidden px-4 pb-24 pt-4 sm:px-5 lg:px-6 lg:pb-6">{children}</main>
       </div>
+      <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-white/10 bg-black/75 px-2 py-2 backdrop-blur-2xl lg:hidden">
+        {[
+          navItems.find((item) => item.label === "Dashboard"),
+          navItems.find((item) => item.label === "POS"),
+          navItems.find((item) => item.label === "Orders"),
+          navItems.find((item) => item.label === "Receipts"),
+          navItems.find((item) => item.label === "Settings")
+        ].filter(Boolean).map((item) => {
+          const entry = item!;
+          const Icon = entry.icon;
+          const selected = entry.label === active;
+          return (
+            <Link
+              key={entry.href}
+              href={entry.href}
+              className={cn(
+                "grid min-h-12 place-items-center gap-0.5 rounded-card px-1 text-[11px] font-black leading-tight",
+                selected ? "bg-cyan-300 text-slate-950" : "text-teal-50/75"
+              )}
+            >
+              <Icon className="h-4 w-4" />
+              <span>{entry.label}</span>
+            </Link>
+          );
+        })}
+      </nav>
     </div>
   );
 }

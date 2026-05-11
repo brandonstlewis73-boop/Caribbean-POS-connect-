@@ -504,21 +504,32 @@ export function SettingsClient({
         </Panel>
 
         <Panel>
-          <PanelHeader title="WhatsApp orders" description="Click-to-chat links only; messages are not sent automatically." />
+          <PanelHeader title="WhatsApp automation" description="Automatic sending uses Twilio or Meta credentials from environment variables." />
           <div className="grid gap-3 p-4">
-            <Toggle label="Receive orders on WhatsApp" checked={draft.whatsapp_enabled} onChange={(value) => update("whatsapp_enabled", value)} />
+            <Toggle label="Enable WhatsApp features" checked={draft.whatsapp_enabled} onChange={(value) => update("whatsapp_enabled", value)} />
+            <Toggle label="Send owner alert when a new order is created" checked={draft.whatsapp_owner_alerts_enabled} onChange={(value) => update("whatsapp_owner_alerts_enabled", value)} />
+            <Toggle label="Send customer receipt when order is completed" checked={draft.whatsapp_customer_receipts_enabled} onChange={(value) => update("whatsapp_customer_receipts_enabled", value)} />
             <div className="grid gap-3 md:grid-cols-2">
               <Field label="Business WhatsApp number" value={draft.whatsapp_business_number} onChange={(event) => update("whatsapp_business_number", event.target.value)} />
-              <Field label="Default country code" value={draft.whatsapp_country_code} onChange={(event) => update("whatsapp_country_code", event.target.value)} />
+              <Field label="Default country code" value={draft.whatsapp_country_code} onChange={(event) => update("whatsapp_country_code", event.target.value)} placeholder="+1-868" />
             </div>
             <TextAreaField
-              label="Custom WhatsApp order message template"
+              label="Owner order alert template"
               value={draft.whatsapp_order_template}
               onChange={(event) => update("whatsapp_order_template", event.target.value)}
               className="min-h-48"
             />
+            <TextAreaField
+              label="Customer receipt template"
+              value={draft.whatsapp_customer_receipt_template}
+              onChange={(event) => update("whatsapp_customer_receipt_template", event.target.value)}
+              className="min-h-48"
+            />
             <p className="text-sm font-semibold text-slate-500">
-              Available template variables: {"{{order_number}}"}, {"{{customer_name}}"}, {"{{customer_phone}}"}, {"{{address}}"}, {"{{items}}"}, {"{{total}}"}, {"{{payment_method}}"}, {"{{payment_status}}"}, {"{{payment_link}}"}, {"{{location_link}}"}, {"{{waze_link}}"}.
+              Template variables: {"{{business_name}}"}, {"{{business_phone}}"}, {"{{order_number}}"}, {"{{customer_name}}"}, {"{{customer_phone}}"}, {"{{order_type}}"}, {"{{address}}"}, {"{{items}}"}, {"{{total}}"}, {"{{payment_method}}"}, {"{{payment_status}}"}, {"{{order_status}}"}, {"{{date_time}}"}, {"{{completed_at}}"}, {"{{dashboard_link}}"}, {"{{payment_link}}"}, {"{{location_link}}"}, {"{{waze_link}}"}, {"{{receipt_message}}"}.
+            </p>
+            <p className="rounded-card bg-caribbean-cloud p-3 text-sm font-bold text-slate-700 dark:bg-slate-950 dark:text-slate-200">
+              Add provider secrets in Vercel only: WHATSAPP_PROVIDER, Twilio keys, or Meta WhatsApp token and phone number ID. If they are missing, orders still save and the server logs “WhatsApp is not configured.”
             </p>
           </div>
         </Panel>

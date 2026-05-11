@@ -133,7 +133,15 @@ export type Order = {
   customer_id?: string | null;
   customer_snapshot: CustomerInput;
   order_type: "in_store" | "pickup" | "delivery" | "online" | "draft";
-  status: "draft" | "completed" | "cancelled";
+  status:
+    | "draft"
+    | "new"
+    | "accepted"
+    | "preparing"
+    | "ready"
+    | "out_for_delivery"
+    | "completed"
+    | "cancelled";
   payment_method: string;
   payment_status: "paid" | "unpaid" | "partial" | "refunded";
   delivery_status:
@@ -162,9 +170,38 @@ export type Order = {
   whatsapp_business_link?: string | null;
   whatsapp_customer_link?: string | null;
   created_by?: string | null;
+  completed_by?: string | null;
+  completed_by_name?: string | null;
+  completed_at?: string | null;
+  inventory_applied?: boolean;
   created_at: string;
   updated_at: string;
   items: OrderItem[];
+};
+
+export type Receipt = {
+  id: string;
+  order_id: string;
+  order_number: string;
+  receipt_number: string;
+  customer_id?: string | null;
+  customer_name?: string | null;
+  customer_phone?: string | null;
+  items: OrderItem[];
+  subtotal: number;
+  discount_total: number;
+  tax_total: number;
+  delivery_fee: number;
+  total: number;
+  payment_method: string;
+  payment_status: Order["payment_status"];
+  completed_by?: string | null;
+  completed_by_name?: string | null;
+  completed_at?: string | null;
+  channel: string;
+  whatsapp_sent_at?: string | null;
+  created_at: string;
+  updated_at?: string | null;
 };
 
 export type Settings = {
@@ -190,7 +227,10 @@ export type Settings = {
   whatsapp_enabled: boolean;
   whatsapp_business_number: string;
   whatsapp_country_code: string;
+  whatsapp_owner_alerts_enabled: boolean;
+  whatsapp_customer_receipts_enabled: boolean;
   whatsapp_order_template: string;
+  whatsapp_customer_receipt_template: string;
   facebook_url: string;
   instagram_url: string;
   payment_cash_enabled: boolean;
@@ -215,7 +255,7 @@ export type CheckoutPayload = {
   order_type: "in_store" | "pickup" | "delivery" | "online" | "draft";
   payment_method: string;
   payment_status?: "paid" | "unpaid" | "partial";
-  status?: "draft" | "completed";
+  status?: Order["status"];
   discount_amount?: number;
   service_fee?: number;
   delivery_fee?: number;

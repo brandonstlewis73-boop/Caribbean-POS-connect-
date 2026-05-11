@@ -148,7 +148,48 @@ export function InventoryClient({ products, currency }: { products: Product[]; c
             />
           </label>
         </div>
-        <div className="overflow-x-auto">
+        <div className="grid gap-3 p-4 md:hidden">
+          {filtered.map((product) => (
+            <div key={product.id} className="rounded-card border border-caribbean-line bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+              <div className="flex min-w-0 gap-3">
+                {product.image_url ? (
+                  <img src={product.image_url} alt={product.name} loading="lazy" className="h-14 w-14 shrink-0 rounded-card object-cover" />
+                ) : (
+                  <span className="grid h-14 w-14 shrink-0 place-items-center rounded-card bg-caribbean-cloud text-xs font-black text-caribbean-teal dark:bg-slate-950">
+                    {product.name.slice(0, 2).toUpperCase()}
+                  </span>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="font-black">{product.name}</p>
+                  <p className="text-xs font-semibold text-slate-500">{product.sku} - {product.barcode || "No barcode"}</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <Badge tone={product.stock_quantity <= product.low_stock_alert ? "red" : "green"}>
+                      {product.stock_quantity} in stock
+                    </Badge>
+                    <Badge tone="neutral">{product.category}</Badge>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-3 flex items-center justify-between text-sm">
+                <span>Price</span>
+                <strong>{formatMoney(product.selling_price)}</strong>
+              </div>
+              <div className="mt-3 grid grid-cols-[1fr_auto_auto] gap-2">
+                <input
+                  type="number"
+                  value={adjustments[product.id] || 0}
+                  onChange={(event) => setAdjustments((current) => ({ ...current, [product.id]: Number(event.target.value) }))}
+                  className="h-10 min-w-0 rounded-card border border-caribbean-line px-2 text-sm font-bold dark:border-slate-700 dark:bg-slate-900"
+                />
+                <Button size="sm" onClick={() => adjust(product.id)}>Apply</Button>
+                <Button variant="danger" size="icon" onClick={() => deleteProduct(product.id, product.name)} aria-label={`Delete ${product.name}`}>
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="hidden overflow-x-auto md:block">
           <table className="w-full min-w-[960px] text-left text-sm">
             <thead className="bg-caribbean-cloud text-xs uppercase tracking-normal text-slate-500 dark:bg-slate-950">
               <tr>

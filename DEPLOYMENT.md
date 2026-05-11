@@ -23,6 +23,13 @@ NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<supabase-publishable-or-anon-key>
 ADMIN_EMAIL=admin@demo.com
 DEFAULT_WHATSAPP_NUMBER=4437582368
+WHATSAPP_PROVIDER=
+TWILIO_ACCOUNT_SID=
+TWILIO_AUTH_TOKEN=
+TWILIO_WHATSAPP_FROM=
+BUSINESS_WHATSAPP_NUMBER=
+META_WHATSAPP_TOKEN=
+META_WHATSAPP_PHONE_NUMBER_ID=
 ```
 
 Use the Supabase transaction pooler connection string for Vercel. For this project, the host should end with `pooler.supabase.com:6543`; do not use the direct `db.<project-ref>.supabase.co:5432` host for production.

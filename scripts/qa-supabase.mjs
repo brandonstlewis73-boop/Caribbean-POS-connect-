@@ -169,6 +169,7 @@ try {
         marketing_consent: true
       },
       order_type: "delivery",
+      status: "completed",
       payment_method: "Pay on delivery",
       payment_status: "unpaid",
       discount_amount: 0,

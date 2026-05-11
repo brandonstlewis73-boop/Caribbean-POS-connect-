@@ -175,6 +175,27 @@ const orderCreate = await request(
 assertOk(orderCreate.status === 201, `Order create failed: ${orderCreate.text}`);
 const order = orderCreate.payload?.data?.order;
 assertOk(order?.id, "Order create did not return an id.");
+assertOk(order.status === "new", "Delivery order should start in the new workflow status.");
+
+const productBeforeCompletion = await request(`/api/products/${product.id}`, {
+  headers: { Cookie: cookie }
+});
+assertOk(productBeforeCompletion.status === 200, `Product detail before completion failed: ${productBeforeCompletion.text}`);
+assertOk(
+  Number(productBeforeCompletion.payload?.data?.product?.stock_quantity) === 5,
+  "New delivery order should not decrement product stock before completion."
+);
+
+const orderComplete = await request(`/api/orders/${order.id}`, {
+  method: "PATCH",
+  headers: {
+    "Content-Type": "application/json",
+    Cookie: cookie
+  },
+  body: JSON.stringify({ status: "completed" })
+});
+assertOk(orderComplete.status === 200, `Order completion failed: ${orderComplete.text}`);
+assertOk(orderComplete.payload?.data?.order?.status === "completed", "Order did not move to completed status.");
 
 const productAfterOrder = await request(`/api/products/${product.id}`, {
   headers: { Cookie: cookie }
@@ -182,7 +203,21 @@ const productAfterOrder = await request(`/api/products/${product.id}`, {
 assertOk(productAfterOrder.status === 200, `Product detail after order failed: ${productAfterOrder.text}`);
 assertOk(
   Number(productAfterOrder.payload?.data?.product?.stock_quantity) === 4,
-  "Saved order did not decrement product stock."
+  "Completed order did not decrement product stock."
+);
+
+const receiptPdf = await request(`/api/orders/${order.id}/receipt`, {
+  headers: { Cookie: cookie }
+});
+assertOk(receiptPdf.status === 200, `Receipt PDF failed: ${receiptPdf.text}`);
+
+const receipts = await request(`/api/receipts?q=${encodeURIComponent(order.order_number)}`, {
+  headers: { Cookie: cookie }
+});
+assertOk(receipts.status === 200, `Receipts list failed: ${receipts.text}`);
+assertOk(
+  receipts.payload?.data?.receipts?.some((item) => item.order_id === order.id),
+  "Completed order did not generate a receipt record."
 );
 
 const customerAfterOrder = await request(`/api/customers/${customer.id}`, {
@@ -250,7 +285,9 @@ console.log(
         "api-products-alias",
         "pos-data",
         "order-create",
+        "order-complete",
         "stock-decrement",
+        "receipt-generation",
         "customer-order-history",
         "staff-delete",
         "order-delete",

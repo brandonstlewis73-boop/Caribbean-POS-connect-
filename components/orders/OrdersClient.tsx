@@ -11,8 +11,8 @@ import { readApiPayload } from "@/lib/client-response";
 import type { Order, User } from "@/lib/types";
 
 function statusTone(status: string) {
-  if (["paid", "completed", "delivered"].includes(status)) return "green";
-  if (["unpaid", "pending", "out_for_delivery"].includes(status)) return "amber";
+  if (["paid", "completed", "delivered", "ready", "accepted"].includes(status)) return "green";
+  if (["unpaid", "pending", "out_for_delivery", "preparing", "new"].includes(status)) return "amber";
   if (["cancelled", "failed", "refunded"].includes(status)) return "red";
   return "neutral";
 }
@@ -25,7 +25,16 @@ type PendingAction =
   | "delivery-out"
   | "delivery-failed"
   | "notes"
-  | "delete";
+  | "delete"
+  | "status";
+
+const workflowStatuses: Array<{ value: Order["status"]; label: string }> = [
+  { value: "accepted", label: "Accept" },
+  { value: "preparing", label: "Preparing" },
+  { value: "ready", label: "Ready" },
+  { value: "out_for_delivery", label: "Out for delivery" },
+  { value: "completed", label: "Complete" }
+];
 
 export function OrdersClient({
   orders,
@@ -53,6 +62,13 @@ export function OrdersClient({
   useEffect(() => {
     setNotesDraft(selected?.notes || "");
   }, [selected?.id, selected?.notes]);
+
+  useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get("order");
+    if (requested && items.some((order) => order.id === requested)) {
+      setSelectedId(requested);
+    }
+  }, [items]);
 
   const filtered = useMemo(() => {
     const q = deferredQuery.toLowerCase().trim();
@@ -176,6 +192,14 @@ export function OrdersClient({
     );
   }
 
+  async function updateOrderStatus(status: Order["status"]) {
+    if (!selected) return;
+    const patch: Record<string, unknown> = { status };
+    if (status === "out_for_delivery") patch.delivery_status = "out_for_delivery";
+    if (status === "completed" && selected.payment_status === "unpaid") patch.payment_status = selected.payment_status;
+    await patchOrder(selected.id, patch, "status");
+  }
+
   async function saveNotes() {
     if (!selected || notesDraft === (selected.notes || "")) return;
     await patchOrder(selected.id, { notes: notesDraft }, "notes");
@@ -211,7 +235,34 @@ export function OrdersClient({
             <option value="draft">Draft</option>
           </select>
         </div>
-        <div className="overflow-x-auto">
+        <div className="grid gap-3 p-4 md:hidden">
+          {filtered.map((order) => (
+            <button
+              key={order.id}
+              onClick={() => setSelectedId(order.id)}
+              className={`rounded-card border p-3 text-left ${
+                selected?.id === order.id
+                  ? "border-cyan-300 bg-teal-50 text-slate-950"
+                  : "border-caribbean-line bg-white dark:border-slate-800 dark:bg-slate-900"
+              }`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-black">#{order.order_number}</p>
+                  <p className="truncate text-sm font-bold">{order.customer_snapshot.name || "Walk-in customer"}</p>
+                  <p className="text-xs font-semibold text-slate-500">{order.customer_snapshot.phone || "No phone"}</p>
+                </div>
+                <p className="shrink-0 font-black">{formatMoney(order.total)}</p>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Badge tone={statusTone(order.status)}>{order.status.replaceAll("_", " ")}</Badge>
+                <Badge tone={statusTone(order.payment_status)}>{order.payment_status}</Badge>
+                <Badge tone={statusTone(order.delivery_status)}>{order.delivery_status.replaceAll("_", " ")}</Badge>
+              </div>
+            </button>
+          ))}
+        </div>
+        <div className="hidden overflow-x-auto md:block">
           <table className="w-full min-w-[920px] text-left text-sm">
             <thead className="bg-caribbean-cloud text-xs uppercase tracking-normal text-slate-500 dark:bg-slate-950">
               <tr>
@@ -311,6 +362,17 @@ export function OrdersClient({
               <div className="flex justify-between text-lg font-black"><span>Total</span><span>{formatMoney(selected.total)}</span></div>
             </div>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-2">
+              {workflowStatuses.map((status) => (
+                <Button
+                  key={status.value}
+                  variant={status.value === "completed" ? "success" : "secondary"}
+                  onClick={async () => updateOrderStatus(status.value)}
+                  disabled={!canUpdateOrders || selected.status === "cancelled" || selected.status === status.value || isBusy}
+                >
+                  {status.value === "completed" ? <CheckCircle2 className="h-4 w-4" /> : <PackageCheck className="h-4 w-4" />}
+                  {pendingAction === "status" ? "Updating..." : status.label}
+                </Button>
+              ))}
               <Button
                 variant="success"
                 onClick={async () => updatePaymentStatus("paid")}

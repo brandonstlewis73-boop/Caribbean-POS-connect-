@@ -82,8 +82,12 @@ const demoSettings: Settings = {
   whatsapp_enabled: true,
   whatsapp_business_number: "4437582368",
   whatsapp_country_code: "+1",
+  whatsapp_owner_alerts_enabled: true,
+  whatsapp_customer_receipts_enabled: false,
   whatsapp_order_template:
-    "New Order - Caribbean POS Connect\n\nOrder #: {{order_number}}\nCustomer: {{customer_name}}\nPhone: {{customer_phone}}\nAddress: {{address}}\n\nItems:\n{{items}}\n\nTotal: {{total}}\nPayment: {{payment_method}}\nStatus: {{payment_status}}\nPayment link: {{payment_link}}\n\nWaze:\n{{waze_link}}",
+    "New Order - {{business_name}}\n\nOrder #: {{order_number}}\nCustomer: {{customer_name}}\nPhone: {{customer_phone}}\nType: {{order_type}}\nAddress: {{address}}\n\nItems:\n{{items}}\n\nTotal: {{total}}\nPayment: {{payment_method}}\nPayment status: {{payment_status}}\nOrder status: {{order_status}}\nDate/time: {{date_time}}\nDashboard: {{dashboard_link}}\nPayment link: {{payment_link}}\n\nWaze:\n{{waze_link}}",
+  whatsapp_customer_receipt_template:
+    "Hi {{customer_name}}, your receipt for order #{{order_number}} from {{business_name}} is ready.\n\nItems:\n{{items}}\n\nTotal: {{total}}\nPayment: {{payment_method}}\nCompleted: {{completed_at}}\n\n{{receipt_message}}\nContact: {{business_phone}}",
   facebook_url: "https://facebook.com/caribbeanposconnect",
   instagram_url: "https://instagram.com/caribbeanposconnect",
   payment_cash_enabled: true,
@@ -550,6 +554,8 @@ export async function demoCreateOrder(payload: CheckoutPayload, userId?: string)
   const orderId = id("ord");
   const orderNumber = String(++state.orderCounter);
   const receiptNumber = `R-${++state.receiptCounter}`;
+  const orderStatus = payload.status || (payload.order_type === "in_store" ? "completed" : "new");
+  const shouldCompleteNow = orderStatus === "completed";
   const delivery = payload.delivery || {};
   const customerInput: CustomerInput = {
     ...payload.customer,
@@ -582,7 +588,7 @@ export async function demoCreateOrder(payload: CheckoutPayload, userId?: string)
     const quantity = Number(item.quantity);
     const discount = Number(item.discount || 0);
     const lineTotal = moneyRound(quantity * product.selling_price - discount);
-    if ((payload.status || "completed") !== "draft") {
+    if (shouldCompleteNow) {
       product.stock_quantity -= quantity;
     }
     return {
@@ -631,7 +637,7 @@ export async function demoCreateOrder(payload: CheckoutPayload, userId?: string)
     customer_id: customer?.id || null,
     customer_snapshot: snapshot,
     order_type: payload.order_type,
-    status: payload.status || "completed",
+    status: orderStatus,
     payment_method: payload.payment_method,
     payment_status: paymentStatus,
     delivery_status: deliveryStatus,
@@ -643,7 +649,7 @@ export async function demoCreateOrder(payload: CheckoutPayload, userId?: string)
     service_fee: serviceFee,
     delivery_fee: deliveryFee,
     total,
-    loyalty_points_earned: customer && settings.loyalty_enabled ? Math.floor(total * settings.loyalty_points_per_ttd) : 0,
+    loyalty_points_earned: shouldCompleteNow && customer && settings.loyalty_enabled ? Math.floor(total * settings.loyalty_points_per_ttd) : 0,
     loyalty_points_redeemed: 0,
     notes: payload.notes || null,
     delivery_latitude: delivery.latitude ?? null,
@@ -652,13 +658,16 @@ export async function demoCreateOrder(payload: CheckoutPayload, userId?: string)
     waze_link: wazeLink,
     payment_link: paymentLink,
     created_by: payload.created_by || userId || null,
+    completed_by: shouldCompleteNow ? payload.created_by || userId || null : null,
+    completed_at: shouldCompleteNow ? createdAt : null,
+    inventory_applied: shouldCompleteNow,
     created_at: createdAt,
     updated_at: createdAt,
     items
   };
   order.whatsapp_business_link = buildWhatsAppLink(settings.whatsapp_business_number, buildOrderWhatsAppMessage(order, settings));
   order.whatsapp_customer_link = buildWhatsAppLink(order.customer_snapshot.phone, buildCustomerConfirmationMessage(order, settings));
-  if (customer) {
+  if (customer && shouldCompleteNow) {
     customer.total_spent += total;
     customer.orders_count += 1;
     customer.last_order_at = createdAt;
@@ -668,7 +677,7 @@ export async function demoCreateOrder(payload: CheckoutPayload, userId?: string)
     if (paymentStatus !== "paid" && !customer.tags.includes("Owes Balance")) customer.tags.push("Owes Balance");
   }
   state.orders.unshift(order);
-  state.receipts[order.id] = receiptNumber;
+  if (shouldCompleteNow) state.receipts[order.id] = receiptNumber;
   demoAuditLog("order:create", "order", order.id, { order_number: order.order_number, total }, userId, state);
   return cloneOrder(order);
 }
@@ -720,12 +729,37 @@ export async function demoUpdateOrder(orderId: string, input: Partial<Order>, us
   const order = state.orders.find((item) => item.id === orderId);
   if (!order) return null;
   const isCancelling = order.status !== "cancelled" && input.status === "cancelled";
-  if (isCancelling && order.status === "completed") {
+  const isCompleting = order.status !== "completed" && input.status === "completed";
+  if (isCompleting && !order.inventory_applied) {
     for (const item of order.items) {
       const product = item.product_id
         ? state.products.find((entry) => entry.id === item.product_id)
         : null;
-      if (product) product.stock_quantity += item.quantity;
+      if (product) product.stock_quantity -= item.quantity;
+    }
+    const customer = order.customer_id
+      ? state.customers.find((entry) => entry.id === order.customer_id)
+      : null;
+    if (!order.loyalty_points_earned && customer && state.settings.loyalty_enabled) {
+      order.loyalty_points_earned = Math.floor(order.total * state.settings.loyalty_points_per_ttd);
+    }
+    if (customer) {
+      customer.total_spent += order.total;
+      customer.orders_count += 1;
+      customer.last_order_at = new Date().toISOString();
+      customer.loyalty_points += order.loyalty_points_earned;
+    }
+    order.inventory_applied = true;
+    order.completed_by = userId || order.completed_by || null;
+    order.completed_at = new Date().toISOString();
+    state.receipts[order.id] = state.receipts[order.id] || `R-${++state.receiptCounter}`;
+  }
+  if (isCancelling && order.inventory_applied) {
+    for (const item of order.items) {
+      const product = item.product_id
+        ? state.products.find((entry) => entry.id === item.product_id)
+        : null;
+        if (product) product.stock_quantity += item.quantity;
     }
     const customer = order.customer_id
       ? state.customers.find((entry) => entry.id === order.customer_id)
@@ -735,6 +769,7 @@ export async function demoUpdateOrder(orderId: string, input: Partial<Order>, us
       customer.orders_count = Math.max(0, customer.orders_count - 1);
       customer.loyalty_points = Math.max(0, customer.loyalty_points - order.loyalty_points_earned);
     }
+    order.inventory_applied = false;
   }
   Object.assign(order, {
     status: input.status ?? order.status,

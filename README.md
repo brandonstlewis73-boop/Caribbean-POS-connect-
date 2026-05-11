@@ -77,6 +77,13 @@ NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<supabase-publishable-or-anon-key>
 ADMIN_EMAIL=admin@demo.com
 DEFAULT_WHATSAPP_NUMBER=4437582368
+WHATSAPP_PROVIDER=
+TWILIO_ACCOUNT_SID=
+TWILIO_AUTH_TOKEN=
+TWILIO_WHATSAPP_FROM=
+BUSINESS_WHATSAPP_NUMBER=
+META_WHATSAPP_TOKEN=
+META_WHATSAPP_PHONE_NUMBER_ID=
 ```
 
 Notes:
@@ -86,6 +93,7 @@ Notes:
 - Use the Supabase transaction pooler URI on port `6543` for Vercel and for local LAN testing.
 - Do not use the direct Supabase Postgres URI on port `5432` for production.
 - `SESSION_SECRET` should be a long random value before production use.
+- Leave WhatsApp provider variables blank to keep orders working with safe "WhatsApp is not configured" logs.
 - Never commit `.env.local`.
 
 ## Supabase Setup

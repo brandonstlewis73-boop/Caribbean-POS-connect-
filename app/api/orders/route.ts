@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
           ...parsed.data,
           assigned_driver_id: undefined,
           created_by: undefined,
-          status: "completed" as const,
+          status: "new" as const,
           payment_status: "unpaid" as const,
           discount_amount: 0,
           service_fee: undefined,

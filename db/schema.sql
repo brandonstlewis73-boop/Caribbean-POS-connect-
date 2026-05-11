@@ -120,7 +120,7 @@ CREATE TABLE IF NOT EXISTS orders (
   customer_id TEXT,
   customer_snapshot JSONB NOT NULL,
   order_type TEXT NOT NULL CHECK (order_type IN ('in_store', 'pickup', 'delivery', 'online', 'draft')),
-  status TEXT NOT NULL CHECK (status IN ('draft', 'completed', 'cancelled')) DEFAULT 'completed',
+  status TEXT NOT NULL CHECK (status IN ('draft', 'new', 'accepted', 'preparing', 'ready', 'out_for_delivery', 'completed', 'cancelled')) DEFAULT 'new',
   payment_method TEXT NOT NULL,
   payment_status TEXT NOT NULL CHECK (payment_status IN ('paid', 'unpaid', 'partial', 'refunded')) DEFAULT 'paid',
   delivery_status TEXT NOT NULL CHECK (delivery_status IN ('not_required', 'pending', 'assigned', 'out_for_delivery', 'delivered', 'failed')) DEFAULT 'not_required',
@@ -142,12 +142,26 @@ CREATE TABLE IF NOT EXISTS orders (
   whatsapp_business_link TEXT,
   whatsapp_customer_link TEXT,
   created_by TEXT,
+  completed_by TEXT,
+  completed_at TIMESTAMPTZ,
+  inventory_applied BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE SET NULL,
   FOREIGN KEY (assigned_driver_id) REFERENCES users(id) ON DELETE SET NULL,
-  FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+  FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+  FOREIGN KEY (completed_by) REFERENCES users(id) ON DELETE SET NULL
 );
+
+ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_status_check;
+ALTER TABLE orders ADD CONSTRAINT orders_status_check CHECK (status IN ('draft', 'new', 'accepted', 'preparing', 'ready', 'out_for_delivery', 'completed', 'cancelled'));
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS completed_by TEXT REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS inventory_applied BOOLEAN NOT NULL DEFAULT FALSE;
+UPDATE orders
+SET inventory_applied = TRUE,
+    completed_at = COALESCE(completed_at, updated_at, created_at)
+WHERE status = 'completed' AND inventory_applied = FALSE;
 
 CREATE INDEX IF NOT EXISTS idx_orders_number ON orders(order_number);
 CREATE INDEX IF NOT EXISTS idx_orders_customer ON orders(customer_id);
@@ -187,12 +201,47 @@ CREATE TABLE IF NOT EXISTS receipts (
   id TEXT PRIMARY KEY,
   order_id TEXT NOT NULL,
   receipt_number TEXT NOT NULL UNIQUE,
+  order_number TEXT,
+  customer_id TEXT,
+  customer_name TEXT,
+  customer_phone TEXT,
+  items JSONB NOT NULL DEFAULT '[]'::jsonb,
+  subtotal NUMERIC NOT NULL DEFAULT 0,
+  discount_total NUMERIC NOT NULL DEFAULT 0,
+  tax_total NUMERIC NOT NULL DEFAULT 0,
+  delivery_fee NUMERIC NOT NULL DEFAULT 0,
+  total NUMERIC NOT NULL DEFAULT 0,
+  payment_method TEXT,
+  payment_status TEXT,
+  completed_by TEXT,
+  completed_at TIMESTAMPTZ,
   channel TEXT NOT NULL DEFAULT 'print',
   email_to TEXT,
   pdf_path TEXT,
+  whatsapp_sent_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
 );
+
+ALTER TABLE receipts ADD COLUMN IF NOT EXISTS order_number TEXT;
+ALTER TABLE receipts ADD COLUMN IF NOT EXISTS customer_id TEXT;
+ALTER TABLE receipts ADD COLUMN IF NOT EXISTS customer_name TEXT;
+ALTER TABLE receipts ADD COLUMN IF NOT EXISTS customer_phone TEXT;
+ALTER TABLE receipts ADD COLUMN IF NOT EXISTS items JSONB NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE receipts ADD COLUMN IF NOT EXISTS subtotal NUMERIC NOT NULL DEFAULT 0;
+ALTER TABLE receipts ADD COLUMN IF NOT EXISTS discount_total NUMERIC NOT NULL DEFAULT 0;
+ALTER TABLE receipts ADD COLUMN IF NOT EXISTS tax_total NUMERIC NOT NULL DEFAULT 0;
+ALTER TABLE receipts ADD COLUMN IF NOT EXISTS delivery_fee NUMERIC NOT NULL DEFAULT 0;
+ALTER TABLE receipts ADD COLUMN IF NOT EXISTS total NUMERIC NOT NULL DEFAULT 0;
+ALTER TABLE receipts ADD COLUMN IF NOT EXISTS payment_method TEXT;
+ALTER TABLE receipts ADD COLUMN IF NOT EXISTS payment_status TEXT;
+ALTER TABLE receipts ADD COLUMN IF NOT EXISTS completed_by TEXT;
+ALTER TABLE receipts ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ;
+ALTER TABLE receipts ADD COLUMN IF NOT EXISTS whatsapp_sent_at TIMESTAMPTZ;
+ALTER TABLE receipts ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+CREATE UNIQUE INDEX IF NOT EXISTS idx_receipts_order_unique ON receipts(order_id);
+CREATE INDEX IF NOT EXISTS idx_receipts_customer_lookup ON receipts(customer_name, customer_phone);
 
 CREATE TABLE IF NOT EXISTS loyalty_transactions (
   id TEXT PRIMARY KEY,
