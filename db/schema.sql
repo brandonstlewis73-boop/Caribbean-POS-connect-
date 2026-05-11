@@ -277,6 +277,72 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
+CREATE TABLE IF NOT EXISTS help_articles (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  category TEXT NOT NULL,
+  content TEXT NOT NULL,
+  tags JSONB NOT NULL DEFAULT '[]'::jsonb,
+  visibility TEXT NOT NULL DEFAULT 'staff' CHECK (visibility IN ('admin', 'staff', 'public')),
+  published BOOLEAN NOT NULL DEFAULT TRUE,
+  last_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  created_by TEXT,
+  updated_by TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE help_articles ADD COLUMN IF NOT EXISTS tags JSONB NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE help_articles ADD COLUMN IF NOT EXISTS visibility TEXT NOT NULL DEFAULT 'staff';
+ALTER TABLE help_articles ADD COLUMN IF NOT EXISTS published BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE help_articles ADD COLUMN IF NOT EXISTS last_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+CREATE INDEX IF NOT EXISTS idx_help_articles_search ON help_articles(title, category);
+CREATE INDEX IF NOT EXISTS idx_help_articles_visibility ON help_articles(visibility, published);
+
+CREATE TABLE IF NOT EXISTS support_tickets (
+  id TEXT PRIMARY KEY,
+  ticket_number TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  business_name TEXT,
+  email TEXT NOT NULL,
+  phone TEXT,
+  issue_category TEXT NOT NULL,
+  priority TEXT NOT NULL DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high', 'urgent')),
+  status TEXT NOT NULL DEFAULT 'new' CHECK (status IN ('new', 'open', 'waiting_on_customer', 'resolved', 'closed')),
+  message TEXT NOT NULL,
+  screenshot_url TEXT,
+  ai_summary TEXT,
+  ai_category TEXT,
+  ai_priority TEXT CHECK (ai_priority IN ('low', 'medium', 'high', 'urgent')),
+  ai_possible_solution TEXT,
+  ai_steps_tried JSONB NOT NULL DEFAULT '[]'::jsonb,
+  submitted_by TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS screenshot_url TEXT;
+ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS ai_summary TEXT;
+ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS ai_category TEXT;
+ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS ai_priority TEXT;
+ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS ai_possible_solution TEXT;
+ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS ai_steps_tried JSONB NOT NULL DEFAULT '[]'::jsonb;
+CREATE INDEX IF NOT EXISTS idx_support_tickets_status ON support_tickets(status, priority);
+CREATE INDEX IF NOT EXISTS idx_support_tickets_submitter ON support_tickets(submitted_by);
+CREATE INDEX IF NOT EXISTS idx_support_tickets_created ON support_tickets(created_at);
+
+CREATE TABLE IF NOT EXISTS ai_support_logs (
+  id TEXT PRIMARY KEY,
+  user_id TEXT,
+  business_id TEXT,
+  question TEXT NOT NULL,
+  response_summary TEXT,
+  ticket_id TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_ai_support_logs_user ON ai_support_logs(user_id, created_at);
+
 CREATE TABLE IF NOT EXISTS subscriptions (
   id TEXT PRIMARY KEY,
   business_id TEXT REFERENCES businesses(id) ON DELETE CASCADE,

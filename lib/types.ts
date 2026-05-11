@@ -326,3 +326,74 @@ export type Subscription = {
   created_at?: string;
   updated_at?: string;
 };
+
+export type HelpArticleVisibility = "admin" | "staff" | "public";
+
+export type HelpArticle = {
+  id: string;
+  title: string;
+  category: string;
+  content: string;
+  tags: string[];
+  visibility: HelpArticleVisibility;
+  published: boolean;
+  last_updated_at: string;
+  created_by?: string | null;
+  updated_by?: string | null;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type HelpArticleInput = Partial<
+  Pick<HelpArticle, "title" | "category" | "content" | "tags" | "visibility" | "published">
+>;
+
+export type SupportTicketStatus = "new" | "open" | "waiting_on_customer" | "resolved" | "closed";
+export type SupportTicketPriority = "low" | "medium" | "high" | "urgent";
+
+export type SupportTicket = {
+  id: string;
+  ticket_number: string;
+  name: string;
+  business_name?: string | null;
+  email: string;
+  phone?: string | null;
+  issue_category: string;
+  priority: SupportTicketPriority;
+  status: SupportTicketStatus;
+  message: string;
+  screenshot_url?: string | null;
+  ai_summary?: string | null;
+  ai_category?: string | null;
+  ai_priority?: SupportTicketPriority | null;
+  ai_possible_solution?: string | null;
+  ai_steps_tried: string[];
+  submitted_by?: string | null;
+  submitted_by_name?: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type SupportTicketInput = Partial<
+  Pick<
+    SupportTicket,
+    | "name"
+    | "business_name"
+    | "email"
+    | "phone"
+    | "issue_category"
+    | "priority"
+    | "message"
+    | "screenshot_url"
+  >
+>;
+
+export type AiSupportLog = {
+  id: string;
+  user_id?: string | null;
+  business_id?: string | null;
+  question: string;
+  response_summary?: string | null;
+  ticket_id?: string | null;
+  created_at: string;
+};

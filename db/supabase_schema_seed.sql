@@ -255,6 +255,53 @@ CREATE TABLE IF NOT EXISTS public.audit_logs (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS public.help_articles (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  category TEXT NOT NULL,
+  content TEXT NOT NULL,
+  tags JSONB NOT NULL DEFAULT '[]'::jsonb,
+  visibility TEXT NOT NULL DEFAULT 'staff' CHECK (visibility IN ('admin', 'staff', 'public')),
+  published BOOLEAN NOT NULL DEFAULT TRUE,
+  last_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  created_by TEXT,
+  updated_by TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.support_tickets (
+  id TEXT PRIMARY KEY,
+  ticket_number TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  business_name TEXT,
+  email TEXT NOT NULL,
+  phone TEXT,
+  issue_category TEXT NOT NULL,
+  priority TEXT NOT NULL DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high', 'urgent')),
+  status TEXT NOT NULL DEFAULT 'new' CHECK (status IN ('new', 'open', 'waiting_on_customer', 'resolved', 'closed')),
+  message TEXT NOT NULL,
+  screenshot_url TEXT,
+  ai_summary TEXT,
+  ai_category TEXT,
+  ai_priority TEXT CHECK (ai_priority IN ('low', 'medium', 'high', 'urgent')),
+  ai_possible_solution TEXT,
+  ai_steps_tried JSONB NOT NULL DEFAULT '[]'::jsonb,
+  submitted_by TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.ai_support_logs (
+  id TEXT PRIMARY KEY,
+  user_id TEXT,
+  business_id TEXT,
+  question TEXT NOT NULL,
+  response_summary TEXT,
+  ticket_id TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE INDEX IF NOT EXISTS idx_staff_users_email ON public.staff_users(email);
 CREATE INDEX IF NOT EXISTS idx_products_lookup ON public.products(name, sku, barcode, category);
 CREATE INDEX IF NOT EXISTS idx_products_category ON public.products(category);
@@ -268,6 +315,11 @@ CREATE INDEX IF NOT EXISTS idx_order_items_order ON public.order_items(order_id)
 CREATE INDEX IF NOT EXISTS idx_payments_order ON public.payments(order_id);
 CREATE INDEX IF NOT EXISTS idx_inventory_logs_product ON public.inventory_logs(product_id);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON public.audit_logs(created_at);
+CREATE INDEX IF NOT EXISTS idx_help_articles_search ON public.help_articles(title, category);
+CREATE INDEX IF NOT EXISTS idx_help_articles_visibility ON public.help_articles(visibility, published);
+CREATE INDEX IF NOT EXISTS idx_support_tickets_status ON public.support_tickets(status, priority);
+CREATE INDEX IF NOT EXISTS idx_support_tickets_submitter ON public.support_tickets(submitted_by);
+CREATE INDEX IF NOT EXISTS idx_ai_support_logs_user ON public.ai_support_logs(user_id, created_at);
 
 DROP TRIGGER IF EXISTS set_businesses_updated_at ON public.businesses;
 CREATE TRIGGER set_businesses_updated_at BEFORE UPDATE ON public.businesses

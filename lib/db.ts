@@ -5,6 +5,7 @@ import { join } from "node:path";
 import bcrypt from "bcryptjs";
 import { Pool, type PoolClient, type PoolConfig, type QueryResult, type QueryResultRow } from "pg";
 import { DEFAULT_DELIVERY_RATES, PRODUCT_CATEGORIES } from "./constants";
+import { DEFAULT_HELP_ARTICLES } from "./support-context";
 
 try {
   dns.setDefaultResultOrder("ipv4first");
@@ -486,6 +487,7 @@ async function initializeDatabase() {
   const schema = await readFile(schemaPath, "utf8");
   await getDb().query(schema);
   await seedSettings();
+  await seedHelpArticles();
   await seedInitialData();
 }
 
@@ -554,6 +556,27 @@ async function seedSettings() {
   await insertSetting("payment_pod_enabled", true);
   await insertSetting("order_counter", 1024);
   await insertSetting("receipt_counter", 4024);
+}
+
+async function seedHelpArticles() {
+  for (const article of DEFAULT_HELP_ARTICLES) {
+    await rawQuery(
+      `INSERT INTO help_articles (
+        id, title, category, content, tags, visibility, published, last_updated_at
+      ) VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8)
+      ON CONFLICT (id) DO NOTHING`,
+      [
+        article.id,
+        article.title,
+        article.category,
+        article.content,
+        JSON.stringify(article.tags),
+        article.visibility,
+        article.published,
+        article.last_updated_at
+      ]
+    );
+  }
 }
 
 async function seedInitialData() {

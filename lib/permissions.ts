@@ -12,6 +12,8 @@ export type Permission =
   | "deliveries:read_assigned"
   | "deliveries:manage"
   | "reports:read"
+  | "support:read"
+  | "support:manage"
   | "settings:write"
   | "staff:manage"
   | "audit:read";
@@ -29,6 +31,8 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "deliveries:read_assigned",
     "deliveries:manage",
     "reports:read",
+    "support:read",
+    "support:manage",
     "settings:write",
     "staff:manage",
     "audit:read"
@@ -45,6 +49,8 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "deliveries:read_assigned",
     "deliveries:manage",
     "reports:read",
+    "support:read",
+    "support:manage",
     "settings:write",
     "staff:manage",
     "audit:read"
@@ -60,7 +66,9 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "inventory:write",
     "deliveries:read_assigned",
     "deliveries:manage",
-    "reports:read"
+    "reports:read",
+    "support:read",
+    "support:manage"
   ],
   cashier: [
     "dashboard:read",
@@ -68,7 +76,8 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "orders:read",
     "customers:read",
     "customers:write",
-    "inventory:read"
+    "inventory:read",
+    "support:read"
   ],
   dispatcher: [
     "dashboard:read",
@@ -76,11 +85,12 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "orders:update",
     "customers:read",
     "deliveries:read_assigned",
-    "deliveries:manage"
+    "deliveries:manage",
+    "support:read"
   ],
-  driver: ["deliveries:read_assigned", "orders:read"],
-  kitchen: ["orders:read", "orders:update", "inventory:read"],
-  staff: ["dashboard:read", "orders:read", "customers:read", "inventory:read"]
+  driver: ["deliveries:read_assigned", "orders:read", "support:read"],
+  kitchen: ["orders:read", "orders:update", "inventory:read", "support:read"],
+  staff: ["dashboard:read", "orders:read", "customers:read", "inventory:read", "support:read"]
 };
 
 export function hasPermission(role: Role, permission: Permission) {

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { CARIBBEAN_CURRENCIES, ORDER_TYPES, PAYMENT_METHODS, PRODUCT_CATEGORIES, STAFF_AVATAR_OPTIONS, STAFF_ROLES, TT_REGIONS } from "./constants";
+import { HELP_CATEGORIES, QUICK_HELP_PROMPTS } from "./support-context";
 
 const optionalText = z.string().trim().optional().nullable();
 const caribbeanCurrencyCodes = CARIBBEAN_CURRENCIES.map((currency) => currency.code) as [string, ...string[]];
@@ -119,4 +120,52 @@ export const staffUserSchema = z.object({
     .optional()
     .nullable(),
   avatar_url: optionalText
+});
+
+const helpCategories = HELP_CATEGORIES as unknown as [string, ...string[]];
+
+export const helpArticleSchema = z.object({
+  title: z.string().trim().min(3, "Article title is required."),
+  category: z.enum(helpCategories).or(z.string().trim().min(2)),
+  content: z.string().trim().min(10, "Article content is required."),
+  tags: z.array(z.string().trim().min(1)).optional().default([]),
+  visibility: z.enum(["admin", "staff", "public"]).default("staff"),
+  published: z.boolean().optional().default(true)
+});
+
+export const helpArticleUpdateSchema = helpArticleSchema.partial();
+
+export const supportTicketSchema = z.object({
+  name: z.string().trim().min(2, "Name is required."),
+  business_name: optionalText,
+  email: z.string().trim().email("Enter a valid email address."),
+  phone: optionalText,
+  issue_category: z.enum(helpCategories).or(z.string().trim().min(2)),
+  priority: z.enum(["low", "medium", "high", "urgent"]).default("medium"),
+  message: z.string().trim().min(10, "Tell us what happened."),
+  screenshot_url: optionalText
+});
+
+export const supportTicketUpdateSchema = z.object({
+  status: z.enum(["new", "open", "waiting_on_customer", "resolved", "closed"]).optional(),
+  priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
+  issue_category: z.enum(helpCategories).or(z.string().trim().min(2)).optional(),
+  ai_summary: optionalText,
+  ai_possible_solution: optionalText
+});
+
+export const aiSupportChatSchema = z.object({
+  question: z.string().trim().min(2).max(2000),
+  currentPage: optionalText,
+  messages: z
+    .array(
+      z.object({
+        role: z.enum(["user", "assistant"]),
+        content: z.string().trim().max(2000)
+      })
+    )
+    .max(12)
+    .optional()
+    .default([]),
+  quickPrompt: z.enum(QUICK_HELP_PROMPTS as unknown as [string, ...string[]]).optional()
 });

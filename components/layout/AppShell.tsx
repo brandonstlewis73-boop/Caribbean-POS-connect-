@@ -4,6 +4,7 @@ import {
   Boxes,
   CreditCard,
   ClipboardList,
+  LifeBuoy,
   LayoutDashboard,
   MapPinned,
   Printer,
@@ -42,7 +43,8 @@ const navGroups = [
     items: [
       { label: "Staff", href: "/staff", icon: UserCog },
       { label: "Subscription", href: "/subscription", icon: CreditCard },
-      { label: "Settings", href: "/settings", icon: Settings }
+      { label: "Settings", href: "/settings", icon: Settings },
+      { label: "Help & Support", href: "/help", icon: LifeBuoy }
     ]
   }
 ];
@@ -166,6 +168,18 @@ export async function AppShell({
           );
         })}
       </nav>
+      <Link
+        href="/help"
+        className={cn(
+          "fixed bottom-20 right-4 z-40 inline-flex min-h-11 items-center gap-2 rounded-full border border-white/10 px-4 py-2 text-sm font-black shadow-[0_16px_40px_rgba(0,0,0,0.35)] backdrop-blur-2xl lg:bottom-5",
+          active === "Help & Support"
+            ? "bg-cyan-300 text-slate-950"
+            : "bg-black/70 text-teal-50 hover:bg-white/[0.14]"
+        )}
+      >
+        <LifeBuoy className="h-4 w-4" />
+        Help
+      </Link>
     </div>
   );
 }
