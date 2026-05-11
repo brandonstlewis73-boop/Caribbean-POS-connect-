@@ -10,6 +10,8 @@ import {
 import { buildAddress, buildWazeLink } from "./waze";
 import {
   buildCustomerConfirmationMessage,
+  buildCustomerDriverAssignedWhatsAppMessage,
+  buildCustomerOutForDeliveryWhatsAppMessage,
   buildOrderWhatsAppMessage,
   buildWhatsAppLink,
   cleanWhatsAppNumber
@@ -84,10 +86,19 @@ const demoSettings: Settings = {
   whatsapp_country_code: "+1",
   whatsapp_owner_alerts_enabled: true,
   whatsapp_customer_receipts_enabled: false,
+  whatsapp_driver_assignment_enabled: true,
+  whatsapp_driver_alerts_enabled: true,
+  whatsapp_out_for_delivery_enabled: true,
   whatsapp_order_template:
     "New Order - {{business_name}}\n\nOrder #: {{order_number}}\nCustomer: {{customer_name}}\nPhone: {{customer_phone}}\nType: {{order_type}}\nAddress: {{address}}\n\nItems:\n{{items}}\n\nTotal: {{total}}\nPayment: {{payment_method}}\nPayment status: {{payment_status}}\nOrder status: {{order_status}}\nDate/time: {{date_time}}\nDashboard: {{dashboard_link}}\nPayment link: {{payment_link}}\n\nWaze:\n{{waze_link}}",
   whatsapp_customer_receipt_template:
     "Hi {{customer_name}}, your receipt for order #{{order_number}} from {{business_name}} is ready.\n\nItems:\n{{items}}\n\nTotal: {{total}}\nPayment: {{payment_method}}\nCompleted: {{completed_at}}\n\n{{receipt_message}}\nContact: {{business_phone}}",
+  whatsapp_driver_assigned_template:
+    "Hi {{customer_name}}, your {{business_name}} order #{{order_number}} has been assigned to {{driver_name}}.\nDriver phone: {{driver_phone}}\nStatus: {{delivery_status}}\nTotal: {{total}}\nContact: {{business_phone}}",
+  whatsapp_driver_alert_template:
+    "Delivery assigned - {{business_name}}\n\nOrder #: {{order_number}}\nCustomer: {{customer_name}}\nPhone: {{customer_phone}}\nAddress: {{address}}\n\nItems:\n{{items}}\n\nTotal: {{total}}\nPayment: {{payment_method}} ({{payment_status}})\nWaze: {{waze_link}}\nDashboard: {{dashboard_link}}",
+  whatsapp_out_for_delivery_template:
+    "Hi {{customer_name}}, your {{business_name}} order #{{order_number}} is out for delivery.\nDriver: {{driver_name}}\nDriver phone: {{driver_phone}}\nTotal: {{total}}\n{{receipt_message}}\nContact: {{business_phone}}",
   facebook_url: "https://facebook.com/caribbeanposconnect",
   instagram_url: "https://instagram.com/caribbeanposconnect",
   payment_cash_enabled: true,
@@ -369,6 +380,7 @@ export async function demoDeleteStaffUser(staffId: string, userId?: string) {
     if (order.assigned_driver_id === staffId) {
       order.assigned_driver_id = null;
       order.assigned_driver_name = null;
+      order.assigned_driver_phone = null;
     }
     if (order.created_by === staffId) order.created_by = null;
   }
@@ -631,6 +643,9 @@ export async function demoCreateOrder(payload: CheckoutPayload, userId?: string)
   });
   const paymentLink = buildPaymentLink(settings, orderNumber, receiptNumber, total, payload.payment_method, snapshot);
   const createdAt = new Date().toISOString();
+  const assignedDriver = payload.assigned_driver_id
+    ? state.users.find((user) => user.id === payload.assigned_driver_id)
+    : null;
   const order: Order = {
     id: orderId,
     order_number: orderNumber,
@@ -642,7 +657,8 @@ export async function demoCreateOrder(payload: CheckoutPayload, userId?: string)
     payment_status: paymentStatus,
     delivery_status: deliveryStatus,
     assigned_driver_id: payload.assigned_driver_id || null,
-    assigned_driver_name: payload.assigned_driver_id ? state.users.find((user) => user.id === payload.assigned_driver_id)?.name || null : null,
+    assigned_driver_name: assignedDriver?.name || null,
+    assigned_driver_phone: assignedDriver?.phone || null,
     subtotal,
     discount_total: discountTotal,
     tax_total: taxTotal,
@@ -719,6 +735,13 @@ export async function demoUpdateDeliveryStatus(orderId: string, status: Order["d
   const order = store().orders.find((item) => item.id === orderId);
   if (!order) return null;
   order.delivery_status = status;
+  if (status === "out_for_delivery") {
+    order.whatsapp_customer_link = buildWhatsAppLink(
+      order.customer_snapshot.phone,
+      buildCustomerOutForDeliveryWhatsAppMessage(order, store().settings),
+      store().settings.whatsapp_country_code
+    );
+  }
   order.updated_at = new Date().toISOString();
   demoAuditLog("delivery:update_status", "order", orderId, { status }, userId);
   return cloneOrder(order);
@@ -771,6 +794,10 @@ export async function demoUpdateOrder(orderId: string, input: Partial<Order>, us
     }
     order.inventory_applied = false;
   }
+  const assignedDriver =
+    input.assigned_driver_id !== undefined
+      ? state.users.find((user) => user.id === input.assigned_driver_id)
+      : null;
   Object.assign(order, {
     status: input.status ?? order.status,
     payment_status:
@@ -783,11 +810,29 @@ export async function demoUpdateOrder(orderId: string, input: Partial<Order>, us
     assigned_driver_id: input.assigned_driver_id ?? order.assigned_driver_id,
     assigned_driver_name:
       input.assigned_driver_id !== undefined
-        ? store().users.find((user) => user.id === input.assigned_driver_id)?.name || null
+        ? assignedDriver?.name || null
         : order.assigned_driver_name,
+    assigned_driver_phone:
+      input.assigned_driver_id !== undefined
+        ? assignedDriver?.phone || null
+        : order.assigned_driver_phone,
     notes: input.notes ?? order.notes,
     updated_at: new Date().toISOString()
   });
+  if (input.assigned_driver_id) {
+    order.whatsapp_customer_link = buildWhatsAppLink(
+      order.customer_snapshot.phone,
+      buildCustomerDriverAssignedWhatsAppMessage(order, state.settings),
+      state.settings.whatsapp_country_code
+    );
+  }
+  if (order.delivery_status === "out_for_delivery") {
+    order.whatsapp_customer_link = buildWhatsAppLink(
+      order.customer_snapshot.phone,
+      buildCustomerOutForDeliveryWhatsAppMessage(order, state.settings),
+      state.settings.whatsapp_country_code
+    );
+  }
   demoAuditLog("order:update", "order", orderId, input, userId);
   return cloneOrder(order);
 }

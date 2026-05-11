@@ -20,7 +20,7 @@ export default function PrivacyPage() {
           <p><strong>Information collected:</strong> name, phone, email, delivery address, delivery instructions, order history, payment method, marketing consent, loyalty points, and staff activity logs.</p>
           <p><strong>Use of information:</strong> order fulfillment, delivery navigation, receipts, customer support, loyalty, reporting, inventory control, and optional marketing only when consent is granted.</p>
           <p><strong>Protection:</strong> staff access is permission controlled, passwords are hashed, session cookies are HTTP-only, and important admin or order changes are written to an audit log.</p>
-          <p><strong>WhatsApp and Waze:</strong> the first version opens click-to-chat and navigation links. It does not automatically send WhatsApp messages or share customer data with those services until a user clicks a link.</p>
+          <p><strong>WhatsApp and Waze:</strong> click-to-chat and navigation links are generated for orders. When WhatsApp Business API credentials are configured, enabled order alerts, delivery updates, and receipts can be sent automatically.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link href="/online" className="rounded-card bg-caribbean-teal px-4 py-2 text-sm font-black text-white">Storefront</Link>

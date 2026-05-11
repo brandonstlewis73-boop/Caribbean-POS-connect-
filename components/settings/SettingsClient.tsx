@@ -509,6 +509,9 @@ export function SettingsClient({
             <Toggle label="Enable WhatsApp features" checked={draft.whatsapp_enabled} onChange={(value) => update("whatsapp_enabled", value)} />
             <Toggle label="Send owner alert when a new order is created" checked={draft.whatsapp_owner_alerts_enabled} onChange={(value) => update("whatsapp_owner_alerts_enabled", value)} />
             <Toggle label="Send customer receipt when order is completed" checked={draft.whatsapp_customer_receipts_enabled} onChange={(value) => update("whatsapp_customer_receipts_enabled", value)} />
+            <Toggle label="Send customer update when a driver is assigned" checked={draft.whatsapp_driver_assignment_enabled} onChange={(value) => update("whatsapp_driver_assignment_enabled", value)} />
+            <Toggle label="Send driver alert when assigned to an order" checked={draft.whatsapp_driver_alerts_enabled} onChange={(value) => update("whatsapp_driver_alerts_enabled", value)} />
+            <Toggle label="Send customer update when order is out for delivery" checked={draft.whatsapp_out_for_delivery_enabled} onChange={(value) => update("whatsapp_out_for_delivery_enabled", value)} />
             <div className="grid gap-3 md:grid-cols-2">
               <Field label="Business WhatsApp number" value={draft.whatsapp_business_number} onChange={(event) => update("whatsapp_business_number", event.target.value)} />
               <Field label="Default country code" value={draft.whatsapp_country_code} onChange={(event) => update("whatsapp_country_code", event.target.value)} placeholder="+1-868" />
@@ -525,8 +528,26 @@ export function SettingsClient({
               onChange={(event) => update("whatsapp_customer_receipt_template", event.target.value)}
               className="min-h-48"
             />
+            <TextAreaField
+              label="Customer driver assigned template"
+              value={draft.whatsapp_driver_assigned_template}
+              onChange={(event) => update("whatsapp_driver_assigned_template", event.target.value)}
+              className="min-h-36"
+            />
+            <TextAreaField
+              label="Driver assignment alert template"
+              value={draft.whatsapp_driver_alert_template}
+              onChange={(event) => update("whatsapp_driver_alert_template", event.target.value)}
+              className="min-h-36"
+            />
+            <TextAreaField
+              label="Customer out for delivery template"
+              value={draft.whatsapp_out_for_delivery_template}
+              onChange={(event) => update("whatsapp_out_for_delivery_template", event.target.value)}
+              className="min-h-36"
+            />
             <p className="text-sm font-semibold text-slate-500">
-              Template variables: {"{{business_name}}"}, {"{{business_phone}}"}, {"{{order_number}}"}, {"{{customer_name}}"}, {"{{customer_phone}}"}, {"{{order_type}}"}, {"{{address}}"}, {"{{items}}"}, {"{{total}}"}, {"{{payment_method}}"}, {"{{payment_status}}"}, {"{{order_status}}"}, {"{{date_time}}"}, {"{{completed_at}}"}, {"{{dashboard_link}}"}, {"{{payment_link}}"}, {"{{location_link}}"}, {"{{waze_link}}"}, {"{{receipt_message}}"}.
+              Template variables: {"{{business_name}}"}, {"{{business_phone}}"}, {"{{order_number}}"}, {"{{customer_name}}"}, {"{{customer_phone}}"}, {"{{order_type}}"}, {"{{address}}"}, {"{{items}}"}, {"{{total}}"}, {"{{payment_method}}"}, {"{{payment_status}}"}, {"{{order_status}}"}, {"{{delivery_status}}"}, {"{{driver_name}}"}, {"{{driver_phone}}"}, {"{{date_time}}"}, {"{{completed_at}}"}, {"{{dashboard_link}}"}, {"{{payment_link}}"}, {"{{location_link}}"}, {"{{waze_link}}"}, {"{{receipt_message}}"}.
             </p>
             <p className="rounded-card bg-caribbean-cloud p-3 text-sm font-bold text-slate-700 dark:bg-slate-950 dark:text-slate-200">
               Add provider secrets in Vercel only: WHATSAPP_PROVIDER, Twilio keys, or Meta WhatsApp token and phone number ID. If they are missing, orders still save and the server logs “WhatsApp is not configured.”

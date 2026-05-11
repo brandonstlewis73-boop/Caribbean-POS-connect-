@@ -62,7 +62,10 @@ import type {
 import { buildAddress, buildWazeLink } from "./waze";
 import {
   buildCustomerConfirmationMessage,
+  buildCustomerDriverAssignedWhatsAppMessage,
+  buildCustomerOutForDeliveryWhatsAppMessage,
   buildCustomerReceiptWhatsAppMessage,
+  buildDriverAssignmentWhatsAppMessage,
   buildOrderWhatsAppMessage,
   buildWhatsAppLink,
   cleanWhatsAppNumber,
@@ -97,10 +100,19 @@ export const defaultSettings: Settings = {
   whatsapp_country_code: "+1",
   whatsapp_owner_alerts_enabled: true,
   whatsapp_customer_receipts_enabled: false,
+  whatsapp_driver_assignment_enabled: true,
+  whatsapp_driver_alerts_enabled: true,
+  whatsapp_out_for_delivery_enabled: true,
   whatsapp_order_template:
     "New Order - {{business_name}}\n\nOrder #: {{order_number}}\nCustomer: {{customer_name}}\nPhone: {{customer_phone}}\nType: {{order_type}}\nAddress: {{address}}\n\nItems:\n{{items}}\n\nTotal: {{total}}\nPayment: {{payment_method}}\nPayment status: {{payment_status}}\nOrder status: {{order_status}}\nDate/time: {{date_time}}\nDashboard: {{dashboard_link}}\nPayment link: {{payment_link}}\n\nWaze:\n{{waze_link}}",
   whatsapp_customer_receipt_template:
     "Hi {{customer_name}}, your receipt for order #{{order_number}} from {{business_name}} is ready.\n\nItems:\n{{items}}\n\nTotal: {{total}}\nPayment: {{payment_method}}\nCompleted: {{completed_at}}\n\n{{receipt_message}}\nContact: {{business_phone}}",
+  whatsapp_driver_assigned_template:
+    "Hi {{customer_name}}, your {{business_name}} order #{{order_number}} has been assigned to {{driver_name}}.\nDriver phone: {{driver_phone}}\nStatus: {{delivery_status}}\nTotal: {{total}}\nContact: {{business_phone}}",
+  whatsapp_driver_alert_template:
+    "Delivery assigned - {{business_name}}\n\nOrder #: {{order_number}}\nCustomer: {{customer_name}}\nPhone: {{customer_phone}}\nAddress: {{address}}\n\nItems:\n{{items}}\n\nTotal: {{total}}\nPayment: {{payment_method}} ({{payment_status}})\nWaze: {{waze_link}}\nDashboard: {{dashboard_link}}",
+  whatsapp_out_for_delivery_template:
+    "Hi {{customer_name}}, your {{business_name}} order #{{order_number}} is out for delivery.\nDriver: {{driver_name}}\nDriver phone: {{driver_phone}}\nTotal: {{total}}\n{{receipt_message}}\nContact: {{business_phone}}",
   facebook_url: "https://facebook.com/caribbeanposconnect",
   instagram_url: "https://instagram.com/caribbeanposconnect",
   payment_cash_enabled: true,
@@ -1254,6 +1266,45 @@ async function notifyCustomerReceipt(order: Order, settings: Settings) {
   }
 }
 
+async function notifyCustomerDriverAssigned(order: Order, settings: Settings) {
+  if (!settings.whatsapp_enabled || !settings.whatsapp_driver_assignment_enabled) return;
+  const result = await sendWhatsAppMessage(order.customer_snapshot.phone, buildCustomerDriverAssignedWhatsAppMessage(order, settings), {
+    defaultCountryCode: settings.whatsapp_country_code
+  });
+  if (!result.ok && !result.skipped) {
+    console.warn("Customer driver-assigned WhatsApp was not sent", { orderId: order.id, reason: result.message });
+  }
+}
+
+async function notifyDriverOfAssignment(order: Order, settings: Settings) {
+  if (!settings.whatsapp_enabled || !settings.whatsapp_driver_alerts_enabled || !order.assigned_driver_phone) return;
+  const result = await sendWhatsAppMessage(order.assigned_driver_phone, buildDriverAssignmentWhatsAppMessage(order, settings), {
+    defaultCountryCode: settings.whatsapp_country_code
+  });
+  if (!result.ok && !result.skipped) {
+    console.warn("Driver assignment WhatsApp was not sent", { orderId: order.id, reason: result.message });
+  }
+}
+
+async function notifyCustomerOutForDelivery(order: Order, settings: Settings) {
+  if (!settings.whatsapp_enabled || !settings.whatsapp_out_for_delivery_enabled) return;
+  const result = await sendWhatsAppMessage(order.customer_snapshot.phone, buildCustomerOutForDeliveryWhatsAppMessage(order, settings), {
+    defaultCountryCode: settings.whatsapp_country_code
+  });
+  if (!result.ok && !result.skipped) {
+    console.warn("Customer out-for-delivery WhatsApp was not sent", { orderId: order.id, reason: result.message });
+  }
+}
+
+async function updateCustomerWhatsAppLink(order: Order, message: string, settings: Settings) {
+  if (!settings.whatsapp_enabled) return order;
+  await query(
+    "UPDATE orders SET whatsapp_customer_link = $1, updated_at = NOW() WHERE id = $2",
+    [buildWhatsAppLink(order.customer_snapshot.phone, message, settings.whatsapp_country_code), order.id]
+  );
+  return (await readOrderById(undefined, order.id)) || order;
+}
+
 export async function createOrder(payload: CheckoutPayload, userId?: string) {
   if (isDemoMode) return demoCreateOrder(payload, userId);
   const settings = await getSettings();
@@ -1513,13 +1564,20 @@ export async function createOrder(payload: CheckoutPayload, userId?: string) {
     return order;
   });
   await notifyOwnerOfNewOrder(order, settings);
+  if (order.assigned_driver_id && order.delivery_status !== "not_required") {
+    await notifyCustomerDriverAssigned(order, settings);
+    await notifyDriverOfAssignment(order, settings);
+  }
+  if (order.delivery_status === "out_for_delivery") {
+    await notifyCustomerOutForDelivery(order, settings);
+  }
   if (order.status === "completed") await notifyCustomerReceipt(order, settings);
   return order;
 }
 
 async function readOrderById(client: DbClient | undefined, id: string) {
   const row = await query<any>(
-    `SELECT o.*, u.name AS assigned_driver_name, completed_user.name AS completed_by_name
+    `SELECT o.*, u.name AS assigned_driver_name, u.phone AS assigned_driver_phone, completed_user.name AS completed_by_name
      FROM orders o
      LEFT JOIN users u ON u.id = o.assigned_driver_id
      LEFT JOIN users completed_user ON completed_user.id = o.completed_by
@@ -1572,7 +1630,7 @@ export async function listOrders(options: {
 
   const limitPlaceholder = addParam(params, Math.min(options.limit ?? 100, 300));
   const rows = await query<any>(
-    `SELECT o.*, c.name AS customer_name, u.name AS assigned_driver_name, completed_user.name AS completed_by_name
+    `SELECT o.*, c.name AS customer_name, u.name AS assigned_driver_name, u.phone AS assigned_driver_phone, completed_user.name AS completed_by_name
      FROM orders o
      LEFT JOIN customers c ON c.id = o.customer_id
      LEFT JOIN users u ON u.id = o.assigned_driver_id
@@ -1587,9 +1645,12 @@ export async function listOrders(options: {
 
 export async function updateDeliveryStatus(orderId: string, status: Order["delivery_status"], userId?: string) {
   if (isDemoMode) return demoUpdateDeliveryStatus(orderId, status, userId);
-  return transaction(async (client) => {
+  const settings = await getSettings();
+  let shouldNotifyOutForDelivery = false;
+  let updatedOrder = await transaction(async (client) => {
     const order = await readOrderById(client, orderId);
     if (!order) return null;
+    shouldNotifyOutForDelivery = order.delivery_status !== "out_for_delivery" && status === "out_for_delivery";
     await query(
       "UPDATE orders SET delivery_status = $1, updated_at = NOW() WHERE id = $2",
       [status, orderId],
@@ -1603,12 +1664,23 @@ export async function updateDeliveryStatus(orderId: string, status: Order["deliv
     await auditLog("delivery:update_status", "order", orderId, { status }, userId, client);
     return readOrderById(client, orderId);
   });
+  if (updatedOrder && shouldNotifyOutForDelivery) {
+    updatedOrder = await updateCustomerWhatsAppLink(
+      updatedOrder,
+      buildCustomerOutForDeliveryWhatsAppMessage(updatedOrder, settings),
+      settings
+    );
+    await notifyCustomerOutForDelivery(updatedOrder, settings);
+  }
+  return updatedOrder;
 }
 
 export async function updateOrder(id: string, input: Partial<Order>, userId?: string) {
   if (isDemoMode) return demoUpdateOrder(id, input, userId);
   const settings = await getSettings();
   let shouldNotifyCustomerReceipt = false;
+  let shouldNotifyDriverAssigned = false;
+  let shouldNotifyOutForDelivery = false;
   const updatedOrder = await transaction(async (client) => {
     const existing = await readOrderById(client, id);
     if (!existing) return null;
@@ -1631,6 +1703,9 @@ export async function updateOrder(id: string, input: Partial<Order>, userId?: st
       (isCancelling && existing.delivery_status !== "not_required" && existing.delivery_status !== "delivered"
         ? "failed"
         : existing.delivery_status);
+    const nextAssignedDriverId = input.assigned_driver_id ?? existing.assigned_driver_id ?? null;
+    shouldNotifyDriverAssigned = Boolean(nextAssignedDriverId) && nextAssignedDriverId !== (existing.assigned_driver_id ?? null);
+    shouldNotifyOutForDelivery = existing.delivery_status !== "out_for_delivery" && nextDeliveryStatus === "out_for_delivery";
     await query(
       `UPDATE orders SET
         status = $1, payment_status = $2, delivery_status = $3, assigned_driver_id = $4,
@@ -1643,7 +1718,7 @@ export async function updateOrder(id: string, input: Partial<Order>, userId?: st
         nextStatus,
         nextPaymentStatus,
         nextDeliveryStatus,
-        input.assigned_driver_id ?? existing.assigned_driver_id ?? null,
+        nextAssignedDriverId,
         input.notes ?? existing.notes ?? null,
         nextPointsEarned,
         isCompleting,
@@ -1701,7 +1776,29 @@ export async function updateOrder(id: string, input: Partial<Order>, userId?: st
   if (updatedOrder && shouldNotifyCustomerReceipt) {
     await notifyCustomerReceipt(updatedOrder, settings);
   }
-  return updatedOrder;
+  let orderForNotifications = updatedOrder;
+  if (orderForNotifications && shouldNotifyDriverAssigned) {
+    orderForNotifications = await updateCustomerWhatsAppLink(
+      orderForNotifications,
+      buildCustomerDriverAssignedWhatsAppMessage(orderForNotifications, settings),
+      settings
+    );
+  }
+  if (orderForNotifications && shouldNotifyOutForDelivery) {
+    orderForNotifications = await updateCustomerWhatsAppLink(
+      orderForNotifications,
+      buildCustomerOutForDeliveryWhatsAppMessage(orderForNotifications, settings),
+      settings
+    );
+  }
+  if (orderForNotifications && shouldNotifyDriverAssigned) {
+    await notifyCustomerDriverAssigned(orderForNotifications, settings);
+    await notifyDriverOfAssignment(orderForNotifications, settings);
+  }
+  if (orderForNotifications && shouldNotifyOutForDelivery) {
+    await notifyCustomerOutForDelivery(orderForNotifications, settings);
+  }
+  return orderForNotifications;
 }
 
 export async function deleteOrder(id: string, userId?: string) {

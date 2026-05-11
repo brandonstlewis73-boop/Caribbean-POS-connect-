@@ -51,6 +51,12 @@ function typeLabel(order: Order) {
   return "In-store";
 }
 
+function statusLabel(value?: string | null) {
+  return String(value || "")
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
 function formatDateTime(value?: string | null) {
   const date = value ? new Date(value) : new Date();
   return Number.isNaN(date.getTime()) ? new Date().toLocaleString() : date.toLocaleString();
@@ -83,7 +89,10 @@ function applyOrderTokens(template: string, order: Order, settings: Settings) {
     .replaceAll("{{total}}", money(order.total, settings.currency))
     .replaceAll("{{payment_method}}", order.payment_method)
     .replaceAll("{{payment_status}}", order.payment_status)
-    .replaceAll("{{order_status}}", order.status.replaceAll("_", " "))
+    .replaceAll("{{order_status}}", statusLabel(order.status))
+    .replaceAll("{{delivery_status}}", statusLabel(order.delivery_status))
+    .replaceAll("{{driver_name}}", order.assigned_driver_name || "Your driver")
+    .replaceAll("{{driver_phone}}", order.assigned_driver_phone || "Not provided")
     .replaceAll("{{date_time}}", formatDateTime(order.created_at))
     .replaceAll("{{completed_at}}", formatDateTime(order.completed_at))
     .replaceAll("{{payment_link}}", order.payment_link || "")
@@ -125,7 +134,7 @@ export function buildOrderWhatsAppMessage(order: Order, settings: Settings) {
     `Total: ${money(order.total, settings.currency)}`,
     `Payment: ${order.payment_method}`,
     `Payment status: ${order.payment_status}`,
-    `Order status: ${order.status.replaceAll("_", " ")}`,
+    `Order status: ${statusLabel(order.status)}`,
     `Date/time: ${formatDateTime(order.created_at)}`,
     `Dashboard: ${orderDashboardLink(order)}`,
     order.notes ? `Notes: ${order.notes}` : null,
@@ -161,6 +170,61 @@ export function buildCustomerReceiptWhatsAppMessage(order: Order, settings: Sett
     `Payment: ${order.payment_method}`,
     `Completed: ${formatDateTime(order.completed_at)}`,
     "",
+    settings.receipt_message,
+    settings.business_phone ? `Contact: ${settings.business_phone}` : null
+  ].filter(Boolean).join("\n");
+}
+
+export function buildCustomerDriverAssignedWhatsAppMessage(order: Order, settings: Settings) {
+  const template = settings.whatsapp_driver_assigned_template?.trim();
+  if (template) return applyOrderTokens(template, order, settings);
+  return [
+    `Hi ${order.customer_snapshot.name || "there"}, your ${settings.business_name} order #${order.order_number} has been assigned to ${order.assigned_driver_name || "a delivery driver"}.`,
+    order.assigned_driver_phone ? `Driver phone: ${order.assigned_driver_phone}` : null,
+    order.waze_link ? `Navigation: ${order.waze_link}` : null,
+    `Status: ${statusLabel(order.delivery_status)}`,
+    `Total: ${money(order.total, settings.currency)}`,
+    settings.business_phone ? `Contact: ${settings.business_phone}` : null
+  ].filter(Boolean).join("\n");
+}
+
+export function buildDriverAssignmentWhatsAppMessage(order: Order, settings: Settings) {
+  const template = settings.whatsapp_driver_alert_template?.trim();
+  if (template) return applyOrderTokens(template, order, settings);
+  const customer = order.customer_snapshot;
+  const address = buildAddress([
+    customer.street_address,
+    customer.city,
+    customer.region,
+    customer.country || "Trinidad and Tobago"
+  ]);
+  return [
+    `Delivery assigned - ${settings.business_name}`,
+    "",
+    `Order #: ${order.order_number}`,
+    `Customer: ${customer.name || "Customer"}`,
+    customer.phone ? `Customer phone: ${customer.phone}` : null,
+    address ? `Address: ${address}` : null,
+    customer.delivery_notes ? `Instructions: ${customer.delivery_notes}` : null,
+    "",
+    "Items:",
+    orderItemsText(order, settings),
+    "",
+    `Total: ${money(order.total, settings.currency)}`,
+    `Payment: ${order.payment_method} (${order.payment_status})`,
+    order.waze_link ? `Waze: ${order.waze_link}` : null,
+    `Dashboard: ${orderDashboardLink(order)}`
+  ].filter(Boolean).join("\n");
+}
+
+export function buildCustomerOutForDeliveryWhatsAppMessage(order: Order, settings: Settings) {
+  const template = settings.whatsapp_out_for_delivery_template?.trim();
+  if (template) return applyOrderTokens(template, order, settings);
+  return [
+    `Hi ${order.customer_snapshot.name || "there"}, your ${settings.business_name} order #${order.order_number} is out for delivery.`,
+    order.assigned_driver_name ? `Driver: ${order.assigned_driver_name}` : null,
+    order.assigned_driver_phone ? `Driver phone: ${order.assigned_driver_phone}` : null,
+    `Total: ${money(order.total, settings.currency)}`,
     settings.receipt_message,
     settings.business_phone ? `Contact: ${settings.business_phone}` : null
   ].filter(Boolean).join("\n");

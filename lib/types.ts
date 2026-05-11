@@ -153,6 +153,7 @@ export type Order = {
     | "failed";
   assigned_driver_id?: string | null;
   assigned_driver_name?: string | null;
+  assigned_driver_phone?: string | null;
   subtotal: number;
   discount_total: number;
   tax_total: number;
@@ -229,8 +230,14 @@ export type Settings = {
   whatsapp_country_code: string;
   whatsapp_owner_alerts_enabled: boolean;
   whatsapp_customer_receipts_enabled: boolean;
+  whatsapp_driver_assignment_enabled: boolean;
+  whatsapp_driver_alerts_enabled: boolean;
+  whatsapp_out_for_delivery_enabled: boolean;
   whatsapp_order_template: string;
   whatsapp_customer_receipt_template: string;
+  whatsapp_driver_assigned_template: string;
+  whatsapp_driver_alert_template: string;
+  whatsapp_out_for_delivery_template: string;
   facebook_url: string;
   instagram_url: string;
   payment_cash_enabled: boolean;
