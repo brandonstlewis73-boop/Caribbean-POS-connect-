@@ -270,8 +270,77 @@ export function buildCustomerOutForDeliveryWhatsAppMessage(order: Order, setting
   ].filter(Boolean).join("\n");
 }
 
-function whatsappProvider() {
-  return (process.env.WHATSAPP_PROVIDER || "").trim().toLowerCase();
+export type WhatsAppConfigStatus = {
+  enabled: boolean;
+  selectedProvider: string | null;
+  configured: boolean;
+  missing: string[];
+  defaultCountryCode: string;
+  twilio: {
+    hasAccountSid: boolean;
+    hasAuthToken: boolean;
+    hasFrom: boolean;
+    fromUsesWhatsAppPrefix: boolean;
+  };
+  meta: {
+    hasToken: boolean;
+    hasPhoneNumberId: boolean;
+  };
+  message: string;
+};
+
+function whatsappEnabled() {
+  return !["false", "0", "no", "off"].includes(String(process.env.WHATSAPP_ENABLED || "true").trim().toLowerCase());
+}
+
+function whatsappProvider(providerOverride?: string | null) {
+  return (providerOverride || process.env.WHATSAPP_PROVIDER || "twilio").trim().toLowerCase();
+}
+
+export function whatsappConfigStatus(providerOverride?: string | null): WhatsAppConfigStatus {
+  const provider = whatsappProvider(providerOverride);
+  const enabled = whatsappEnabled();
+  const twilioFrom = process.env.TWILIO_WHATSAPP_FROM || "";
+  const twilio = {
+    hasAccountSid: Boolean(process.env.TWILIO_ACCOUNT_SID),
+    hasAuthToken: Boolean(process.env.TWILIO_AUTH_TOKEN),
+    hasFrom: Boolean(twilioFrom),
+    fromUsesWhatsAppPrefix: twilioFrom.startsWith("whatsapp:")
+  };
+  const meta = {
+    hasToken: Boolean(process.env.META_WHATSAPP_TOKEN),
+    hasPhoneNumberId: Boolean(process.env.META_WHATSAPP_PHONE_NUMBER_ID)
+  };
+  const missing: string[] = [];
+
+  if (!enabled) missing.push("WHATSAPP_ENABLED=true");
+
+  if (provider === "twilio") {
+    if (!twilio.hasAccountSid) missing.push("TWILIO_ACCOUNT_SID");
+    if (!twilio.hasAuthToken) missing.push("TWILIO_AUTH_TOKEN");
+    if (!twilio.hasFrom) missing.push("TWILIO_WHATSAPP_FROM");
+  } else if (provider === "meta") {
+    if (!meta.hasToken) missing.push("META_WHATSAPP_TOKEN");
+    if (!meta.hasPhoneNumberId) missing.push("META_WHATSAPP_PHONE_NUMBER_ID");
+  } else {
+    missing.push("WHATSAPP_PROVIDER must be twilio or meta");
+  }
+
+  const configured = enabled && missing.length === 0 && (provider === "twilio" || provider === "meta");
+  const message = configured
+    ? "WhatsApp is configured."
+    : `WhatsApp is not configured. Missing: ${missing.join(", ")}. Add these in Vercel Production environment variables, then redeploy.`;
+
+  return {
+    enabled,
+    selectedProvider: provider || null,
+    configured,
+    missing,
+    defaultCountryCode: process.env.DEFAULT_COUNTRY_CODE || "+1868",
+    twilio,
+    meta,
+    message
+  };
 }
 
 function toE164Digits(to: string, defaultCountryCode = "1868") {
@@ -284,24 +353,24 @@ export async function sendWhatsAppMessage(
   options: { defaultCountryCode?: string; provider?: string | null } = {}
 ) {
   const formattedTo = toE164Digits(to || "", options.defaultCountryCode);
-  const provider = (options.provider || whatsappProvider()).trim().toLowerCase();
-  const enabled = process.env.WHATSAPP_ENABLED !== "false";
+  const config = whatsappConfigStatus(options.provider);
+  const provider = config.selectedProvider || "twilio";
   if (!formattedTo || !message.trim()) {
     return { ok: false, skipped: true, message: "WhatsApp recipient or message is missing." };
   }
-  if (!enabled) {
-    console.info("WhatsApp is not configured", { provider: provider || "none", reason: "WHATSAPP_ENABLED is false" });
-    return { ok: false, skipped: true, message: "WhatsApp is not configured" };
+  if (!config.configured) {
+    console.info("WhatsApp is not configured", {
+      provider,
+      missing: config.missing
+    });
+    return { ok: false, skipped: true, message: config.message, status: config };
   }
 
   if (provider === "twilio") {
     const accountSid = process.env.TWILIO_ACCOUNT_SID;
     const authToken = process.env.TWILIO_AUTH_TOKEN;
     const from = process.env.TWILIO_WHATSAPP_FROM;
-    if (!accountSid || !authToken || !from) {
-      console.info("WhatsApp is not configured", { provider: "twilio", reason: "missing Twilio credentials" });
-      return { ok: false, skipped: true, message: "WhatsApp is not configured" };
-    }
+    if (!accountSid || !authToken || !from) return { ok: false, skipped: true, message: config.message, status: config };
     try {
       const body = new URLSearchParams({
         From: from.startsWith("whatsapp:") ? from : formatTwilioWhatsAppNumber(from, options.defaultCountryCode),
@@ -318,22 +387,23 @@ export async function sendWhatsAppMessage(
       });
       if (!response.ok) {
         console.warn("WhatsApp send failed", { provider: "twilio", status: response.status });
-        return { ok: false, skipped: false, message: "WhatsApp send failed" };
+        const authMessage =
+          response.status === 401
+            ? "Twilio rejected the WhatsApp credentials. Check TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN in Vercel, then redeploy."
+            : `WhatsApp send failed through Twilio (HTTP ${response.status}). Check the Twilio WhatsApp sender, sandbox approval, and recipient number.`;
+        return { ok: false, skipped: false, message: authMessage };
       }
       return { ok: true, skipped: false, message: "WhatsApp sent" };
     } catch (error) {
       console.warn("WhatsApp send failed", { provider: "twilio", error: error instanceof Error ? error.message : "Unknown error" });
-      return { ok: false, skipped: false, message: "WhatsApp send failed" };
+      return { ok: false, skipped: false, message: "WhatsApp send failed through Twilio. Check Vercel server logs for the safe provider error." };
     }
   }
 
   if (provider === "meta") {
     const token = process.env.META_WHATSAPP_TOKEN;
     const phoneNumberId = process.env.META_WHATSAPP_PHONE_NUMBER_ID;
-    if (!token || !phoneNumberId) {
-      console.info("WhatsApp is not configured", { provider: "meta", reason: "missing Meta credentials" });
-      return { ok: false, skipped: true, message: "WhatsApp is not configured" };
-    }
+    if (!token || !phoneNumberId) return { ok: false, skipped: true, message: config.message, status: config };
     try {
       const response = await fetch(`https://graph.facebook.com/v20.0/${phoneNumberId}/messages`, {
         method: "POST",
@@ -350,15 +420,19 @@ export async function sendWhatsAppMessage(
       });
       if (!response.ok) {
         console.warn("WhatsApp send failed", { provider: "meta", status: response.status });
-        return { ok: false, skipped: false, message: "WhatsApp send failed" };
+        return {
+          ok: false,
+          skipped: false,
+          message: `WhatsApp send failed through Meta (HTTP ${response.status}). Check the Meta token, phone number ID, and recipient number.`
+        };
       }
       return { ok: true, skipped: false, message: "WhatsApp sent" };
     } catch (error) {
       console.warn("WhatsApp send failed", { provider: "meta", error: error instanceof Error ? error.message : "Unknown error" });
-      return { ok: false, skipped: false, message: "WhatsApp send failed" };
+      return { ok: false, skipped: false, message: "WhatsApp send failed through Meta. Check Vercel server logs for the safe provider error." };
     }
   }
 
-  console.info("WhatsApp is not configured", { provider: provider || "none" });
-  return { ok: false, skipped: true, message: "WhatsApp is not configured" };
+  console.info("WhatsApp is not configured", { provider, missing: config.missing });
+  return { ok: false, skipped: true, message: config.message, status: config };
 }

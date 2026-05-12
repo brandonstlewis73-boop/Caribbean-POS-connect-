@@ -55,6 +55,31 @@ function businessAddress(business: Business) {
 const MAX_LOGO_SIZE_BYTES = 750 * 1024;
 const LOGO_IMAGE_TYPES = ["image/png", "image/jpeg"];
 
+type WhatsAppStatus = {
+  enabled: boolean;
+  selectedProvider: string | null;
+  configured: boolean;
+  missing: string[];
+  message: string;
+  twilio: {
+    hasAccountSid: boolean;
+    hasAuthToken: boolean;
+    hasFrom: boolean;
+    fromUsesWhatsAppPrefix: boolean;
+  };
+  meta: {
+    hasToken: boolean;
+    hasPhoneNumberId: boolean;
+  };
+};
+
+type WhatsAppTestResult = {
+  message: string;
+  ok: boolean;
+  skipped?: boolean;
+  status?: WhatsAppStatus;
+};
+
 function readFileAsDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
@@ -147,14 +172,29 @@ export function SettingsClient({
           message: `Test WhatsApp message from ${draft.business_name}.`
         })
       });
-      const payload = await readApiPayload<{ result: { message: string; ok: boolean; skipped?: boolean } }>(response);
+      const payload = await readApiPayload<{ result: WhatsAppTestResult; status: WhatsAppStatus }>(response);
       if (!response.ok) {
         setWhatsAppTestMessage(payload.error || "WhatsApp test failed.");
         return;
       }
-      setWhatsAppTestMessage(payload.data?.result?.message || "WhatsApp test sent.");
+      setWhatsAppTestMessage(payload.data?.result?.message || payload.data?.status?.message || "WhatsApp test sent.");
     } catch {
       setWhatsAppTestMessage("WhatsApp test failed. Check server settings and try again.");
+    }
+  }
+
+  async function checkWhatsAppStatus() {
+    setWhatsAppTestMessage("Checking WhatsApp configuration...");
+    try {
+      const response = await fetch("/api/whatsapp/test");
+      const payload = await readApiPayload<{ status: WhatsAppStatus }>(response);
+      if (!response.ok) {
+        setWhatsAppTestMessage(payload.error || "WhatsApp configuration could not be checked.");
+        return;
+      }
+      setWhatsAppTestMessage(payload.data?.status?.message || "WhatsApp configuration checked.");
+    } catch {
+      setWhatsAppTestMessage("WhatsApp configuration could not be checked. Check your connection and try again.");
     }
   }
 
@@ -545,6 +585,10 @@ export function SettingsClient({
               <Field label="Default country code" value={draft.whatsapp_country_code} onChange={(event) => update("whatsapp_country_code", event.target.value)} placeholder="+1-868" />
             </div>
             <div className="flex flex-wrap items-center gap-3">
+              <Button type="button" variant="secondary" onClick={checkWhatsAppStatus}>
+                <ShieldCheck className="h-4 w-4" />
+                Check config
+              </Button>
               <Button type="button" onClick={sendWhatsAppTest}>
                 <MessageCircle className="h-4 w-4" />
                 Send test message

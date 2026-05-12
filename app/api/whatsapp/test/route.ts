@@ -2,10 +2,31 @@ import { NextRequest } from "next/server";
 import { fail, ok } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
 import { getBusinessSettings } from "@/lib/data";
-import { sendWhatsAppMessage } from "@/lib/whatsapp";
+import { sendWhatsAppMessage, whatsappConfigStatus } from "@/lib/whatsapp";
 import { whatsappTestSchema } from "@/lib/validators";
 
 export const runtime = "nodejs";
+
+export async function GET(request: NextRequest) {
+  const auth = await requireUser(request, "settings:write");
+  if (!auth.user) return fail(auth.error, auth.status);
+
+  const settings = await getBusinessSettings(auth.user.business_id);
+  return ok({
+    status: whatsappConfigStatus(settings.whatsapp_provider),
+    settings: {
+      whatsappEnabled: settings.whatsapp_enabled,
+      provider: settings.whatsapp_provider || "twilio",
+      hasBusinessWhatsAppNumber: Boolean(settings.whatsapp_business_number),
+      defaultCountryCode: settings.whatsapp_country_code || "+1868",
+      ownerAlertsEnabled: settings.whatsapp_owner_alerts_enabled,
+      customerConfirmationsEnabled: settings.whatsapp_customer_confirmations_enabled,
+      customerReceiptsEnabled: settings.whatsapp_customer_receipts_enabled,
+      driverAssignmentEnabled: settings.whatsapp_driver_assignment_enabled,
+      outForDeliveryEnabled: settings.whatsapp_out_for_delivery_enabled
+    }
+  });
+}
 
 export async function POST(request: NextRequest) {
   const auth = await requireUser(request, "settings:write");
@@ -21,5 +42,5 @@ export async function POST(request: NextRequest) {
     parsed.data.message || `Test WhatsApp message from ${settings.business_name}.`,
     { defaultCountryCode: settings.whatsapp_country_code, provider: settings.whatsapp_provider }
   );
-  return ok({ result });
+  return ok({ result, status: whatsappConfigStatus(settings.whatsapp_provider) });
 }

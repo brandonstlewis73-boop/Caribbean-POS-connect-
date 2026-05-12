@@ -6,6 +6,7 @@ import {
   getDb,
   isDemoMode
 } from "@/lib/db";
+import { whatsappConfigStatus } from "@/lib/whatsapp";
 
 export const runtime = "nodejs";
 
@@ -58,6 +59,7 @@ export async function GET() {
   const config = databaseConfigStatus();
   const diagnostics = databaseConnectionDiagnostics();
   const deployment = deploymentStatus();
+  const whatsapp = whatsappConfigStatus();
   const startedAt = Date.now();
 
   if (isDemoMode) {
@@ -70,7 +72,8 @@ export async function GET() {
         ...diagnostics
       },
       config,
-      deployment
+      deployment,
+      whatsapp
     });
   }
 
@@ -89,7 +92,8 @@ export async function GET() {
       },
       auth,
       config,
-      deployment
+      deployment,
+      whatsapp
     });
   } catch (error) {
     return NextResponse.json(
@@ -103,7 +107,8 @@ export async function GET() {
           ...diagnostics
         },
         config,
-        deployment
+        deployment,
+        whatsapp
       },
       { status: 500 }
     );
