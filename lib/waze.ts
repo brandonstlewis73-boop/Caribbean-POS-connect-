@@ -44,6 +44,23 @@ export function buildWazeLink({ latitude, longitude, locationLink, address }: Wa
   return null;
 }
 
+export function buildGoogleMapsLink({ latitude, longitude, locationLink, address }: WazeInput) {
+  if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+    return `https://maps.google.com/?q=${latitude},${longitude}`;
+  }
+
+  const sharedLocation = extractCoordinates(locationLink);
+  if (sharedLocation) {
+    return `https://maps.google.com/?q=${sharedLocation.latitude},${sharedLocation.longitude}`;
+  }
+
+  if (address?.trim()) {
+    return `https://maps.google.com/?q=${encodeURIComponent(address.trim())}`;
+  }
+
+  return null;
+}
+
 function extractCoordinates(value?: string | null) {
   if (!value) return null;
   const match = value.match(/(-?\d{1,2}(?:\.\d+)?)[,\s]+(-?\d{1,3}(?:\.\d+)?)/);

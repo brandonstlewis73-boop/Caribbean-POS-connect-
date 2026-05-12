@@ -59,7 +59,7 @@ import type {
   Business,
   BusinessInput
 } from "./types";
-import { buildAddress, buildWazeLink } from "./waze";
+import { buildAddress, buildGoogleMapsLink, buildWazeLink } from "./waze";
 import {
   buildCustomerConfirmationMessage,
   buildCustomerDriverAssignedWhatsAppMessage,
@@ -92,6 +92,13 @@ export const defaultSettings: Settings = {
   business_phone: "868-555-2190",
   business_email: "hello@savannahsea.tt",
   business_address: "18 Independence Square, Port of Spain, Trinidad and Tobago",
+  business_street_address: "18 Independence Square",
+  business_city: "Port of Spain",
+  business_region: "Port of Spain",
+  business_country: "Trinidad and Tobago",
+  business_postal_code: "",
+  business_latitude: null,
+  business_longitude: null,
   logo_url: "/logo.svg",
   active_business_id: "biz_savannah_sea",
   currency: CURRENCY_CODE,
@@ -297,6 +304,8 @@ function setupChecklistForBusiness(business: Business | null | undefined, settin
 function rowToBusiness(row: any): Business {
   return {
     ...row,
+    latitude: row.latitude === null || row.latitude === undefined ? null : Number(row.latitude),
+    longitude: row.longitude === null || row.longitude === undefined ? null : Number(row.longitude),
     active: bool(row.active),
     setup_checklist: parseJson<Record<string, boolean>>(row.setup_checklist, {}),
     trial_ends_at: toDateString(row.trial_ends_at),
@@ -549,8 +558,16 @@ export async function getBusinessSettings(businessId?: string | null): Promise<S
       business.street_address,
       business.city,
       business.region,
+      business.postal_code,
       business.country
     ]) || base.business_address;
+    settings.business_street_address = business.street_address || "";
+    settings.business_city = business.city || "";
+    settings.business_region = business.region || "";
+    settings.business_country = business.country || "";
+    settings.business_postal_code = business.postal_code || "";
+    settings.business_latitude = business.latitude ?? null;
+    settings.business_longitude = business.longitude ?? null;
     settings.logo_url = business.logo_url || base.logo_url || "/logo.svg";
     settings.currency = business.currency || base.currency;
     settings.whatsapp_business_number =
@@ -603,8 +620,15 @@ export async function updateSettings(input: Partial<Settings>, userId?: string) 
           logo_url = COALESCE($4, logo_url),
           business_whatsapp_number = COALESCE($5, business_whatsapp_number),
           currency = COALESCE($6, currency),
+          street_address = COALESCE($7, street_address),
+          city = COALESCE($8, city),
+          region = COALESCE($9, region),
+          country = COALESCE($10, country),
+          postal_code = COALESCE($11, postal_code),
+          latitude = COALESCE($12::numeric, latitude),
+          longitude = COALESCE($13::numeric, longitude),
           updated_at = NOW()
-         WHERE id = $7`,
+         WHERE id = $14`,
         [
           nextInput.business_name ?? null,
           nextInput.business_phone ?? null,
@@ -612,6 +636,13 @@ export async function updateSettings(input: Partial<Settings>, userId?: string) 
           nextInput.logo_url ?? null,
           nextInput.whatsapp_business_number ?? null,
           nextInput.currency ?? null,
+          nextInput.business_street_address ?? null,
+          nextInput.business_city ?? null,
+          nextInput.business_region ?? null,
+          nextInput.business_country ?? null,
+          nextInput.business_postal_code ?? null,
+          nextInput.business_latitude ?? null,
+          nextInput.business_longitude ?? null,
           businessId
         ],
         client
@@ -778,7 +809,7 @@ export async function listBusinesses(userId?: string | null): Promise<Business[]
   const where = businessId ? `WHERE id = ${addParam(params, businessId)}` : "";
   const rows = await query<any>(
     `SELECT id, name, legal_name, slug, phone, email, street_address, city, region,
-            country, currency, logo_url, tax_id, active, owner_name, owner_email,
+            postal_code, latitude, longitude, country, currency, logo_url, tax_id, active, owner_name, owner_email,
             owner_phone, business_whatsapp_number, storefront_slug, subscription_plan,
             subscription_status, trial_ends_at, setup_checklist, created_at, updated_at
      FROM businesses
@@ -801,8 +832,8 @@ export async function createBusiness(input: BusinessInput, userId?: string) {
     `INSERT INTO businesses (
       id, name, legal_name, slug, storefront_slug, owner_name, owner_email, owner_phone,
       business_whatsapp_number, phone, email, street_address, city, region,
-      country, currency, logo_url, tax_id, active
-    ) VALUES ($1, $2, $3, $4, $4, $5, $6, $7, $8, $8, $9, $10, $11, $12, $13, $14, $15, $16, TRUE)`,
+      postal_code, latitude, longitude, country, currency, logo_url, tax_id, active
+    ) VALUES ($1, $2, $3, $4, $4, $5, $6, $7, $8, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, TRUE)`,
     [
       id,
       name,
@@ -816,6 +847,9 @@ export async function createBusiness(input: BusinessInput, userId?: string) {
       input.street_address ?? null,
       input.city ?? null,
       input.region ?? null,
+      input.postal_code ?? null,
+      input.latitude ?? null,
+      input.longitude ?? null,
       input.country || "Trinidad and Tobago",
       input.currency || CURRENCY_CODE,
       input.logo_url ?? null,
@@ -1289,16 +1323,17 @@ async function upsertCustomer(client: DbClient, input?: CustomerInput | null, bu
         city = COALESCE(NULLIF($6, ''), city),
         region = COALESCE(NULLIF($7, ''), region),
         country = COALESCE(NULLIF($8, ''), country),
-        delivery_notes = COALESCE(NULLIF($9, ''), delivery_notes),
-        waze_link = COALESCE(NULLIF($10, ''), waze_link),
-        gps_latitude = COALESCE($11::numeric, gps_latitude),
-        gps_longitude = COALESCE($12::numeric, gps_longitude),
-        preferred_payment_method = COALESCE(NULLIF($13, ''), preferred_payment_method),
-        notes = COALESCE(NULLIF($14, ''), notes),
-        birthday = COALESCE(NULLIF($15, ''), birthday),
-        marketing_consent = COALESCE($16::boolean, marketing_consent),
+        postal_code = COALESCE(NULLIF($9, ''), postal_code),
+        delivery_notes = COALESCE(NULLIF($10, ''), delivery_notes),
+        waze_link = COALESCE(NULLIF($11, ''), waze_link),
+        gps_latitude = COALESCE($12::numeric, gps_latitude),
+        gps_longitude = COALESCE($13::numeric, gps_longitude),
+        preferred_payment_method = COALESCE(NULLIF($14, ''), preferred_payment_method),
+        notes = COALESCE(NULLIF($15, ''), notes),
+        birthday = COALESCE(NULLIF($16, ''), birthday),
+        marketing_consent = COALESCE($17::boolean, marketing_consent),
         updated_at = NOW()
-       WHERE id = $17`,
+       WHERE id = $18`,
       [
         input.name ?? null,
         input.phone ?? null,
@@ -1308,6 +1343,7 @@ async function upsertCustomer(client: DbClient, input?: CustomerInput | null, bu
         input.city ?? null,
         input.region ?? null,
         country,
+        input.postal_code ?? null,
         input.delivery_notes ?? null,
         input.waze_link ?? null,
         input.gps_latitude ?? null,
@@ -1324,9 +1360,9 @@ async function upsertCustomer(client: DbClient, input?: CustomerInput | null, bu
     await query(
       `INSERT INTO customers (
         id, business_id, name, phone, phone_normalized, email, street_address, city, region,
-        country, delivery_notes, waze_link, gps_latitude, gps_longitude,
+        country, postal_code, delivery_notes, waze_link, gps_latitude, gps_longitude,
         preferred_payment_method, notes, birthday, marketing_consent, tags
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19::jsonb)`,
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20::jsonb)`,
       [
         customerId,
         businessId,
@@ -1338,6 +1374,7 @@ async function upsertCustomer(client: DbClient, input?: CustomerInput | null, bu
         input.city ?? null,
         input.region ?? null,
         country,
+        input.postal_code ?? null,
         input.delivery_notes ?? null,
         input.waze_link ?? null,
         input.gps_latitude ?? null,
@@ -1375,11 +1412,11 @@ export async function updateCustomer(id: string, input: CustomerInput, userId?: 
   await query(
     `UPDATE customers SET
       name = $1, phone = $2, phone_normalized = $3, email = $4, street_address = $5,
-      city = $6, region = $7, country = $8, delivery_notes = $9,
-      waze_link = $10, gps_latitude = $11, gps_longitude = $12,
-      preferred_payment_method = $13, notes = $14, birthday = $15, marketing_consent = $16,
+      city = $6, region = $7, country = $8, postal_code = $9, delivery_notes = $10,
+      waze_link = $11, gps_latitude = $12, gps_longitude = $13,
+      preferred_payment_method = $14, notes = $15, birthday = $16, marketing_consent = $17,
       updated_at = NOW()
-     WHERE id = $17 AND (business_id = $18 OR business_id IS NULL)`,
+     WHERE id = $18 AND (business_id = $19 OR business_id IS NULL)`,
     [
       input.name ?? existing.name,
       input.phone ?? existing.phone,
@@ -1389,6 +1426,7 @@ export async function updateCustomer(id: string, input: CustomerInput, userId?: 
       input.city ?? existing.city,
       input.region ?? existing.region,
       input.country ?? existing.country,
+      input.postal_code ?? existing.postal_code ?? null,
       input.delivery_notes ?? existing.delivery_notes,
       input.waze_link ?? existing.waze_link ?? null,
       input.gps_latitude ?? existing.gps_latitude ?? null,
@@ -1689,6 +1727,9 @@ export async function createOrder(payload: CheckoutPayload, userId?: string) {
       region: deliveryInput.region || payload.customer?.region,
       country: deliveryInput.country || payload.customer?.country || "Trinidad and Tobago",
       delivery_notes: deliveryInput.notes || payload.customer?.delivery_notes,
+      postal_code: deliveryInput.postal_code || payload.customer?.postal_code,
+      gps_latitude: deliveryInput.latitude ?? payload.customer?.gps_latitude,
+      gps_longitude: deliveryInput.longitude ?? payload.customer?.gps_longitude,
       preferred_payment_method: payload.payment_method
     };
 
@@ -1702,7 +1743,11 @@ export async function createOrder(payload: CheckoutPayload, userId?: string) {
           city: customer.city,
           region: customer.region,
           country: customer.country,
+          postal_code: customer.postal_code,
           delivery_notes: customer.delivery_notes,
+          waze_link: customer.waze_link,
+          gps_latitude: customer.gps_latitude,
+          gps_longitude: customer.gps_longitude,
           preferred_payment_method: customer.preferred_payment_method,
           notes: customer.notes,
           birthday: customer.birthday,
@@ -1716,7 +1761,11 @@ export async function createOrder(payload: CheckoutPayload, userId?: string) {
           city: customerInput.city,
           region: customerInput.region,
           country: customerInput.country || "Trinidad and Tobago",
+          postal_code: customerInput.postal_code,
           delivery_notes: customerInput.delivery_notes,
+          waze_link: customerInput.waze_link,
+          gps_latitude: customerInput.gps_latitude,
+          gps_longitude: customerInput.gps_longitude,
           preferred_payment_method: payload.payment_method,
           marketing_consent: Boolean(customerInput.marketing_consent)
         };
@@ -1776,9 +1825,16 @@ export async function createOrder(payload: CheckoutPayload, userId?: string) {
       customerSnapshot.street_address,
       customerSnapshot.city,
       customerSnapshot.region,
+      customerSnapshot.postal_code,
       customerSnapshot.country
     ]);
     const wazeLink = buildWazeLink({
+      latitude: deliveryInput.latitude,
+      longitude: deliveryInput.longitude,
+      locationLink: deliveryInput.location_link,
+      address: fullAddress
+    });
+    const googleMapsLink = buildGoogleMapsLink({
       latitude: deliveryInput.latitude,
       longitude: deliveryInput.longitude,
       locationLink: deliveryInput.location_link,
@@ -1798,9 +1854,9 @@ export async function createOrder(payload: CheckoutPayload, userId?: string) {
         id, business_id, order_number, customer_id, customer_snapshot, order_type, status, payment_method,
         payment_status, delivery_status, assigned_driver_id, subtotal, discount_total,
         tax_total, service_fee, delivery_fee, total, loyalty_points_earned,
-        notes, delivery_latitude, delivery_longitude, delivery_location_link, waze_link,
-        payment_link, created_by, completed_by, completed_at, inventory_applied
-      ) VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28)`,
+        notes, delivery_latitude, delivery_longitude, delivery_postal_code, delivery_location_link, waze_link,
+        google_maps_link, payment_link, created_by, completed_by, completed_at, inventory_applied
+      ) VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30)`,
       [
         orderId,
         businessId,
@@ -1823,8 +1879,10 @@ export async function createOrder(payload: CheckoutPayload, userId?: string) {
         payload.notes ?? null,
         deliveryInput.latitude ?? null,
         deliveryInput.longitude ?? null,
+        deliveryInput.postal_code ?? customerSnapshot.postal_code ?? null,
         deliveryInput.location_link ?? null,
         wazeLink,
+        googleMapsLink,
         paymentLink,
         payload.created_by || userId || null,
         shouldCompleteNow ? payload.created_by || userId || null : null,

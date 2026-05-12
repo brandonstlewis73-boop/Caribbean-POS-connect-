@@ -30,6 +30,7 @@ import {
   PRODUCT_CATEGORIES
 } from "@/lib/constants";
 import { readApiPayload } from "@/lib/client-response";
+import { detectCurrentAddress } from "@/lib/location-client";
 import type { Customer, Order, Product, Settings, User } from "@/lib/types";
 
 type CartItem = Product & { quantity: number; discount: number };
@@ -47,6 +48,7 @@ function emptyCustomer(currency: string) {
     city: "",
     region: regions[0] || "",
     country: getDefaultCountryForCurrency(currency),
+    postal_code: "",
     delivery_notes: "",
     notes: "",
     birthday: "",
@@ -89,6 +91,8 @@ export function POSClient({
   const [discount, setDiscount] = useState(0);
   const [assignedDriver, setAssignedDriver] = useState("");
   const [location, setLocation] = useState({ latitude: "", longitude: "", link: "" });
+  const [locationStatus, setLocationStatus] = useState("");
+  const [locating, setLocating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState("");
@@ -295,6 +299,7 @@ export function POSClient({
         city: found.city || "",
         region: found.region && deliveryRegions.includes(found.region) ? found.region : defaultDeliveryRegion,
         country: found.country || defaultCountry,
+        postal_code: found.postal_code || "",
         delivery_notes: found.delivery_notes || "",
         notes: found.notes || "",
         birthday: found.birthday || "",
@@ -319,28 +324,32 @@ export function POSClient({
     }
   }
 
-  function captureLocation() {
+  async function captureLocation() {
     setError("");
-    if (!navigator.geolocation) {
-      setError("GPS location is not available in this browser.");
-      return;
+    setLocationStatus("Finding your location...");
+    setLocating(true);
+    try {
+      const { address } = await detectCurrentAddress();
+      setLocation({
+        latitude: String(address.lat),
+        longitude: String(address.lng),
+        link: `https://maps.google.com/?q=${address.lat},${address.lng}`
+      });
+      setCustomer((current) => ({
+        ...current,
+        street_address: address.street || address.formatted || current.street_address,
+        city: address.city || current.city,
+        region: address.region || current.region,
+        country: address.country || current.country,
+        postal_code: address.postalCode || current.postal_code
+      }));
+      setLocationStatus("Address added. Please check it before completing checkout.");
+    } catch (err) {
+      setLocationStatus("");
+      setError(err instanceof Error ? err.message : "Unable to capture GPS location. Enter the address manually or paste a shared location link.");
+    } finally {
+      setLocating(false);
     }
-    if (!window.isSecureContext) {
-      setError(
-        "Phone GPS requires HTTPS. Use the deployed Vercel link, or paste a shared Google Maps/Waze location link while testing on the laptop network."
-      );
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setLocation((current) => ({
-          ...current,
-          latitude: String(position.coords.latitude),
-          longitude: String(position.coords.longitude)
-        }));
-      },
-      () => setError("Unable to capture GPS location. Enter latitude/longitude or paste a shared location link.")
-    );
   }
 
   async function completeSale() {
@@ -375,6 +384,7 @@ export function POSClient({
                   city: customer.city,
                   region: customer.region,
                   country: customer.country,
+                  postal_code: customer.postal_code,
                   notes: customer.delivery_notes,
                   latitude: location.latitude ? Number(location.latitude) : undefined,
                   longitude: location.longitude ? Number(location.longitude) : undefined,
@@ -599,6 +609,7 @@ export function POSClient({
                   <Field label="City/town" value={customer.city} onChange={(event) => setCustomer({ ...customer, city: event.target.value })} />
                   <Field label="Country" value={customer.country} onChange={(event) => setCustomer({ ...customer, country: event.target.value })} />
                 </div>
+                <Field label="Postal code optional" value={customer.postal_code} onChange={(event) => setCustomer({ ...customer, postal_code: event.target.value })} />
                 <SelectField label={deliveryRegionLabel} value={customer.region} onChange={(event) => setCustomer({ ...customer, region: event.target.value })}>
                   {deliveryRegions.map((region) => <option key={region}>{region}</option>)}
                 </SelectField>
@@ -607,13 +618,11 @@ export function POSClient({
                   <Field label="Latitude" value={location.latitude} onChange={(event) => setLocation({ ...location, latitude: event.target.value })} />
                   <Field label="Longitude" value={location.longitude} onChange={(event) => setLocation({ ...location, longitude: event.target.value })} />
                 </div>
-                <Button type="button" onClick={captureLocation}>
+                <Button type="button" onClick={captureLocation} disabled={locating}>
                   <LocateFixed className="h-4 w-4" />
-                  Capture GPS
+                  {locating ? "Finding your location..." : "Use My Current Location"}
                 </Button>
-                <p className="text-xs font-semibold text-slate-500">
-                  Phone GPS works only on HTTPS. On the laptop network address, paste a shared location link instead.
-                </p>
+                {locationStatus ? <p className="text-xs font-bold text-caribbean-teal">{locationStatus}</p> : null}
                 <Field label="Shared location link" value={location.link} onChange={(event) => setLocation({ ...location, link: event.target.value })} />
                 <SelectField label="Assign driver" value={assignedDriver} onChange={(event) => setAssignedDriver(event.target.value)}>
                   <option value="">Unassigned</option>

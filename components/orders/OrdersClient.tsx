@@ -461,6 +461,12 @@ export function OrdersClient({
                   Open in Waze
                 </a>
               ) : null}
+              {selected.google_maps_link ? (
+                <a href={selected.google_maps_link} target="_blank" rel="noreferrer" className="inline-flex min-h-10 items-center justify-center gap-2 rounded-card border border-caribbean-line bg-white px-3 py-2 text-center text-sm font-black leading-tight dark:border-slate-700 dark:bg-slate-900">
+                  <ExternalLink className="h-4 w-4" />
+                  Open in Google Maps
+                </a>
+              ) : null}
               {selected.payment_link ? (
                 <a href={selected.payment_link} target="_blank" rel="noreferrer" className="inline-flex min-h-10 items-center justify-center gap-2 rounded-card bg-caribbean-mango px-3 py-2 text-center text-sm font-black leading-tight text-slate-950">
                   <CreditCard className="h-4 w-4" />

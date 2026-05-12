@@ -1,13 +1,14 @@
 "use client";
 
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
-import { History, MessageCircle, PlusCircle, Search, Trash2, UserRound } from "lucide-react";
+import { History, LocateFixed, MessageCircle, PlusCircle, Search, Trash2, UserRound } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Panel, PanelHeader } from "@/components/ui/Panel";
 import { Button } from "@/components/ui/Button";
 import { Field, TextAreaField } from "@/components/ui/Field";
 import { getDefaultCountryForCurrency, money } from "@/lib/constants";
 import { readApiPayload } from "@/lib/client-response";
+import { detectCurrentAddress } from "@/lib/location-client";
 import { cleanWhatsAppNumber } from "@/lib/whatsapp";
 import type { Customer, CustomerInput, Order } from "@/lib/types";
 
@@ -28,6 +29,7 @@ function emptyCustomerDraft(currency: string): Customer {
     city: "",
     region: null,
     country: getDefaultCountryForCurrency(currency),
+    postal_code: "",
     delivery_notes: "",
     waze_link: "",
     gps_latitude: null,
@@ -56,7 +58,9 @@ function toCustomerPayload(customer: Customer, currency: string): CustomerInput 
     email: nullableText(customer.email),
     street_address: nullableText(customer.street_address),
     city: nullableText(customer.city),
+    region: nullableText(customer.region),
     country: nullableText(customer.country) || getDefaultCountryForCurrency(currency),
+    postal_code: nullableText(customer.postal_code),
     delivery_notes: nullableText(customer.delivery_notes),
     waze_link: nullableText(customer.waze_link),
     gps_latitude: customer.gps_latitude ?? undefined,
@@ -78,6 +82,7 @@ export function CustomersClient({ customers, currency }: { customers: Customer[]
   const [draft, setDraft] = useState<Customer | null>(customers[0] || null);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
+  const [locating, setLocating] = useState(false);
   const deferredQuery = useDeferredValue(query);
   const formatMoney = (value: number | string | null | undefined) => money(value, currency);
 
@@ -163,6 +168,35 @@ export function CustomersClient({ customers, currency }: { customers: Customer[]
       setMessage("Customer could not be saved. Check your connection and try again.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function useCurrentLocation() {
+    if (!draft) return;
+    setMessage("Finding your location...");
+    setLocating(true);
+    try {
+      const { address } = await detectCurrentAddress();
+      setDraft((current) =>
+        current
+          ? {
+              ...current,
+              street_address: address.street || address.formatted || current.street_address,
+              city: address.city || current.city,
+              region: address.region || current.region,
+              country: address.country || current.country,
+              postal_code: address.postalCode || current.postal_code,
+              gps_latitude: address.lat,
+              gps_longitude: address.lng,
+              waze_link: `https://waze.com/ul?ll=${address.lat},${address.lng}&navigate=yes`
+            }
+          : current
+      );
+      setMessage("Address added. Please check it before saving.");
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Location could not be detected. You can still enter the address manually.");
+    } finally {
+      setLocating(false);
     }
   }
 
@@ -293,9 +327,17 @@ export function CustomersClient({ customers, currency }: { customers: Customer[]
                   <Field label="City/town" value={draft.city || ""} onChange={(event) => setDraft({ ...draft, city: event.target.value })} />
                   <Field label="Country" value={draft.country || getDefaultCountryForCurrency(currency)} onChange={(event) => setDraft({ ...draft, country: event.target.value })} />
                 </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field label="Region/County optional" value={draft.region || ""} onChange={(event) => setDraft({ ...draft, region: event.target.value })} />
+                  <Field label="Postal code optional" value={draft.postal_code || ""} onChange={(event) => setDraft({ ...draft, postal_code: event.target.value })} />
+                </div>
                 <TextAreaField label="Delivery notes" value={draft.delivery_notes || ""} onChange={(event) => setDraft({ ...draft, delivery_notes: event.target.value })} />
               </div>
               <div className="grid min-w-0 gap-3">
+                <Button type="button" onClick={useCurrentLocation} disabled={locating}>
+                  <LocateFixed className="h-4 w-4" />
+                  {locating ? "Finding your location..." : "Use My Current Location"}
+                </Button>
                 <Field label="Waze link optional" value={draft.waze_link || ""} onChange={(event) => setDraft({ ...draft, waze_link: event.target.value })} />
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Field

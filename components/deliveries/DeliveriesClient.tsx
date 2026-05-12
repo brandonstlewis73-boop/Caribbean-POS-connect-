@@ -43,7 +43,7 @@ export function DeliveriesClient({ deliveries, currency }: { deliveries: Order[]
               <p className="text-base font-black">{order.customer_snapshot.name}</p>
               <p className="font-semibold text-slate-500">{order.customer_snapshot.phone}</p>
               <p className="font-semibold">
-                {[order.customer_snapshot.street_address, order.customer_snapshot.city, order.customer_snapshot.region, order.customer_snapshot.country]
+                {[order.customer_snapshot.street_address, order.customer_snapshot.city, order.customer_snapshot.region, order.customer_snapshot.postal_code, order.customer_snapshot.country]
                   .filter(Boolean)
                   .join(", ")}
               </p>
@@ -85,6 +85,12 @@ export function DeliveriesClient({ deliveries, currency }: { deliveries: Order[]
                 <a href={`tel:${order.customer_snapshot.phone}`} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-card border border-caribbean-line bg-white px-3 py-2 text-center text-sm font-black leading-tight dark:border-slate-700 dark:bg-slate-900">
                   <Phone className="h-4 w-4" />
                   Call customer
+                </a>
+              ) : null}
+              {order.google_maps_link ? (
+                <a href={order.google_maps_link} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-card border border-caribbean-line bg-white px-3 py-2 text-center text-sm font-black leading-tight dark:border-slate-700 dark:bg-slate-900">
+                  <MapPinned className="h-4 w-4" />
+                  Google Maps
                 </a>
               ) : null}
               <a href={`/api/orders/${order.id}/label`} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-card border border-caribbean-line bg-white px-3 py-2 text-center text-sm font-black leading-tight dark:border-slate-700 dark:bg-slate-900">

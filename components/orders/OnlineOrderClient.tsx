@@ -7,6 +7,7 @@ import { Field, SelectField, TextAreaField } from "@/components/ui/Field";
 import { Badge } from "@/components/ui/Badge";
 import { getDefaultCountryForCurrency, getDeliveryRegionsForCurrency, money, PAYMENT_METHODS, PRODUCT_CATEGORIES } from "@/lib/constants";
 import { readApiPayload } from "@/lib/client-response";
+import { detectCurrentAddress } from "@/lib/location-client";
 import type { OnlineMarket } from "@/lib/online-market";
 import type { Order, Product, Settings } from "@/lib/types";
 
@@ -22,6 +23,7 @@ function emptyCustomer(currency: string) {
     city: "",
     region: regions[0] || "",
     country: getDefaultCountryForCurrency(currency),
+    postal_code: "",
     delivery_notes: "",
     marketing_consent: false
   };
@@ -68,6 +70,8 @@ export function OnlineOrderClient({
   const [paymentMethod, setPaymentMethod] = useState("Pay on delivery");
   const [coords, setCoords] = useState({ latitude: "", longitude: "" });
   const [locationLink, setLocationLink] = useState("");
+  const [locationStatus, setLocationStatus] = useState("");
+  const [locating, setLocating] = useState(false);
   const [order, setOrder] = useState<Order | null>(null);
   const [error, setError] = useState("");
   const [statusMessage, setStatusMessage] = useState(initialStatusMessage);
@@ -150,26 +154,32 @@ export function OnlineOrderClient({
     );
   }
 
-  function captureLocation() {
-    if (!navigator.geolocation) {
-      setError("GPS location is not available in this browser.");
-      return;
+  async function captureLocation() {
+    setError("");
+    setLocationStatus("Finding your location...");
+    setLocating(true);
+    try {
+      const { address } = await detectCurrentAddress();
+      setCoords({
+        latitude: String(address.lat),
+        longitude: String(address.lng)
+      });
+      setLocationLink(`https://maps.google.com/?q=${address.lat},${address.lng}`);
+      setCustomer((current) => ({
+        ...current,
+        street_address: address.street || address.formatted || current.street_address,
+        city: address.city || current.city,
+        region: address.region || current.region,
+        country: address.country || current.country,
+        postal_code: address.postalCode || current.postal_code
+      }));
+      setLocationStatus("Address added. Please check it before submitting.");
+    } catch (err) {
+      setLocationStatus("");
+      setError(err instanceof Error ? err.message : "Unable to capture GPS location. You can still enter your address manually.");
+    } finally {
+      setLocating(false);
     }
-    if (!window.isSecureContext) {
-      setError(
-        "Phone GPS requires HTTPS. Use the deployed Vercel link, or paste a shared Google Maps/Waze location link below while testing on the laptop network."
-      );
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setCoords({
-          latitude: String(position.coords.latitude),
-          longitude: String(position.coords.longitude)
-        });
-      },
-      () => setError("Unable to capture GPS location. You can still enter your address manually.")
-    );
   }
 
   async function submitOrder() {
@@ -198,6 +208,7 @@ export function OnlineOrderClient({
                   city: customer.city,
                   region: customer.region,
                   country: customer.country,
+                  postal_code: customer.postal_code,
                   notes: customer.delivery_notes,
                   latitude: coords.latitude ? Number(coords.latitude) : undefined,
                   longitude: coords.longitude ? Number(coords.longitude) : undefined,
@@ -350,18 +361,19 @@ export function OnlineOrderClient({
                 <div className="grid gap-3">
                   <Field label="Street address" value={customer.street_address} onChange={(event) => setCustomer({ ...customer, street_address: event.target.value })} />
                   <Field label="City/town" value={customer.city} onChange={(event) => setCustomer({ ...customer, city: event.target.value })} />
-                  <Field label="Country" value={customer.country} onChange={(event) => setCustomer({ ...customer, country: event.target.value })} />
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field label="Country" value={customer.country} onChange={(event) => setCustomer({ ...customer, country: event.target.value })} />
+                    <Field label="Postal code optional" value={customer.postal_code} onChange={(event) => setCustomer({ ...customer, postal_code: event.target.value })} />
+                  </div>
                   <SelectField label={deliveryRegionLabel} value={customer.region} onChange={(event) => setCustomer({ ...customer, region: event.target.value })}>
                     {deliveryRegions.map((region) => <option key={region}>{region}</option>)}
                   </SelectField>
                   <TextAreaField label="Delivery instructions" value={customer.delivery_notes} onChange={(event) => setCustomer({ ...customer, delivery_notes: event.target.value })} />
-                  <Button type="button" onClick={captureLocation}>
+                  <Button type="button" onClick={captureLocation} disabled={locating}>
                     <LocateFixed className="h-4 w-4" />
-                    Add GPS location
+                    {locating ? "Finding your location..." : "Use My Current Location"}
                   </Button>
-                  <p className="text-xs font-semibold text-slate-500">
-                    Phone GPS works only on HTTPS. If you are using the laptop address, paste a shared location link instead.
-                  </p>
+                  {locationStatus ? <p className="text-xs font-bold text-caribbean-teal">{locationStatus}</p> : null}
                   <Field label="Shared location link optional" value={locationLink} onChange={(event) => setLocationLink(event.target.value)} />
                 </div>
               ) : null}

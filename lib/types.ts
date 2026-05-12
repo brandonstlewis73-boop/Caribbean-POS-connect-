@@ -31,6 +31,9 @@ export type Business = {
   street_address?: string | null;
   city?: string | null;
   region?: string | null;
+  postal_code?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   country: string;
   currency: string;
   logo_url?: string | null;
@@ -60,6 +63,9 @@ export type BusinessInput = Partial<
     | "street_address"
     | "city"
     | "region"
+    | "postal_code"
+    | "latitude"
+    | "longitude"
     | "country"
     | "currency"
     | "logo_url"
@@ -97,6 +103,7 @@ export type Customer = {
   city?: string | null;
   region?: string | null;
   country: string;
+  postal_code?: string | null;
   delivery_notes?: string | null;
   waze_link?: string | null;
   gps_latitude?: number | null;
@@ -122,6 +129,7 @@ export type CustomerInput = Partial<
     | "city"
     | "region"
     | "country"
+    | "postal_code"
     | "delivery_notes"
     | "waze_link"
     | "gps_latitude"
@@ -185,8 +193,10 @@ export type Order = {
   notes?: string | null;
   delivery_latitude?: number | null;
   delivery_longitude?: number | null;
+  delivery_postal_code?: string | null;
   delivery_location_link?: string | null;
   waze_link?: string | null;
+  google_maps_link?: string | null;
   payment_link?: string | null;
   whatsapp_business_link?: string | null;
   whatsapp_customer_link?: string | null;
@@ -231,6 +241,13 @@ export type Settings = {
   business_phone: string;
   business_email: string;
   business_address: string;
+  business_street_address?: string | null;
+  business_city?: string | null;
+  business_region?: string | null;
+  business_country?: string | null;
+  business_postal_code?: string | null;
+  business_latitude?: number | null;
+  business_longitude?: number | null;
   logo_url?: string | null;
   active_business_id?: string | null;
   currency: string;
@@ -299,6 +316,7 @@ export type CheckoutPayload = {
     city?: string | null;
     region?: string | null;
     country?: string | null;
+    postal_code?: string | null;
     notes?: string | null;
     latitude?: number;
     longitude?: number;

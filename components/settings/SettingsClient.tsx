@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ChangeEvent } from "react";
-import { Building2, Link2, MessageCircle, PlusCircle, RefreshCw, Save, ShieldCheck, Trash2, Truck, UsersRound } from "lucide-react";
+import { Building2, Link2, LocateFixed, MessageCircle, PlusCircle, RefreshCw, Save, ShieldCheck, Trash2, Truck, UsersRound } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Field, SelectField, TextAreaField } from "@/components/ui/Field";
@@ -15,6 +15,7 @@ import {
   getDeliveryRegionsForCurrency
 } from "@/lib/constants";
 import { readApiPayload } from "@/lib/client-response";
+import { detectCurrentAddress } from "@/lib/location-client";
 import type { Business, Settings, User } from "@/lib/types";
 
 function Toggle({
@@ -44,12 +45,25 @@ function createEmptyBusinessDraft(currency = "TTD") {
     city: "",
     region: regions[0] || "",
     country: getDefaultCountryForCurrency(currency),
+    postal_code: "",
+    latitude: null as number | null,
+    longitude: null as number | null,
     currency
   };
 }
 
 function businessAddress(business: Business) {
-  return [business.street_address, business.city, business.region, business.country].filter(Boolean).join(", ");
+  return [business.street_address, business.city, business.region, business.postal_code, business.country].filter(Boolean).join(", ");
+}
+
+function formattedBusinessAddress(settings: Settings) {
+  return [
+    settings.business_street_address || settings.business_address,
+    settings.business_city,
+    settings.business_region,
+    settings.business_postal_code,
+    settings.business_country
+  ].filter(Boolean).join(", ");
 }
 
 const MAX_LOGO_SIZE_BYTES = 750 * 1024;
@@ -103,6 +117,10 @@ export function SettingsClient({
   const [businessDraft, setBusinessDraft] = useState(() => createEmptyBusinessDraft(settings.currency));
   const [message, setMessage] = useState("");
   const [whatsAppTestMessage, setWhatsAppTestMessage] = useState("");
+  const [businessLocationMessage, setBusinessLocationMessage] = useState("");
+  const [profileLocationMessage, setProfileLocationMessage] = useState("");
+  const [businessLocating, setBusinessLocating] = useState(false);
+  const [profileLocating, setProfileLocating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [businessBusyId, setBusinessBusyId] = useState("");
   const deliveryRegions = getDeliveryRegionsForCurrency(draft.currency);
@@ -121,6 +139,13 @@ export function SettingsClient({
 
   function update<K extends keyof Settings>(key: K, value: Settings[K]) {
     setDraft((current) => ({ ...current, [key]: value }));
+  }
+
+  function updateBusinessAddress(patch: Partial<Settings>) {
+    setDraft((current) => {
+      const next = { ...current, ...patch };
+      return { ...next, business_address: formattedBusinessAddress(next) };
+    });
   }
 
   function settingsWithCurrency(current: Settings, currency: string): Settings {
@@ -255,6 +280,13 @@ export function SettingsClient({
         business_phone: business.phone || "",
         business_email: business.email || "",
         business_address: businessAddress(business) || draft.business_address,
+        business_street_address: business.street_address || "",
+        business_city: business.city || "",
+        business_region: business.region || "",
+        business_country: business.country || "",
+        business_postal_code: business.postal_code || "",
+        business_latitude: business.latitude ?? null,
+        business_longitude: business.longitude ?? null,
         logo_url: business.logo_url || draft.logo_url || "/logo.svg"
       },
       currency
@@ -337,6 +369,52 @@ export function SettingsClient({
     await saveSettings(draft);
   }
 
+  async function useCurrentBusinessLocation() {
+    setBusinessLocationMessage("Finding your location...");
+    setBusinessLocating(true);
+    try {
+      const { address } = await detectCurrentAddress();
+      const nextPatch: Partial<Settings> = {
+        business_street_address: address.street || address.formatted,
+        business_city: address.city,
+        business_region: address.region,
+        business_country: address.country,
+        business_postal_code: address.postalCode,
+        business_latitude: address.lat,
+        business_longitude: address.lng
+      };
+      updateBusinessAddress(nextPatch);
+      setBusinessLocationMessage("Address added. Please check it before saving.");
+    } catch (err) {
+      setBusinessLocationMessage(err instanceof Error ? err.message : "Location could not be detected. You can still enter the address manually.");
+    } finally {
+      setBusinessLocating(false);
+    }
+  }
+
+  async function useCurrentProfileLocation() {
+    setProfileLocationMessage("Finding your location...");
+    setProfileLocating(true);
+    try {
+      const { address } = await detectCurrentAddress();
+      setBusinessDraft((current) => ({
+        ...current,
+        street_address: address.street || address.formatted || current.street_address,
+        city: address.city || current.city,
+        region: address.region || current.region,
+        country: address.country || current.country,
+        postal_code: address.postalCode || current.postal_code,
+        latitude: address.lat,
+        longitude: address.lng
+      }));
+      setProfileLocationMessage("Address added. Please check it before adding the profile.");
+    } catch (err) {
+      setProfileLocationMessage(err instanceof Error ? err.message : "Location could not be detected. You can still enter the address manually.");
+    } finally {
+      setProfileLocating(false);
+    }
+  }
+
   async function createBusinessProfile() {
     setMessage("");
     const response = await fetch("/api/businesses", {
@@ -386,7 +464,37 @@ export function SettingsClient({
             </div>
             <Field label="Phone" value={draft.business_phone} onChange={(event) => update("business_phone", event.target.value)} />
             <Field label="Email" type="email" value={draft.business_email} onChange={(event) => update("business_email", event.target.value)} />
-            <Field label="Address" value={draft.business_address} onChange={(event) => update("business_address", event.target.value)} className="md:col-span-2" />
+            <div className="grid gap-2 md:col-span-2">
+              <Button type="button" onClick={useCurrentBusinessLocation} disabled={businessLocating || saving}>
+                <LocateFixed className="h-4 w-4" />
+                {businessLocating ? "Finding your location..." : "Use My Current Location"}
+              </Button>
+              {businessLocationMessage ? <p className="text-sm font-bold text-slate-500">{businessLocationMessage}</p> : null}
+            </div>
+            <Field
+              label="Street address"
+              value={draft.business_street_address || draft.business_address || ""}
+              onChange={(event) => updateBusinessAddress({ business_street_address: event.target.value })}
+              className="md:col-span-2"
+            />
+            <Field label="City/Town" value={draft.business_city || ""} onChange={(event) => updateBusinessAddress({ business_city: event.target.value })} />
+            <Field label="Region/County" value={draft.business_region || ""} onChange={(event) => updateBusinessAddress({ business_region: event.target.value })} />
+            <Field label="Country" value={draft.business_country || getDefaultCountryForCurrency(draft.currency)} onChange={(event) => updateBusinessAddress({ business_country: event.target.value })} />
+            <Field label="Postal code optional" value={draft.business_postal_code || ""} onChange={(event) => updateBusinessAddress({ business_postal_code: event.target.value })} />
+            <Field
+              label="Latitude optional"
+              type="number"
+              step="0.000001"
+              value={draft.business_latitude ?? ""}
+              onChange={(event) => updateBusinessAddress({ business_latitude: event.target.value ? Number(event.target.value) : null })}
+            />
+            <Field
+              label="Longitude optional"
+              type="number"
+              step="0.000001"
+              value={draft.business_longitude ?? ""}
+              onChange={(event) => updateBusinessAddress({ business_longitude: event.target.value ? Number(event.target.value) : null })}
+            />
             <SelectField label="Store currency" value={draft.currency} onChange={(event) => updateCurrency(event.target.value)} disabled={saving}>
               {CARIBBEAN_CURRENCIES.map((currency) => (
                 <option key={currency.code} value={currency.code}>
@@ -431,6 +539,13 @@ export function SettingsClient({
                 onChange={(event) => setBusinessDraft((current) => ({ ...current, street_address: event.target.value }))}
                 className="md:col-span-2"
               />
+              <div className="grid gap-2 md:col-span-2">
+                <Button type="button" onClick={useCurrentProfileLocation} disabled={profileLocating}>
+                  <LocateFixed className="h-4 w-4" />
+                  {profileLocating ? "Finding your location..." : "Use My Current Location"}
+                </Button>
+                {profileLocationMessage ? <p className="text-sm font-bold text-slate-500">{profileLocationMessage}</p> : null}
+              </div>
               <SelectField
                 label={businessRegionLabel}
                 value={businessDraft.region}
@@ -441,6 +556,23 @@ export function SettingsClient({
                 ))}
               </SelectField>
               <Field label="Country/market" value={businessDraft.country} onChange={(event) => setBusinessDraft((current) => ({ ...current, country: event.target.value }))} />
+              <Field label="Postal code optional" value={businessDraft.postal_code} onChange={(event) => setBusinessDraft((current) => ({ ...current, postal_code: event.target.value }))} />
+              <div className="grid gap-3 md:col-span-2 md:grid-cols-2">
+                <Field
+                  label="Latitude optional"
+                  type="number"
+                  step="0.000001"
+                  value={businessDraft.latitude ?? ""}
+                  onChange={(event) => setBusinessDraft((current) => ({ ...current, latitude: event.target.value ? Number(event.target.value) : null }))}
+                />
+                <Field
+                  label="Longitude optional"
+                  type="number"
+                  step="0.000001"
+                  value={businessDraft.longitude ?? ""}
+                  onChange={(event) => setBusinessDraft((current) => ({ ...current, longitude: event.target.value ? Number(event.target.value) : null }))}
+                />
+              </div>
               <SelectField
                 label="Profile currency"
                 value={businessDraft.currency}

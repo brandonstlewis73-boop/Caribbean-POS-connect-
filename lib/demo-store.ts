@@ -7,7 +7,7 @@ import {
   getDeliveryRegionsForCurrency,
   money
 } from "./constants";
-import { buildAddress, buildWazeLink } from "./waze";
+import { buildAddress, buildGoogleMapsLink, buildWazeLink } from "./waze";
 import {
   buildCustomerConfirmationMessage,
   buildCustomerDriverAssignedWhatsAppMessage,
@@ -65,6 +65,13 @@ const demoSettings: Settings = {
   business_phone: "868-555-2190",
   business_email: "hello@savannahsea.tt",
   business_address: "18 Independence Square, Port of Spain, Trinidad and Tobago",
+  business_street_address: "18 Independence Square",
+  business_city: "Port of Spain",
+  business_region: "Port of Spain",
+  business_country: "Trinidad and Tobago",
+  business_postal_code: "",
+  business_latitude: null,
+  business_longitude: null,
   logo_url: "/logo.svg",
   active_business_id: "biz_savannah_sea",
   currency: CURRENCY_CODE,
@@ -127,6 +134,9 @@ const demoBusiness: Business = {
   street_address: "18 Independence Square",
   city: "Port of Spain",
   region: "Port of Spain",
+  postal_code: "",
+  latitude: null,
+  longitude: null,
   country: "Trinidad and Tobago",
   currency: CURRENCY_CODE,
   logo_url: "/logo.svg",
@@ -271,6 +281,7 @@ function upsertDemoCustomer(input?: CustomerInput | null) {
       city: input.city || existing.city,
       region: input.region || existing.region,
       country: input.country || existing.country,
+      postal_code: input.postal_code || existing.postal_code,
       delivery_notes: input.delivery_notes || existing.delivery_notes,
       waze_link: input.waze_link || existing.waze_link,
       gps_latitude: input.gps_latitude ?? existing.gps_latitude,
@@ -292,6 +303,7 @@ function upsertDemoCustomer(input?: CustomerInput | null) {
     city: input.city || null,
     region: input.region || null,
     country: input.country || "Trinidad and Tobago",
+    postal_code: input.postal_code || null,
     delivery_notes: input.delivery_notes || null,
     waze_link: input.waze_link || null,
     gps_latitude: input.gps_latitude ?? null,
@@ -413,6 +425,9 @@ export async function demoCreateBusiness(input: BusinessInput, userId?: string) 
     street_address: input.street_address || null,
     city: input.city || null,
     region: input.region || null,
+    postal_code: input.postal_code || null,
+    latitude: input.latitude ?? null,
+    longitude: input.longitude ?? null,
     country: input.country || "Trinidad and Tobago",
     currency: input.currency || CURRENCY_CODE,
     logo_url: input.logo_url || null,
@@ -579,7 +594,10 @@ export async function demoCreateOrder(payload: CheckoutPayload, userId?: string)
     city: delivery.city || payload.customer?.city,
     region: delivery.region || payload.customer?.region,
     country: delivery.country || payload.customer?.country || "Trinidad and Tobago",
+    postal_code: delivery.postal_code || payload.customer?.postal_code,
     delivery_notes: delivery.notes || payload.customer?.delivery_notes,
+    gps_latitude: delivery.latitude ?? payload.customer?.gps_latitude,
+    gps_longitude: delivery.longitude ?? payload.customer?.gps_longitude,
     preferred_payment_method: payload.payment_method
   };
   const customer = upsertDemoCustomer(customerInput);
@@ -592,7 +610,11 @@ export async function demoCreateOrder(payload: CheckoutPayload, userId?: string)
         city: customer.city,
         region: customer.region,
         country: customer.country,
+        postal_code: customer.postal_code,
         delivery_notes: customer.delivery_notes,
+        waze_link: customer.waze_link,
+        gps_latitude: customer.gps_latitude,
+        gps_longitude: customer.gps_longitude,
         preferred_payment_method: payload.payment_method,
         marketing_consent: customer.marketing_consent
       }
@@ -638,8 +660,14 @@ export async function demoCreateOrder(payload: CheckoutPayload, userId?: string)
         ? "assigned"
         : "pending"
       : "not_required";
-  const address = buildAddress([snapshot.street_address, snapshot.city, snapshot.region, snapshot.country]);
+  const address = buildAddress([snapshot.street_address, snapshot.city, snapshot.region, snapshot.postal_code, snapshot.country]);
   const wazeLink = buildWazeLink({
+    latitude: delivery.latitude,
+    longitude: delivery.longitude,
+    locationLink: delivery.location_link,
+    address
+  });
+  const googleMapsLink = buildGoogleMapsLink({
     latitude: delivery.latitude,
     longitude: delivery.longitude,
     locationLink: delivery.location_link,
@@ -674,8 +702,10 @@ export async function demoCreateOrder(payload: CheckoutPayload, userId?: string)
     notes: payload.notes || null,
     delivery_latitude: delivery.latitude ?? null,
     delivery_longitude: delivery.longitude ?? null,
+    delivery_postal_code: delivery.postal_code || snapshot.postal_code || null,
     delivery_location_link: delivery.location_link || null,
     waze_link: wazeLink,
+    google_maps_link: googleMapsLink,
     payment_link: paymentLink,
     created_by: payload.created_by || userId || null,
     completed_by: shouldCompleteNow ? payload.created_by || userId || null : null,

@@ -8,6 +8,9 @@ CREATE TABLE IF NOT EXISTS businesses (
   street_address TEXT,
   city TEXT,
   region TEXT,
+  postal_code TEXT,
+  latitude NUMERIC,
+  longitude NUMERIC,
   country TEXT NOT NULL DEFAULT 'Trinidad and Tobago',
   currency TEXT NOT NULL DEFAULT 'TTD',
   logo_url TEXT,
@@ -69,6 +72,7 @@ CREATE TABLE IF NOT EXISTS customers (
   city TEXT,
   region TEXT,
   country TEXT NOT NULL DEFAULT 'Trinidad and Tobago',
+  postal_code TEXT,
   delivery_notes TEXT,
   waze_link TEXT,
   gps_latitude NUMERIC,
@@ -92,6 +96,7 @@ CREATE INDEX IF NOT EXISTS idx_customers_name ON customers(name);
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS waze_link TEXT;
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS gps_latitude NUMERIC;
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS gps_longitude NUMERIC;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS postal_code TEXT;
 ALTER TABLE customers DROP COLUMN IF EXISTS community;
 
 CREATE TABLE IF NOT EXISTS products (
@@ -136,8 +141,10 @@ CREATE TABLE IF NOT EXISTS orders (
   notes TEXT,
   delivery_latitude NUMERIC,
   delivery_longitude NUMERIC,
+  delivery_postal_code TEXT,
   delivery_location_link TEXT,
   waze_link TEXT,
+  google_maps_link TEXT,
   payment_link TEXT,
   whatsapp_business_link TEXT,
   whatsapp_customer_link TEXT,
@@ -158,6 +165,8 @@ ALTER TABLE orders ADD CONSTRAINT orders_status_check CHECK (status IN ('draft',
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS completed_by TEXT;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS inventory_applied BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_postal_code TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS google_maps_link TEXT;
 UPDATE orders
 SET inventory_applied = TRUE,
     completed_at = COALESCE(completed_at, updated_at, created_at)
@@ -372,6 +381,9 @@ ALTER TABLE businesses ADD COLUMN IF NOT EXISTS subscription_plan TEXT NOT NULL 
 ALTER TABLE businesses ADD COLUMN IF NOT EXISTS subscription_status TEXT NOT NULL DEFAULT 'trial';
 ALTER TABLE businesses ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMPTZ;
 ALTER TABLE businesses ADD COLUMN IF NOT EXISTS setup_checklist JSONB NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS postal_code TEXT;
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS latitude NUMERIC;
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS longitude NUMERIC;
 
 UPDATE businesses
 SET storefront_slug = COALESCE(storefront_slug, slug),
