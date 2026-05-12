@@ -5,10 +5,25 @@ export type WazeInput = {
   address?: string | null;
 };
 
+const GENERIC_ADDRESS_PARTS = new Set([
+  "mainland united states",
+  "us dollar caribbean territories",
+  "eastern caribbean",
+  "french caribbean territories"
+]);
+
 export function buildAddress(parts: Array<string | null | undefined>) {
+  const seen = new Set<string>();
   return parts
-    .map((part) => part?.trim())
-    .filter(Boolean)
+    .map((part) => part?.trim().replace(/\s+/g, " "))
+    .filter((part): part is string => Boolean(part))
+    .filter((part) => {
+      const normalized = part.toLowerCase();
+      if (GENERIC_ADDRESS_PARTS.has(normalized)) return false;
+      if (seen.has(normalized)) return false;
+      seen.add(normalized);
+      return true;
+    })
     .join(", ");
 }
 

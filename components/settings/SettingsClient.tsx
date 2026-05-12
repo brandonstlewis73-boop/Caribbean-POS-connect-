@@ -113,6 +113,11 @@ export function SettingsClient({
       Number((draft.delivery_rates || {})[region] ?? defaultDeliveryRates[region] ?? draft.delivery_fee ?? 0)
     ])
   ) as Record<string, number>;
+  const businessRegionLabel = businessDraft.currency === "USD" ? "State / territory" : "Region/corporation";
+  const deliveryRateDescription =
+    draft.currency === "USD"
+      ? "USA states, territories, and USD Caribbean locations update Waze-ready delivery areas"
+      : "Areas update to match the selected store currency";
 
   function update<K extends keyof Settings>(key: K, value: Settings[K]) {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -427,7 +432,7 @@ export function SettingsClient({
                 className="md:col-span-2"
               />
               <SelectField
-                label="Region/corporation"
+                label={businessRegionLabel}
                 value={businessDraft.region}
                 onChange={(event) => setBusinessDraft((current) => ({ ...current, region: event.target.value }))}
               >
@@ -518,7 +523,7 @@ export function SettingsClient({
         </Panel>
 
         <Panel>
-          <PanelHeader title={`Delivery rates by location (${draft.currency})`} description="Areas update to match the selected store currency" />
+          <PanelHeader title={`Delivery rates by location (${draft.currency})`} description={deliveryRateDescription} />
           <div className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
             {deliveryRegions.map((region) => (
               <Field

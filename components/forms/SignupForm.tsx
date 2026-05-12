@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Building2, Store } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Field, SelectField } from "@/components/ui/Field";
-import { CARIBBEAN_CURRENCIES, currencyOptionLabel } from "@/lib/constants";
+import { CARIBBEAN_CURRENCIES, currencyOptionLabel, getDefaultCountryForCurrency } from "@/lib/constants";
 import { readApiPayload } from "@/lib/client-response";
 
 export function SignupForm() {
@@ -25,6 +25,19 @@ export function SignupForm() {
 
   function update(key: keyof typeof draft, value: string) {
     setDraft((current) => ({ ...current, [key]: value }));
+  }
+
+  function updateCurrency(currency: string) {
+    setDraft((current) => {
+      const currentDefaultCountry = getDefaultCountryForCurrency(current.currency);
+      return {
+        ...current,
+        currency,
+        country: !current.country || current.country === currentDefaultCountry
+          ? getDefaultCountryForCurrency(currency)
+          : current.country
+      };
+    });
   }
 
   async function submit(event: React.FormEvent) {
@@ -68,7 +81,7 @@ export function SignupForm() {
         <Field label="Owner email" type="email" value={draft.email} onChange={(event) => update("email", event.target.value)} />
         <Field label="WhatsApp number" value={draft.whatsapp_number} onChange={(event) => update("whatsapp_number", event.target.value)} placeholder="+18681234567" />
         <Field label="Country" value={draft.country} onChange={(event) => update("country", event.target.value)} />
-        <SelectField label="Currency" value={draft.currency} onChange={(event) => update("currency", event.target.value)}>
+        <SelectField label="Currency" value={draft.currency} onChange={(event) => updateCurrency(event.target.value)}>
           {CARIBBEAN_CURRENCIES.map((currency) => (
             <option key={currency.code} value={currency.code}>
               {currencyOptionLabel(currency)}

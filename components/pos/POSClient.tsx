@@ -140,6 +140,7 @@ export function POSClient({
   const deliveryRegions = getDeliveryRegionsForCurrency(settings.currency);
   const defaultDeliveryRegion = deliveryRegions[0] || "";
   const defaultCountry = getDefaultCountryForCurrency(settings.currency);
+  const deliveryRegionLabel = settings.currency === "USD" ? "State / territory" : "Delivery region";
 
   useEffect(() => {
     barcodeInputRef.current?.focus();
@@ -598,7 +599,7 @@ export function POSClient({
                   <Field label="City/town" value={customer.city} onChange={(event) => setCustomer({ ...customer, city: event.target.value })} />
                   <Field label="Country" value={customer.country} onChange={(event) => setCustomer({ ...customer, country: event.target.value })} />
                 </div>
-                <SelectField label="Delivery region" value={customer.region} onChange={(event) => setCustomer({ ...customer, region: event.target.value })}>
+                <SelectField label={deliveryRegionLabel} value={customer.region} onChange={(event) => setCustomer({ ...customer, region: event.target.value })}>
                   {deliveryRegions.map((region) => <option key={region}>{region}</option>)}
                 </SelectField>
                 <TextAreaField label="Delivery instructions" value={customer.delivery_notes} onChange={(event) => setCustomer({ ...customer, delivery_notes: event.target.value })} />

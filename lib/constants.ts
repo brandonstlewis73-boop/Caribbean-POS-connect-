@@ -18,7 +18,7 @@ export const CARIBBEAN_CURRENCIES = [
   { code: "JMD", name: "Jamaican dollar", symbol: "J$", territories: "Jamaica" },
   { code: "SRD", name: "Surinamese dollar", symbol: "Sr$", territories: "Suriname" },
   { code: "TTD", name: "Trinidad and Tobago dollar", symbol: "TT$", territories: "Trinidad and Tobago" },
-  { code: "USD", name: "United States dollar", symbol: "US$", territories: "Puerto Rico, USVI, BVI, Turks and Caicos, Caribbean Netherlands" },
+  { code: "USD", name: "United States dollar", symbol: "US$", territories: "United States, Puerto Rico, USVI, BVI, Turks and Caicos, Caribbean Netherlands" },
   { code: "EUR", name: "Euro", symbol: "EUR ", territories: "French Caribbean territories" }
 ] as const;
 
@@ -85,6 +85,71 @@ export const DEFAULT_DELIVERY_RATES: Record<(typeof TT_REGIONS)[number], number>
   Tobago: 75
 };
 
+export const US_REGIONS: string[] = [
+  "Mainland United States",
+  "Alabama",
+  "Alaska",
+  "Arizona",
+  "Arkansas",
+  "California",
+  "Colorado",
+  "Connecticut",
+  "Delaware",
+  "Florida",
+  "Georgia",
+  "Hawaii",
+  "Idaho",
+  "Illinois",
+  "Indiana",
+  "Iowa",
+  "Kansas",
+  "Kentucky",
+  "Louisiana",
+  "Maine",
+  "Maryland",
+  "Massachusetts",
+  "Michigan",
+  "Minnesota",
+  "Mississippi",
+  "Missouri",
+  "Montana",
+  "Nebraska",
+  "Nevada",
+  "New Hampshire",
+  "New Jersey",
+  "New Mexico",
+  "New York",
+  "North Carolina",
+  "North Dakota",
+  "Ohio",
+  "Oklahoma",
+  "Oregon",
+  "Pennsylvania",
+  "Rhode Island",
+  "South Carolina",
+  "South Dakota",
+  "Tennessee",
+  "Texas",
+  "Utah",
+  "Vermont",
+  "Virginia",
+  "Washington",
+  "Washington, DC",
+  "West Virginia",
+  "Wisconsin",
+  "Wyoming",
+  "Puerto Rico",
+  "US Virgin Islands",
+  "American Samoa",
+  "Guam",
+  "Northern Mariana Islands",
+  "British Virgin Islands",
+  "Turks and Caicos",
+  "Bonaire",
+  "Saba",
+  "Sint Eustatius"
+];
+
 export const DELIVERY_REGIONS_BY_CURRENCY = {
   AWG: ["Oranjestad", "Noord", "Paradera", "Santa Cruz", "Savaneta", "San Nicolas"],
   BSD: ["New Providence", "Grand Bahama", "Abaco", "Eleuthera", "Exuma", "Andros", "Bimini", "Long Island", "Cat Island"],
@@ -101,7 +166,7 @@ export const DELIVERY_REGIONS_BY_CURRENCY = {
   JMD: ["Kingston", "St. Andrew", "St. Catherine", "Clarendon", "Manchester", "St. Elizabeth", "Westmoreland", "Hanover", "St. James", "Trelawny", "St. Ann", "St. Mary", "Portland", "St. Thomas"],
   SRD: ["Paramaribo", "Wanica", "Nickerie", "Commewijne", "Para", "Marowijne", "Saramacca", "Brokopondo", "Coronie", "Sipaliwini"],
   TTD: TT_REGIONS,
-  USD: ["Puerto Rico", "US Virgin Islands", "British Virgin Islands", "Turks and Caicos", "Bonaire", "Saba", "Sint Eustatius"],
+  USD: US_REGIONS,
   EUR: ["Guadeloupe", "Martinique", "Saint Martin", "Saint Barthelemy"]
 } as const satisfies Record<CaribbeanCurrencyCode, readonly string[]>;
 
@@ -121,7 +186,7 @@ export const DEFAULT_COUNTRY_BY_CURRENCY: Record<CaribbeanCurrencyCode, string> 
   JMD: "Jamaica",
   SRD: "Suriname",
   TTD: "Trinidad and Tobago",
-  USD: "US dollar Caribbean territories",
+  USD: "United States",
   EUR: "French Caribbean territories"
 };
 
@@ -155,7 +220,7 @@ export const CARIBBEAN_MARKETS_BY_COUNTRY = {
   SX: { country: "Sint Maarten", currency: "XCG", aliases: ["saint maarten"] },
   TC: { country: "Turks and Caicos", currency: "USD", aliases: ["turks and caicos islands"] },
   TT: { country: "Trinidad and Tobago", currency: "TTD" },
-  US: { country: "United States", currency: "USD", aliases: ["usa", "united states of america"] },
+  US: { country: "United States", currency: "USD", aliases: ["usa", "u.s.", "u.s.a.", "america", "mainland united states", "united states of america"] },
   VC: {
     country: "Saint Vincent and the Grenadines",
     currency: "XCD",

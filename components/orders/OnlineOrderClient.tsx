@@ -122,6 +122,7 @@ export function OnlineOrderClient({
   const defaultCountry = getDefaultCountryForCurrency(settings.currency);
   const initialCountry = getDefaultCountryForCurrency(initialSettings.currency);
   const marketCountry = market?.country || defaultCountry;
+  const deliveryRegionLabel = settings.currency === "USD" ? "State / territory" : "Delivery region";
 
   useEffect(() => {
     setCustomer((current) => {
@@ -350,7 +351,7 @@ export function OnlineOrderClient({
                   <Field label="Street address" value={customer.street_address} onChange={(event) => setCustomer({ ...customer, street_address: event.target.value })} />
                   <Field label="City/town" value={customer.city} onChange={(event) => setCustomer({ ...customer, city: event.target.value })} />
                   <Field label="Country" value={customer.country} onChange={(event) => setCustomer({ ...customer, country: event.target.value })} />
-                  <SelectField label="Delivery region" value={customer.region} onChange={(event) => setCustomer({ ...customer, region: event.target.value })}>
+                  <SelectField label={deliveryRegionLabel} value={customer.region} onChange={(event) => setCustomer({ ...customer, region: event.target.value })}>
                     {deliveryRegions.map((region) => <option key={region}>{region}</option>)}
                   </SelectField>
                   <TextAreaField label="Delivery instructions" value={customer.delivery_notes} onChange={(event) => setCustomer({ ...customer, delivery_notes: event.target.value })} />
