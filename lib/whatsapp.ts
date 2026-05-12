@@ -275,12 +275,23 @@ export type WhatsAppConfigStatus = {
   selectedProvider: string | null;
   configured: boolean;
   missing: string[];
+  warnings: string[];
   defaultCountryCode: string;
   twilio: {
     hasAccountSid: boolean;
     hasAuthToken: boolean;
     hasFrom: boolean;
+    accountSidLooksValid: boolean;
+    accountSidLength: number;
+    accountSidHadWhitespace: boolean;
+    accountSidHadWrappingQuotes: boolean;
+    authTokenLength: number;
+    authTokenHadWhitespace: boolean;
+    authTokenHadWrappingQuotes: boolean;
     fromUsesWhatsAppPrefix: boolean;
+    fromHadWhitespace: boolean;
+    fromHadWrappingQuotes: boolean;
+    fromNormalizedUsesWhatsAppPrefix: boolean;
   };
   meta: {
     hasToken: boolean;
@@ -288,6 +299,19 @@ export type WhatsAppConfigStatus = {
   };
   message: string;
 };
+
+function readSecretEnv(name: string) {
+  const raw = process.env[name] || "";
+  const trimmed = raw.trim();
+  const hadWhitespace = raw !== trimmed;
+  const unwrapped = trimmed.replace(/^(['"])(.*)\1$/, "$2").trim();
+  const hadWrappingQuotes = unwrapped !== trimmed;
+  return {
+    value: unwrapped,
+    hadWhitespace,
+    hadWrappingQuotes
+  };
+}
 
 function whatsappEnabled() {
   return !["false", "0", "no", "off"].includes(String(process.env.WHATSAPP_ENABLED || "true").trim().toLowerCase());
@@ -300,18 +324,32 @@ function whatsappProvider(providerOverride?: string | null) {
 export function whatsappConfigStatus(providerOverride?: string | null): WhatsAppConfigStatus {
   const provider = whatsappProvider(providerOverride);
   const enabled = whatsappEnabled();
-  const twilioFrom = process.env.TWILIO_WHATSAPP_FROM || "";
+  const twilioAccountSid = readSecretEnv("TWILIO_ACCOUNT_SID");
+  const twilioAuthToken = readSecretEnv("TWILIO_AUTH_TOKEN");
+  const twilioFrom = readSecretEnv("TWILIO_WHATSAPP_FROM");
+  const normalizedFrom = formatTwilioWhatsAppNumber(twilioFrom.value);
   const twilio = {
-    hasAccountSid: Boolean(process.env.TWILIO_ACCOUNT_SID),
-    hasAuthToken: Boolean(process.env.TWILIO_AUTH_TOKEN),
-    hasFrom: Boolean(twilioFrom),
-    fromUsesWhatsAppPrefix: twilioFrom.startsWith("whatsapp:")
+    hasAccountSid: Boolean(twilioAccountSid.value),
+    hasAuthToken: Boolean(twilioAuthToken.value),
+    hasFrom: Boolean(twilioFrom.value),
+    accountSidLooksValid: /^AC[a-fA-F0-9]{32}$/.test(twilioAccountSid.value),
+    accountSidLength: twilioAccountSid.value.length,
+    accountSidHadWhitespace: twilioAccountSid.hadWhitespace,
+    accountSidHadWrappingQuotes: twilioAccountSid.hadWrappingQuotes,
+    authTokenLength: twilioAuthToken.value.length,
+    authTokenHadWhitespace: twilioAuthToken.hadWhitespace,
+    authTokenHadWrappingQuotes: twilioAuthToken.hadWrappingQuotes,
+    fromUsesWhatsAppPrefix: twilioFrom.value.startsWith("whatsapp:"),
+    fromHadWhitespace: twilioFrom.hadWhitespace,
+    fromHadWrappingQuotes: twilioFrom.hadWrappingQuotes,
+    fromNormalizedUsesWhatsAppPrefix: normalizedFrom.startsWith("whatsapp:")
   };
   const meta = {
     hasToken: Boolean(process.env.META_WHATSAPP_TOKEN),
     hasPhoneNumberId: Boolean(process.env.META_WHATSAPP_PHONE_NUMBER_ID)
   };
   const missing: string[] = [];
+  const warnings: string[] = [];
 
   if (!enabled) missing.push("WHATSAPP_ENABLED=true");
 
@@ -319,6 +357,14 @@ export function whatsappConfigStatus(providerOverride?: string | null): WhatsApp
     if (!twilio.hasAccountSid) missing.push("TWILIO_ACCOUNT_SID");
     if (!twilio.hasAuthToken) missing.push("TWILIO_AUTH_TOKEN");
     if (!twilio.hasFrom) missing.push("TWILIO_WHATSAPP_FROM");
+    if (twilio.hasAccountSid && !twilio.accountSidLooksValid) {
+      missing.push("TWILIO_ACCOUNT_SID must start with AC and be 34 characters");
+    }
+    if (twilio.hasAccountSid && twilio.accountSidHadWrappingQuotes) warnings.push("TWILIO_ACCOUNT_SID had wrapping quotes; the app will trim them.");
+    if (twilio.hasAccountSid && twilio.accountSidHadWhitespace) warnings.push("TWILIO_ACCOUNT_SID had leading/trailing spaces; the app will trim them.");
+    if (twilio.hasAuthToken && twilio.authTokenHadWrappingQuotes) warnings.push("TWILIO_AUTH_TOKEN had wrapping quotes; the app will trim them.");
+    if (twilio.hasAuthToken && twilio.authTokenHadWhitespace) warnings.push("TWILIO_AUTH_TOKEN had leading/trailing spaces; the app will trim them.");
+    if (twilio.hasFrom && !twilio.fromUsesWhatsAppPrefix) warnings.push("TWILIO_WHATSAPP_FROM should be saved as whatsapp:+14155238886.");
   } else if (provider === "meta") {
     if (!meta.hasToken) missing.push("META_WHATSAPP_TOKEN");
     if (!meta.hasPhoneNumberId) missing.push("META_WHATSAPP_PHONE_NUMBER_ID");
@@ -336,6 +382,7 @@ export function whatsappConfigStatus(providerOverride?: string | null): WhatsApp
     selectedProvider: provider || null,
     configured,
     missing,
+    warnings,
     defaultCountryCode: process.env.DEFAULT_COUNTRY_CODE || "+1868",
     twilio,
     meta,
@@ -345,6 +392,38 @@ export function whatsappConfigStatus(providerOverride?: string | null): WhatsApp
 
 function toE164Digits(to: string, defaultCountryCode = "1868") {
   return normalizeWhatsAppNumber(to, defaultCountryCode);
+}
+
+async function getProviderError(response: Response) {
+  const text = await response.text().catch(() => "");
+  let payload: Record<string, unknown> = {};
+  try {
+    payload = JSON.parse(text) as Record<string, unknown>;
+  } catch {
+    payload = {};
+  }
+  const rawMessage = String(payload.message || payload.error || response.statusText || "Provider rejected the request");
+  const safeMessage = rawMessage.replace(/\+?\d[\d\s().-]{6,}\d/g, "[phone]").slice(0, 260);
+  return {
+    status: response.status,
+    code: payload.code ? String(payload.code) : null,
+    message: safeMessage,
+    moreInfo: typeof payload.more_info === "string" ? payload.more_info : null
+  };
+}
+
+function twilioErrorMessage(error: Awaited<ReturnType<typeof getProviderError>>) {
+  const suffix = error.code ? ` Twilio code ${error.code}.` : "";
+  if (error.status === 401 || error.code === "20003") {
+    return `Twilio authentication failed.${suffix} Use the Account SID that starts with AC and the Auth Token from the same Twilio account, then redeploy.`;
+  }
+  if (error.code === "63007") {
+    return `Twilio rejected the WhatsApp sender.${suffix} Set TWILIO_WHATSAPP_FROM to an approved WhatsApp sender such as whatsapp:+14155238886 for the sandbox.`;
+  }
+  if (error.code === "63015" || error.code === "63016") {
+    return `Twilio rejected the recipient WhatsApp number.${suffix} If using the Twilio sandbox, the recipient phone must join the sandbox before it can receive messages.`;
+  }
+  return `WhatsApp send failed through Twilio (HTTP ${error.status}).${suffix} ${error.message}`;
 }
 
 export async function sendWhatsAppMessage(
@@ -367,9 +446,9 @@ export async function sendWhatsAppMessage(
   }
 
   if (provider === "twilio") {
-    const accountSid = process.env.TWILIO_ACCOUNT_SID;
-    const authToken = process.env.TWILIO_AUTH_TOKEN;
-    const from = process.env.TWILIO_WHATSAPP_FROM;
+    const accountSid = readSecretEnv("TWILIO_ACCOUNT_SID").value;
+    const authToken = readSecretEnv("TWILIO_AUTH_TOKEN").value;
+    const from = readSecretEnv("TWILIO_WHATSAPP_FROM").value;
     if (!accountSid || !authToken || !from) return { ok: false, skipped: true, message: config.message, status: config };
     try {
       const body = new URLSearchParams({
@@ -386,12 +465,9 @@ export async function sendWhatsAppMessage(
         body
       });
       if (!response.ok) {
-        console.warn("WhatsApp send failed", { provider: "twilio", status: response.status });
-        const authMessage =
-          response.status === 401
-            ? "Twilio rejected the WhatsApp credentials. Check TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN in Vercel, then redeploy."
-            : `WhatsApp send failed through Twilio (HTTP ${response.status}). Check the Twilio WhatsApp sender, sandbox approval, and recipient number.`;
-        return { ok: false, skipped: false, message: authMessage };
+        const providerError = await getProviderError(response);
+        console.warn("WhatsApp send failed", { provider: "twilio", error: providerError });
+        return { ok: false, skipped: false, message: twilioErrorMessage(providerError), providerError };
       }
       return { ok: true, skipped: false, message: "WhatsApp sent" };
     } catch (error) {
