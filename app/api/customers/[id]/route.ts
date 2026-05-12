@@ -11,7 +11,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!auth.user) return fail(auth.error, auth.status);
   const { id } = await params;
   try {
-    const profile = await getCustomerProfile(id);
+    const profile = await getCustomerProfile(id, auth.user.business_id);
     return profile ? ok(profile) : fail("Customer not found", 404);
   } catch (error) {
     return fail(error instanceof Error ? error.message : "Customer could not be loaded.", 500);

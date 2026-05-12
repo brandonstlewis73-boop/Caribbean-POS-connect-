@@ -9,7 +9,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const auth = await requireUser(request, "orders:read");
   if (!auth.user) return fail(auth.error, auth.status);
   const { id } = await params;
-  const order = await getOrder(id);
+  const order = await getOrder(id, auth.user.business_id);
   if (order && auth.user.role === "driver" && order.assigned_driver_id !== auth.user.id) {
     return fail("Order not found", 404);
   }

@@ -8,5 +8,5 @@ export const runtime = "nodejs";
 export async function GET(request: NextRequest) {
   const auth = await requireUser(request, "reports:read");
   if (!auth.user) return fail(auth.error, auth.status);
-  return ok({ reports: await getDashboardData() });
+  return ok({ reports: await getDashboardData(auth.user.business_id) });
 }

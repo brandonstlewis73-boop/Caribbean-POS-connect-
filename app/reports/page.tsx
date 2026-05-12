@@ -4,8 +4,8 @@ import { getDashboardData } from "@/lib/data";
 import { requirePagePermission } from "@/lib/page-auth";
 
 export default async function ReportsPage() {
-  await requirePagePermission("reports:read");
-  const data = await getDashboardData();
+  const user = await requirePagePermission("reports:read");
+  const data = await getDashboardData(user.business_id);
   return (
     <AppShell active="Reports" title="Reports">
       <ReportsClient data={data} />

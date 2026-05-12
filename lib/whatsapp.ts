@@ -26,6 +26,31 @@ export function cleanWhatsAppNumber(input?: string | null, defaultCountryCode = 
   return digits;
 }
 
+export function normalizeWhatsAppNumber(input?: string | null, defaultCountryCode = "+1868") {
+  const normalizedDefault = String(defaultCountryCode || "+1868").replace(/[^\d]/g, "") || "1868";
+  const countryPrefix = normalizedDefault === "1" ? "1868" : normalizedDefault;
+  let digits = String(input ?? "").trim();
+  if (!digits) return "";
+
+  if (digits.startsWith("+")) {
+    return `+${digits.slice(1).replace(/[^\d]/g, "")}`;
+  }
+
+  digits = digits.replace(/[^\d]/g, "");
+  if (!digits) return "";
+  if (digits.length === 7) return `+${countryPrefix}${digits}`;
+  if (digits.length === 10 && digits.startsWith("868")) return `+1${digits}`;
+  if (digits.length === 11 && digits.startsWith("1868")) return `+${digits}`;
+  if (digits.startsWith("00")) return `+${digits.slice(2)}`;
+  if (digits.startsWith("1") && digits.length === 11) return `+${digits}`;
+  return `+${digits}`;
+}
+
+export function formatTwilioWhatsAppNumber(input?: string | null, defaultCountryCode = "+1868") {
+  const normalized = normalizeWhatsAppNumber(input, defaultCountryCode);
+  return normalized ? `whatsapp:${normalized}` : "";
+}
+
 export function buildWhatsAppLink(phone: string | null | undefined, message: string, defaultCountryCode = "1868") {
   const clean = cleanWhatsAppNumber(phone, defaultCountryCode);
   if (!clean) return null;
@@ -150,8 +175,23 @@ export function buildOrderWhatsAppMessage(order: Order, settings: Settings) {
 }
 
 export function buildCustomerConfirmationMessage(order: Order, settings: Settings) {
+  const template = settings.whatsapp_customer_confirmation_template?.trim();
+  if (template) return applyOrderTokens(template, order, settings);
+  const items = order.items.map((item) => `${item.quantity} x ${item.product_name}`).join("\n");
   const name = order.customer_snapshot.name || "there";
-  return `Hi ${name}, your order #${order.order_number} was received. Total: ${money(order.total, settings.currency)}. We will contact you shortly. - ${settings.business_name}`;
+  return [
+    `Thank you for ordering from ${settings.business_name}.`,
+    "",
+    `Order: #${order.order_number}`,
+    "Items:",
+    items,
+    "",
+    `Total: ${money(order.total, settings.currency)}`,
+    `Status: ${statusLabel(order.status || "new") || "Received"}`,
+    "",
+    `Hi ${name}, we will update you when your order is ready.`,
+    settings.business_phone ? `Contact: ${settings.business_phone}` : null
+  ].filter(Boolean).join("\n");
 }
 
 export function buildCustomerReceiptWhatsAppMessage(order: Order, settings: Settings) {
@@ -235,19 +275,23 @@ function whatsappProvider() {
 }
 
 function toE164Digits(to: string, defaultCountryCode = "1868") {
-  const digits = cleanWhatsAppNumber(to, defaultCountryCode);
-  return digits ? `+${digits}` : "";
+  return normalizeWhatsAppNumber(to, defaultCountryCode);
 }
 
 export async function sendWhatsAppMessage(
   to: string | null | undefined,
   message: string,
-  options: { defaultCountryCode?: string } = {}
+  options: { defaultCountryCode?: string; provider?: string | null } = {}
 ) {
   const formattedTo = toE164Digits(to || "", options.defaultCountryCode);
-  const provider = whatsappProvider();
+  const provider = (options.provider || whatsappProvider()).trim().toLowerCase();
+  const enabled = process.env.WHATSAPP_ENABLED !== "false";
   if (!formattedTo || !message.trim()) {
     return { ok: false, skipped: true, message: "WhatsApp recipient or message is missing." };
+  }
+  if (!enabled) {
+    console.info("WhatsApp is not configured", { provider: provider || "none", reason: "WHATSAPP_ENABLED is false" });
+    return { ok: false, skipped: true, message: "WhatsApp is not configured" };
   }
 
   if (provider === "twilio") {
@@ -260,7 +304,7 @@ export async function sendWhatsAppMessage(
     }
     try {
       const body = new URLSearchParams({
-        From: from.startsWith("whatsapp:") ? from : `whatsapp:${from}`,
+        From: from.startsWith("whatsapp:") ? from : formatTwilioWhatsAppNumber(from, options.defaultCountryCode),
         To: `whatsapp:${formattedTo}`,
         Body: message
       });

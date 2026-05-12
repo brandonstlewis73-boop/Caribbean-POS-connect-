@@ -14,7 +14,8 @@ export async function GET(request: NextRequest) {
       query: request.nextUrl.searchParams.get("q") || undefined,
       type: request.nextUrl.searchParams.get("type") || undefined,
       status: request.nextUrl.searchParams.get("status") || undefined,
-      driverId: auth.user.role === "driver" ? auth.user.id : undefined
+      driverId: auth.user.role === "driver" ? auth.user.id : undefined,
+      businessId: auth.user.business_id
     })
   });
 }
@@ -41,7 +42,7 @@ export async function POST(request: NextRequest) {
           service_fee: undefined,
           delivery_fee: undefined
         };
-    const order = await createOrder(orderInput, user?.id);
+    const order = await createOrder({ ...orderInput, business_id: user?.business_id || null }, user?.id);
     return ok({ order }, { status: 201 });
   } catch (error) {
     return fail(error instanceof Error ? error.message : "Order failed", 400);

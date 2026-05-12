@@ -77,6 +77,7 @@ export function SettingsClient({
   const [businessItems, setBusinessItems] = useState(businesses);
   const [businessDraft, setBusinessDraft] = useState(() => createEmptyBusinessDraft(settings.currency));
   const [message, setMessage] = useState("");
+  const [whatsAppTestMessage, setWhatsAppTestMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [businessBusyId, setBusinessBusyId] = useState("");
   const deliveryRegions = getDeliveryRegionsForCurrency(draft.currency);
@@ -132,6 +133,28 @@ export function SettingsClient({
       return false;
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function sendWhatsAppTest() {
+    setWhatsAppTestMessage("Sending WhatsApp test...");
+    try {
+      const response = await fetch("/api/whatsapp/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: draft.whatsapp_business_number,
+          message: `Test WhatsApp message from ${draft.business_name}.`
+        })
+      });
+      const payload = await readApiPayload<{ result: { message: string; ok: boolean; skipped?: boolean } }>(response);
+      if (!response.ok) {
+        setWhatsAppTestMessage(payload.error || "WhatsApp test failed.");
+        return;
+      }
+      setWhatsAppTestMessage(payload.data?.result?.message || "WhatsApp test sent.");
+    } catch {
+      setWhatsAppTestMessage("WhatsApp test failed. Check server settings and try again.");
     }
   }
 
@@ -508,19 +531,37 @@ export function SettingsClient({
           <div className="grid gap-3 p-4">
             <Toggle label="Enable WhatsApp features" checked={draft.whatsapp_enabled} onChange={(value) => update("whatsapp_enabled", value)} />
             <Toggle label="Send owner alert when a new order is created" checked={draft.whatsapp_owner_alerts_enabled} onChange={(value) => update("whatsapp_owner_alerts_enabled", value)} />
+            <Toggle label="Send customer confirmation when order is placed" checked={draft.whatsapp_customer_confirmations_enabled} onChange={(value) => update("whatsapp_customer_confirmations_enabled", value)} />
             <Toggle label="Send customer receipt when order is completed" checked={draft.whatsapp_customer_receipts_enabled} onChange={(value) => update("whatsapp_customer_receipts_enabled", value)} />
             <Toggle label="Send customer update when a driver is assigned" checked={draft.whatsapp_driver_assignment_enabled} onChange={(value) => update("whatsapp_driver_assignment_enabled", value)} />
             <Toggle label="Send driver alert when assigned to an order" checked={draft.whatsapp_driver_alerts_enabled} onChange={(value) => update("whatsapp_driver_alerts_enabled", value)} />
             <Toggle label="Send customer update when order is out for delivery" checked={draft.whatsapp_out_for_delivery_enabled} onChange={(value) => update("whatsapp_out_for_delivery_enabled", value)} />
             <div className="grid gap-3 md:grid-cols-2">
+              <SelectField label="WhatsApp provider" value={draft.whatsapp_provider || "twilio"} onChange={(event) => update("whatsapp_provider", event.target.value)}>
+                <option value="twilio">Twilio WhatsApp</option>
+                <option value="meta">Meta WhatsApp Cloud API</option>
+              </SelectField>
               <Field label="Business WhatsApp number" value={draft.whatsapp_business_number} onChange={(event) => update("whatsapp_business_number", event.target.value)} />
               <Field label="Default country code" value={draft.whatsapp_country_code} onChange={(event) => update("whatsapp_country_code", event.target.value)} placeholder="+1-868" />
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <Button type="button" onClick={sendWhatsAppTest}>
+                <MessageCircle className="h-4 w-4" />
+                Send test message
+              </Button>
+              {whatsAppTestMessage ? <span className="text-sm font-bold text-slate-500">{whatsAppTestMessage}</span> : null}
             </div>
             <TextAreaField
               label="Owner order alert template"
               value={draft.whatsapp_order_template}
               onChange={(event) => update("whatsapp_order_template", event.target.value)}
               className="min-h-48"
+            />
+            <TextAreaField
+              label="Customer order confirmation template"
+              value={draft.whatsapp_customer_confirmation_template}
+              onChange={(event) => update("whatsapp_customer_confirmation_template", event.target.value)}
+              className="min-h-40"
             />
             <TextAreaField
               label="Customer receipt template"

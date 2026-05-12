@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 export async function GET(request: NextRequest) {
   const auth = await requireUser(request, "settings:write");
   if (!auth.user) return fail(auth.error, auth.status);
-  return ok({ businesses: await listBusinesses() });
+  return ok({ businesses: await listBusinesses(auth.user.id) });
 }
 
 export async function POST(request: NextRequest) {

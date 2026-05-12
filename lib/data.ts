@@ -73,6 +73,19 @@ import {
 } from "./whatsapp";
 
 type DbClient = PoolClient;
+const DEFAULT_BUSINESS_ID = "biz_savannah_sea";
+
+export const SETUP_CHECKLIST_ITEMS = [
+  { key: "logo", label: "Add business logo" },
+  { key: "whatsapp", label: "Add business WhatsApp number" },
+  { key: "products", label: "Add products" },
+  { key: "product_images", label: "Add product images" },
+  { key: "barcodes", label: "Add barcode/SKU if needed" },
+  { key: "delivery", label: "Set delivery/pickup options" },
+  { key: "receipt", label: "Set receipt message" },
+  { key: "test_order", label: "Test storefront order" },
+  { key: "test_whatsapp", label: "Test WhatsApp notification" }
+];
 
 export const defaultSettings: Settings = {
   business_name: "Savannah & Sea Retail Ltd.",
@@ -96,15 +109,19 @@ export const defaultSettings: Settings = {
   payment_link_template:
     "https://pay.example.com/caribbean-pos-connect?order={{order_number}}&amount={{amount}}&phone={{customer_phone}}",
   whatsapp_enabled: true,
+  whatsapp_provider: "twilio",
   whatsapp_business_number: "4437582368",
-  whatsapp_country_code: "+1",
+  whatsapp_country_code: "+1868",
   whatsapp_owner_alerts_enabled: true,
+  whatsapp_customer_confirmations_enabled: true,
   whatsapp_customer_receipts_enabled: false,
   whatsapp_driver_assignment_enabled: true,
   whatsapp_driver_alerts_enabled: true,
   whatsapp_out_for_delivery_enabled: true,
   whatsapp_order_template:
-    "New Order - {{business_name}}\n\nOrder #: {{order_number}}\nCustomer: {{customer_name}}\nPhone: {{customer_phone}}\nType: {{order_type}}\nAddress: {{address}}\n\nItems:\n{{items}}\n\nTotal: {{total}}\nPayment: {{payment_method}}\nPayment status: {{payment_status}}\nOrder status: {{order_status}}\nDate/time: {{date_time}}\nDashboard: {{dashboard_link}}\nPayment link: {{payment_link}}\n\nWaze:\n{{waze_link}}",
+    "New order received for {{business_name}}.\n\nOrder: #{{order_number}}\nCustomer: {{customer_name}}\nPhone: {{customer_phone}}\nType: {{order_type}}\nAddress: {{address}}\n\nItems:\n{{items}}\n\nTotal: {{total}}\nPayment status: {{payment_status}}\nStatus: {{order_status}}\nTime: {{date_time}}\n\nView order: {{dashboard_link}}",
+  whatsapp_customer_confirmation_template:
+    "Thank you for ordering from {{business_name}}.\n\nOrder: #{{order_number}}\nItems:\n{{items}}\n\nTotal: {{total}}\nStatus: Received\n\nWe will update you when your order is ready.\nContact: {{business_phone}}",
   whatsapp_customer_receipt_template:
     "Hi {{customer_name}}, your receipt for order #{{order_number}} from {{business_name}} is ready.\n\nItems:\n{{items}}\n\nTotal: {{total}}\nPayment: {{payment_method}}\nCompleted: {{completed_at}}\n\n{{receipt_message}}\nContact: {{business_phone}}",
   whatsapp_driver_assigned_template:
@@ -229,10 +246,60 @@ function slugify(value: string) {
     .slice(0, 80);
 }
 
+async function getGlobalActiveBusinessId(client?: DbClient) {
+  try {
+    const row = await query<{ value: unknown }>("SELECT value FROM settings WHERE key = 'active_business_id'", [], client);
+    return parseJson<string | null>(row.rows[0]?.value, null) || DEFAULT_BUSINESS_ID;
+  } catch {
+    return DEFAULT_BUSINESS_ID;
+  }
+}
+
+export async function getBusinessIdForUser(userId?: string | null, client?: DbClient) {
+  if (!userId) return getGlobalActiveBusinessId(client);
+  try {
+    const row = await query<{ business_id: string | null }>(
+      "SELECT business_id FROM users WHERE id = $1 LIMIT 1",
+      [userId],
+      client
+    );
+    return row.rows[0]?.business_id || getGlobalActiveBusinessId(client);
+  } catch {
+    return getGlobalActiveBusinessId(client);
+  }
+}
+
+async function resolveBusinessId(input?: { businessId?: string | null; userId?: string | null; client?: DbClient }) {
+  return input?.businessId || getBusinessIdForUser(input?.userId, input?.client);
+}
+
+function businessScopedClause(params: unknown[], businessId?: string | null, tableAlias = "") {
+  if (!businessId) return "TRUE";
+  const column = tableAlias ? `${tableAlias}.business_id` : "business_id";
+  return `(${column} = ${addParam(params, businessId)} OR ${column} IS NULL)`;
+}
+
+function setupChecklistForBusiness(business: Business | null | undefined, settings: Settings, products: Product[]) {
+  const stored = business?.setup_checklist || {};
+  return SETUP_CHECKLIST_ITEMS.map((item) => {
+    let complete = Boolean(stored[item.key]);
+    if (item.key === "logo") complete = Boolean(settings.logo_url && settings.logo_url !== "/logo.svg");
+    if (item.key === "whatsapp") complete = Boolean(settings.whatsapp_business_number || business?.business_whatsapp_number);
+    if (item.key === "products") complete = products.length > 0;
+    if (item.key === "product_images") complete = products.some((product) => product.image_url);
+    if (item.key === "barcodes") complete = products.some((product) => product.barcode || product.sku);
+    if (item.key === "delivery") complete = Boolean(settings.delivery_rates && Object.keys(settings.delivery_rates).length);
+    if (item.key === "receipt") complete = Boolean(settings.receipt_message);
+    return { ...item, complete };
+  });
+}
+
 function rowToBusiness(row: any): Business {
   return {
     ...row,
     active: bool(row.active),
+    setup_checklist: parseJson<Record<string, boolean>>(row.setup_checklist, {}),
+    trial_ends_at: toDateString(row.trial_ends_at),
     created_at: toDateString(row.created_at) || undefined,
     updated_at: toDateString(row.updated_at) || undefined
   };
@@ -275,6 +342,7 @@ async function deleteStaffAvatar(userId: string, client?: DbClient) {
 function rowToUser(row: any, avatar?: Pick<User, "avatar_key" | "avatar_url">): User {
   return {
     id: row.id,
+    business_id: row.business_id || null,
     name: row.name,
     email: row.email,
     role: row.role,
@@ -349,6 +417,7 @@ function rowToOrder(row: any, items: OrderItem[]): Order {
 function rowToReceipt(row: any): Receipt {
   return {
     id: row.id,
+    business_id: row.business_id || null,
     order_id: row.order_id,
     order_number: row.order_number || "",
     receipt_number: row.receipt_number,
@@ -436,6 +505,61 @@ export async function getSettings(): Promise<Settings> {
   return settings as Settings;
 }
 
+export async function getBusinessById(id?: string | null) {
+  if (!id) return null;
+  if (isDemoMode) return (await demoListBusinesses()).find((business) => business.id === id) || null;
+  const rows = await query<any>("SELECT * FROM businesses WHERE id = $1 AND active = TRUE", [id]);
+  return rows.rows[0] ? rowToBusiness(rows.rows[0]) : null;
+}
+
+export async function getBusinessBySlug(slug?: string | null) {
+  if (!slug) return null;
+  if (isDemoMode) {
+    return (await demoListBusinesses()).find((business) => business.slug === slug || business.storefront_slug === slug) || null;
+  }
+  const rows = await query<any>(
+    "SELECT * FROM businesses WHERE active = TRUE AND (slug = $1 OR storefront_slug = $1) LIMIT 1",
+    [slug]
+  );
+  return rows.rows[0] ? rowToBusiness(rows.rows[0]) : null;
+}
+
+export async function getBusinessSettings(businessId?: string | null): Promise<Settings> {
+  const base = await getSettings();
+  const id = businessId || base.active_business_id || DEFAULT_BUSINESS_ID;
+  if (isDemoMode) return { ...base, active_business_id: id };
+
+  const [business, settingRows] = await Promise.all([
+    getBusinessById(id),
+    query<{ key: keyof Settings; value: unknown }>(
+      "SELECT key, value FROM business_settings WHERE business_id = $1",
+      [id]
+    ).catch(() => ({ rows: [] as Array<{ key: keyof Settings; value: unknown }> }))
+  ]);
+
+  const settings: Record<string, unknown> = { ...base, active_business_id: id };
+  for (const row of settingRows.rows) {
+    settings[row.key] = parseJson(row.value, row.value);
+  }
+  if (business) {
+    settings.business_name = business.name;
+    settings.business_phone = business.phone || business.owner_phone || base.business_phone;
+    settings.business_email = business.email || business.owner_email || base.business_email;
+    settings.business_address = buildAddress([
+      business.street_address,
+      business.city,
+      business.region,
+      business.country
+    ]) || base.business_address;
+    settings.logo_url = business.logo_url || base.logo_url || "/logo.svg";
+    settings.currency = business.currency || base.currency;
+    settings.whatsapp_business_number =
+      business.business_whatsapp_number || (settings.whatsapp_business_number as string) || business.phone || "";
+  }
+  settings.delivery_rates = normalizeDeliveryRates(settings.delivery_rates as Record<string, number>, settings.currency as string);
+  return settings as Settings;
+}
+
 export async function updateSettings(input: Partial<Settings>, userId?: string) {
   if (isDemoMode) return demoUpdateSettings(input, userId);
   const current = await getSettings();
@@ -451,6 +575,7 @@ export async function updateSettings(input: Partial<Settings>, userId?: string) 
     );
   }
   await transaction(async (client) => {
+    const businessId = await getBusinessIdForUser(userId, client);
     for (const [key, value] of Object.entries(nextInput)) {
       await query(
         `INSERT INTO settings (key, value, updated_at)
@@ -459,10 +584,42 @@ export async function updateSettings(input: Partial<Settings>, userId?: string) 
         [key, JSON.stringify(value)],
         client
       );
+      if (businessId) {
+        await query(
+          `INSERT INTO business_settings (business_id, key, value, updated_at)
+           VALUES ($1, $2, $3::jsonb, NOW())
+           ON CONFLICT (business_id, key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+          [businessId, key, JSON.stringify(value)],
+          client
+        );
+      }
+    }
+    if (businessId) {
+      await query(
+        `UPDATE businesses SET
+          name = COALESCE($1, name),
+          phone = COALESCE($2, phone),
+          email = COALESCE($3, email),
+          logo_url = COALESCE($4, logo_url),
+          business_whatsapp_number = COALESCE($5, business_whatsapp_number),
+          currency = COALESCE($6, currency),
+          updated_at = NOW()
+         WHERE id = $7`,
+        [
+          nextInput.business_name ?? null,
+          nextInput.business_phone ?? null,
+          nextInput.business_email ?? null,
+          nextInput.logo_url ?? null,
+          nextInput.whatsapp_business_number ?? null,
+          nextInput.currency ?? null,
+          businessId
+        ],
+        client
+      );
     }
     await auditLog("settings:update", "settings", "global", nextInput, userId, client);
   });
-  return getSettings();
+  return getBusinessSettings(await getBusinessIdForUser(userId));
 }
 
 export async function auditLog(
@@ -500,16 +657,17 @@ export async function listAuditLogs(limit = 100) {
   }));
 }
 
-export async function listUsers(role?: string, includeInactive = false): Promise<User[]> {
+export async function listUsers(role?: string, includeInactive = false, businessId?: string | null): Promise<User[]> {
   if (isDemoMode) return demoListUsers(role, includeInactive);
   const params: unknown[] = [];
   const clauses = includeInactive ? ["TRUE"] : ["active = TRUE"];
+  if (businessId) clauses.push(businessScopedClause(params, businessId));
   if (role) {
     clauses.push(`role = ${addParam(params, role)}`);
   }
   const [rows, avatars] = await Promise.all([
     query<User>(
-    `SELECT id, name, email, role, phone, active
+    `SELECT id, business_id, name, email, role, phone, active
      FROM users
      WHERE ${clauses.join(" AND ")}
      ORDER BY name ASC`,
@@ -525,11 +683,13 @@ export async function createStaffUser(input: StaffInput, userId?: string) {
   const id = createId("usr");
   const passwordHash = await bcrypt.hash("ChangeMe123!", 12);
   return transaction(async (client) => {
+    const businessId = await getBusinessIdForUser(userId, client);
     await query(
-      `INSERT INTO users (id, name, email, password_hash, role, phone, active)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      `INSERT INTO users (id, business_id, name, email, password_hash, role, phone, active)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
       [
         id,
+        businessId,
         input.name?.trim(),
         input.email?.trim().toLowerCase(),
         passwordHash,
@@ -542,7 +702,7 @@ export async function createStaffUser(input: StaffInput, userId?: string) {
     await saveStaffAvatar(id, input, client);
     await auditLog("staff:create", "user", id, { ...input, avatar_url: input.avatar_url ? "[stored image]" : null }, userId, client);
     const avatars = await getStaffAvatarMap(client);
-    const rows = await query<any>("SELECT id, name, email, role, phone, active FROM users WHERE id = $1", [id], client);
+    const rows = await query<any>("SELECT id, business_id, name, email, role, phone, active FROM users WHERE id = $1", [id], client);
     return rows.rows[0] ? rowToUser(rows.rows[0], avatars[id]) : null;
   });
 }
@@ -550,7 +710,14 @@ export async function createStaffUser(input: StaffInput, userId?: string) {
 export async function updateStaffUser(id: string, input: StaffInput, userId?: string) {
   if (isDemoMode) return demoUpdateStaffUser(id, input, userId);
   return transaction(async (client) => {
-    const existing = await query<any>("SELECT id, name, email, role, phone, active FROM users WHERE id = $1", [id], client);
+    const businessId = await getBusinessIdForUser(userId, client);
+    const existing = await query<any>(
+      `SELECT id, business_id, name, email, role, phone, active
+       FROM users
+       WHERE id = $1 AND (business_id = $2 OR business_id IS NULL)`,
+      [id, businessId],
+      client
+    );
     if (!existing.rows[0]) return null;
     await query(
       `UPDATE users SET
@@ -574,7 +741,7 @@ export async function updateStaffUser(id: string, input: StaffInput, userId?: st
     await saveStaffAvatar(id, input, client);
     await auditLog("staff:update", "user", id, { ...input, avatar_url: input.avatar_url ? "[stored image]" : null }, userId, client);
     const avatars = await getStaffAvatarMap(client);
-    const rows = await query<any>("SELECT id, name, email, role, phone, active FROM users WHERE id = $1", [id], client);
+    const rows = await query<any>("SELECT id, business_id, name, email, role, phone, active FROM users WHERE id = $1", [id], client);
     return rows.rows[0] ? rowToUser(rows.rows[0], avatars[id]) : null;
   });
 }
@@ -582,7 +749,12 @@ export async function updateStaffUser(id: string, input: StaffInput, userId?: st
 export async function deleteStaffUser(id: string, userId?: string) {
   if (isDemoMode) return demoDeleteStaffUser(id, userId);
   return transaction(async (client) => {
-    const existing = await query<any>("SELECT id, name, email, role, phone, active FROM users WHERE id = $1", [id], client);
+    const businessId = await getBusinessIdForUser(userId, client);
+    const existing = await query<any>(
+      "SELECT id, business_id, name, email, role, phone, active FROM users WHERE id = $1 AND (business_id = $2 OR business_id IS NULL)",
+      [id, businessId],
+      client
+    );
     if (!existing.rows[0]) return null;
     const avatars = await getStaffAvatarMap(client);
     await deleteStaffAvatar(id, client);
@@ -599,13 +771,21 @@ export async function deleteStaffUser(id: string, userId?: string) {
   });
 }
 
-export async function listBusinesses(): Promise<Business[]> {
+export async function listBusinesses(userId?: string | null): Promise<Business[]> {
   if (isDemoMode) return demoListBusinesses();
+  const businessId = userId ? await getBusinessIdForUser(userId) : null;
+  const params: unknown[] = [];
+  const where = businessId ? `WHERE id = ${addParam(params, businessId)}` : "";
   const rows = await query<any>(
     `SELECT id, name, legal_name, slug, phone, email, street_address, city, region,
-            country, currency, logo_url, tax_id, active, created_at, updated_at
+            country, currency, logo_url, tax_id, active, owner_name, owner_email,
+            owner_phone, business_whatsapp_number, storefront_slug, subscription_plan,
+            subscription_status, trial_ends_at, setup_checklist, created_at, updated_at
      FROM businesses
+     ${where}
      ORDER BY created_at DESC, name ASC`
+    ,
+    params
   );
   return rows.rows.map(rowToBusiness);
 }
@@ -619,15 +799,19 @@ export async function createBusiness(input: BusinessInput, userId?: string) {
   const slug = baseSlug ? `${baseSlug}-${id.slice(-8)}` : id;
   await query(
     `INSERT INTO businesses (
-      id, name, legal_name, slug, phone, email, street_address, city, region,
+      id, name, legal_name, slug, storefront_slug, owner_name, owner_email, owner_phone,
+      business_whatsapp_number, phone, email, street_address, city, region,
       country, currency, logo_url, tax_id, active
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, TRUE)`,
+    ) VALUES ($1, $2, $3, $4, $4, $5, $6, $7, $8, $8, $9, $10, $11, $12, $13, $14, $15, $16, TRUE)`,
     [
       id,
       name,
       input.legal_name || name,
       slug,
-      input.phone ?? null,
+      input.owner_name ?? null,
+      input.owner_email || input.email || null,
+      input.owner_phone || input.phone || null,
+      input.business_whatsapp_number || input.phone || null,
       input.email || null,
       input.street_address ?? null,
       input.city ?? null,
@@ -641,6 +825,126 @@ export async function createBusiness(input: BusinessInput, userId?: string) {
   await auditLog("business:create", "business", id, input, userId);
   const rows = await query<any>("SELECT * FROM businesses WHERE id = $1", [id]);
   return rows.rows[0] ? rowToBusiness(rows.rows[0]) : null;
+}
+
+export async function createBusinessOwnerAccount(input: {
+  business_name: string;
+  owner_name?: string;
+  email: string;
+  whatsapp_number: string;
+  password: string;
+  country?: string;
+  currency?: string;
+}) {
+  if (isDemoMode) {
+    const business = await demoCreateBusiness(
+      {
+        name: input.business_name,
+        owner_name: input.owner_name || "Business Owner",
+        owner_email: input.email,
+        owner_phone: input.whatsapp_number,
+        business_whatsapp_number: input.whatsapp_number,
+        phone: input.whatsapp_number,
+        email: input.email,
+        country: input.country || "Trinidad and Tobago",
+        currency: input.currency || CURRENCY_CODE
+      },
+      "usr_demo_admin"
+    );
+    const user: User = {
+      id: createId("usr"),
+      business_id: business?.id || DEFAULT_BUSINESS_ID,
+      name: input.owner_name || "Business Owner",
+      email: input.email,
+      role: "owner",
+      phone: input.whatsapp_number,
+      active: true
+    };
+    return { business, user };
+  }
+
+  const businessId = createId("biz");
+  const baseSlug = slugify(input.business_name) || businessId;
+  const slug = `${baseSlug}-${businessId.slice(-6)}`;
+  const userId = createId("usr");
+  const passwordHash = await bcrypt.hash(input.password, 12);
+  const ownerName = input.owner_name?.trim() || "Business Owner";
+  const email = input.email.trim().toLowerCase();
+  const country = input.country || "Trinidad and Tobago";
+  const currency = input.currency || CURRENCY_CODE;
+
+  return transaction(async (client) => {
+    const existing = await query<{ id: string }>("SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1", [email], client);
+    if (existing.rows[0]) {
+      throw new Error("An account with this email already exists. Sign in instead.");
+    }
+    await query(
+      `INSERT INTO businesses (
+        id, name, legal_name, slug, storefront_slug, owner_name, owner_email, owner_phone,
+        business_whatsapp_number, phone, email, country, currency, logo_url,
+        subscription_plan, subscription_status, trial_ends_at, setup_checklist, active
+      ) VALUES ($1, $2, $2, $3, $3, $4, $5, $6, $6, $6, $5, $7, $8, '/logo.svg',
+        'free_demo', 'trial', NOW() + INTERVAL '14 days', '{}'::jsonb, TRUE)`,
+      [businessId, input.business_name.trim(), slug, ownerName, email, input.whatsapp_number, country, currency],
+      client
+    );
+    await query(
+      `INSERT INTO users (id, business_id, name, email, password_hash, role, phone, active)
+       VALUES ($1, $2, $3, $4, $5, 'owner', $6, TRUE)`,
+      [userId, businessId, ownerName, email, passwordHash, input.whatsapp_number],
+      client
+    );
+    const businessSettings: Partial<Settings> = {
+      active_business_id: businessId,
+      business_name: input.business_name.trim(),
+      business_phone: input.whatsapp_number,
+      business_email: email,
+      business_address: country,
+      logo_url: "/logo.svg",
+      currency,
+      whatsapp_enabled: true,
+      whatsapp_provider: "twilio",
+      whatsapp_business_number: input.whatsapp_number,
+      whatsapp_country_code: process.env.DEFAULT_COUNTRY_CODE || "+1868",
+      whatsapp_owner_alerts_enabled: true,
+      whatsapp_customer_confirmations_enabled: true,
+      whatsapp_customer_receipts_enabled: true
+    };
+    for (const [key, value] of Object.entries(businessSettings)) {
+      await query(
+        `INSERT INTO business_settings (business_id, key, value, updated_at)
+         VALUES ($1, $2, $3::jsonb, NOW())
+         ON CONFLICT (business_id, key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+        [businessId, key, JSON.stringify(value)],
+        client
+      );
+    }
+    const plan = SUBSCRIPTION_PLANS[0];
+    await query(
+      `INSERT INTO subscriptions (
+        id, business_id, plan_id, plan_name, status, seats, monthly_price, currency,
+        provider, current_period_start, current_period_end, trial_ends_at, metadata
+      ) VALUES ($1, $2, $3, $4, 'trialing', $5, $6, $7, 'manual', NOW(), NOW() + INTERVAL '30 days', NOW() + INTERVAL '14 days', $8::jsonb)`,
+      [
+        createId("sub"),
+        businessId,
+        plan.id,
+        plan.name,
+        plan.max_staff,
+        plan.monthly_price,
+        currency,
+        JSON.stringify({ max_products: plan.max_products, whatsapp_enabled: plan.whatsapp_enabled })
+      ],
+      client
+    );
+    await auditLog("business:owner_signup", "business", businessId, { email, slug }, userId, client);
+    const businessRows = await query<any>("SELECT * FROM businesses WHERE id = $1", [businessId], client);
+    const userRows = await query<any>("SELECT id, business_id, name, email, role, phone, active FROM users WHERE id = $1", [userId], client);
+    return {
+      business: businessRows.rows[0] ? rowToBusiness(businessRows.rows[0]) : null,
+      user: userRows.rows[0] ? rowToUser(userRows.rows[0]) : null
+    };
+  });
 }
 
 export async function deleteBusiness(id: string, userId?: string) {
@@ -674,11 +978,15 @@ export function listSubscriptionPlans(): SubscriptionPlan[] {
     audience: plan.audience,
     monthly_price: plan.monthly_price,
     currency: plan.currency,
+    max_products: plan.max_products,
+    max_staff: plan.max_staff,
+    whatsapp_enabled: plan.whatsapp_enabled,
+    ai_support_enabled: plan.ai_support_enabled,
     features: [...plan.features]
   })) as SubscriptionPlan[];
 }
 
-export async function getCurrentSubscription(): Promise<Subscription | null> {
+export async function getCurrentSubscription(businessId?: string | null): Promise<Subscription | null> {
   if (isDemoMode) {
     const plan = SUBSCRIPTION_PLANS[0];
     return {
@@ -697,11 +1005,15 @@ export async function getCurrentSubscription(): Promise<Subscription | null> {
       metadata: {}
     };
   }
+  const params: unknown[] = [];
+  const where = businessId ? `WHERE business_id = ${addParam(params, businessId)}` : "";
   const rows = await query<any>(
     `SELECT *
      FROM subscriptions
+     ${where}
      ORDER BY created_at DESC
-     LIMIT 1`
+     LIMIT 1`,
+    params
   );
   return rows.rows[0] ? rowToSubscription(rows.rows[0]) : null;
 }
@@ -716,7 +1028,7 @@ export async function updateSubscriptionPlan(planId: SubscriptionPlanId, userId?
       plan_id: plan.id,
       plan_name: plan.name,
       status: "trialing",
-      seats: plan.id === "starter" ? 1 : plan.id === "business" ? 5 : 15,
+      seats: plan.max_staff,
       monthly_price: plan.monthly_price,
       currency: plan.currency,
       provider: "manual",
@@ -726,9 +1038,10 @@ export async function updateSubscriptionPlan(planId: SubscriptionPlanId, userId?
       metadata: {}
     } satisfies Subscription;
   }
-  const existing = await getCurrentSubscription();
+  const businessId = await getBusinessIdForUser(userId);
+  const existing = await getCurrentSubscription(businessId);
   const subscriptionId = existing?.id || createId("sub");
-  const businessId = existing?.business_id || (await listBusinesses())[0]?.id || "biz_savannah_sea";
+  const resolvedBusinessId = existing?.business_id || businessId || DEFAULT_BUSINESS_ID;
   await query(
     `INSERT INTO subscriptions (
       id, business_id, plan_id, plan_name, status, seats, monthly_price, currency,
@@ -743,22 +1056,23 @@ export async function updateSubscriptionPlan(planId: SubscriptionPlanId, userId?
       updated_at = NOW()`,
     [
       subscriptionId,
-      businessId,
+      resolvedBusinessId,
       plan.id,
       plan.name,
-      plan.id === "starter" ? 1 : plan.id === "business" ? 5 : 15,
+      plan.max_staff,
       plan.monthly_price,
       plan.currency
     ]
   );
   await auditLog("subscription:update_plan", "subscription", subscriptionId, { plan_id: plan.id }, userId);
-  return getCurrentSubscription();
+  return getCurrentSubscription(resolvedBusinessId);
 }
 
-export async function listProducts(search?: string, includeInactive = false): Promise<Product[]> {
+export async function listProducts(search?: string, includeInactive = false, businessId?: string | null): Promise<Product[]> {
   if (isDemoMode) return demoListProducts(search, includeInactive);
   const params: unknown[] = [];
   const clauses = includeInactive ? ["TRUE"] : ["active = TRUE"];
+  if (businessId) clauses.push(businessScopedClause(params, businessId));
   if (search?.trim()) {
     const like = addParam(params, `%${search.trim()}%`);
     clauses.push(`(name ILIKE ${like} OR sku ILIKE ${like} OR barcode ILIKE ${like} OR category ILIKE ${like})`);
@@ -774,22 +1088,26 @@ export async function listProducts(search?: string, includeInactive = false): Pr
   return rows.rows.map(rowToProduct);
 }
 
-export async function getProduct(id: string) {
+export async function getProduct(id: string, businessId?: string | null) {
   if (isDemoMode) return demoGetProduct(id);
-  const row = await query<any>("SELECT * FROM products WHERE id = $1", [id]);
+  const params: unknown[] = [id];
+  const scope = businessId ? ` AND ${businessScopedClause(params, businessId)}` : "";
+  const row = await query<any>(`SELECT * FROM products WHERE id = $1${scope}`, params);
   return row.rows[0] ? rowToProduct(row.rows[0]) : null;
 }
 
 export async function createProduct(input: Omit<Product, "id" | "active">, userId?: string) {
   if (isDemoMode) return demoCreateProduct(input, userId);
   const id = createId("prd");
+  const businessId = await getBusinessIdForUser(userId);
   await query(
     `INSERT INTO products (
-      id, name, sku, barcode, category, cost_price, selling_price, stock_quantity,
+      id, business_id, name, sku, barcode, category, cost_price, selling_price, stock_quantity,
       low_stock_alert, image_url, supplier_name, supplier_phone
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
     [
       id,
+      businessId,
       input.name,
       input.sku,
       input.barcode ?? null,
@@ -804,13 +1122,18 @@ export async function createProduct(input: Omit<Product, "id" | "active">, userI
     ]
   );
   await auditLog("product:create", "product", id, input, userId);
-  return getProduct(id);
+  return getProduct(id, businessId);
 }
 
 export async function deleteProduct(id: string, userId?: string) {
   if (isDemoMode) return demoDeleteProduct(id, userId);
   return transaction(async (client) => {
-    const existing = await query<any>("SELECT * FROM products WHERE id = $1", [id], client);
+    const businessId = await getBusinessIdForUser(userId, client);
+    const existing = await query<any>(
+      "SELECT * FROM products WHERE id = $1 AND (business_id = $2 OR business_id IS NULL)",
+      [id, businessId],
+      client
+    );
     if (!existing.rows[0]) return null;
     await auditLog(
       "product:delete",
@@ -827,7 +1150,8 @@ export async function deleteProduct(id: string, userId?: string) {
 
 export async function updateProduct(id: string, input: Partial<Product>, userId?: string) {
   if (isDemoMode) return demoUpdateProduct(id, input, userId);
-  const existing = await getProduct(id);
+  const businessId = await getBusinessIdForUser(userId);
+  const existing = await getProduct(id, businessId);
   if (!existing) return null;
   const next = { ...existing, ...input };
   await query(
@@ -853,21 +1177,22 @@ export async function updateProduct(id: string, input: Partial<Product>, userId?
     ]
   );
   await auditLog("product:update", "product", id, input, userId);
-  return getProduct(id);
+  return getProduct(id, businessId);
 }
 
 export async function adjustStock(productId: string, delta: number, reason: string, userId?: string) {
   if (isDemoMode) return demoAdjustStock(productId, delta, reason, userId);
   return transaction(async (client) => {
+    const businessId = await getBusinessIdForUser(userId, client);
     const updated = await query(
-      "UPDATE products SET stock_quantity = stock_quantity + $1, updated_at = NOW() WHERE id = $2",
-      [delta, productId],
+      "UPDATE products SET stock_quantity = stock_quantity + $1, updated_at = NOW() WHERE id = $2 AND (business_id = $3 OR business_id IS NULL)",
+      [delta, productId, businessId],
       client
     );
     if (!updated.rowCount) return null;
     await query(
-      "INSERT INTO stock_movements (id, product_id, type, quantity_delta, reason, user_id) VALUES ($1, $2, 'manual_adjustment', $3, $4, $5)",
-      [createId("mov"), productId, delta, reason, userId ?? null],
+      "INSERT INTO stock_movements (id, business_id, product_id, type, quantity_delta, reason, user_id) VALUES ($1, $2, $3, 'manual_adjustment', $4, $5, $6)",
+      [createId("mov"), businessId, productId, delta, reason, userId ?? null],
       client
     );
     await auditLog("stock:adjust", "product", productId, { delta, reason }, userId, client);
@@ -876,10 +1201,11 @@ export async function adjustStock(productId: string, delta: number, reason: stri
   });
 }
 
-export async function listCustomers(search?: string): Promise<Customer[]> {
+export async function listCustomers(search?: string, businessId?: string | null): Promise<Customer[]> {
   if (isDemoMode) return demoListCustomers(search);
   const params: unknown[] = [];
   const clauses: string[] = [];
+  if (businessId) clauses.push(businessScopedClause(params, businessId));
   if (search?.trim()) {
     const like = addParam(params, `%${search.trim()}%`);
     clauses.push(
@@ -897,27 +1223,30 @@ export async function listCustomers(search?: string): Promise<Customer[]> {
   return rows.rows.map(rowToCustomer);
 }
 
-export async function getCustomer(id: string) {
+export async function getCustomer(id: string, businessId?: string | null) {
   if (isDemoMode) return demoGetCustomer(id);
-  const row = await query<any>("SELECT * FROM customers WHERE id = $1", [id]);
+  const params: unknown[] = [id];
+  const scope = businessId ? ` AND ${businessScopedClause(params, businessId)}` : "";
+  const row = await query<any>(`SELECT * FROM customers WHERE id = $1${scope}`, params);
   return row.rows[0] ? rowToCustomer(row.rows[0]) : null;
 }
 
-export async function getCustomerProfile(id: string) {
+export async function getCustomerProfile(id: string, businessId?: string | null) {
   if (isDemoMode) return demoGetCustomerProfile(id);
-  const customer = await getCustomer(id);
+  const customer = await getCustomer(id, businessId);
   if (!customer) return null;
   const [orders, favoriteRows] = await Promise.all([
-    listOrders({ customerId: id, limit: 20 }),
+    listOrders({ customerId: id, businessId, limit: 20 }),
     query<{ name: string; quantity: string }>(
       `SELECT product_name AS name, SUM(quantity) AS quantity
        FROM order_items oi
        JOIN orders o ON o.id = oi.order_id
        WHERE o.customer_id = $1
+       ${businessId ? "AND (o.business_id = $2 OR o.business_id IS NULL)" : ""}
        GROUP BY product_name
        ORDER BY quantity DESC
        LIMIT 5`,
-      [id]
+      businessId ? [id, businessId] : [id]
     )
   ]);
   const favoriteProducts = favoriteRows.rows.map((row) => ({
@@ -927,14 +1256,22 @@ export async function getCustomerProfile(id: string) {
   return { customer, orders, favoriteProducts };
 }
 
-async function upsertCustomer(client: DbClient, input?: CustomerInput | null) {
+async function upsertCustomer(client: DbClient, input?: CustomerInput | null, businessId?: string | null) {
   if (!input || (!input.name && !input.phone && !input.email)) return null;
 
   const normalized = cleanWhatsAppNumber(input.phone);
   const lookup = normalized
-    ? await query<any>("SELECT * FROM customers WHERE phone_normalized = $1 LIMIT 1", [normalized], client)
+    ? await query<any>(
+        "SELECT * FROM customers WHERE phone_normalized = $1 AND (business_id = $2 OR business_id IS NULL) LIMIT 1",
+        [normalized, businessId],
+        client
+      )
     : input.email
-      ? await query<any>("SELECT * FROM customers WHERE LOWER(email) = LOWER($1) LIMIT 1", [input.email], client)
+      ? await query<any>(
+          "SELECT * FROM customers WHERE LOWER(email) = LOWER($1) AND (business_id = $2 OR business_id IS NULL) LIMIT 1",
+          [input.email, businessId],
+          client
+        )
       : { rows: [] };
   const existing = lookup.rows[0];
   const customerId = existing?.id || createId("cus");
@@ -986,12 +1323,13 @@ async function upsertCustomer(client: DbClient, input?: CustomerInput | null) {
   } else {
     await query(
       `INSERT INTO customers (
-        id, name, phone, phone_normalized, email, street_address, city, region,
+        id, business_id, name, phone, phone_normalized, email, street_address, city, region,
         country, delivery_notes, waze_link, gps_latitude, gps_longitude,
         preferred_payment_method, notes, birthday, marketing_consent, tags
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18::jsonb)`,
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19::jsonb)`,
       [
         customerId,
+        businessId,
         input.name || "Customer",
         input.phone ?? null,
         normalized || null,
@@ -1021,7 +1359,8 @@ async function upsertCustomer(client: DbClient, input?: CustomerInput | null) {
 export async function createCustomer(input: CustomerInput, userId?: string) {
   if (isDemoMode) return demoCreateCustomer(input, userId);
   return transaction(async (client) => {
-    const customer = await upsertCustomer(client, input);
+    const businessId = await getBusinessIdForUser(userId, client);
+    const customer = await upsertCustomer(client, input, businessId);
     if (customer) await auditLog("customer:create_or_update", "customer", customer.id, input, userId, client);
     return customer;
   });
@@ -1029,7 +1368,8 @@ export async function createCustomer(input: CustomerInput, userId?: string) {
 
 export async function updateCustomer(id: string, input: CustomerInput, userId?: string) {
   if (isDemoMode) return demoUpdateCustomer(id, input, userId);
-  const existing = await getCustomer(id);
+  const businessId = await getBusinessIdForUser(userId);
+  const existing = await getCustomer(id, businessId);
   if (!existing) return null;
   const normalized = cleanWhatsAppNumber(input.phone || existing.phone);
   await query(
@@ -1039,7 +1379,7 @@ export async function updateCustomer(id: string, input: CustomerInput, userId?: 
       waze_link = $10, gps_latitude = $11, gps_longitude = $12,
       preferred_payment_method = $13, notes = $14, birthday = $15, marketing_consent = $16,
       updated_at = NOW()
-     WHERE id = $17`,
+     WHERE id = $17 AND (business_id = $18 OR business_id IS NULL)`,
     [
       input.name ?? existing.name,
       input.phone ?? existing.phone,
@@ -1057,17 +1397,23 @@ export async function updateCustomer(id: string, input: CustomerInput, userId?: 
       input.notes ?? existing.notes,
       input.birthday ?? existing.birthday,
       input.marketing_consent === undefined ? existing.marketing_consent : Boolean(input.marketing_consent),
-      id
+      id,
+      businessId
     ]
   );
   await auditLog("customer:update", "customer", id, input, userId);
-  return getCustomer(id);
+  return getCustomer(id, businessId);
 }
 
 export async function deleteCustomer(id: string, userId?: string) {
   if (isDemoMode) return demoDeleteCustomer(id, userId);
   return transaction(async (client) => {
-    const existing = await query<any>("SELECT * FROM customers WHERE id = $1", [id], client);
+    const businessId = await getBusinessIdForUser(userId, client);
+    const existing = await query<any>(
+      "SELECT * FROM customers WHERE id = $1 AND (business_id = $2 OR business_id IS NULL)",
+      [id, businessId],
+      client
+    );
     if (!existing.rows[0]) return null;
     await auditLog(
       "customer:delete",
@@ -1091,13 +1437,13 @@ async function applyCompletedOrderEffects(client: DbClient, order: Order, userId
   for (const item of order.items) {
     if (!item.product_id) continue;
     await query(
-      "UPDATE products SET stock_quantity = stock_quantity - $1, updated_at = NOW() WHERE id = $2",
-      [item.quantity, item.product_id],
+      "UPDATE products SET stock_quantity = stock_quantity - $1, updated_at = NOW() WHERE id = $2 AND (business_id = $3 OR business_id IS NULL)",
+      [item.quantity, item.product_id, order.business_id ?? null],
       client
     );
     await query(
-      "INSERT INTO stock_movements (id, product_id, type, quantity_delta, reason, reference_id, user_id) VALUES ($1, $2, 'sale', $3, $4, $5, $6)",
-      [createId("mov"), item.product_id, -item.quantity, `Completed order #${order.order_number}`, order.id, userId ?? null],
+      "INSERT INTO stock_movements (id, business_id, product_id, type, quantity_delta, reason, reference_id, user_id) VALUES ($1, $2, $3, 'sale', $4, $5, $6, $7)",
+      [createId("mov"), order.business_id ?? null, item.product_id, -item.quantity, `Completed order #${order.order_number}`, order.id, userId ?? null],
       client
     );
   }
@@ -1143,13 +1489,13 @@ async function reverseCompletedOrderEffects(client: DbClient, order: Order, user
   for (const item of order.items) {
     if (!item.product_id) continue;
     await query(
-      "UPDATE products SET stock_quantity = stock_quantity + $1, updated_at = NOW() WHERE id = $2",
-      [item.quantity, item.product_id],
+      "UPDATE products SET stock_quantity = stock_quantity + $1, updated_at = NOW() WHERE id = $2 AND (business_id = $3 OR business_id IS NULL)",
+      [item.quantity, item.product_id, order.business_id ?? null],
       client
     );
     await query(
-      "INSERT INTO stock_movements (id, product_id, type, quantity_delta, reason, reference_id, user_id) VALUES ($1, $2, 'return', $3, $4, $5, $6)",
-      [createId("mov"), item.product_id, item.quantity, `Cancelled order #${order.order_number}`, order.id, userId ?? null],
+      "INSERT INTO stock_movements (id, business_id, product_id, type, quantity_delta, reason, reference_id, user_id) VALUES ($1, $2, $3, 'return', $4, $5, $6, $7)",
+      [createId("mov"), order.business_id ?? null, item.product_id, item.quantity, `Cancelled order #${order.order_number}`, order.id, userId ?? null],
       client
     );
   }
@@ -1195,11 +1541,12 @@ async function createOrUpdateReceiptRecord(
 ) {
   await query(
     `INSERT INTO receipts (
-      id, order_id, receipt_number, order_number, customer_id, customer_name, customer_phone,
+      id, business_id, order_id, receipt_number, order_number, customer_id, customer_name, customer_phone,
       items, subtotal, discount_total, tax_total, delivery_fee, total, payment_method,
       payment_status, completed_by, completed_at, channel, updated_at
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11, $12, $13, $14, $15, $16, COALESCE($17::timestamptz, NOW()), 'print', NOW())
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11, $12, $13, $14, $15, $16, $17, COALESCE($18::timestamptz, NOW()), 'print', NOW())
     ON CONFLICT (order_id) DO UPDATE SET
+      business_id = EXCLUDED.business_id,
       order_number = EXCLUDED.order_number,
       customer_id = EXCLUDED.customer_id,
       customer_name = EXCLUDED.customer_name,
@@ -1217,6 +1564,7 @@ async function createOrUpdateReceiptRecord(
       updated_at = NOW()`,
     [
       createId("rcp"),
+      order.business_id ?? null,
       order.id,
       receiptNumber,
       order.order_number,
@@ -1245,9 +1593,10 @@ async function nextReceiptNumber(client: DbClient) {
 
 async function notifyOwnerOfNewOrder(order: Order, settings: Settings) {
   if (!settings.whatsapp_enabled || !settings.whatsapp_owner_alerts_enabled) return;
-  const to = process.env.BUSINESS_WHATSAPP_NUMBER || settings.whatsapp_business_number;
+  const to = settings.whatsapp_business_number || process.env.BUSINESS_WHATSAPP_NUMBER;
   const result = await sendWhatsAppMessage(to, buildOrderWhatsAppMessage(order, settings), {
-    defaultCountryCode: settings.whatsapp_country_code
+    defaultCountryCode: settings.whatsapp_country_code,
+    provider: settings.whatsapp_provider
   });
   if (!result.ok && !result.skipped) {
     console.warn("Owner WhatsApp alert was not sent", { orderId: order.id, reason: result.message });
@@ -1257,7 +1606,8 @@ async function notifyOwnerOfNewOrder(order: Order, settings: Settings) {
 async function notifyCustomerReceipt(order: Order, settings: Settings) {
   if (!settings.whatsapp_enabled || !(settings.whatsapp_customer_receipts_enabled || settings.receipt_whatsapp_enabled)) return;
   const result = await sendWhatsAppMessage(order.customer_snapshot.phone, buildCustomerReceiptWhatsAppMessage(order, settings), {
-    defaultCountryCode: settings.whatsapp_country_code
+    defaultCountryCode: settings.whatsapp_country_code,
+    provider: settings.whatsapp_provider
   });
   if (result.ok) {
     await query("UPDATE receipts SET whatsapp_sent_at = NOW(), updated_at = NOW() WHERE order_id = $1", [order.id]);
@@ -1266,10 +1616,22 @@ async function notifyCustomerReceipt(order: Order, settings: Settings) {
   }
 }
 
+async function notifyCustomerOrderConfirmation(order: Order, settings: Settings) {
+  if (!settings.whatsapp_enabled || !settings.whatsapp_customer_confirmations_enabled) return;
+  const result = await sendWhatsAppMessage(order.customer_snapshot.phone, buildCustomerConfirmationMessage(order, settings), {
+    defaultCountryCode: settings.whatsapp_country_code,
+    provider: settings.whatsapp_provider
+  });
+  if (!result.ok && !result.skipped) {
+    console.warn("Customer order confirmation WhatsApp was not sent", { orderId: order.id, reason: result.message });
+  }
+}
+
 async function notifyCustomerDriverAssigned(order: Order, settings: Settings) {
   if (!settings.whatsapp_enabled || !settings.whatsapp_driver_assignment_enabled) return;
   const result = await sendWhatsAppMessage(order.customer_snapshot.phone, buildCustomerDriverAssignedWhatsAppMessage(order, settings), {
-    defaultCountryCode: settings.whatsapp_country_code
+    defaultCountryCode: settings.whatsapp_country_code,
+    provider: settings.whatsapp_provider
   });
   if (!result.ok && !result.skipped) {
     console.warn("Customer driver-assigned WhatsApp was not sent", { orderId: order.id, reason: result.message });
@@ -1279,7 +1641,8 @@ async function notifyCustomerDriverAssigned(order: Order, settings: Settings) {
 async function notifyDriverOfAssignment(order: Order, settings: Settings) {
   if (!settings.whatsapp_enabled || !settings.whatsapp_driver_alerts_enabled || !order.assigned_driver_phone) return;
   const result = await sendWhatsAppMessage(order.assigned_driver_phone, buildDriverAssignmentWhatsAppMessage(order, settings), {
-    defaultCountryCode: settings.whatsapp_country_code
+    defaultCountryCode: settings.whatsapp_country_code,
+    provider: settings.whatsapp_provider
   });
   if (!result.ok && !result.skipped) {
     console.warn("Driver assignment WhatsApp was not sent", { orderId: order.id, reason: result.message });
@@ -1289,7 +1652,8 @@ async function notifyDriverOfAssignment(order: Order, settings: Settings) {
 async function notifyCustomerOutForDelivery(order: Order, settings: Settings) {
   if (!settings.whatsapp_enabled || !settings.whatsapp_out_for_delivery_enabled) return;
   const result = await sendWhatsAppMessage(order.customer_snapshot.phone, buildCustomerOutForDeliveryWhatsAppMessage(order, settings), {
-    defaultCountryCode: settings.whatsapp_country_code
+    defaultCountryCode: settings.whatsapp_country_code,
+    provider: settings.whatsapp_provider
   });
   if (!result.ok && !result.skipped) {
     console.warn("Customer out-for-delivery WhatsApp was not sent", { orderId: order.id, reason: result.message });
@@ -1302,12 +1666,13 @@ async function updateCustomerWhatsAppLink(order: Order, message: string, setting
     "UPDATE orders SET whatsapp_customer_link = $1, updated_at = NOW() WHERE id = $2",
     [buildWhatsAppLink(order.customer_snapshot.phone, message, settings.whatsapp_country_code), order.id]
   );
-  return (await readOrderById(undefined, order.id)) || order;
+  return (await readOrderById(undefined, order.id, order.business_id)) || order;
 }
 
 export async function createOrder(payload: CheckoutPayload, userId?: string) {
   if (isDemoMode) return demoCreateOrder(payload, userId);
-  const settings = await getSettings();
+  const businessId = await resolveBusinessId({ businessId: payload.business_id, userId });
+  const settings = await getBusinessSettings(businessId);
 
   const order = await transaction(async (client) => {
     const orderId = createId("ord");
@@ -1327,7 +1692,7 @@ export async function createOrder(payload: CheckoutPayload, userId?: string) {
       preferred_payment_method: payload.payment_method
     };
 
-    const customer = await upsertCustomer(client, customerInput);
+    const customer = await upsertCustomer(client, customerInput, businessId);
     const customerSnapshot: CustomerInput = customer
       ? {
           name: customer.name,
@@ -1359,8 +1724,8 @@ export async function createOrder(payload: CheckoutPayload, userId?: string) {
     const lineItems = [];
     for (const item of payload.items) {
       const productRow = await query<any>(
-        "SELECT * FROM products WHERE id = $1 AND active = TRUE",
-        [item.product_id],
+        "SELECT * FROM products WHERE id = $1 AND active = TRUE AND (business_id = $2 OR business_id IS NULL)",
+        [item.product_id, businessId],
         client
       );
       const product = productRow.rows[0];
@@ -1430,14 +1795,15 @@ export async function createOrder(payload: CheckoutPayload, userId?: string) {
 
     await query(
       `INSERT INTO orders (
-        id, order_number, customer_id, customer_snapshot, order_type, status, payment_method,
+        id, business_id, order_number, customer_id, customer_snapshot, order_type, status, payment_method,
         payment_status, delivery_status, assigned_driver_id, subtotal, discount_total,
         tax_total, service_fee, delivery_fee, total, loyalty_points_earned,
         notes, delivery_latitude, delivery_longitude, delivery_location_link, waze_link,
         payment_link, created_by, completed_by, completed_at, inventory_applied
-      ) VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)`,
+      ) VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28)`,
       [
         orderId,
+        businessId,
         orderNumber,
         customer?.id ?? null,
         JSON.stringify(customerSnapshot),
@@ -1491,13 +1857,13 @@ export async function createOrder(payload: CheckoutPayload, userId?: string) {
 
       if (shouldCompleteNow) {
         await query(
-          "UPDATE products SET stock_quantity = stock_quantity - $1, updated_at = NOW() WHERE id = $2",
-          [item.quantity, item.product.id],
+          "UPDATE products SET stock_quantity = stock_quantity - $1, updated_at = NOW() WHERE id = $2 AND (business_id = $3 OR business_id IS NULL)",
+          [item.quantity, item.product.id, businessId],
           client
         );
         await query(
-          "INSERT INTO stock_movements (id, product_id, type, quantity_delta, reason, reference_id, user_id) VALUES ($1, $2, 'sale', $3, $4, $5, $6)",
-          [createId("mov"), item.product.id, -item.quantity, `Sale order #${orderNumber}`, orderId, userId ?? null],
+          "INSERT INTO stock_movements (id, business_id, product_id, type, quantity_delta, reason, reference_id, user_id) VALUES ($1, $2, $3, 'sale', $4, $5, $6, $7)",
+          [createId("mov"), businessId, item.product.id, -item.quantity, `Sale order #${orderNumber}`, orderId, userId ?? null],
           client
         );
       }
@@ -1539,11 +1905,11 @@ export async function createOrder(payload: CheckoutPayload, userId?: string) {
       );
     }
 
-    let order = await readOrderById(client, orderId);
+    let order = await readOrderById(client, orderId, businessId);
     if (!order) throw new Error("Order not found");
     if (shouldCompleteNow) {
       await createOrUpdateReceiptRecord(client, order, receiptNumber, payload.created_by || userId || null);
-      order = await readOrderById(client, orderId);
+      order = await readOrderById(client, orderId, businessId);
       if (!order) throw new Error("Order not found");
     }
     if (settings.whatsapp_enabled) {
@@ -1556,7 +1922,7 @@ export async function createOrder(payload: CheckoutPayload, userId?: string) {
         [businessLink, customerLink, orderId],
         client
       );
-      order = await readOrderById(client, orderId);
+      order = await readOrderById(client, orderId, businessId);
       if (!order) throw new Error("Order not found");
     }
 
@@ -1564,6 +1930,7 @@ export async function createOrder(payload: CheckoutPayload, userId?: string) {
     return order;
   });
   await notifyOwnerOfNewOrder(order, settings);
+  await notifyCustomerOrderConfirmation(order, settings);
   if (order.assigned_driver_id && order.delivery_status !== "not_required") {
     await notifyCustomerDriverAssigned(order, settings);
     await notifyDriverOfAssignment(order, settings);
@@ -1575,14 +1942,16 @@ export async function createOrder(payload: CheckoutPayload, userId?: string) {
   return order;
 }
 
-async function readOrderById(client: DbClient | undefined, id: string) {
+async function readOrderById(client: DbClient | undefined, id: string, businessId?: string | null) {
+  const params: unknown[] = [id];
+  const scope = businessId ? ` AND ${businessScopedClause(params, businessId, "o")}` : "";
   const row = await query<any>(
     `SELECT o.*, u.name AS assigned_driver_name, u.phone AS assigned_driver_phone, completed_user.name AS completed_by_name
      FROM orders o
      LEFT JOIN users u ON u.id = o.assigned_driver_id
      LEFT JOIN users completed_user ON completed_user.id = o.completed_by
-     WHERE o.id = $1`,
-    [id],
+     WHERE o.id = $1${scope}`,
+    params,
     client
   );
   if (!row.rows[0]) return null;
@@ -1590,9 +1959,9 @@ async function readOrderById(client: DbClient | undefined, id: string) {
   return orders[0] || null;
 }
 
-export async function getOrder(id: string) {
+export async function getOrder(id: string, businessId?: string | null) {
   if (isDemoMode) return demoGetOrder(id);
-  return readOrderById(undefined, id);
+  return readOrderById(undefined, id, businessId);
 }
 
 export async function listOrders(options: {
@@ -1602,11 +1971,13 @@ export async function listOrders(options: {
   customerId?: string;
   driverId?: string;
   assignedOnly?: boolean;
+  businessId?: string | null;
   limit?: number;
 } = {}) {
   if (isDemoMode) return demoListOrders(options);
   const params: unknown[] = [];
   const clauses: string[] = ["TRUE"];
+  if (options.businessId) clauses.push(businessScopedClause(params, options.businessId, "o"));
 
   if (options.query?.trim()) {
     const like = addParam(params, `%${options.query.trim()}%`);
@@ -1645,10 +2016,11 @@ export async function listOrders(options: {
 
 export async function updateDeliveryStatus(orderId: string, status: Order["delivery_status"], userId?: string) {
   if (isDemoMode) return demoUpdateDeliveryStatus(orderId, status, userId);
-  const settings = await getSettings();
+  const businessId = await getBusinessIdForUser(userId);
+  const settings = await getBusinessSettings(businessId);
   let shouldNotifyOutForDelivery = false;
   let updatedOrder = await transaction(async (client) => {
-    const order = await readOrderById(client, orderId);
+    const order = await readOrderById(client, orderId, businessId);
     if (!order) return null;
     shouldNotifyOutForDelivery = order.delivery_status !== "out_for_delivery" && status === "out_for_delivery";
     await query(
@@ -1662,7 +2034,7 @@ export async function updateDeliveryStatus(orderId: string, status: Order["deliv
       client
     );
     await auditLog("delivery:update_status", "order", orderId, { status }, userId, client);
-    return readOrderById(client, orderId);
+    return readOrderById(client, orderId, businessId);
   });
   if (updatedOrder && shouldNotifyOutForDelivery) {
     updatedOrder = await updateCustomerWhatsAppLink(
@@ -1677,12 +2049,13 @@ export async function updateDeliveryStatus(orderId: string, status: Order["deliv
 
 export async function updateOrder(id: string, input: Partial<Order>, userId?: string) {
   if (isDemoMode) return demoUpdateOrder(id, input, userId);
-  const settings = await getSettings();
+  const businessId = await getBusinessIdForUser(userId);
+  const settings = await getBusinessSettings(businessId);
   let shouldNotifyCustomerReceipt = false;
   let shouldNotifyDriverAssigned = false;
   let shouldNotifyOutForDelivery = false;
   const updatedOrder = await transaction(async (client) => {
-    const existing = await readOrderById(client, id);
+    const existing = await readOrderById(client, id, businessId);
     if (!existing) return null;
     const nextStatus = input.status ?? existing.status;
     const isCancelling = existing.status !== "cancelled" && nextStatus === "cancelled";
@@ -1729,10 +2102,10 @@ export async function updateOrder(id: string, input: Partial<Order>, userId?: st
     );
 
     if (isCompleting && !existing.inventory_applied) {
-      let completed = await readOrderById(client, id);
+      let completed = await readOrderById(client, id, businessId);
       if (completed) {
         await applyCompletedOrderEffects(client, completed, userId ?? null);
-        completed = await readOrderById(client, id);
+        completed = await readOrderById(client, id, businessId);
       }
       if (completed) {
         const existingReceipt = await query<{ receipt_number: string }>(
@@ -1771,7 +2144,7 @@ export async function updateOrder(id: string, input: Partial<Order>, userId?: st
         client
       );
     }
-    return readOrderById(client, id);
+    return readOrderById(client, id, businessId);
   });
   if (updatedOrder && shouldNotifyCustomerReceipt) {
     await notifyCustomerReceipt(updatedOrder, settings);
@@ -1804,7 +2177,8 @@ export async function updateOrder(id: string, input: Partial<Order>, userId?: st
 export async function deleteOrder(id: string, userId?: string) {
   if (isDemoMode) return demoDeleteOrder(id, userId);
   return transaction(async (client) => {
-    const existing = await readOrderById(client, id);
+    const businessId = await getBusinessIdForUser(userId, client);
+    const existing = await readOrderById(client, id, businessId);
     if (!existing) return null;
     const shouldRestoreStock = Boolean(existing.inventory_applied);
     const shouldReverseCustomer = Boolean(existing.customer_id) && Boolean(existing.inventory_applied);
@@ -1856,30 +2230,42 @@ export async function getDeliveries(user?: User | null) {
   return listOrders({
     type: "delivery",
     driverId: user?.role === "driver" ? user.id : undefined,
+    businessId: user?.business_id,
     limit: 150
   });
 }
 
-export async function getDashboardData(): Promise<DashboardData> {
+export async function getDashboardData(businessId?: string | null): Promise<DashboardData> {
   if (isDemoMode) return demoDashboardData();
 
   const today = startOfDay(new Date());
   const week = subDays(new Date(), 7);
   const month = subDays(new Date(), 30);
+  const orderScope = businessId ? "AND (business_id = $2 OR business_id IS NULL)" : "";
+  const orderScopeAlias = businessId ? "AND (o.business_id = $2 OR o.business_id IS NULL)" : "";
+  const oneParamScope = businessId ? "AND (business_id = $1 OR business_id IS NULL)" : "";
+  const businessParam = businessId ? [businessId] : [];
 
   const totalSince = async (date: Date) => {
     const result = await query<{ total: string }>(
-      "SELECT COALESCE(SUM(total), 0) AS total FROM orders WHERE status != 'cancelled' AND created_at >= $1",
-      [date]
+      `SELECT COALESCE(SUM(total), 0) AS total FROM orders WHERE status != 'cancelled' AND created_at >= $1 ${orderScope}`,
+      businessId ? [date, businessId] : [date]
     );
     return Number(result.rows[0]?.total || 0);
   };
 
   const [
     settings,
+    business,
+    subscription,
     dailySales,
     weeklySales,
     monthlySales,
+    newOrderRows,
+    pendingOrderRows,
+    completedOrderRows,
+    recentCustomerRows,
+    checklistProductRows,
     deliveryOrderCountRows,
     profitEstimateRows,
     lowStockRows,
@@ -1889,63 +2275,103 @@ export async function getDashboardData(): Promise<DashboardData> {
     cashierRows,
     seriesRows
   ] = await Promise.all([
-    getSettings(),
+    getBusinessSettings(businessId),
+    getBusinessById(businessId),
+    getCurrentSubscription(businessId),
     totalSince(today),
     totalSince(week),
     totalSince(month),
     query<{ count: string }>(
-      "SELECT COUNT(*) AS count FROM orders WHERE order_type = 'delivery' AND created_at >= $1",
-      [month]
+      `SELECT COUNT(*) AS count FROM orders WHERE status = 'new' ${oneParamScope}`,
+      businessParam
+    ),
+    query<{ count: string }>(
+      `SELECT COUNT(*) AS count FROM orders WHERE status IN ('new', 'accepted', 'preparing', 'ready', 'out_for_delivery') ${oneParamScope}`,
+      businessParam
+    ),
+    query<{ count: string }>(
+      `SELECT COUNT(*) AS count FROM orders WHERE status = 'completed' AND created_at >= $1 ${orderScope}`,
+      businessId ? [today, businessId] : [today]
+    ),
+    query<any>(
+      `SELECT * FROM customers WHERE TRUE ${oneParamScope} ORDER BY updated_at DESC LIMIT 6`,
+      businessParam
+    ),
+    query<any>(
+      `SELECT id, name, sku, barcode, category, cost_price, selling_price, stock_quantity, low_stock_alert, image_url, supplier_name, supplier_phone, active
+       FROM products
+       WHERE active = TRUE ${oneParamScope}
+       LIMIT 25`,
+      businessParam
+    ),
+    query<{ count: string }>(
+      `SELECT COUNT(*) AS count FROM orders WHERE order_type = 'delivery' AND created_at >= $1 ${orderScope}`,
+      businessId ? [month, businessId] : [month]
     ),
     query<{ profit: string }>(
       `SELECT COALESCE(SUM(oi.line_total - (oi.cost_price * oi.quantity)), 0) AS profit
        FROM order_items oi
        JOIN orders o ON o.id = oi.order_id
-       WHERE o.status != 'cancelled' AND o.created_at >= $1`,
-      [month]
+       WHERE o.status != 'cancelled' AND o.created_at >= $1 ${orderScopeAlias}`,
+      businessId ? [month, businessId] : [month]
     ),
     query<any>(
-      "SELECT * FROM products WHERE active = TRUE AND stock_quantity <= low_stock_alert ORDER BY stock_quantity ASC LIMIT 8"
+      `SELECT * FROM products WHERE active = TRUE AND stock_quantity <= low_stock_alert ${oneParamScope} ORDER BY stock_quantity ASC LIMIT 8`,
+      businessParam
     ),
     query<{ name: string; quantity: string; total: string }>(
       `SELECT product_name AS name, SUM(quantity) AS quantity, SUM(line_total) AS total
        FROM order_items oi
        JOIN orders o ON o.id = oi.order_id
        WHERE o.status != 'cancelled'
+       ${businessId ? "AND (o.business_id = $1 OR o.business_id IS NULL)" : ""}
        GROUP BY product_name
        ORDER BY quantity DESC
-       LIMIT 8`
+       LIMIT 8`,
+      businessParam
     ),
     query<{ name: string; total_spent: string; orders_count: string }>(
-      "SELECT name, total_spent, orders_count FROM customers ORDER BY total_spent DESC LIMIT 8"
+      `SELECT name, total_spent, orders_count FROM customers WHERE TRUE ${oneParamScope} ORDER BY total_spent DESC LIMIT 8`,
+      businessParam
     ),
     query<{ method: string; total: string; count: string }>(
       `SELECT payment_method AS method, SUM(total) AS total, COUNT(*) AS count
        FROM orders
-       WHERE status != 'cancelled'
+       WHERE status != 'cancelled' ${oneParamScope}
        GROUP BY payment_method
-       ORDER BY total DESC`
+       ORDER BY total DESC`,
+      businessParam
     ),
     query<{ name: string; total: string; count: string }>(
       `SELECT COALESCE(u.name, 'Online / unassigned') AS name, SUM(o.total) AS total, COUNT(*) AS count
        FROM orders o
        LEFT JOIN users u ON u.id = o.created_by
-       WHERE o.status != 'cancelled'
+       WHERE o.status != 'cancelled' ${businessId ? "AND (o.business_id = $1 OR o.business_id IS NULL)" : ""}
        GROUP BY COALESCE(u.name, 'Online / unassigned')
-       ORDER BY total DESC`
+       ORDER BY total DESC`,
+      businessParam
     ),
     query<{ date: string; total: string }>(
       `SELECT TO_CHAR(created_at::date, 'YYYY-MM-DD') AS date, SUM(total) AS total
        FROM orders
-       WHERE status != 'cancelled' AND created_at >= $1
+       WHERE status != 'cancelled' AND created_at >= $1 ${orderScope}
        GROUP BY created_at::date
        ORDER BY date ASC`,
-      [month]
+      businessId ? [month, businessId] : [month]
     )
   ]);
 
   return {
     currency: settings.currency,
+    business,
+    storefrontUrl: business?.storefront_slug || business?.slug ? `/store/${business.storefront_slug || business.slug}` : "/online",
+    whatsappConfigured: Boolean(settings.whatsapp_enabled && (settings.whatsapp_business_number || process.env.BUSINESS_WHATSAPP_NUMBER)),
+    subscription,
+    setupChecklist: setupChecklistForBusiness(business, settings, checklistProductRows.rows.map(rowToProduct)),
+    newOrders: Number(newOrderRows.rows[0]?.count || 0),
+    pendingOrders: Number(pendingOrderRows.rows[0]?.count || 0),
+    completedOrders: Number(completedOrderRows.rows[0]?.count || 0),
+    recentCustomers: recentCustomerRows.rows.map(rowToCustomer),
     dailySales,
     weeklySales,
     monthlySales,
@@ -1979,8 +2405,8 @@ export async function getDashboardData(): Promise<DashboardData> {
   };
 }
 
-export async function exportSalesCsv() {
-  const orders = await listOrders({ limit: 300 });
+export async function exportSalesCsv(businessId?: string | null) {
+  const orders = await listOrders({ limit: 300, businessId });
   const rows = [
     ["Order #", "Date", "Type", "Customer", "Payment Method", "Payment Status", "Delivery Status", "Total"],
     ...orders.map((order) => [
@@ -2000,7 +2426,7 @@ export async function exportSalesCsv() {
     .join("\n");
 }
 
-export async function listReceipts(options: { query?: string; limit?: number } = {}): Promise<Receipt[]> {
+export async function listReceipts(options: { query?: string; limit?: number; businessId?: string | null } = {}): Promise<Receipt[]> {
   if (isDemoMode) {
     const orders = await demoListOrders({ query: options.query, limit: options.limit || 100 });
     return orders
@@ -2033,6 +2459,7 @@ export async function listReceipts(options: { query?: string; limit?: number } =
 
   const params: unknown[] = [];
   const clauses = ["TRUE"];
+  if (options.businessId) clauses.push(businessScopedClause(params, options.businessId, "r"));
   if (options.query?.trim()) {
     const like = addParam(params, `%${options.query.trim()}%`);
     clauses.push(`(
@@ -2056,18 +2483,20 @@ export async function listReceipts(options: { query?: string; limit?: number } =
   return rows.rows.map(rowToReceipt);
 }
 
-export async function getReceipt(id: string) {
+export async function getReceipt(id: string, businessId?: string | null) {
   if (isDemoMode) {
     const receipts = await listReceipts({ limit: 300 });
     return receipts.find((receipt) => receipt.id === id || receipt.order_id === id) || null;
   }
+  const params: unknown[] = [id];
+  const scope = businessId ? ` AND ${businessScopedClause(params, businessId, "r")}` : "";
   const row = await query<any>(
     `SELECT r.*, u.name AS completed_by_name
      FROM receipts r
      LEFT JOIN users u ON u.id = r.completed_by
-     WHERE r.id = $1 OR r.order_id = $1
+     WHERE (r.id = $1 OR r.order_id = $1)${scope}
      LIMIT 1`,
-    [id]
+    params
   );
   return row.rows[0] ? rowToReceipt(row.rows[0]) : null;
 }
@@ -2077,13 +2506,15 @@ export async function resendReceiptWhatsApp(receiptId: string, userId?: string) 
     const receipt = await getReceipt(receiptId);
     return receipt ? { receipt, message: "WhatsApp is not configured in demo mode." } : null;
   }
-  const receipt = await getReceipt(receiptId);
+  const businessId = await getBusinessIdForUser(userId);
+  const receipt = await getReceipt(receiptId, businessId);
   if (!receipt) return null;
-  const order = await getOrder(receipt.order_id);
+  const order = await getOrder(receipt.order_id, businessId);
   if (!order) return null;
-  const settings = await getSettings();
+  const settings = await getBusinessSettings(businessId);
   const result = await sendWhatsAppMessage(order.customer_snapshot.phone, buildCustomerReceiptWhatsAppMessage(order, settings), {
-    defaultCountryCode: settings.whatsapp_country_code
+    defaultCountryCode: settings.whatsapp_country_code,
+    provider: settings.whatsapp_provider
   });
   if (result.ok) {
     await query("UPDATE receipts SET whatsapp_sent_at = NOW(), updated_at = NOW() WHERE id = $1", [receipt.id]);

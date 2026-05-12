@@ -14,6 +14,7 @@ const loginSchema = z.object({
 const demoUsers = [
   {
     id: "usr_demo_admin",
+    business_id: "biz_savannah_sea",
     name: "Demo Admin",
     email: "admin@demo.com",
     role: "admin" as const,
@@ -22,6 +23,7 @@ const demoUsers = [
   },
   {
     id: "usr_setup_admin",
+    business_id: "biz_savannah_sea",
     name: "Asha Maharaj",
     email: "admin@caribbeanpos.test",
     role: "admin" as const,
@@ -70,6 +72,7 @@ export async function POST(request: Request) {
 
     return createLoginResponse({
       id: row.id,
+      business_id: row.business_id || null,
       name: row.name,
       email: row.email,
       role: row.role,

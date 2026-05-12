@@ -18,10 +18,12 @@ function productSaveError(error: unknown) {
   return message || "Product could not be updated.";
 }
 
-export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireUser(request, "inventory:read");
+  if (!auth.user) return fail(auth.error, auth.status);
   const { id } = await params;
   try {
-    const product = await getProduct(id);
+    const product = await getProduct(id, auth.user.business_id);
     if (!product) return fail("Product not found", 404);
     return ok({ product });
   } catch (error) {

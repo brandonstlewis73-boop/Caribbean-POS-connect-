@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
   const auth = await requireUser(request, "inventory:read");
   if (!auth.user) return fail(auth.error, auth.status);
   try {
-    return ok({ products: await listProducts(request.nextUrl.searchParams.get("q") || undefined) });
+    return ok({ products: await listProducts(request.nextUrl.searchParams.get("q") || undefined, false, auth.user.business_id) });
   } catch (error) {
     return fail(error instanceof Error ? error.message : "Products could not be loaded.", 500);
   }

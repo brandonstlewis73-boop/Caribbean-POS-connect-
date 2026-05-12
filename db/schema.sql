@@ -362,3 +362,107 @@ CREATE TABLE IF NOT EXISTS subscriptions (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS owner_name TEXT;
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS owner_email TEXT;
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS owner_phone TEXT;
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS business_whatsapp_number TEXT;
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS storefront_slug TEXT;
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS subscription_plan TEXT NOT NULL DEFAULT 'free_demo';
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS subscription_status TEXT NOT NULL DEFAULT 'trial';
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMPTZ;
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS setup_checklist JSONB NOT NULL DEFAULT '{}'::jsonb;
+
+UPDATE businesses
+SET storefront_slug = COALESCE(storefront_slug, slug),
+    business_whatsapp_number = COALESCE(business_whatsapp_number, phone),
+    owner_email = COALESCE(owner_email, email),
+    owner_phone = COALESCE(owner_phone, phone)
+WHERE storefront_slug IS NULL
+   OR business_whatsapp_number IS NULL
+   OR owner_email IS NULL
+   OR owner_phone IS NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_businesses_storefront_slug ON businesses(storefront_slug);
+
+CREATE TABLE IF NOT EXISTS business_settings (
+  business_id TEXT NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+  key TEXT NOT NULL,
+  value JSONB NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (business_id, key)
+);
+
+ALTER TABLE products ADD COLUMN IF NOT EXISTS business_id TEXT REFERENCES businesses(id) ON DELETE CASCADE;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS business_id TEXT REFERENCES businesses(id) ON DELETE CASCADE;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS business_id TEXT REFERENCES businesses(id) ON DELETE CASCADE;
+ALTER TABLE receipts ADD COLUMN IF NOT EXISTS business_id TEXT REFERENCES businesses(id) ON DELETE CASCADE;
+ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS business_id TEXT REFERENCES businesses(id) ON DELETE SET NULL;
+ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS business_id TEXT REFERENCES businesses(id) ON DELETE SET NULL;
+ALTER TABLE ai_support_logs ADD COLUMN IF NOT EXISTS business_id TEXT REFERENCES businesses(id) ON DELETE SET NULL;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public' AND c.relname = 'users' AND c.relkind IN ('r', 'p')
+  ) THEN
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS business_id TEXT REFERENCES businesses(id) ON DELETE SET NULL;
+    UPDATE users SET business_id = 'biz_savannah_sea' WHERE business_id IS NULL;
+    CREATE INDEX IF NOT EXISTS idx_users_business_role ON users(business_id, role, active);
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public' AND c.relname = 'users' AND c.relkind = 'v'
+  ) AND EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'staff_users' AND column_name = 'business_id'
+  ) THEN
+    EXECUTE 'CREATE OR REPLACE VIEW public.users WITH (security_invoker = true) AS
+      SELECT id, name, email, password_hash, role, phone, active, created_at, updated_at, business_id
+      FROM public.staff_users';
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public' AND c.relname = 'stock_movements' AND c.relkind IN ('r', 'p')
+  ) THEN
+    ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS business_id TEXT REFERENCES businesses(id) ON DELETE CASCADE;
+    UPDATE stock_movements SET business_id = 'biz_savannah_sea' WHERE business_id IS NULL;
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public' AND c.relname = 'stock_movements' AND c.relkind = 'v'
+  ) AND EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'inventory_logs' AND column_name = 'business_id'
+  ) THEN
+    EXECUTE 'CREATE OR REPLACE VIEW public.stock_movements WITH (security_invoker = true) AS
+      SELECT id, product_id, type, quantity_delta, reason, reference_id, user_id, created_at, business_id
+      FROM public.inventory_logs';
+  END IF;
+END $$;
+
+UPDATE products SET business_id = 'biz_savannah_sea' WHERE business_id IS NULL;
+UPDATE customers SET business_id = 'biz_savannah_sea' WHERE business_id IS NULL;
+UPDATE orders SET business_id = 'biz_savannah_sea' WHERE business_id IS NULL;
+UPDATE receipts SET business_id = 'biz_savannah_sea' WHERE business_id IS NULL;
+UPDATE audit_logs SET business_id = 'biz_savannah_sea' WHERE business_id IS NULL;
+
+ALTER TABLE products DROP CONSTRAINT IF EXISTS products_sku_key;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_products_business_sku ON products(business_id, sku);
+CREATE INDEX IF NOT EXISTS idx_products_business_active ON products(business_id, active);
+CREATE INDEX IF NOT EXISTS idx_customers_business_lookup ON customers(business_id, phone_normalized, email);
+CREATE INDEX IF NOT EXISTS idx_orders_business_created ON orders(business_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_receipts_business_created ON receipts(business_id, created_at DESC);

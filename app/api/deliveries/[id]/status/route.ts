@@ -16,7 +16,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const parsed = statusSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return fail("Invalid delivery status", 422, parsed.error.flatten());
   const { id } = await params;
-  const existing = await getOrder(id);
+  const existing = await getOrder(id, auth.user.business_id);
   if (!existing || existing.order_type !== "delivery") return fail("Delivery not found", 404);
   if (auth.user.role === "driver" && existing.assigned_driver_id !== auth.user.id) {
     return fail("Delivery not found", 404);

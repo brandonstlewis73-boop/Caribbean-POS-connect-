@@ -1,6 +1,7 @@
 "use client";
 
-import { AlertTriangle, Bike, CreditCard, DollarSign, ReceiptText, TrendingUp } from "lucide-react";
+import Link from "next/link";
+import { AlertTriangle, Bike, CreditCard, DollarSign, MessageCircle, ReceiptText, Store, TrendingUp } from "lucide-react";
 import type { DashboardData } from "@/lib/types";
 import { money } from "@/lib/constants";
 import { Badge } from "@/components/ui/Badge";
@@ -35,15 +36,50 @@ export function DashboardHome({ data }: { data: DashboardData }) {
   const formatMoney = (value: number | string | null | undefined) => money(value, data.currency);
   const stats = [
     { label: "Daily sales", value: formatMoney(data.dailySales), icon: DollarSign },
-    { label: "Total orders", value: String(data.paymentBreakdown.reduce((sum, item) => sum + item.count, 0)), icon: ReceiptText },
+    { label: "New orders", value: String(data.newOrders), icon: ReceiptText },
+    { label: "Pending orders", value: String(data.pendingOrders), icon: AlertTriangle },
+    { label: "Completed today", value: String(data.completedOrders), icon: TrendingUp },
     { label: "Average sale", value: formatMoney(data.paymentBreakdown.reduce((sum, item) => sum + item.total, 0) / Math.max(1, data.paymentBreakdown.reduce((sum, item) => sum + item.count, 0))), icon: CreditCard },
-    { label: "Returns/cancellations", value: "0", icon: AlertTriangle },
     { label: "Weekly sales", value: formatMoney(data.weeklySales), icon: TrendingUp },
     { label: "Deliveries", value: String(data.deliveryOrderCount), icon: Bike }
   ];
 
   return (
     <div className="grid gap-4">
+      <div className="grid gap-3 lg:grid-cols-[1.2fr_0.8fr]">
+        <div className="rounded-card border border-white/10 bg-white/[0.06] p-4 shadow-soft backdrop-blur-xl">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-bold text-teal-50/60">Storefront</p>
+              <h2 className="mt-1 text-xl font-black">{data.business?.name || "Your business"}</h2>
+            </div>
+            <Link href={data.storefrontUrl || "/online"} target="_blank" className="inline-flex min-h-11 items-center gap-2 rounded-card bg-caribbean-teal px-4 py-2 text-sm font-black text-white">
+              <Store className="h-4 w-4" />
+              Open store
+            </Link>
+          </div>
+          <p className="mt-3 break-all text-sm font-bold text-cyan-100">{data.storefrontUrl || "/online"}</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Badge tone={data.whatsappConfigured ? "green" : "amber"}>
+              <MessageCircle className="mr-1 inline h-3 w-3" />
+              {data.whatsappConfigured ? "WhatsApp ready" : "WhatsApp needs setup"}
+            </Badge>
+            {data.subscription ? <Badge tone="teal">{data.subscription.plan_name} - {data.subscription.status}</Badge> : null}
+          </div>
+        </div>
+        <Panel>
+          <PanelHeader title="Setup checklist" />
+          <div className="grid gap-2 p-4">
+            {(data.setupChecklist || []).map((item) => (
+              <div key={item.key} className="flex items-center justify-between gap-3 rounded-card bg-caribbean-cloud px-3 py-2 text-sm font-bold dark:bg-slate-950">
+                <span>{item.label}</span>
+                <Badge tone={item.complete ? "green" : "amber"}>{item.complete ? "Done" : "Todo"}</Badge>
+              </div>
+            ))}
+          </div>
+        </Panel>
+      </div>
+
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
         {stats.map((stat) => {
           const Icon = stat.icon;

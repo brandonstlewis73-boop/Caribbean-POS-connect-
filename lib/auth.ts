@@ -9,6 +9,7 @@ import { hasPermission, type Permission } from "./permissions";
 const COOKIE_NAME = "cpc_session";
 const demoUser: User = {
   id: "usr_demo_admin",
+  business_id: "biz_savannah_sea",
   name: "Demo Admin",
   email: "admin@demo.com",
   role: "admin",
@@ -22,6 +23,7 @@ type RequireUserResult =
 
 type AuthUserRow = {
   id: string;
+  business_id?: string | null;
   name: string;
   email: string;
   role: Role;
@@ -51,6 +53,7 @@ export async function createSession(user: User) {
   return new SignJWT({
     sub: user.id,
     role: user.role,
+    businessId: user.business_id,
     name: user.name,
     email: user.email
   })
@@ -70,14 +73,14 @@ function isMissingUsersRelation(error: unknown) {
 export async function getActiveUserById(id: string) {
   try {
     const result = await query<AuthUserRow>(
-      "SELECT id, name, email, role, phone, active FROM users WHERE id = $1 AND active = TRUE",
+      "SELECT id, business_id, name, email, role, phone, active FROM users WHERE id = $1 AND active = TRUE",
       [id]
     );
     return result.rows[0] ? { ...result.rows[0], active: Boolean(result.rows[0].active) } : null;
   } catch (error) {
     if (!isMissingUsersRelation(error)) throw error;
     const result = await query<AuthUserRow>(
-      "SELECT id, name, email, role, phone, active FROM staff_users WHERE id = $1 AND active = TRUE",
+      "SELECT id, business_id, name, email, role, phone, active FROM staff_users WHERE id = $1 AND active = TRUE",
       [id]
     );
     return result.rows[0] ? { ...result.rows[0], active: Boolean(result.rows[0].active) } : null;
@@ -87,14 +90,14 @@ export async function getActiveUserById(id: string) {
 export async function getLoginUserByEmail(email: string) {
   try {
     const result = await query<LoginUserRow>(
-      "SELECT id, name, email, password_hash, role, phone, active FROM users WHERE email = $1 AND active = TRUE",
+      "SELECT id, business_id, name, email, password_hash, role, phone, active FROM users WHERE email = $1 AND active = TRUE",
       [email]
     );
     return result.rows[0] ? { ...result.rows[0], active: Boolean(result.rows[0].active) } : null;
   } catch (error) {
     if (!isMissingUsersRelation(error)) throw error;
     const result = await query<LoginUserRow>(
-      "SELECT id, name, email, password_hash, role, phone, active FROM staff_users WHERE email = $1 AND active = TRUE",
+      "SELECT id, business_id, name, email, password_hash, role, phone, active FROM staff_users WHERE email = $1 AND active = TRUE",
       [email]
     );
     return result.rows[0] ? { ...result.rows[0], active: Boolean(result.rows[0].active) } : null;

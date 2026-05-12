@@ -2,6 +2,7 @@ export type Role = "owner" | "admin" | "manager" | "cashier" | "dispatcher" | "d
 
 export type User = {
   id: string;
+  business_id?: string | null;
   name: string;
   email: string;
   role: Role;
@@ -20,6 +21,11 @@ export type Business = {
   name: string;
   legal_name?: string | null;
   slug?: string | null;
+  storefront_slug?: string | null;
+  owner_name?: string | null;
+  owner_email?: string | null;
+  owner_phone?: string | null;
+  business_whatsapp_number?: string | null;
   phone?: string | null;
   email?: string | null;
   street_address?: string | null;
@@ -29,6 +35,10 @@ export type Business = {
   currency: string;
   logo_url?: string | null;
   tax_id?: string | null;
+  subscription_plan?: SubscriptionPlanId | string | null;
+  subscription_status?: "trial" | "active" | "past_due" | "cancelled" | string | null;
+  trial_ends_at?: string | null;
+  setup_checklist?: Record<string, boolean>;
   active: boolean;
   created_at?: string;
   updated_at?: string;
@@ -40,6 +50,11 @@ export type BusinessInput = Partial<
     | "name"
     | "legal_name"
     | "slug"
+    | "storefront_slug"
+    | "owner_name"
+    | "owner_email"
+    | "owner_phone"
+    | "business_whatsapp_number"
     | "phone"
     | "email"
     | "street_address"
@@ -49,11 +64,14 @@ export type BusinessInput = Partial<
     | "currency"
     | "logo_url"
     | "tax_id"
+    | "subscription_plan"
+    | "subscription_status"
   >
 >;
 
 export type Product = {
   id: string;
+  business_id?: string | null;
   name: string;
   sku: string;
   barcode?: string | null;
@@ -70,6 +88,7 @@ export type Product = {
 
 export type Customer = {
   id: string;
+  business_id?: string | null;
   name: string;
   phone?: string | null;
   phone_normalized?: string | null;
@@ -129,6 +148,7 @@ export type OrderItem = {
 
 export type Order = {
   id: string;
+  business_id?: string | null;
   order_number: string;
   customer_id?: string | null;
   customer_snapshot: CustomerInput;
@@ -182,6 +202,7 @@ export type Order = {
 
 export type Receipt = {
   id: string;
+  business_id?: string | null;
   order_id: string;
   order_number: string;
   receipt_number: string;
@@ -226,14 +247,17 @@ export type Settings = {
   payment_links_enabled: boolean;
   payment_link_template: string;
   whatsapp_enabled: boolean;
+  whatsapp_provider?: "twilio" | "meta" | string;
   whatsapp_business_number: string;
   whatsapp_country_code: string;
   whatsapp_owner_alerts_enabled: boolean;
+  whatsapp_customer_confirmations_enabled: boolean;
   whatsapp_customer_receipts_enabled: boolean;
   whatsapp_driver_assignment_enabled: boolean;
   whatsapp_driver_alerts_enabled: boolean;
   whatsapp_out_for_delivery_enabled: boolean;
   whatsapp_order_template: string;
+  whatsapp_customer_confirmation_template: string;
   whatsapp_customer_receipt_template: string;
   whatsapp_driver_assigned_template: string;
   whatsapp_driver_alert_template: string;
@@ -253,6 +277,8 @@ export type Settings = {
 };
 
 export type CheckoutPayload = {
+  business_id?: string | null;
+  storefront_slug?: string | null;
   items: Array<{
     product_id: string;
     quantity: number;
@@ -283,6 +309,15 @@ export type CheckoutPayload = {
 
 export type DashboardData = {
   currency: string;
+  business?: Business | null;
+  storefrontUrl?: string | null;
+  whatsappConfigured?: boolean;
+  subscription?: Subscription | null;
+  setupChecklist?: Array<{ key: string; label: string; complete: boolean }>;
+  newOrders: number;
+  pendingOrders: number;
+  completedOrders: number;
+  recentCustomers: Customer[];
   dailySales: number;
   weeklySales: number;
   monthlySales: number;
@@ -296,7 +331,7 @@ export type DashboardData = {
   salesSeries: Array<{ date: string; total: number }>;
 };
 
-export type SubscriptionPlanId = "starter" | "business" | "pro";
+export type SubscriptionPlanId = "free_demo" | "starter" | "pro" | "premium" | "business";
 
 export type SubscriptionPlan = {
   id: SubscriptionPlanId;
@@ -304,6 +339,10 @@ export type SubscriptionPlan = {
   audience: string;
   monthly_price: number;
   currency: string;
+  max_products?: number;
+  max_staff?: number;
+  whatsapp_enabled?: boolean;
+  ai_support_enabled?: boolean;
   features: string[];
 };
 
@@ -353,6 +392,7 @@ export type SupportTicketPriority = "low" | "medium" | "high" | "urgent";
 
 export type SupportTicket = {
   id: string;
+  business_id?: string | null;
   ticket_number: string;
   name: string;
   business_name?: string | null;

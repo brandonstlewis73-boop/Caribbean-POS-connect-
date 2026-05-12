@@ -82,15 +82,19 @@ const demoSettings: Settings = {
   payment_link_template:
     "https://pay.example.com/caribbean-pos-connect?order={{order_number}}&amount={{amount}}&phone={{customer_phone}}",
   whatsapp_enabled: true,
+  whatsapp_provider: "twilio",
   whatsapp_business_number: "4437582368",
-  whatsapp_country_code: "+1",
+  whatsapp_country_code: "+1868",
   whatsapp_owner_alerts_enabled: true,
+  whatsapp_customer_confirmations_enabled: true,
   whatsapp_customer_receipts_enabled: false,
   whatsapp_driver_assignment_enabled: true,
   whatsapp_driver_alerts_enabled: true,
   whatsapp_out_for_delivery_enabled: true,
   whatsapp_order_template:
     "New Order - {{business_name}}\n\nOrder #: {{order_number}}\nCustomer: {{customer_name}}\nPhone: {{customer_phone}}\nType: {{order_type}}\nAddress: {{address}}\n\nItems:\n{{items}}\n\nTotal: {{total}}\nPayment: {{payment_method}}\nPayment status: {{payment_status}}\nOrder status: {{order_status}}\nDate/time: {{date_time}}\nDashboard: {{dashboard_link}}\nPayment link: {{payment_link}}\n\nWaze:\n{{waze_link}}",
+  whatsapp_customer_confirmation_template:
+    "Thank you for ordering from {{business_name}}.\n\nOrder: #{{order_number}}\nItems:\n{{items}}\n\nTotal: {{total}}\nStatus: Received\n\nWe will update you when your order is ready.\nContact: {{business_phone}}",
   whatsapp_customer_receipt_template:
     "Hi {{customer_name}}, your receipt for order #{{order_number}} from {{business_name}} is ready.\n\nItems:\n{{items}}\n\nTotal: {{total}}\nPayment: {{payment_method}}\nCompleted: {{completed_at}}\n\n{{receipt_message}}\nContact: {{business_phone}}",
   whatsapp_driver_assigned_template:
@@ -908,6 +912,21 @@ export async function demoDashboardData(): Promise<DashboardData> {
   }
   return {
     currency: state.settings.currency,
+    business: state.businesses[0] || null,
+    storefrontUrl: `/store/${state.businesses[0]?.storefront_slug || state.businesses[0]?.slug || "savannah-sea-retail"}`,
+    whatsappConfigured: Boolean(state.settings.whatsapp_enabled && state.settings.whatsapp_business_number),
+    subscription: null,
+    setupChecklist: [
+      { key: "logo", label: "Add business logo", complete: Boolean(state.settings.logo_url) },
+      { key: "whatsapp", label: "Add business WhatsApp number", complete: Boolean(state.settings.whatsapp_business_number) },
+      { key: "products", label: "Add products", complete: state.products.length > 0 },
+      { key: "product_images", label: "Add product images", complete: state.products.some((product) => product.image_url) },
+      { key: "barcodes", label: "Add barcode/SKU if needed", complete: state.products.some((product) => product.barcode || product.sku) }
+    ],
+    newOrders: activeOrders.filter((order) => order.status === "new").length,
+    pendingOrders: activeOrders.filter((order) => ["new", "accepted", "preparing", "ready", "out_for_delivery"].includes(order.status)).length,
+    completedOrders: activeOrders.filter((order) => order.status === "completed").length,
+    recentCustomers: state.customers.slice(0, 6).map(cloneCustomer),
     dailySales: since(startOfDay(new Date())),
     weeklySales: since(subDays(new Date(), 7)),
     monthlySales: since(month),

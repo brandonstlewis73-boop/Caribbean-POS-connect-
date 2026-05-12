@@ -519,16 +519,22 @@ async function seedSettings() {
   await insertSetting("payment_links_enabled", true);
   await insertSetting("payment_link_template", "");
   await insertSetting("whatsapp_enabled", true);
+  await insertSetting("whatsapp_provider", "twilio");
   await insertSetting("whatsapp_business_number", "4437582368");
-  await insertSetting("whatsapp_country_code", "+1");
+  await insertSetting("whatsapp_country_code", "+1868");
   await insertSetting("whatsapp_owner_alerts_enabled", true);
+  await insertSetting("whatsapp_customer_confirmations_enabled", true);
   await insertSetting("whatsapp_customer_receipts_enabled", false);
   await insertSetting("whatsapp_driver_assignment_enabled", true);
   await insertSetting("whatsapp_driver_alerts_enabled", true);
   await insertSetting("whatsapp_out_for_delivery_enabled", true);
   await insertSetting(
     "whatsapp_order_template",
-    "New Order - {{business_name}}\n\nOrder #: {{order_number}}\nCustomer: {{customer_name}}\nPhone: {{customer_phone}}\nType: {{order_type}}\nAddress: {{address}}\n\nItems:\n{{items}}\n\nTotal: {{total}}\nPayment: {{payment_method}}\nPayment status: {{payment_status}}\nOrder status: {{order_status}}\nDate/time: {{date_time}}\nDashboard: {{dashboard_link}}\nPayment link: {{payment_link}}\n\nWaze:\n{{waze_link}}"
+    "New order received for {{business_name}}.\n\nOrder: #{{order_number}}\nCustomer: {{customer_name}}\nPhone: {{customer_phone}}\nType: {{order_type}}\nAddress: {{address}}\n\nItems:\n{{items}}\n\nTotal: {{total}}\nPayment status: {{payment_status}}\nStatus: {{order_status}}\nTime: {{date_time}}\n\nView order: {{dashboard_link}}"
+  );
+  await insertSetting(
+    "whatsapp_customer_confirmation_template",
+    "Thank you for ordering from {{business_name}}.\n\nOrder: #{{order_number}}\nItems:\n{{items}}\n\nTotal: {{total}}\nStatus: Received\n\nWe will update you when your order is ready.\nContact: {{business_phone}}"
   );
   await insertSetting(
     "whatsapp_customer_receipt_template",
@@ -608,8 +614,8 @@ async function seedInitialData() {
     ];
     for (const [name, email, role, phone] of users) {
       await rawQuery(
-        "INSERT INTO users (id, name, email, password_hash, role, phone) VALUES ($1, $2, $3, $4, $5, $6)",
-        [createId("usr"), name, email, passwordHash, role, phone]
+        "INSERT INTO users (id, business_id, name, email, password_hash, role, phone) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+        [createId("usr"), "biz_savannah_sea", name, email, passwordHash, role, phone]
       );
     }
   }

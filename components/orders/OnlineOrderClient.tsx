@@ -43,12 +43,20 @@ export function OnlineOrderClient({
   products: initialProducts,
   settings: initialSettings,
   market: initialMarket = null,
-  initialStatusMessage = ""
+  initialStatusMessage = "",
+  menuEndpoint = "/api/online",
+  orderEndpoint = "/api/orders",
+  businessId = null,
+  storefrontSlug = null
 }: {
   products: Product[];
   settings: Settings;
   market?: OnlineMarket | null;
   initialStatusMessage?: string;
+  menuEndpoint?: string;
+  orderEndpoint?: string;
+  businessId?: string | null;
+  storefrontSlug?: string | null;
 }) {
   const [products, setProducts] = useState(initialProducts);
   const [settings, setSettings] = useState(initialSettings);
@@ -69,7 +77,8 @@ export function OnlineOrderClient({
     let cancelled = false;
     async function loadOnlineMenu() {
       try {
-        const response = await fetch(`/api/online${window.location.search || ""}`, { cache: "no-store" });
+        const separator = menuEndpoint.includes("?") ? "&" : "?";
+        const response = await fetch(`${menuEndpoint}${window.location.search ? `${separator}${window.location.search.slice(1)}` : ""}`, { cache: "no-store" });
         const payload = await readApiPayload<{
           products: Product[];
           settings: Settings;
@@ -93,7 +102,7 @@ export function OnlineOrderClient({
     return () => {
       cancelled = true;
     };
-  }, [initialSettings]);
+  }, [initialSettings, menuEndpoint]);
 
   const visibleProducts = useMemo(
     () => products.filter((product) => category === "All" || product.category === category),
@@ -169,10 +178,12 @@ export function OnlineOrderClient({
     if (fulfillment === "delivery" && !customer.street_address) return setError("Delivery address is required.");
     setLoading(true);
     try {
-      const response = await fetch("/api/orders", {
+      const response = await fetch(orderEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          business_id: businessId,
+          storefront_slug: storefrontSlug,
           items: cart.map((item) => ({ product_id: item.id, quantity: item.quantity })),
           customer: { ...customer, preferred_payment_method: paymentMethod },
           order_type: fulfillment,

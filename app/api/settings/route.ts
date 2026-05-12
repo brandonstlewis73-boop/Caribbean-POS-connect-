@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { fail, ok } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
-import { getSettings, listUsers, updateSettings } from "@/lib/data";
+import { getBusinessSettings, listUsers, updateSettings } from "@/lib/data";
 import { settingsSchema } from "@/lib/validators";
 import type { Settings } from "@/lib/types";
 
@@ -11,8 +11,8 @@ export async function GET(request: NextRequest) {
   const auth = await requireUser(request, "dashboard:read");
   if (!auth.user) return fail(auth.error, auth.status);
   return ok({
-    settings: await getSettings(),
-    staff: ["admin", "manager"].includes(auth.user.role) ? await listUsers() : []
+    settings: await getBusinessSettings(auth.user.business_id),
+    staff: ["admin", "manager", "owner"].includes(auth.user.role) ? await listUsers(undefined, true, auth.user.business_id) : []
   });
 }
 

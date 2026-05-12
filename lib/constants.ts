@@ -278,24 +278,50 @@ export const STAFF_AVATAR_OPTIONS = [
 
 export const SUBSCRIPTION_PLANS = [
   {
+    id: "free_demo",
+    name: "Free Demo",
+    audience: "For testing one storefront before launch",
+    monthly_price: 0,
+    currency: CURRENCY_CODE,
+    max_products: 25,
+    max_staff: 2,
+    whatsapp_enabled: false,
+    ai_support_enabled: false,
+    features: [
+      "Demo storefront",
+      "Basic POS",
+      "Customer and order testing",
+      "Manual WhatsApp links"
+    ]
+  },
+  {
     id: "starter",
     name: "Starter Plan",
     audience: "For small food businesses",
     monthly_price: 149,
     currency: CURRENCY_CODE,
+    max_products: 100,
+    max_staff: 3,
+    whatsapp_enabled: true,
+    ai_support_enabled: false,
     features: [
       "Basic POS",
       "Customer management",
       "Order tracking",
-      "Basic reports"
+      "Basic reports",
+      "WhatsApp order alerts"
     ]
   },
   {
-    id: "business",
-    name: "Business Plan",
+    id: "pro",
+    name: "Pro Plan",
     audience: "For growing retail and delivery teams",
     monthly_price: 299,
     currency: CURRENCY_CODE,
+    max_products: 500,
+    max_staff: 10,
+    whatsapp_enabled: true,
+    ai_support_enabled: true,
     features: [
       "Everything in Starter",
       "Multi-user staff access",
@@ -306,13 +332,17 @@ export const SUBSCRIPTION_PLANS = [
     ]
   },
   {
-    id: "pro",
-    name: "Pro Plan",
+    id: "premium",
+    name: "Premium Plan",
     audience: "For multi-branch operators",
     monthly_price: 499,
     currency: CURRENCY_CODE,
+    max_products: 2000,
+    max_staff: 30,
+    whatsapp_enabled: true,
+    ai_support_enabled: true,
     features: [
-      "Everything in Business",
+      "Everything in Pro",
       "Multi-branch support",
       "Role permissions",
       "Priority support",

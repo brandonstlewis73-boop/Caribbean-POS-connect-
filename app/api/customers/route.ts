@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
   const auth = await requireUser(request, "customers:read");
   if (!auth.user) return fail(auth.error, auth.status);
   try {
-    return ok({ customers: await listCustomers(request.nextUrl.searchParams.get("q") || undefined) });
+    return ok({ customers: await listCustomers(request.nextUrl.searchParams.get("q") || undefined, auth.user.business_id) });
   } catch (error) {
     return fail(error instanceof Error ? error.message : "Customers could not be loaded.", 500);
   }

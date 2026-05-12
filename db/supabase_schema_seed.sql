@@ -26,6 +26,11 @@ CREATE TABLE IF NOT EXISTS public.businesses (
   name TEXT NOT NULL,
   legal_name TEXT,
   slug TEXT UNIQUE,
+  storefront_slug TEXT UNIQUE,
+  owner_name TEXT,
+  owner_email TEXT,
+  owner_phone TEXT,
+  business_whatsapp_number TEXT,
   phone TEXT,
   email TEXT,
   street_address TEXT,
@@ -35,9 +40,21 @@ CREATE TABLE IF NOT EXISTS public.businesses (
   currency TEXT NOT NULL DEFAULT 'TTD',
   logo_url TEXT,
   tax_id TEXT,
+  subscription_plan TEXT NOT NULL DEFAULT 'free_demo',
+  subscription_status TEXT NOT NULL DEFAULT 'trial',
+  trial_ends_at TIMESTAMPTZ,
+  setup_checklist JSONB NOT NULL DEFAULT '{}'::jsonb,
   active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.business_settings (
+  business_id TEXT NOT NULL REFERENCES public.businesses(id) ON DELETE CASCADE,
+  key TEXT NOT NULL,
+  value JSONB NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (business_id, key)
 );
 
 CREATE TABLE IF NOT EXISTS public.staff_users (
@@ -357,21 +374,28 @@ FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 -- The app queries "users" and writes "stock_movements".
 CREATE OR REPLACE VIEW public.users
 WITH (security_invoker = true) AS
-SELECT id, name, email, password_hash, role, phone, active, created_at, updated_at
+SELECT id, name, email, password_hash, role, phone, active, created_at, updated_at, business_id
 FROM public.staff_users;
 
 CREATE OR REPLACE VIEW public.stock_movements
 WITH (security_invoker = true) AS
-SELECT id, product_id, type, quantity_delta, reason, reference_id, user_id, created_at
+SELECT id, product_id, type, quantity_delta, reason, reference_id, user_id, created_at, business_id
 FROM public.inventory_logs;
 
 INSERT INTO public.businesses (
-  id, name, legal_name, slug, phone, email, street_address, city, region, country, currency, logo_url
+  id, name, legal_name, slug, storefront_slug, owner_name, owner_email, owner_phone,
+  business_whatsapp_number, phone, email, street_address, city, region, country, currency,
+  logo_url, subscription_plan, subscription_status, trial_ends_at
 ) VALUES (
   'biz_savannah_sea',
   'Savannah & Sea Retail Ltd.',
   'Savannah & Sea Retail Ltd.',
   'savannah-sea-retail',
+  'savannah-sea-retail',
+  'Demo Admin',
+  'admin@demo.com',
+  '868-443-7582',
+  '868-443-7582',
   '868-443-7582',
   'hello@savannahsea.tt',
   '18 Independence Square',
@@ -379,7 +403,10 @@ INSERT INTO public.businesses (
   'Port of Spain',
   'Trinidad and Tobago',
   'TTD',
-  '/logo.svg'
+  '/logo.svg',
+  'free_demo',
+  'trial',
+  NOW() + INTERVAL '14 days'
 ) ON CONFLICT (id) DO UPDATE SET
   name = EXCLUDED.name,
   phone = EXCLUDED.phone,
@@ -387,6 +414,9 @@ INSERT INTO public.businesses (
   street_address = EXCLUDED.street_address,
   city = EXCLUDED.city,
   region = EXCLUDED.region,
+  storefront_slug = COALESCE(public.businesses.storefront_slug, EXCLUDED.storefront_slug),
+  owner_email = COALESCE(public.businesses.owner_email, EXCLUDED.owner_email),
+  business_whatsapp_number = COALESCE(public.businesses.business_whatsapp_number, EXCLUDED.business_whatsapp_number),
   updated_at = NOW();
 
 INSERT INTO public.staff_users (

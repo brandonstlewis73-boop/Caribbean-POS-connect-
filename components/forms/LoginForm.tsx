@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { LogIn } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
@@ -74,6 +75,10 @@ export function LoginForm() {
         <LogIn className="h-4 w-4" />
         {loading ? "Signing in..." : "Sign in"}
       </Button>
+      <div className="flex flex-wrap items-center justify-between gap-3 text-sm font-bold text-teal-50/70">
+        <Link href="/signup" className="text-cyan-200">Create business account</Link>
+        <Link href="/forgot-password" className="text-cyan-200">Forgot password?</Link>
+      </div>
     </form>
   );
 }

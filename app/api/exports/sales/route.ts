@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 export async function GET(request: NextRequest) {
   const auth = await requireUser(request, "reports:read");
   if (!auth.user) return fail(auth.error, auth.status);
-  return new Response(await exportSalesCsv(), {
+  return new Response(await exportSalesCsv(auth.user.business_id), {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
       "Content-Disposition": "attachment; filename=caribbean-pos-sales.csv"

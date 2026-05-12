@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
   if (!auth.user) return fail(auth.error, auth.status);
   return ok({
     plans: listSubscriptionPlans(),
-    subscription: await getCurrentSubscription(),
+    subscription: await getCurrentSubscription(auth.user.business_id),
     paymentProvidersReady: {
       stripe: Boolean(process.env.STRIPE_SECRET_KEY),
       paypal: Boolean(process.env.PAYPAL_CLIENT_ID && process.env.PAYPAL_CLIENT_SECRET),
@@ -25,7 +25,7 @@ export async function PATCH(request: NextRequest) {
   if (!auth.user) return fail(auth.error, auth.status);
   const body = await request.json().catch(() => null);
   const planId = body?.plan_id as SubscriptionPlanId | undefined;
-  if (!planId || !["starter", "business", "pro"].includes(planId)) {
+  if (!planId || !["free_demo", "starter", "pro", "premium", "business"].includes(planId)) {
     return fail("Select a valid subscription plan.", 422);
   }
   const subscription = await updateSubscriptionPlan(planId, auth.user.id);

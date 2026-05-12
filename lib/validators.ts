@@ -98,6 +98,11 @@ export const businessSchema = z.object({
   name: z.string().trim().min(1),
   legal_name: optionalText,
   slug: optionalText,
+  storefront_slug: optionalText,
+  owner_name: optionalText,
+  owner_email: z.string().email().optional().or(z.literal("")).nullable(),
+  owner_phone: optionalText,
+  business_whatsapp_number: optionalText,
   phone: optionalText,
   email: z.string().email().optional().or(z.literal("")).nullable(),
   street_address: optionalText,
@@ -107,6 +112,25 @@ export const businessSchema = z.object({
   currency: currencySchema.default("TTD").optional(),
   logo_url: optionalText,
   tax_id: optionalText
+});
+
+export const businessSignupSchema = z.object({
+  business_name: z.string().trim().min(2, "Business name is required."),
+  owner_name: z.string().trim().min(2, "Owner name is required.").optional().default("Business Owner"),
+  email: z.string().trim().email("Enter a valid owner email address."),
+  whatsapp_number: z.string().trim().min(7, "WhatsApp number is required."),
+  password: z.string().min(8, "Password must be at least 8 characters."),
+  country: z.string().trim().optional().default("Trinidad and Tobago"),
+  currency: currencySchema.optional().default("TTD")
+});
+
+export const forgotPasswordSchema = z.object({
+  email: z.string().trim().email("Enter your account email address.")
+});
+
+export const whatsappTestSchema = z.object({
+  to: optionalText,
+  message: z.string().trim().min(2).max(1000).optional()
 });
 
 export const staffUserSchema = z.object({

@@ -10,8 +10,8 @@ export async function GET(request: NextRequest) {
   const auth = await requireUser(request, "pos:sell");
   if (!auth.user) return fail(auth.error, auth.status);
   return ok({
-    products: await listProducts(request.nextUrl.searchParams.get("q") || undefined),
-    customers: await listCustomers()
+    products: await listProducts(request.nextUrl.searchParams.get("q") || undefined, false, auth.user.business_id),
+    customers: await listCustomers(undefined, auth.user.business_id)
   });
 }
 
@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
   const parsed = checkoutSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return fail("Invalid checkout data", 422, parsed.error.flatten());
   try {
-    const order = await createOrder(parsed.data, auth.user.id);
+    const order = await createOrder({ ...parsed.data, business_id: auth.user.business_id }, auth.user.id);
     return ok({ order }, { status: 201 });
   } catch (error) {
     return fail(error instanceof Error ? error.message : "Checkout failed", 400);

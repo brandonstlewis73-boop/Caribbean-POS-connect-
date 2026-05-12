@@ -11,7 +11,8 @@ export async function GET(request: NextRequest) {
   return ok({
     receipts: await listReceipts({
       query: request.nextUrl.searchParams.get("q") || undefined,
-      limit: Number(request.nextUrl.searchParams.get("limit") || 100)
+      limit: Number(request.nextUrl.searchParams.get("limit") || 100),
+      businessId: auth.user.business_id
     })
   });
 }
