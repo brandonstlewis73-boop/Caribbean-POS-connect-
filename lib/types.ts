@@ -349,7 +349,7 @@ export type DashboardData = {
   salesSeries: Array<{ date: string; total: number }>;
 };
 
-export type SubscriptionPlanId = "free_demo" | "starter" | "pro" | "premium" | "business";
+export type SubscriptionPlanId = "starter" | "pro" | "premium" | "business";
 
 export type SubscriptionPlan = {
   id: SubscriptionPlanId;

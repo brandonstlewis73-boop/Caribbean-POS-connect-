@@ -48,7 +48,10 @@ function authJson(cookie, body) {
 const login = await request("/api/auth/login", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ email: "admin@demo.com", password: "demo123" })
+  body: JSON.stringify({
+    email: process.env.QA_LOGIN_EMAIL || "admin@caribbeanpos.test",
+    password: process.env.QA_LOGIN_PASSWORD || "Admin123!"
+  })
 });
 assertOk(login.status === 200, `Login failed with status ${login.status}: ${login.text}`);
 

@@ -3,19 +3,16 @@ import {
   databaseConfigStatus,
   databaseConnectionDiagnostics,
   databaseErrorMessage,
-  getDb,
-  isDemoMode
+  getDb
 } from "@/lib/db";
 import { whatsappConfigStatus } from "@/lib/whatsapp";
 
 export const runtime = "nodejs";
 
 async function getAuthStoreStatus() {
-  const adminEmails = ["admin@demo.com", "admin@caribbeanpos.test"];
   try {
     const result = await getDb().query<{ admin_count: string }>(
-      "SELECT COUNT(*) AS admin_count FROM users WHERE email = ANY($1::text[]) AND active = TRUE",
-      [adminEmails]
+      "SELECT COUNT(*) AS admin_count FROM users WHERE role IN ('owner', 'admin') AND active = TRUE"
     );
     return {
       source: "users",
@@ -26,8 +23,7 @@ async function getAuthStoreStatus() {
   } catch (usersError) {
     try {
       const result = await getDb().query<{ admin_count: string }>(
-        "SELECT COUNT(*) AS admin_count FROM staff_users WHERE email = ANY($1::text[]) AND active = TRUE",
-        [adminEmails]
+        "SELECT COUNT(*) AS admin_count FROM staff_users WHERE role IN ('owner', 'admin') AND active = TRUE"
       );
       return {
         source: "staff_users",
@@ -61,21 +57,6 @@ export async function GET() {
   const deployment = deploymentStatus();
   const whatsapp = whatsappConfigStatus();
   const startedAt = Date.now();
-
-  if (isDemoMode) {
-    return NextResponse.json({
-      ok: true,
-      mode: "demo",
-      database: {
-        connected: false,
-        message: "Demo memory mode is active. Saves are not persistent across server restarts.",
-        ...diagnostics
-      },
-      config,
-      deployment,
-      whatsapp
-    });
-  }
 
   try {
     await getDb().query("SELECT 1");

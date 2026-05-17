@@ -49,7 +49,7 @@ export async function detectCurrentAddress() {
       throw new Error(payload?.error || "Address could not be detected.");
     }
 
-    return { address: payload.address, provider: payload.provider || "demo" };
+    return { address: payload.address, provider: payload.provider || "fallback" };
   } catch (error) {
     if (typeof GeolocationPositionError !== "undefined" && error instanceof GeolocationPositionError) {
       if (error.code === error.PERMISSION_DENIED) {

@@ -13,7 +13,7 @@ export type ReverseGeocodeAddress = {
 
 export type ReverseGeocodeResult = {
   address: ReverseGeocodeAddress;
-  provider: "google" | "mapbox" | "demo";
+  provider: "google" | "mapbox" | "fallback";
 };
 
 function defaultCountryName() {
@@ -26,7 +26,7 @@ function defaultCountryName() {
 function fallbackAddress(lat: number, lng: number): ReverseGeocodeResult {
   const formatted = `Location selected near ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
   return {
-    provider: "demo",
+    provider: "fallback",
     address: {
       formatted,
       street: formatted,
@@ -116,7 +116,7 @@ async function reverseGeocodeMapbox(lat: number, lng: number, token: string): Pr
 }
 
 export async function reverseGeocode(lat: number, lng: number): Promise<ReverseGeocodeResult> {
-  const provider = (process.env.GEOCODING_PROVIDER || "demo").trim().toLowerCase();
+  const provider = (process.env.GEOCODING_PROVIDER || "fallback").trim().toLowerCase();
   const googleKey = process.env.GOOGLE_MAPS_API_KEY;
   const mapboxToken = process.env.MAPBOX_ACCESS_TOKEN;
 
@@ -130,7 +130,7 @@ export async function reverseGeocode(lat: number, lng: number): Promise<ReverseG
       if (mapbox) return mapbox;
     }
   } catch (error) {
-    console.warn("Reverse geocoding failed; using demo fallback", {
+    console.warn("Reverse geocoding failed; using address fallback", {
       provider,
       error: error instanceof Error ? error.message : "Unknown error"
     });

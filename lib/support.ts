@@ -1,5 +1,4 @@
-import { createId, isDemoMode, query, transaction } from "./db";
-import { DEFAULT_HELP_ARTICLES } from "./support-context";
+import { createId, query, transaction } from "./db";
 import type {
   HelpArticle,
   HelpArticleInput,
@@ -25,23 +24,6 @@ type SupportTicketUpdate = {
   ai_summary?: string | null;
   ai_possible_solution?: string | null;
 };
-
-declare global {
-  var __cpcDemoSupportTickets: SupportTicket[] | undefined;
-  var __cpcDemoHelpArticles: HelpArticle[] | undefined;
-}
-
-function demoArticles() {
-  if (!globalThis.__cpcDemoHelpArticles) {
-    globalThis.__cpcDemoHelpArticles = DEFAULT_HELP_ARTICLES.map((article) => ({ ...article }));
-  }
-  return globalThis.__cpcDemoHelpArticles;
-}
-
-function demoTickets() {
-  if (!globalThis.__cpcDemoSupportTickets) globalThis.__cpcDemoSupportTickets = [];
-  return globalThis.__cpcDemoSupportTickets;
-}
 
 function parseJson<T>(value: unknown, fallback: T): T {
   if (value === null || value === undefined) return fallback;
@@ -117,15 +99,6 @@ function allowedVisibility(role?: Role | null) {
   return ["staff", "public"];
 }
 
-function matchesArticleSearch(article: HelpArticle, search?: string | null) {
-  const needle = search?.trim().toLowerCase();
-  if (!needle) return true;
-  return [article.title, article.category, article.content, ...article.tags]
-    .join(" ")
-    .toLowerCase()
-    .includes(needle);
-}
-
 export async function listHelpArticles({
   search,
   role,
@@ -136,14 +109,6 @@ export async function listHelpArticles({
   includeUnpublished?: boolean;
 } = {}) {
   const visibility = allowedVisibility(role);
-  if (isDemoMode) {
-    return demoArticles()
-      .filter((article) => visibility.includes(article.visibility))
-      .filter((article) => includeUnpublished || article.published)
-      .filter((article) => matchesArticleSearch(article, search))
-      .sort((a, b) => `${a.category}-${a.title}`.localeCompare(`${b.category}-${b.title}`));
-  }
-
   const params: unknown[] = [visibility];
   const clauses = ["visibility = ANY($1::text[])"];
   if (!includeUnpublished) clauses.push("published = TRUE");
@@ -162,26 +127,6 @@ export async function listHelpArticles({
 }
 
 export async function createHelpArticle(input: HelpArticleInput, userId?: string | null) {
-  const now = new Date().toISOString();
-  if (isDemoMode) {
-    const article: HelpArticle = {
-      id: createId("help"),
-      title: input.title || "Untitled article",
-      category: input.category || "Getting Started",
-      content: input.content || "",
-      tags: input.tags || [],
-      visibility: input.visibility || "staff",
-      published: input.published ?? true,
-      last_updated_at: now,
-      created_by: userId || null,
-      updated_by: userId || null,
-      created_at: now,
-      updated_at: now
-    };
-    demoArticles().unshift(article);
-    return article;
-  }
-
   const id = createId("help");
   await query(
     `INSERT INTO help_articles (
@@ -202,24 +147,11 @@ export async function createHelpArticle(input: HelpArticleInput, userId?: string
 }
 
 export async function getHelpArticle(id: string) {
-  if (isDemoMode) return demoArticles().find((article) => article.id === id) || null;
   const rows = await query<any>("SELECT * FROM help_articles WHERE id = $1", [id]);
   return rows.rows[0] ? rowToHelpArticle(rows.rows[0]) : null;
 }
 
 export async function updateHelpArticle(id: string, input: HelpArticleInput, userId?: string | null) {
-  if (isDemoMode) {
-    const article = demoArticles().find((item) => item.id === id);
-    if (!article) return null;
-    Object.assign(article, {
-      ...input,
-      tags: input.tags ?? article.tags,
-      updated_by: userId || article.updated_by,
-      updated_at: new Date().toISOString(),
-      last_updated_at: new Date().toISOString()
-    });
-    return article;
-  }
   const existing = await getHelpArticle(id);
   if (!existing) return null;
   const next = { ...existing, ...input };
@@ -250,11 +182,6 @@ export async function updateHelpArticle(id: string, input: HelpArticleInput, use
 }
 
 export async function deleteHelpArticle(id: string) {
-  if (isDemoMode) {
-    const index = demoArticles().findIndex((article) => article.id === id);
-    if (index < 0) return null;
-    return demoArticles().splice(index, 1)[0];
-  }
   return transaction(async (client) => {
     const existing = await client.query("SELECT * FROM help_articles WHERE id = $1", [id]);
     if (!existing.rows[0]) return null;
@@ -272,33 +199,6 @@ export async function createSupportTicket(
   userId?: string | null,
   aiFields: TicketAiFields = {}
 ) {
-  const now = new Date().toISOString();
-  if (isDemoMode) {
-    const ticket: SupportTicket = {
-      id: createId("tic"),
-      ticket_number: ticketNumber(),
-      name: input.name || "Support user",
-      business_name: input.business_name || null,
-      email: input.email || "support@example.com",
-      phone: input.phone || null,
-      issue_category: aiFields.ai_category || input.issue_category || "Troubleshooting",
-      priority: aiFields.ai_priority || input.priority || "medium",
-      status: "new",
-      message: input.message || "",
-      screenshot_url: input.screenshot_url || null,
-      ai_summary: aiFields.ai_summary || null,
-      ai_category: aiFields.ai_category || null,
-      ai_priority: aiFields.ai_priority || null,
-      ai_possible_solution: aiFields.ai_possible_solution || null,
-      ai_steps_tried: aiFields.ai_steps_tried || [],
-      submitted_by: userId || null,
-      created_at: now,
-      updated_at: now
-    };
-    demoTickets().unshift(ticket);
-    return ticket;
-  }
-
   const id = createId("tic");
   await query(
     `INSERT INTO support_tickets (
@@ -337,20 +237,6 @@ export async function listSupportTickets({
   userId?: string | null;
   search?: string | null;
 } = {}) {
-  if (isDemoMode) {
-    const canManage = role ? canManageSupport(role) : false;
-    const needle = search?.trim().toLowerCase();
-    return demoTickets()
-      .filter((ticket) => canManage || ticket.submitted_by === userId)
-      .filter((ticket) =>
-        !needle
-          ? true
-          : [ticket.ticket_number, ticket.name, ticket.email, ticket.issue_category, ticket.message]
-              .join(" ")
-              .toLowerCase()
-              .includes(needle)
-      );
-  }
   const params: unknown[] = [];
   const clauses: string[] = [];
   if (!role || !canManageSupport(role)) {
@@ -375,7 +261,6 @@ export async function listSupportTickets({
 }
 
 export async function getSupportTicket(id: string) {
-  if (isDemoMode) return demoTickets().find((ticket) => ticket.id === id) || null;
   const rows = await query<any>(
     `SELECT t.*, u.name AS submitted_by_name
      FROM support_tickets t
@@ -387,12 +272,6 @@ export async function getSupportTicket(id: string) {
 }
 
 export async function updateSupportTicket(id: string, input: SupportTicketUpdate) {
-  if (isDemoMode) {
-    const ticket = demoTickets().find((item) => item.id === id);
-    if (!ticket) return null;
-    Object.assign(ticket, { ...input, updated_at: new Date().toISOString() });
-    return ticket;
-  }
   const existing = await getSupportTicket(id);
   if (!existing) return null;
   const next = { ...existing, ...input };
@@ -430,7 +309,6 @@ export async function createAiSupportLog({
   responseSummary?: string | null;
   ticketId?: string | null;
 }) {
-  if (isDemoMode) return null;
   await query(
     `INSERT INTO ai_support_logs (id, user_id, business_id, question, response_summary, ticket_id)
      VALUES ($1, $2, $3, $4, $5, $6)`,

@@ -10,8 +10,8 @@ Status: Supabase-backed full-stack QA passed with real seeded Supabase/Postgres 
 
 - Local app URL: `http://localhost:3000`
 - Database: Supabase/Postgres
-- Seed business: `Savannah & Sea Retail Ltd.`
-- Seed admin login: `admin@demo.com` / `demo123`
+- Seed business: `Your Business`
+- Initial owner login for fresh seeded databases: `admin@caribbeanpos.test` / `Admin123!`
 
 ## Passed QA
 

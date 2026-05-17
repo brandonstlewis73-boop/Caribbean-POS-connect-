@@ -1,8 +1,7 @@
 import { NextRequest } from "next/server";
 import { fail } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
-import { isDemoMode, query } from "@/lib/db";
-import { demoExportTables } from "@/lib/demo-store";
+import { query } from "@/lib/db";
 
 export const runtime = "nodejs";
 
@@ -24,11 +23,9 @@ export async function GET(request: NextRequest) {
   const auth = await requireUser(request, "settings:write");
   if (!auth.user) return fail(auth.error, auth.status);
 
-  const tables: Record<string, unknown> = isDemoMode ? await demoExportTables() : {};
-  if (!isDemoMode) {
-    for (const table of BACKUP_TABLES) {
-      tables[table] = (await query(`SELECT * FROM ${table}`)).rows;
-    }
+  const tables: Record<string, unknown> = {};
+  for (const table of BACKUP_TABLES) {
+    tables[table] = (await query(`SELECT * FROM ${table}`)).rows;
   }
 
   const fileName = `caribbean-pos-connect-${Date.now()}.json`;
@@ -36,7 +33,7 @@ export async function GET(request: NextRequest) {
     JSON.stringify(
       {
         exported_at: new Date().toISOString(),
-        database: isDemoMode ? "demo-memory" : "supabase-postgres",
+        database: "supabase-postgres",
         tables
       },
       null,

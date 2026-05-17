@@ -377,7 +377,10 @@ ALTER TABLE businesses ADD COLUMN IF NOT EXISTS owner_email TEXT;
 ALTER TABLE businesses ADD COLUMN IF NOT EXISTS owner_phone TEXT;
 ALTER TABLE businesses ADD COLUMN IF NOT EXISTS business_whatsapp_number TEXT;
 ALTER TABLE businesses ADD COLUMN IF NOT EXISTS storefront_slug TEXT;
-ALTER TABLE businesses ADD COLUMN IF NOT EXISTS subscription_plan TEXT NOT NULL DEFAULT 'free_demo';
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS subscription_plan TEXT NOT NULL DEFAULT 'starter';
+ALTER TABLE businesses ALTER COLUMN subscription_plan SET DEFAULT 'starter';
+UPDATE businesses SET subscription_plan = 'starter'
+WHERE subscription_plan NOT IN ('starter', 'pro', 'premium', 'business');
 ALTER TABLE businesses ADD COLUMN IF NOT EXISTS subscription_status TEXT NOT NULL DEFAULT 'trial';
 ALTER TABLE businesses ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMPTZ;
 ALTER TABLE businesses ADD COLUMN IF NOT EXISTS setup_checklist JSONB NOT NULL DEFAULT '{}'::jsonb;

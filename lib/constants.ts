@@ -343,23 +343,6 @@ export const STAFF_AVATAR_OPTIONS = [
 
 export const SUBSCRIPTION_PLANS = [
   {
-    id: "free_demo",
-    name: "Free Demo",
-    audience: "For testing one storefront before launch",
-    monthly_price: 0,
-    currency: CURRENCY_CODE,
-    max_products: 25,
-    max_staff: 2,
-    whatsapp_enabled: false,
-    ai_support_enabled: false,
-    features: [
-      "Demo storefront",
-      "Basic POS",
-      "Customer and order testing",
-      "Manual WhatsApp links"
-    ]
-  },
-  {
     id: "starter",
     name: "Starter Plan",
     audience: "For small food businesses",

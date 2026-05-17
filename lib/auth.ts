@@ -2,20 +2,11 @@ import { cookies } from "next/headers";
 import { SignJWT, jwtVerify } from "jose";
 import bcrypt from "bcryptjs";
 import type { NextRequest } from "next/server";
-import { isDemoMode, query } from "./db";
+import { query } from "./db";
 import type { Role, User } from "./types";
 import { hasPermission, type Permission } from "./permissions";
 
 const COOKIE_NAME = "cpc_session";
-const demoUser: User = {
-  id: "usr_demo_admin",
-  business_id: "biz_savannah_sea",
-  name: "Demo Admin",
-  email: "admin@demo.com",
-  role: "admin",
-  phone: "868-443-7582",
-  active: true
-};
 
 type RequireUserResult =
   | { user: User; error: null; status: 200 }
@@ -113,9 +104,6 @@ export async function getSessionUserFromRequest(request?: NextRequest): Promise<
     const verified = await jwtVerify(token, secretKey());
     const id = verified.payload.sub;
     if (!id) return null;
-    if (isDemoMode && id === demoUser.id) {
-      return demoUser;
-    }
     return getActiveUserById(id);
   } catch {
     return null;

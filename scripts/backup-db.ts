@@ -1,7 +1,6 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { isDemoMode, query } from "../lib/db";
-import { demoExportTables } from "../lib/demo-store";
+import { query } from "../lib/db";
 
 const BACKUP_TABLES = [
   "users",
@@ -21,11 +20,9 @@ async function main() {
   const backupDir = join(process.cwd(), "backups");
   if (!existsSync(backupDir)) mkdirSync(backupDir, { recursive: true });
 
-  const tables: Record<string, unknown> = isDemoMode ? await demoExportTables() : {};
-  if (!isDemoMode) {
-    for (const table of BACKUP_TABLES) {
-      tables[table] = (await query(`SELECT * FROM ${table}`)).rows;
-    }
+  const tables: Record<string, unknown> = {};
+  for (const table of BACKUP_TABLES) {
+    tables[table] = (await query(`SELECT * FROM ${table}`)).rows;
   }
 
   const filePath = join(backupDir, `caribbean-pos-connect-${Date.now()}.json`);
@@ -34,7 +31,7 @@ async function main() {
     JSON.stringify(
       {
         exported_at: new Date().toISOString(),
-        database: isDemoMode ? "demo-memory" : "supabase-postgres",
+        database: "supabase-postgres",
         tables
       },
       null,

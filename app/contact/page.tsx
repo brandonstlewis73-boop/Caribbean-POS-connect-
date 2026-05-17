@@ -4,16 +4,16 @@ import { APP_NAME } from "@/lib/constants";
 import { cleanWhatsAppNumber } from "@/lib/whatsapp";
 
 const business = {
-  name: "Savannah & Sea Retail Ltd.",
-  phone: "868-555-2190",
-  email: "hello@savannahsea.tt",
-  whatsapp: "4437582368",
+  name: "Caribbean Connect POS",
+  phone: "",
+  email: "support@caribbeanconnectpos.com",
+  whatsapp: "",
   address: "Caribbean service area"
 };
 
-const whatsAppLink = `https://wa.me/${cleanWhatsAppNumber(business.whatsapp)}?text=${encodeURIComponent(
+const whatsAppLink = business.whatsapp ? `https://wa.me/${cleanWhatsAppNumber(business.whatsapp)}?text=${encodeURIComponent(
   `Hi ${business.name}, I am interested in ${APP_NAME}.`
-)}`;
+)}` : "";
 
 export default function ContactPage() {
   return (
@@ -27,18 +27,18 @@ export default function ContactPage() {
           </div>
         </div>
         <div className="grid gap-3 text-sm font-semibold text-slate-600 dark:text-slate-300">
-          <a href={`tel:${business.phone}`} className="flex items-center gap-2 rounded-card border border-caribbean-line p-3 dark:border-slate-800">
+          {business.phone ? <a href={`tel:${business.phone}`} className="flex items-center gap-2 rounded-card border border-caribbean-line p-3 dark:border-slate-800">
             <Phone className="h-4 w-4 text-caribbean-teal" />
             {business.phone}
-          </a>
+          </a> : null}
           <a href={`mailto:${business.email}`} className="flex items-center gap-2 rounded-card border border-caribbean-line p-3 dark:border-slate-800">
             <Mail className="h-4 w-4 text-caribbean-teal" />
             {business.email}
           </a>
-          <a href={whatsAppLink} target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-card border border-caribbean-line p-3 dark:border-slate-800">
+          {whatsAppLink ? <a href={whatsAppLink} target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-card border border-caribbean-line p-3 dark:border-slate-800">
             <MessageCircle className="h-4 w-4 text-caribbean-teal" />
             WhatsApp {business.whatsapp}
-          </a>
+          </a> : null}
           <p className="flex items-center gap-2 rounded-card border border-caribbean-line p-3 dark:border-slate-800">
             <MapPin className="h-4 w-4 text-caribbean-teal" />
             {business.address}

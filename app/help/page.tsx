@@ -30,8 +30,7 @@ export default async function HelpSupportPage() {
         canManage={canManage}
         aiStatus={aiSupportStatus()}
         systemStatus={{
-          databaseConfigured: dbStatus.hasDatabaseUrl || dbStatus.hasSupabaseDbUrl || dbStatus.isDemoMode,
-          demoMode: dbStatus.isDemoMode,
+          databaseConfigured: dbStatus.hasDatabaseUrl || dbStatus.hasSupabaseDbUrl,
           nodeEnv: dbStatus.nodeEnv,
           vercelEnv: dbStatus.vercelEnv
         }}

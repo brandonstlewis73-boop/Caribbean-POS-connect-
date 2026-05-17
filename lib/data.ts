@@ -1,6 +1,6 @@
 import { subDays, startOfDay } from "date-fns";
 import bcrypt from "bcryptjs";
-import { isDemoMode, query, transaction, createId, type PoolClient } from "./db";
+import { query, transaction, createId, type PoolClient } from "./db";
 import {
   CURRENCY_CODE,
   DEFAULT_DELIVERY_RATES,
@@ -9,38 +9,6 @@ import {
   getDeliveryRegionsForCurrency,
   money
 } from "./constants";
-import {
-  demoAdjustStock,
-  demoCreateCustomer,
-  demoCreateOrder,
-  demoCreateProduct,
-  demoDashboardData,
-  demoCreateBusiness,
-  demoDeleteBusiness,
-  demoGetCustomer,
-  demoGetCustomerProfile,
-  demoGetOrder,
-  demoGetProduct,
-  demoGetReceiptNumber,
-  demoGetSettings,
-  demoListAuditLogs,
-  demoListBusinesses,
-  demoListCustomers,
-  demoListOrders,
-  demoListProducts,
-  demoListUsers,
-  demoCreateStaffUser,
-  demoDeleteCustomer,
-  demoDeleteOrder,
-  demoDeleteProduct,
-  demoDeleteStaffUser,
-  demoUpdateStaffUser,
-  demoUpdateCustomer,
-  demoUpdateDeliveryStatus,
-  demoUpdateOrder,
-  demoUpdateProduct,
-  demoUpdateSettings
-} from "./demo-store";
 import type {
   CheckoutPayload,
   Customer,
@@ -88,13 +56,13 @@ export const SETUP_CHECKLIST_ITEMS = [
 ];
 
 export const defaultSettings: Settings = {
-  business_name: "Savannah & Sea Retail Ltd.",
-  business_phone: "868-555-2190",
-  business_email: "hello@savannahsea.tt",
-  business_address: "18 Independence Square, Port of Spain, Trinidad and Tobago",
-  business_street_address: "18 Independence Square",
-  business_city: "Port of Spain",
-  business_region: "Port of Spain",
+  business_name: "Your Business",
+  business_phone: "",
+  business_email: "owner@yourbusiness.com",
+  business_address: "",
+  business_street_address: "",
+  business_city: "",
+  business_region: "",
   business_country: "Trinidad and Tobago",
   business_postal_code: "",
   business_latitude: null,
@@ -117,7 +85,7 @@ export const defaultSettings: Settings = {
     "https://pay.example.com/caribbean-pos-connect?order={{order_number}}&amount={{amount}}&phone={{customer_phone}}",
   whatsapp_enabled: true,
   whatsapp_provider: "twilio",
-  whatsapp_business_number: "4437582368",
+  whatsapp_business_number: "",
   whatsapp_country_code: "+1868",
   whatsapp_owner_alerts_enabled: true,
   whatsapp_customer_confirmations_enabled: true,
@@ -504,7 +472,6 @@ async function getMaxNumericValue(client: DbClient, table: string, column: strin
 }
 
 export async function getSettings(): Promise<Settings> {
-  if (isDemoMode) return demoGetSettings();
   const rows = await query<{ key: keyof Settings; value: unknown }>("SELECT key, value FROM settings");
   const settings: Record<string, unknown> = { ...defaultSettings };
   for (const row of rows.rows) {
@@ -516,16 +483,12 @@ export async function getSettings(): Promise<Settings> {
 
 export async function getBusinessById(id?: string | null) {
   if (!id) return null;
-  if (isDemoMode) return (await demoListBusinesses()).find((business) => business.id === id) || null;
   const rows = await query<any>("SELECT * FROM businesses WHERE id = $1 AND active = TRUE", [id]);
   return rows.rows[0] ? rowToBusiness(rows.rows[0]) : null;
 }
 
 export async function getBusinessBySlug(slug?: string | null) {
   if (!slug) return null;
-  if (isDemoMode) {
-    return (await demoListBusinesses()).find((business) => business.slug === slug || business.storefront_slug === slug) || null;
-  }
   const rows = await query<any>(
     "SELECT * FROM businesses WHERE active = TRUE AND (slug = $1 OR storefront_slug = $1) LIMIT 1",
     [slug]
@@ -536,7 +499,6 @@ export async function getBusinessBySlug(slug?: string | null) {
 export async function getBusinessSettings(businessId?: string | null): Promise<Settings> {
   const base = await getSettings();
   const id = businessId || base.active_business_id || DEFAULT_BUSINESS_ID;
-  if (isDemoMode) return { ...base, active_business_id: id };
 
   const [business, settingRows] = await Promise.all([
     getBusinessById(id),
@@ -578,7 +540,6 @@ export async function getBusinessSettings(businessId?: string | null): Promise<S
 }
 
 export async function updateSettings(input: Partial<Settings>, userId?: string) {
-  if (isDemoMode) return demoUpdateSettings(input, userId);
   const current = await getSettings();
   const nextCurrency = input.currency || current.currency;
   const nextInput = { ...input };
@@ -661,7 +622,6 @@ export async function auditLog(
   userId?: string | null,
   client?: DbClient
 ) {
-  if (isDemoMode) return;
   await query(
     "INSERT INTO audit_logs (id, user_id, action, entity_type, entity_id, metadata) VALUES ($1, $2, $3, $4, $5, $6::jsonb)",
     [createId("aud"), userId ?? null, action, entityType, entityId ?? null, JSON.stringify(metadata ?? {})],
@@ -670,7 +630,6 @@ export async function auditLog(
 }
 
 export async function listAuditLogs(limit = 100) {
-  if (isDemoMode) return demoListAuditLogs(limit);
   const safeLimit = Math.min(Math.max(Number(limit) || 100, 1), 300);
   const rows = await query<any>(
     `SELECT a.id, a.action, a.entity_type, a.entity_id, a.metadata, a.created_at,
@@ -689,7 +648,6 @@ export async function listAuditLogs(limit = 100) {
 }
 
 export async function listUsers(role?: string, includeInactive = false, businessId?: string | null): Promise<User[]> {
-  if (isDemoMode) return demoListUsers(role, includeInactive);
   const params: unknown[] = [];
   const clauses = includeInactive ? ["TRUE"] : ["active = TRUE"];
   if (businessId) clauses.push(businessScopedClause(params, businessId));
@@ -710,7 +668,6 @@ export async function listUsers(role?: string, includeInactive = false, business
 }
 
 export async function createStaffUser(input: StaffInput, userId?: string) {
-  if (isDemoMode) return demoCreateStaffUser(input, userId);
   const id = createId("usr");
   const passwordHash = await bcrypt.hash("ChangeMe123!", 12);
   return transaction(async (client) => {
@@ -739,7 +696,6 @@ export async function createStaffUser(input: StaffInput, userId?: string) {
 }
 
 export async function updateStaffUser(id: string, input: StaffInput, userId?: string) {
-  if (isDemoMode) return demoUpdateStaffUser(id, input, userId);
   return transaction(async (client) => {
     const businessId = await getBusinessIdForUser(userId, client);
     const existing = await query<any>(
@@ -778,7 +734,6 @@ export async function updateStaffUser(id: string, input: StaffInput, userId?: st
 }
 
 export async function deleteStaffUser(id: string, userId?: string) {
-  if (isDemoMode) return demoDeleteStaffUser(id, userId);
   return transaction(async (client) => {
     const businessId = await getBusinessIdForUser(userId, client);
     const existing = await query<any>(
@@ -803,7 +758,6 @@ export async function deleteStaffUser(id: string, userId?: string) {
 }
 
 export async function listBusinesses(userId?: string | null): Promise<Business[]> {
-  if (isDemoMode) return demoListBusinesses();
   const businessId = userId ? await getBusinessIdForUser(userId) : null;
   const params: unknown[] = [];
   const where = businessId ? `WHERE id = ${addParam(params, businessId)}` : "";
@@ -822,7 +776,6 @@ export async function listBusinesses(userId?: string | null): Promise<Business[]
 }
 
 export async function createBusiness(input: BusinessInput, userId?: string) {
-  if (isDemoMode) return demoCreateBusiness(input, userId);
   const id = createId("biz");
   const name = input.name?.trim();
   if (!name) return null;
@@ -870,33 +823,6 @@ export async function createBusinessOwnerAccount(input: {
   country?: string;
   currency?: string;
 }) {
-  if (isDemoMode) {
-    const business = await demoCreateBusiness(
-      {
-        name: input.business_name,
-        owner_name: input.owner_name || "Business Owner",
-        owner_email: input.email,
-        owner_phone: input.whatsapp_number,
-        business_whatsapp_number: input.whatsapp_number,
-        phone: input.whatsapp_number,
-        email: input.email,
-        country: input.country || "Trinidad and Tobago",
-        currency: input.currency || CURRENCY_CODE
-      },
-      "usr_demo_admin"
-    );
-    const user: User = {
-      id: createId("usr"),
-      business_id: business?.id || DEFAULT_BUSINESS_ID,
-      name: input.owner_name || "Business Owner",
-      email: input.email,
-      role: "owner",
-      phone: input.whatsapp_number,
-      active: true
-    };
-    return { business, user };
-  }
-
   const businessId = createId("biz");
   const baseSlug = slugify(input.business_name) || businessId;
   const slug = `${baseSlug}-${businessId.slice(-6)}`;
@@ -918,7 +844,7 @@ export async function createBusinessOwnerAccount(input: {
         business_whatsapp_number, phone, email, country, currency, logo_url,
         subscription_plan, subscription_status, trial_ends_at, setup_checklist, active
       ) VALUES ($1, $2, $2, $3, $3, $4, $5, $6, $6, $6, $5, $7, $8, '/logo.svg',
-        'free_demo', 'trial', NOW() + INTERVAL '14 days', '{}'::jsonb, TRUE)`,
+        'starter', 'trial', NOW() + INTERVAL '14 days', '{}'::jsonb, TRUE)`,
       [businessId, input.business_name.trim(), slug, ownerName, email, input.whatsapp_number, country, currency],
       client
     );
@@ -982,14 +908,10 @@ export async function createBusinessOwnerAccount(input: {
 }
 
 export async function deleteBusiness(id: string, userId?: string) {
-  if (isDemoMode) return demoDeleteBusiness(id, userId);
   return transaction(async (client) => {
     const rows = await query<any>("SELECT * FROM businesses WHERE id = $1", [id], client);
     const existing = rows.rows[0];
     if (!existing) return null;
-    if (id === "biz_savannah_sea") {
-      throw new Error("The default business profile is tied to store data and cannot be deleted.");
-    }
     const activeRows = await query<{ value: unknown }>("SELECT value FROM settings WHERE key = 'active_business_id'", [], client);
     const activeBusinessId = parseJson<string | null>(activeRows.rows[0]?.value, null);
     if (activeBusinessId === id) {
@@ -1021,24 +943,6 @@ export function listSubscriptionPlans(): SubscriptionPlan[] {
 }
 
 export async function getCurrentSubscription(businessId?: string | null): Promise<Subscription | null> {
-  if (isDemoMode) {
-    const plan = SUBSCRIPTION_PLANS[0];
-    return {
-      id: "sub_local_workspace",
-      business_id: "biz_savannah_sea",
-      plan_id: plan.id,
-      plan_name: plan.name,
-      status: "trialing",
-      seats: 1,
-      monthly_price: plan.monthly_price,
-      currency: plan.currency,
-      provider: "manual",
-      current_period_start: new Date().toISOString(),
-      current_period_end: subDays(new Date(), -30).toISOString(),
-      trial_ends_at: subDays(new Date(), -14).toISOString(),
-      metadata: {}
-    };
-  }
   const params: unknown[] = [];
   const where = businessId ? `WHERE business_id = ${addParam(params, businessId)}` : "";
   const rows = await query<any>(
@@ -1055,23 +959,6 @@ export async function getCurrentSubscription(businessId?: string | null): Promis
 export async function updateSubscriptionPlan(planId: SubscriptionPlanId, userId?: string) {
   const plan = SUBSCRIPTION_PLANS.find((item) => item.id === planId);
   if (!plan) return null;
-  if (isDemoMode) {
-    return {
-      id: "sub_local_workspace",
-      business_id: "biz_savannah_sea",
-      plan_id: plan.id,
-      plan_name: plan.name,
-      status: "trialing",
-      seats: plan.max_staff,
-      monthly_price: plan.monthly_price,
-      currency: plan.currency,
-      provider: "manual",
-      current_period_start: new Date().toISOString(),
-      current_period_end: subDays(new Date(), -30).toISOString(),
-      trial_ends_at: subDays(new Date(), -14).toISOString(),
-      metadata: {}
-    } satisfies Subscription;
-  }
   const businessId = await getBusinessIdForUser(userId);
   const existing = await getCurrentSubscription(businessId);
   const subscriptionId = existing?.id || createId("sub");
@@ -1103,7 +990,6 @@ export async function updateSubscriptionPlan(planId: SubscriptionPlanId, userId?
 }
 
 export async function listProducts(search?: string, includeInactive = false, businessId?: string | null): Promise<Product[]> {
-  if (isDemoMode) return demoListProducts(search, includeInactive);
   const params: unknown[] = [];
   const clauses = includeInactive ? ["TRUE"] : ["active = TRUE"];
   if (businessId) clauses.push(businessScopedClause(params, businessId));
@@ -1123,7 +1009,6 @@ export async function listProducts(search?: string, includeInactive = false, bus
 }
 
 export async function getProduct(id: string, businessId?: string | null) {
-  if (isDemoMode) return demoGetProduct(id);
   const params: unknown[] = [id];
   const scope = businessId ? ` AND ${businessScopedClause(params, businessId)}` : "";
   const row = await query<any>(`SELECT * FROM products WHERE id = $1${scope}`, params);
@@ -1131,7 +1016,6 @@ export async function getProduct(id: string, businessId?: string | null) {
 }
 
 export async function createProduct(input: Omit<Product, "id" | "active">, userId?: string) {
-  if (isDemoMode) return demoCreateProduct(input, userId);
   const id = createId("prd");
   const businessId = await getBusinessIdForUser(userId);
   await query(
@@ -1160,7 +1044,6 @@ export async function createProduct(input: Omit<Product, "id" | "active">, userI
 }
 
 export async function deleteProduct(id: string, userId?: string) {
-  if (isDemoMode) return demoDeleteProduct(id, userId);
   return transaction(async (client) => {
     const businessId = await getBusinessIdForUser(userId, client);
     const existing = await query<any>(
@@ -1183,7 +1066,6 @@ export async function deleteProduct(id: string, userId?: string) {
 }
 
 export async function updateProduct(id: string, input: Partial<Product>, userId?: string) {
-  if (isDemoMode) return demoUpdateProduct(id, input, userId);
   const businessId = await getBusinessIdForUser(userId);
   const existing = await getProduct(id, businessId);
   if (!existing) return null;
@@ -1215,7 +1097,6 @@ export async function updateProduct(id: string, input: Partial<Product>, userId?
 }
 
 export async function adjustStock(productId: string, delta: number, reason: string, userId?: string) {
-  if (isDemoMode) return demoAdjustStock(productId, delta, reason, userId);
   return transaction(async (client) => {
     const businessId = await getBusinessIdForUser(userId, client);
     const updated = await query(
@@ -1236,7 +1117,6 @@ export async function adjustStock(productId: string, delta: number, reason: stri
 }
 
 export async function listCustomers(search?: string, businessId?: string | null): Promise<Customer[]> {
-  if (isDemoMode) return demoListCustomers(search);
   const params: unknown[] = [];
   const clauses: string[] = [];
   if (businessId) clauses.push(businessScopedClause(params, businessId));
@@ -1258,7 +1138,6 @@ export async function listCustomers(search?: string, businessId?: string | null)
 }
 
 export async function getCustomer(id: string, businessId?: string | null) {
-  if (isDemoMode) return demoGetCustomer(id);
   const params: unknown[] = [id];
   const scope = businessId ? ` AND ${businessScopedClause(params, businessId)}` : "";
   const row = await query<any>(`SELECT * FROM customers WHERE id = $1${scope}`, params);
@@ -1266,7 +1145,6 @@ export async function getCustomer(id: string, businessId?: string | null) {
 }
 
 export async function getCustomerProfile(id: string, businessId?: string | null) {
-  if (isDemoMode) return demoGetCustomerProfile(id);
   const customer = await getCustomer(id, businessId);
   if (!customer) return null;
   const [orders, favoriteRows] = await Promise.all([
@@ -1394,7 +1272,6 @@ async function upsertCustomer(client: DbClient, input?: CustomerInput | null, bu
 }
 
 export async function createCustomer(input: CustomerInput, userId?: string) {
-  if (isDemoMode) return demoCreateCustomer(input, userId);
   return transaction(async (client) => {
     const businessId = await getBusinessIdForUser(userId, client);
     const customer = await upsertCustomer(client, input, businessId);
@@ -1404,7 +1281,6 @@ export async function createCustomer(input: CustomerInput, userId?: string) {
 }
 
 export async function updateCustomer(id: string, input: CustomerInput, userId?: string) {
-  if (isDemoMode) return demoUpdateCustomer(id, input, userId);
   const businessId = await getBusinessIdForUser(userId);
   const existing = await getCustomer(id, businessId);
   if (!existing) return null;
@@ -1444,7 +1320,6 @@ export async function updateCustomer(id: string, input: CustomerInput, userId?: 
 }
 
 export async function deleteCustomer(id: string, userId?: string) {
-  if (isDemoMode) return demoDeleteCustomer(id, userId);
   return transaction(async (client) => {
     const businessId = await getBusinessIdForUser(userId, client);
     const existing = await query<any>(
@@ -1708,7 +1583,6 @@ async function updateCustomerWhatsAppLink(order: Order, message: string, setting
 }
 
 export async function createOrder(payload: CheckoutPayload, userId?: string) {
-  if (isDemoMode) return demoCreateOrder(payload, userId);
   const businessId = await resolveBusinessId({ businessId: payload.business_id, userId });
   const settings = await getBusinessSettings(businessId);
 
@@ -2018,7 +1892,6 @@ async function readOrderById(client: DbClient | undefined, id: string, businessI
 }
 
 export async function getOrder(id: string, businessId?: string | null) {
-  if (isDemoMode) return demoGetOrder(id);
   return readOrderById(undefined, id, businessId);
 }
 
@@ -2032,7 +1905,6 @@ export async function listOrders(options: {
   businessId?: string | null;
   limit?: number;
 } = {}) {
-  if (isDemoMode) return demoListOrders(options);
   const params: unknown[] = [];
   const clauses: string[] = ["TRUE"];
   if (options.businessId) clauses.push(businessScopedClause(params, options.businessId, "o"));
@@ -2073,7 +1945,6 @@ export async function listOrders(options: {
 }
 
 export async function updateDeliveryStatus(orderId: string, status: Order["delivery_status"], userId?: string) {
-  if (isDemoMode) return demoUpdateDeliveryStatus(orderId, status, userId);
   const businessId = await getBusinessIdForUser(userId);
   const settings = await getBusinessSettings(businessId);
   let shouldNotifyOutForDelivery = false;
@@ -2106,7 +1977,6 @@ export async function updateDeliveryStatus(orderId: string, status: Order["deliv
 }
 
 export async function updateOrder(id: string, input: Partial<Order>, userId?: string) {
-  if (isDemoMode) return demoUpdateOrder(id, input, userId);
   const businessId = await getBusinessIdForUser(userId);
   const settings = await getBusinessSettings(businessId);
   let shouldNotifyCustomerReceipt = false;
@@ -2233,7 +2103,6 @@ export async function updateOrder(id: string, input: Partial<Order>, userId?: st
 }
 
 export async function deleteOrder(id: string, userId?: string) {
-  if (isDemoMode) return demoDeleteOrder(id, userId);
   return transaction(async (client) => {
     const businessId = await getBusinessIdForUser(userId, client);
     const existing = await readOrderById(client, id, businessId);
@@ -2294,8 +2163,6 @@ export async function getDeliveries(user?: User | null) {
 }
 
 export async function getDashboardData(businessId?: string | null): Promise<DashboardData> {
-  if (isDemoMode) return demoDashboardData();
-
   const today = startOfDay(new Date());
   const week = subDays(new Date(), 7);
   const month = subDays(new Date(), 30);
@@ -2485,36 +2352,6 @@ export async function exportSalesCsv(businessId?: string | null) {
 }
 
 export async function listReceipts(options: { query?: string; limit?: number; businessId?: string | null } = {}): Promise<Receipt[]> {
-  if (isDemoMode) {
-    const orders = await demoListOrders({ query: options.query, limit: options.limit || 100 });
-    return orders
-      .filter((order) => order.status === "completed")
-      .map((order) => ({
-        id: `demo-${order.id}`,
-        order_id: order.id,
-        order_number: order.order_number,
-        receipt_number: `R-${order.order_number}`,
-        customer_id: order.customer_id,
-        customer_name: order.customer_snapshot.name || "Walk-in customer",
-        customer_phone: order.customer_snapshot.phone || null,
-        items: order.items,
-        subtotal: order.subtotal,
-        discount_total: order.discount_total,
-        tax_total: order.tax_total,
-        delivery_fee: order.delivery_fee,
-        total: order.total,
-        payment_method: order.payment_method,
-        payment_status: order.payment_status,
-        completed_by: order.completed_by,
-        completed_by_name: order.completed_by_name,
-        completed_at: order.completed_at || order.updated_at,
-        channel: "print",
-        whatsapp_sent_at: null,
-        created_at: order.created_at,
-        updated_at: order.updated_at
-      }));
-  }
-
   const params: unknown[] = [];
   const clauses = ["TRUE"];
   if (options.businessId) clauses.push(businessScopedClause(params, options.businessId, "r"));
@@ -2542,10 +2379,6 @@ export async function listReceipts(options: { query?: string; limit?: number; bu
 }
 
 export async function getReceipt(id: string, businessId?: string | null) {
-  if (isDemoMode) {
-    const receipts = await listReceipts({ limit: 300 });
-    return receipts.find((receipt) => receipt.id === id || receipt.order_id === id) || null;
-  }
   const params: unknown[] = [id];
   const scope = businessId ? ` AND ${businessScopedClause(params, businessId, "r")}` : "";
   const row = await query<any>(
@@ -2560,10 +2393,6 @@ export async function getReceipt(id: string, businessId?: string | null) {
 }
 
 export async function resendReceiptWhatsApp(receiptId: string, userId?: string) {
-  if (isDemoMode) {
-    const receipt = await getReceipt(receiptId);
-    return receipt ? { receipt, message: "WhatsApp is not configured in demo mode." } : null;
-  }
   const businessId = await getBusinessIdForUser(userId);
   const receipt = await getReceipt(receiptId, businessId);
   if (!receipt) return null;
@@ -2585,7 +2414,6 @@ export async function resendReceiptWhatsApp(receiptId: string, userId?: string) 
 }
 
 export async function getReceiptNumber(orderId: string) {
-  if (isDemoMode) return demoGetReceiptNumber(orderId);
   const row = await query<{ receipt_number: string }>(
     "SELECT receipt_number FROM receipts WHERE order_id = $1",
     [orderId]

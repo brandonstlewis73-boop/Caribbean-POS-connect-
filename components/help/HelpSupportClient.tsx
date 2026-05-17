@@ -126,7 +126,7 @@ export function HelpSupportClient({
   settings: Settings;
   canManage: boolean;
   aiStatus: { enabled: boolean; message: string; model: string };
-  systemStatus: { databaseConfigured: boolean; demoMode: boolean; vercelEnv: string | null; nodeEnv: string };
+  systemStatus: { databaseConfigured: boolean; vercelEnv: string | null; nodeEnv: string };
 }) {
   const [articles, setArticles] = useState(initialArticles);
   const [tickets, setTickets] = useState(initialTickets);

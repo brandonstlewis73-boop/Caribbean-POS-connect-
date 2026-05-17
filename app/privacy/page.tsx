@@ -9,7 +9,7 @@ export default function PrivacyPage() {
         <div className="flex items-center gap-3">
           <img src="/logo.svg" alt="" className="h-14 w-14 rounded-card object-contain" />
           <div>
-            <p className="text-sm font-bold uppercase tracking-normal text-caribbean-teal">Savannah & Sea Retail Ltd.</p>
+            <p className="text-sm font-bold uppercase tracking-normal text-caribbean-teal">{APP_NAME}</p>
             <h1 className="text-2xl font-black">Privacy Policy</h1>
           </div>
         </div>

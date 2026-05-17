@@ -310,10 +310,6 @@ export function SettingsClient({
       setMessage("Switch to another business before deleting the live business profile.");
       return;
     }
-    if (business.id === "biz_savannah_sea") {
-      setMessage("The default business profile is tied to store data and cannot be deleted.");
-      return;
-    }
     if (!window.confirm(`Delete ${business.name}? Store settings stay as-is, but this business profile will be removed.`)) return;
     setBusinessBusyId(business.id);
     setMessage("");
@@ -650,6 +646,10 @@ export function SettingsClient({
             <Toggle label="Enable loyalty" checked={draft.loyalty_enabled} onChange={(value) => update("loyalty_enabled", value)} />
             <Field label={`Points per ${draft.currency}`} type="number" step="0.01" value={draft.loyalty_points_per_ttd} onChange={(event) => update("loyalty_points_per_ttd", Number(event.target.value))} />
             <Field label={`${draft.currency} value per point`} type="number" step="0.01" value={draft.loyalty_redeem_ttd_per_point} onChange={(event) => update("loyalty_redeem_ttd_per_point", Number(event.target.value))} />
+            <Toggle label="Print customer receipt after sale" checked={draft.receipt_print_customer_enabled} onChange={(value) => update("receipt_print_customer_enabled", value)} />
+            <Toggle label="Print kitchen ticket for food orders" checked={draft.receipt_print_kitchen_enabled} onChange={(value) => update("receipt_print_kitchen_enabled", value)} />
+            <Toggle label="Enable email receipt option" checked={draft.receipt_email_enabled} onChange={(value) => update("receipt_email_enabled", value)} />
+            <Toggle label="Enable WhatsApp receipt option" checked={draft.receipt_whatsapp_enabled} onChange={(value) => update("receipt_whatsapp_enabled", value)} />
             <TextAreaField label="Receipt message" value={draft.receipt_message} onChange={(event) => update("receipt_message", event.target.value)} className="md:col-span-2" />
           </div>
         </Panel>

@@ -21,7 +21,7 @@ SESSION_SECRET=<long-random-secret>
 NEXT_PUBLIC_APP_URL=https://your-domain.com
 NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<supabase-publishable-or-anon-key>
-ADMIN_EMAIL=admin@demo.com
+ADMIN_EMAIL=owner@yourbusiness.com
 DEFAULT_WHATSAPP_NUMBER=4437582368
 WHATSAPP_PROVIDER=
 TWILIO_ACCOUNT_SID=
@@ -42,11 +42,11 @@ Run this SQL once in Supabase SQL Editor:
 db/supabase_schema_seed.sql
 ```
 
-The seeded demo admin is:
+The initial owner/admin account for a fresh seeded database is:
 
 ```text
-Email: admin@demo.com
-Password: demo123
+Email: admin@caribbeanpos.test
+Password: Admin123!
 ```
 
 Change seeded passwords before real production use.
@@ -65,7 +65,7 @@ In Vercel:
 ## Post-Deploy Smoke Test
 
 1. Visit `/login`.
-2. Log in as `admin@demo.com`.
+2. Log in with a real owner/admin account.
 3. Open `/pos`.
 4. Complete a delivery order with `Pay on delivery`.
 5. Confirm the order appears in `/orders`.
@@ -76,11 +76,11 @@ In Vercel:
 
 ## Payments
 
-Payment links are template-based in Settings. Replace the demo template with the live WiPay, PayPal, bank transfer, or payment provider link. Do not treat online payments as automatically paid until a real provider callback or manual verification workflow is added.
+Payment links are template-based in Settings. Replace placeholder templates with the live WiPay, PayPal, bank transfer, or payment provider link. Do not treat online payments as automatically paid until a real provider callback or manual verification workflow is added.
 
 ## WhatsApp And Waze
 
-WhatsApp uses click-to-chat links only. The app does not send messages automatically.
+WhatsApp can send automatically when provider credentials are configured. If credentials are missing, order and receipt workflows still save normally.
 
 Waze links prefer GPS latitude/longitude, then coordinates found in a shared location link, then address search.
 

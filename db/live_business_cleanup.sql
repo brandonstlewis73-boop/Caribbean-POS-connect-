@@ -1,5 +1,5 @@
 -- Caribbean Connect POS live-business cleanup
--- Run this once in Supabase SQL Editor after backing up if your database still contains launch/demo seed data.
+-- Run this once in Supabase SQL Editor after backing up if your database still contains launch seed data.
 
 BEGIN;
 
@@ -15,7 +15,7 @@ BEGIN
 END;
 $function$;
 
--- Remove seeded/fake customer-facing records.
+-- Remove seeded customer-facing records.
 DELETE FROM public.delivery_events WHERE order_id IN ('ord_1025', 'ord_1026', 'ord_1027');
 DELETE FROM public.loyalty_transactions WHERE order_id IN ('ord_1025', 'ord_1026', 'ord_1027');
 DELETE FROM public.receipts WHERE order_id IN ('ord_1025', 'ord_1026', 'ord_1027');
@@ -97,20 +97,11 @@ INSERT INTO public.staff_users (
   phone,
   active
 ) VALUES (
-  'usr_demo_admin',
-  'biz_savannah_sea',
-  'Demo Admin',
-  'admin@demo.com',
-  '$2a$12$.EhN3P5jYWD1jFGAchYcveUqU.74lCQCPc2aMca3hoAslDIxdIcTW',
-  'admin',
-  '868-443-7582',
-  TRUE
-), (
   'usr_setup_admin',
   'biz_savannah_sea',
   'Asha Maharaj',
   'admin@caribbeanpos.test',
-  '$2a$12$EvyU.jIQ.g5shOMcdNYal.qgL3OgrSPazfLaM8qbGpc8T4ZJDMpIa',
+  '$2a$12$TBtPQakrJnSP8Y8yJj0lOOiS2auAZ1hrNKyioYJRvkNQvIy4FFeAG',
   'admin',
   '868-555-1001',
   TRUE
@@ -155,6 +146,6 @@ SET plan_id = CASE
     ELSE 'Starter Plan'
   END,
   metadata = COALESCE(metadata, '{}'::jsonb) - 'notes'
-WHERE id = 'sub_demo_launch' OR lower(plan_name) LIKE '%launch%';
+WHERE lower(plan_name) LIKE '%launch%';
 
 COMMIT;

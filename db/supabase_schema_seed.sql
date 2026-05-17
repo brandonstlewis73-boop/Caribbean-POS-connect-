@@ -2,9 +2,9 @@
 -- Paste this whole file into the Supabase SQL Editor for a new/empty public schema.
 -- It creates the requested Supabase/Postgres tables and seed data.
 --
--- Demo login after setup:
---   Email: admin@demo.com
---   Password: demo123
+-- Initial owner login after setup:
+--   Email: admin@caribbeanpos.test
+--   Password: Admin123!
 
 BEGIN;
 
@@ -43,7 +43,7 @@ CREATE TABLE IF NOT EXISTS public.businesses (
   currency TEXT NOT NULL DEFAULT 'TTD',
   logo_url TEXT,
   tax_id TEXT,
-  subscription_plan TEXT NOT NULL DEFAULT 'free_demo',
+  subscription_plan TEXT NOT NULL DEFAULT 'starter',
   subscription_status TEXT NOT NULL DEFAULT 'trial',
   trial_ends_at TIMESTAMPTZ,
   setup_checklist JSONB NOT NULL DEFAULT '{}'::jsonb,
@@ -397,26 +397,26 @@ INSERT INTO public.businesses (
   logo_url, subscription_plan, subscription_status, trial_ends_at
 ) VALUES (
   'biz_savannah_sea',
-  'Savannah & Sea Retail Ltd.',
-  'Savannah & Sea Retail Ltd.',
-  'savannah-sea-retail',
-  'savannah-sea-retail',
-  'Demo Admin',
-  'admin@demo.com',
-  '868-443-7582',
-  '868-443-7582',
-  '868-443-7582',
-  'hello@savannahsea.tt',
-  '18 Independence Square',
-  'Port of Spain',
-  'Port of Spain',
+  'Your Business',
+  'Your Business',
+  'your-business',
+  'your-business',
+  'Store Owner',
+  'admin@caribbeanpos.test',
+  '',
+  '',
+  '',
+  'owner@yourbusiness.com',
+  '',
+  '',
+  '',
   '',
   NULL,
   NULL,
   'Trinidad and Tobago',
   'TTD',
   '/logo.svg',
-  'free_demo',
+  'starter',
   'trial',
   NOW() + INTERVAL '14 days'
 ) ON CONFLICT (id) DO UPDATE SET
@@ -437,13 +437,7 @@ INSERT INTO public.businesses (
 INSERT INTO public.staff_users (
   id, business_id, name, email, password_hash, role, phone, active
 ) VALUES
-  ('usr_demo_admin', 'biz_savannah_sea', 'Demo Admin', 'admin@demo.com', '$2a$12$.EhN3P5jYWD1jFGAchYcveUqU.74lCQCPc2aMca3hoAslDIxdIcTW', 'admin', '868-443-7582', TRUE),
-  ('usr_manager_asha', 'biz_savannah_sea', 'Asha Maharaj', 'manager@savannahsea.tt', '$2a$12$.EhN3P5jYWD1jFGAchYcveUqU.74lCQCPc2aMca3hoAslDIxdIcTW', 'manager', '868-555-1002', TRUE),
-  ('usr_cashier_renee', 'biz_savannah_sea', 'Renee Ali', 'cashier@savannahsea.tt', '$2a$12$.EhN3P5jYWD1jFGAchYcveUqU.74lCQCPc2aMca3hoAslDIxdIcTW', 'cashier', '868-555-1003', TRUE),
-  ('usr_dispatcher_nia', 'biz_savannah_sea', 'Nia George', 'dispatcher@savannahsea.tt', '$2a$12$.EhN3P5jYWD1jFGAchYcveUqU.74lCQCPc2aMca3hoAslDIxdIcTW', 'dispatcher', '868-555-1006', TRUE),
-  ('usr_driver_malik', 'biz_savannah_sea', 'Malik Charles', 'driver@savannahsea.tt', '$2a$12$.EhN3P5jYWD1jFGAchYcveUqU.74lCQCPc2aMca3hoAslDIxdIcTW', 'driver', '868-555-1004', TRUE),
-  ('usr_kitchen_lena', 'biz_savannah_sea', 'Lena Baptiste', 'kitchen@savannahsea.tt', '$2a$12$.EhN3P5jYWD1jFGAchYcveUqU.74lCQCPc2aMca3hoAslDIxdIcTW', 'kitchen', '868-555-1007', TRUE),
-  ('usr_staff_talia', 'biz_savannah_sea', 'Talia Joseph', 'staff@savannahsea.tt', '$2a$12$.EhN3P5jYWD1jFGAchYcveUqU.74lCQCPc2aMca3hoAslDIxdIcTW', 'staff', '868-555-1005', TRUE)
+  ('usr_store_owner', 'biz_savannah_sea', 'Store Owner', 'admin@caribbeanpos.test', '$2a$12$TBtPQakrJnSP8Y8yJj0lOOiS2auAZ1hrNKyioYJRvkNQvIy4FFeAG', 'admin', '', TRUE)
 ON CONFLICT (email) DO UPDATE SET
   name = EXCLUDED.name,
   password_hash = EXCLUDED.password_hash,
@@ -626,7 +620,7 @@ INSERT INTO public.subscriptions (
   id, business_id, plan_name, status, seats, monthly_price, currency, provider,
   current_period_start, current_period_end, metadata
 ) VALUES (
-  'sub_demo_launch',
+  'sub_initial_launch',
   'biz_savannah_sea',
   'Launch Plan',
   'trialing',
@@ -644,13 +638,13 @@ INSERT INTO public.subscriptions (
   updated_at = NOW();
 
 INSERT INTO public.settings (key, business_id, value) VALUES
-  ('business_name', 'biz_savannah_sea', to_jsonb('Savannah & Sea Retail Ltd.'::text)),
-  ('business_phone', 'biz_savannah_sea', to_jsonb('868-443-7582'::text)),
-  ('business_email', 'biz_savannah_sea', to_jsonb('hello@savannahsea.tt'::text)),
-  ('business_address', 'biz_savannah_sea', to_jsonb('18 Independence Square, Port of Spain, Trinidad and Tobago'::text)),
-  ('business_street_address', 'biz_savannah_sea', to_jsonb('18 Independence Square'::text)),
-  ('business_city', 'biz_savannah_sea', to_jsonb('Port of Spain'::text)),
-  ('business_region', 'biz_savannah_sea', to_jsonb('Port of Spain'::text)),
+  ('business_name', 'biz_savannah_sea', to_jsonb('Your Business'::text)),
+  ('business_phone', 'biz_savannah_sea', to_jsonb(''::text)),
+  ('business_email', 'biz_savannah_sea', to_jsonb('owner@yourbusiness.com'::text)),
+  ('business_address', 'biz_savannah_sea', to_jsonb(''::text)),
+  ('business_street_address', 'biz_savannah_sea', to_jsonb(''::text)),
+  ('business_city', 'biz_savannah_sea', to_jsonb(''::text)),
+  ('business_region', 'biz_savannah_sea', to_jsonb(''::text)),
   ('business_country', 'biz_savannah_sea', to_jsonb('Trinidad and Tobago'::text)),
   ('business_postal_code', 'biz_savannah_sea', to_jsonb(''::text)),
   ('business_latitude', 'biz_savannah_sea', 'null'::jsonb),
@@ -664,15 +658,15 @@ INSERT INTO public.settings (key, business_id, value) VALUES
   ('service_fee_rate', 'biz_savannah_sea', '0'::jsonb),
   ('delivery_fee', 'biz_savannah_sea', '25'::jsonb),
   ('delivery_rates', 'biz_savannah_sea', '{"Port of Spain":25,"San Fernando":30,"Chaguanas":25,"Arima":30,"Point Fortin":55,"Couva-Tabaquite-Talparo":35,"Diego Martin":30,"San Juan-Laventille":28,"Tunapuna-Piarco":30,"Siparia":50,"Penal-Debe":45,"Princes Town":45,"Mayaro-Rio Claro":60,"Sangre Grande":45,"Tobago":75}'::jsonb),
-  ('receipt_message', 'biz_savannah_sea', to_jsonb('Thank you for shopping with Savannah & Sea Retail Ltd.'::text)),
+  ('receipt_message', 'biz_savannah_sea', to_jsonb('Thank you for shopping with us.'::text)),
   ('loyalty_enabled', 'biz_savannah_sea', 'true'::jsonb),
   ('loyalty_points_per_ttd', 'biz_savannah_sea', '0.1'::jsonb),
   ('loyalty_redeem_ttd_per_point', 'biz_savannah_sea', '0.1'::jsonb),
   ('payment_links_enabled', 'biz_savannah_sea', 'true'::jsonb),
   ('payment_link_template', 'biz_savannah_sea', to_jsonb('https://pay.example.com/caribbean-pos-connect?order={{order_number}}&amount={{amount}}&phone={{customer_phone}}'::text)),
   ('whatsapp_enabled', 'biz_savannah_sea', 'true'::jsonb),
-  ('whatsapp_business_number', 'biz_savannah_sea', to_jsonb('4437582368'::text)),
-  ('whatsapp_country_code', 'biz_savannah_sea', to_jsonb('+1'::text)),
+  ('whatsapp_business_number', 'biz_savannah_sea', to_jsonb(''::text)),
+  ('whatsapp_country_code', 'biz_savannah_sea', to_jsonb('+1868'::text)),
   ('whatsapp_owner_alerts_enabled', 'biz_savannah_sea', 'true'::jsonb),
   ('whatsapp_customer_receipts_enabled', 'biz_savannah_sea', 'false'::jsonb),
   ('whatsapp_driver_assignment_enabled', 'biz_savannah_sea', 'true'::jsonb),
@@ -695,18 +689,46 @@ INSERT INTO public.settings (key, business_id, value) VALUES
   ('receipt_print_kitchen_enabled', 'biz_savannah_sea', 'false'::jsonb),
   ('receipt_email_enabled', 'biz_savannah_sea', 'true'::jsonb),
   ('receipt_whatsapp_enabled', 'biz_savannah_sea', 'false'::jsonb),
-  ('order_counter', 'biz_savannah_sea', '1027'::jsonb),
-  ('receipt_counter', 'biz_savannah_sea', '4027'::jsonb)
+  ('order_counter', 'biz_savannah_sea', '1000'::jsonb),
+  ('receipt_counter', 'biz_savannah_sea', '4000'::jsonb)
 ON CONFLICT (key) DO UPDATE SET
   value = EXCLUDED.value,
   business_id = EXCLUDED.business_id,
   updated_at = NOW();
 
+-- Start production databases clean: keep schema, owner account, categories, and settings only.
+DELETE FROM public.delivery_events WHERE order_id IN ('ord_1025', 'ord_1026', 'ord_1027');
+DELETE FROM public.loyalty_transactions WHERE order_id IN ('ord_1025', 'ord_1026', 'ord_1027');
+DELETE FROM public.receipts WHERE order_id IN ('ord_1025', 'ord_1026', 'ord_1027');
+DELETE FROM public.payments WHERE order_id IN ('ord_1025', 'ord_1026', 'ord_1027');
+DELETE FROM public.inventory_logs WHERE reference_id IN ('ord_1025', 'ord_1026', 'ord_1027');
+DELETE FROM public.order_items WHERE order_id IN ('ord_1025', 'ord_1026', 'ord_1027');
+DELETE FROM public.orders WHERE id IN ('ord_1025', 'ord_1026', 'ord_1027');
+DELETE FROM public.customers WHERE id IN ('cus_john', 'cus_priya', 'cus_maria');
+DELETE FROM public.products WHERE id IN (
+  'prd_jerk',
+  'prd_doubles',
+  'prd_sorrel',
+  'prd_mauby',
+  'prd_plantain',
+  'prd_tee',
+  'prd_topup',
+  'prd_repair'
+);
+DELETE FROM public.staff_users WHERE id IN (
+  'usr_manager_asha',
+  'usr_cashier_renee',
+  'usr_dispatcher_nia',
+  'usr_driver_malik',
+  'usr_kitchen_lena',
+  'usr_staff_talia'
+);
+
 INSERT INTO public.audit_logs (
   id, user_id, action, entity_type, entity_id, metadata
 ) VALUES (
   'aud_seed_initial',
-  'usr_demo_admin',
+  'usr_store_owner',
   'database:seed',
   'business',
   'biz_savannah_sea',

@@ -2,7 +2,7 @@
 
 Caribbean POS Connect is a full-stack POS, customer management, inventory, orders, delivery, Waze, WhatsApp, loyalty, receipts, reporting, and storefront system for businesses in Trinidad and Tobago.
 
-The current working checkpoint is Supabase/Postgres-backed and seeded for the demo business `Savannah & Sea Retail Ltd.`.
+The app now runs as a Supabase/Postgres-backed production app with no in-memory fallback.
 
 ## Tech Stack
 
@@ -75,7 +75,7 @@ SESSION_SECRET=<long-random-secret>
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<supabase-publishable-or-anon-key>
-ADMIN_EMAIL=admin@demo.com
+ADMIN_EMAIL=owner@yourbusiness.com
 DEFAULT_WHATSAPP_NUMBER=4437582368
 WHATSAPP_PROVIDER=
 TWILIO_ACCOUNT_SID=
@@ -129,34 +129,25 @@ NEXT_PUBLIC_SUPABASE_URL
 NEXT_PUBLIC_SUPABASE_ANON_KEY
 ```
 
-## Seeded Login Credentials
+## Initial Login Credentials
 
-Primary demo admin:
-
-```text
-Email: admin@demo.com
-Password: demo123
-```
-
-Additional seeded staff accounts use the same password:
+For a fresh database seeded with `db/supabase_schema_seed.sql`:
 
 ```text
-manager@savannahsea.tt
-cashier@savannahsea.tt
-driver@savannahsea.tt
-staff@savannahsea.tt
+Email: admin@caribbeanpos.test
+Password: Admin123!
 ```
 
-Change seeded passwords before using the app for a real business.
+Change the seeded owner password before using the app for a real business, or sign up through the business owner signup flow.
 
 ## Test Checkout
 
 Manual test:
 
-1. Log in at `/login` with `admin@demo.com` and `demo123`.
+1. Log in at `/login` with a real owner/admin account.
 2. Go to `/pos`.
-3. Add `Sorrel Drink` or another seeded product to the cart.
-4. Add customer details, including phone, address, area, city, and delivery notes.
+3. Add a product to the cart.
+4. Add customer details, including phone, address, city, country, and delivery notes.
 5. Choose `Delivery` and `Pay on delivery`.
 6. Complete the sale.
 7. Confirm:
@@ -211,7 +202,7 @@ Recommended production settings:
 - Use a Supabase pooled Postgres connection string for `DATABASE_URL`.
 - Enable Supabase backups.
 - Replace `SESSION_SECRET`.
-- Replace demo payment link templates with real WiPay, PayPal, bank transfer, or payment provider links.
+- Replace placeholder payment link templates with real WiPay, PayPal, bank transfer, or payment provider links.
 - Keep WhatsApp as click-to-chat unless a WhatsApp Business API integration is added.
 
 ## Build And Typecheck

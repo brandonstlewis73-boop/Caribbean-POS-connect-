@@ -25,7 +25,7 @@ export async function PATCH(request: NextRequest) {
   if (!auth.user) return fail(auth.error, auth.status);
   const body = await request.json().catch(() => null);
   const planId = body?.plan_id as SubscriptionPlanId | undefined;
-  if (!planId || !["free_demo", "starter", "pro", "premium", "business"].includes(planId)) {
+  if (!planId || !["starter", "pro", "premium", "business"].includes(planId)) {
     return fail("Select a valid subscription plan.", 422);
   }
   const subscription = await updateSubscriptionPlan(planId, auth.user.id);

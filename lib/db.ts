@@ -68,19 +68,6 @@ function rawDatabaseUrl() {
   return envName ? process.env[envName] || null : null;
 }
 
-const configuredDatabaseUrl = rawDatabaseUrl() || undefined;
-const hasFileDatabaseUrl = Boolean(
-  configuredDatabaseUrl?.startsWith("file:")
-);
-const explicitDemoMode =
-  process.env.FORCE_DEMO === "true" || process.env.NEXT_PUBLIC_DEMO_MODE === "true";
-
-export const isDemoMode =
-  explicitDemoMode ||
-  (process.env.NODE_ENV !== "production" &&
-    (!configuredDatabaseUrl || hasFileDatabaseUrl) &&
-    process.env.FORCE_POSTGRES !== "true");
-
 declare global {
   var __cpcPool: Pool | undefined;
   var __cpcDbInit: Promise<void> | undefined;
@@ -287,7 +274,6 @@ export function databaseConfigStatus() {
   return {
     hasDatabaseUrl: Boolean(process.env.DATABASE_URL && !process.env.DATABASE_URL.startsWith("file:")),
     hasSupabaseDbUrl: Boolean(process.env.SUPABASE_DB_URL && !process.env.SUPABASE_DB_URL.startsWith("file:")),
-    isDemoMode,
     nodeEnv: process.env.NODE_ENV || "development",
     vercelEnv: process.env.VERCEL_ENV || null
   };
@@ -438,7 +424,6 @@ export function getDb() {
 }
 
 export async function ensureDatabase() {
-  if (isDemoMode) return;
   if (!globalThis.__cpcDbInit) {
     globalThis.__cpcDbInit = initializeDatabase();
   }
@@ -450,13 +435,11 @@ export async function query<T extends QueryResultRow = QueryResultRow>(
   params: unknown[] = [],
   client?: DbClient
 ): Promise<QueryResult<T>> {
-  if (isDemoMode) return emptyResult<T>();
   await ensureDatabase();
   return (client || getDb()).query<T>(text, params);
 }
 
 export async function transaction<T>(fn: (client: PoolClient) => Promise<T>) {
-  if (isDemoMode) return fn(fakeClient() as unknown as PoolClient);
   await ensureDatabase();
   const client = await getDb().connect();
   try {
@@ -477,12 +460,10 @@ async function rawQuery<T extends QueryResultRow = QueryResultRow>(
   params: unknown[] = [],
   client?: DbClient
 ) {
-  if (isDemoMode) return emptyResult<T>();
   return (client || getDb()).query<T>(text, params);
 }
 
 async function initializeDatabase() {
-  if (isDemoMode) return;
   const schemaPath = join(process.cwd(), "db", "schema.sql");
   const schema = await readFile(schemaPath, "utf8");
   await getDb().query(schema);
@@ -499,10 +480,10 @@ async function insertSetting(key: string, value: unknown) {
 }
 
 async function seedSettings() {
-  await insertSetting("business_name", "Savannah & Sea Retail Ltd.");
-  await insertSetting("business_phone", "868-555-2190");
-  await insertSetting("business_email", "hello@savannahsea.tt");
-  await insertSetting("business_address", "18 Independence Square, Port of Spain, Trinidad and Tobago");
+  await insertSetting("business_name", "Your Business");
+  await insertSetting("business_phone", "");
+  await insertSetting("business_email", "owner@yourbusiness.com");
+  await insertSetting("business_address", "");
   await insertSetting("logo_url", "/logo.svg");
   await insertSetting("active_business_id", "biz_savannah_sea");
   await insertSetting("currency", "TTD");
@@ -520,7 +501,7 @@ async function seedSettings() {
   await insertSetting("payment_link_template", "");
   await insertSetting("whatsapp_enabled", true);
   await insertSetting("whatsapp_provider", "twilio");
-  await insertSetting("whatsapp_business_number", "4437582368");
+  await insertSetting("whatsapp_business_number", "");
   await insertSetting("whatsapp_country_code", "+1868");
   await insertSetting("whatsapp_owner_alerts_enabled", true);
   await insertSetting("whatsapp_customer_confirmations_enabled", true);
@@ -592,26 +573,20 @@ async function seedInitialData() {
      ON CONFLICT (id) DO NOTHING`,
     [
       "biz_savannah_sea",
-      "Savannah & Sea Retail Ltd.",
-      "savannah-sea-retail",
-      "868-443-7582",
-      "hello@savannahsea.tt",
-      "18 Independence Square",
-      "Port of Spain",
-      "Port of Spain"
+      "Your Business",
+      "your-business",
+      "",
+      "owner@yourbusiness.com",
+      "",
+      "",
+      ""
     ]
   );
 
   const userCount = Number((await rawQuery<{ count: string }>("SELECT COUNT(*) AS count FROM users")).rows[0]?.count || 0);
   if (!userCount) {
     const passwordHash = await bcrypt.hash("Admin123!", 12);
-    const users = [
-      ["Asha Maharaj", "admin@caribbeanpos.test", "admin", "868-555-1001"],
-      ["Devon Baptiste", "manager@caribbeanpos.test", "manager", "868-555-1002"],
-      ["Renee Ali", "cashier@caribbeanpos.test", "cashier", "868-555-1003"],
-      ["Malik Charles", "driver@caribbeanpos.test", "driver", "868-555-1004"],
-      ["Talia Joseph", "staff@caribbeanpos.test", "staff", "868-555-1005"]
-    ];
+    const users = [["Store Owner", "admin@caribbeanpos.test", "admin", ""]];
     for (const [name, email, role, phone] of users) {
       await rawQuery(
         "INSERT INTO users (id, business_id, name, email, password_hash, role, phone) VALUES ($1, $2, $3, $4, $5, $6, $7)",
@@ -640,20 +615,3 @@ export function createId(prefix: string) {
 }
 
 export type { PoolClient };
-
-function emptyResult<T extends QueryResultRow = QueryResultRow>(): QueryResult<T> {
-  return {
-    command: "SELECT",
-    rowCount: 0,
-    oid: 0,
-    fields: [],
-    rows: []
-  };
-}
-
-function fakeClient() {
-  return {
-    query: async () => emptyResult(),
-    release: () => undefined
-  };
-}
