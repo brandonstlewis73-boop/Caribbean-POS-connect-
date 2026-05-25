@@ -11,6 +11,7 @@ import {
   ReceiptText,
   Settings,
   ShoppingCart,
+  Tags,
   UserCog,
   UsersRound
 } from "lucide-react";
@@ -34,6 +35,7 @@ const navGroups = [
     items: [
       { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
       { label: "Customers", href: "/customers", icon: UsersRound },
+      { label: "Categories", href: "/categories", icon: Tags },
       { label: "Inventory", href: "/inventory", icon: Boxes },
       { label: "Reports", href: "/reports", icon: BarChart3 }
     ]

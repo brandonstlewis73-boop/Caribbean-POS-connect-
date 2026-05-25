@@ -53,14 +53,27 @@ CREATE TABLE IF NOT EXISTS settings (
 
 CREATE TABLE IF NOT EXISTS categories (
   id TEXT PRIMARY KEY,
-  name TEXT NOT NULL UNIQUE,
-  slug TEXT NOT NULL UNIQUE,
+  business_id TEXT,
+  name TEXT NOT NULL,
+  slug TEXT NOT NULL,
   description TEXT,
+  icon TEXT,
+  color TEXT,
   sort_order INTEGER NOT NULL DEFAULT 0,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
   active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE categories ADD COLUMN IF NOT EXISTS business_id TEXT;
+ALTER TABLE categories ADD COLUMN IF NOT EXISTS icon TEXT;
+ALTER TABLE categories ADD COLUMN IF NOT EXISTS color TEXT;
+ALTER TABLE categories ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE categories DROP CONSTRAINT IF EXISTS categories_name_key;
+ALTER TABLE categories DROP CONSTRAINT IF EXISTS categories_slug_key;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_categories_business_slug ON categories((COALESCE(business_id, '')), slug);
+CREATE INDEX IF NOT EXISTS idx_categories_business_order ON categories(business_id, is_active, sort_order, name);
 
 CREATE TABLE IF NOT EXISTS customers (
   id TEXT PRIMARY KEY,
@@ -80,6 +93,9 @@ CREATE TABLE IF NOT EXISTS customers (
   preferred_payment_method TEXT,
   notes TEXT,
   birthday TEXT,
+  notification_whatsapp BOOLEAN NOT NULL DEFAULT TRUE,
+  notification_sms BOOLEAN NOT NULL DEFAULT FALSE,
+  notification_email BOOLEAN NOT NULL DEFAULT FALSE,
   marketing_consent BOOLEAN NOT NULL DEFAULT FALSE,
   loyalty_points INTEGER NOT NULL DEFAULT 0,
   total_spent NUMERIC NOT NULL DEFAULT 0,
@@ -97,27 +113,47 @@ ALTER TABLE customers ADD COLUMN IF NOT EXISTS waze_link TEXT;
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS gps_latitude NUMERIC;
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS gps_longitude NUMERIC;
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS postal_code TEXT;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS notification_whatsapp BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS notification_sms BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS notification_email BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE customers DROP COLUMN IF EXISTS community;
 
 CREATE TABLE IF NOT EXISTS products (
   id TEXT PRIMARY KEY,
+  business_id TEXT,
   name TEXT NOT NULL,
   sku TEXT NOT NULL UNIQUE,
   barcode TEXT,
+  category_id TEXT,
   category TEXT NOT NULL,
+  description TEXT,
   cost_price NUMERIC NOT NULL DEFAULT 0,
   selling_price NUMERIC NOT NULL DEFAULT 0,
+  discount_price NUMERIC,
   stock_quantity INTEGER NOT NULL DEFAULT 0,
   low_stock_alert INTEGER NOT NULL DEFAULT 5,
   image_url TEXT,
   supplier_name TEXT,
   supplier_phone TEXT,
+  variations JSONB NOT NULL DEFAULT '[]'::jsonb,
+  add_ons JSONB NOT NULL DEFAULT '[]'::jsonb,
   active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_products_lookup ON products(name, sku, barcode, category);
+ALTER TABLE products ADD COLUMN IF NOT EXISTS business_id TEXT;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS category_id TEXT;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS description TEXT;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS discount_price NUMERIC;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS variations JSONB NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS add_ons JSONB NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE products DROP CONSTRAINT IF EXISTS products_category_fkey;
+ALTER TABLE products DROP CONSTRAINT IF EXISTS products_category_fkey;
+ALTER TABLE products DROP CONSTRAINT IF EXISTS products_sku_key;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_products_business_sku ON products((COALESCE(business_id, '')), sku);
+CREATE INDEX IF NOT EXISTS idx_products_business_category ON products(business_id, category_id, active);
 
 CREATE TABLE IF NOT EXISTS orders (
   id TEXT PRIMARY KEY,
@@ -192,6 +228,36 @@ CREATE TABLE IF NOT EXISTS order_items (
   FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
   FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL
 );
+
+CREATE TABLE IF NOT EXISTS order_status_history (
+  id TEXT PRIMARY KEY,
+  order_id TEXT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  status TEXT NOT NULL,
+  note TEXT,
+  changed_by TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_order_status_history_order ON order_status_history(order_id, created_at);
+
+CREATE TABLE IF NOT EXISTS customer_notifications (
+  id TEXT PRIMARY KEY,
+  business_id TEXT,
+  order_id TEXT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  customer_id TEXT,
+  channel TEXT NOT NULL CHECK (channel IN ('whatsapp', 'sms', 'email', 'in_app')),
+  status TEXT NOT NULL,
+  message TEXT NOT NULL,
+  destination TEXT,
+  provider TEXT,
+  delivery_status TEXT NOT NULL DEFAULT 'queued' CHECK (delivery_status IN ('queued', 'sent', 'skipped', 'failed')),
+  error_message TEXT,
+  sent_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_customer_notifications_order ON customer_notifications(order_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_customer_notifications_business ON customer_notifications(business_id, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS stock_movements (
   id TEXT PRIMARY KEY,

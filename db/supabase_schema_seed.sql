@@ -77,10 +77,13 @@ CREATE TABLE IF NOT EXISTS public.staff_users (
 CREATE TABLE IF NOT EXISTS public.categories (
   id TEXT PRIMARY KEY,
   business_id TEXT NOT NULL DEFAULT 'biz_savannah_sea' REFERENCES public.businesses(id) ON DELETE CASCADE,
-  name TEXT NOT NULL UNIQUE,
-  slug TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  slug TEXT NOT NULL,
   description TEXT,
+  icon TEXT,
+  color TEXT,
   sort_order INTEGER NOT NULL DEFAULT 0,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
   active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -92,15 +95,19 @@ CREATE TABLE IF NOT EXISTS public.products (
   name TEXT NOT NULL,
   sku TEXT NOT NULL UNIQUE,
   barcode TEXT,
-  category TEXT NOT NULL REFERENCES public.categories(name) ON UPDATE CASCADE,
+  category TEXT NOT NULL,
   category_id TEXT REFERENCES public.categories(id) ON DELETE SET NULL,
+  description TEXT,
   cost_price NUMERIC(12, 2) NOT NULL DEFAULT 0,
   selling_price NUMERIC(12, 2) NOT NULL DEFAULT 0,
+  discount_price NUMERIC(12, 2),
   stock_quantity INTEGER NOT NULL DEFAULT 0,
   low_stock_alert INTEGER NOT NULL DEFAULT 5,
   image_url TEXT,
   supplier_name TEXT,
   supplier_phone TEXT,
+  variations JSONB NOT NULL DEFAULT '[]'::jsonb,
+  add_ons JSONB NOT NULL DEFAULT '[]'::jsonb,
   active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -125,6 +132,9 @@ CREATE TABLE IF NOT EXISTS public.customers (
   preferred_payment_method TEXT,
   notes TEXT,
   birthday TEXT,
+  notification_whatsapp BOOLEAN NOT NULL DEFAULT TRUE,
+  notification_sms BOOLEAN NOT NULL DEFAULT FALSE,
+  notification_email BOOLEAN NOT NULL DEFAULT FALSE,
   marketing_consent BOOLEAN NOT NULL DEFAULT FALSE,
   loyalty_points INTEGER NOT NULL DEFAULT 0,
   total_spent NUMERIC(12, 2) NOT NULL DEFAULT 0,
@@ -271,6 +281,31 @@ CREATE TABLE IF NOT EXISTS public.delivery_events (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS public.order_status_history (
+  id TEXT PRIMARY KEY,
+  order_id TEXT NOT NULL REFERENCES public.orders(id) ON DELETE CASCADE,
+  status TEXT NOT NULL,
+  note TEXT,
+  changed_by TEXT REFERENCES public.staff_users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.customer_notifications (
+  id TEXT PRIMARY KEY,
+  business_id TEXT REFERENCES public.businesses(id) ON DELETE CASCADE,
+  order_id TEXT NOT NULL REFERENCES public.orders(id) ON DELETE CASCADE,
+  customer_id TEXT REFERENCES public.customers(id) ON DELETE SET NULL,
+  channel TEXT NOT NULL CHECK (channel IN ('whatsapp', 'sms', 'email', 'in_app')),
+  status TEXT NOT NULL,
+  message TEXT NOT NULL,
+  destination TEXT,
+  provider TEXT,
+  delivery_status TEXT NOT NULL DEFAULT 'queued' CHECK (delivery_status IN ('queued', 'sent', 'skipped', 'failed')),
+  error_message TEXT,
+  sent_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS public.audit_logs (
   id TEXT PRIMARY KEY,
   user_id TEXT REFERENCES public.staff_users(id) ON DELETE SET NULL,
@@ -329,8 +364,15 @@ CREATE TABLE IF NOT EXISTS public.ai_support_logs (
 );
 
 CREATE INDEX IF NOT EXISTS idx_staff_users_email ON public.staff_users(email);
+ALTER TABLE public.categories DROP CONSTRAINT IF EXISTS categories_name_key;
+ALTER TABLE public.categories DROP CONSTRAINT IF EXISTS categories_slug_key;
+ALTER TABLE public.products DROP CONSTRAINT IF EXISTS products_category_fkey;
+ALTER TABLE public.products DROP CONSTRAINT IF EXISTS products_sku_key;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_categories_business_slug ON public.categories((COALESCE(business_id, '')), slug);
+CREATE INDEX IF NOT EXISTS idx_categories_business_order ON public.categories(business_id, is_active, sort_order, name);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_products_business_sku ON public.products((COALESCE(business_id, '')), sku);
 CREATE INDEX IF NOT EXISTS idx_products_lookup ON public.products(name, sku, barcode, category);
-CREATE INDEX IF NOT EXISTS idx_products_category ON public.products(category);
+CREATE INDEX IF NOT EXISTS idx_products_category ON public.products(business_id, category_id, active);
 CREATE INDEX IF NOT EXISTS idx_customers_phone ON public.customers(phone_normalized);
 CREATE INDEX IF NOT EXISTS idx_customers_name ON public.customers(name);
 CREATE INDEX IF NOT EXISTS idx_orders_number ON public.orders(order_number);
@@ -338,6 +380,9 @@ CREATE INDEX IF NOT EXISTS idx_orders_customer ON public.orders(customer_id);
 CREATE INDEX IF NOT EXISTS idx_orders_driver ON public.orders(assigned_driver_id);
 CREATE INDEX IF NOT EXISTS idx_orders_created ON public.orders(created_at);
 CREATE INDEX IF NOT EXISTS idx_order_items_order ON public.order_items(order_id);
+CREATE INDEX IF NOT EXISTS idx_order_status_history_order ON public.order_status_history(order_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_customer_notifications_order ON public.customer_notifications(order_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_customer_notifications_business ON public.customer_notifications(business_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_payments_order ON public.payments(order_id);
 CREATE INDEX IF NOT EXISTS idx_inventory_logs_product ON public.inventory_logs(product_id);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON public.audit_logs(created_at);
@@ -346,6 +391,18 @@ CREATE INDEX IF NOT EXISTS idx_help_articles_visibility ON public.help_articles(
 CREATE INDEX IF NOT EXISTS idx_support_tickets_status ON public.support_tickets(status, priority);
 CREATE INDEX IF NOT EXISTS idx_support_tickets_submitter ON public.support_tickets(submitted_by);
 CREATE INDEX IF NOT EXISTS idx_ai_support_logs_user ON public.ai_support_logs(user_id, created_at);
+
+ALTER TABLE public.categories ADD COLUMN IF NOT EXISTS icon TEXT;
+ALTER TABLE public.categories ADD COLUMN IF NOT EXISTS color TEXT;
+ALTER TABLE public.categories ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS category_id TEXT REFERENCES public.categories(id) ON DELETE SET NULL;
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS description TEXT;
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS discount_price NUMERIC(12, 2);
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS variations JSONB NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS add_ons JSONB NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS notification_whatsapp BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS notification_sms BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS notification_email BOOLEAN NOT NULL DEFAULT FALSE;
 
 DROP TRIGGER IF EXISTS set_businesses_updated_at ON public.businesses;
 CREATE TRIGGER set_businesses_updated_at BEFORE UPDATE ON public.businesses
@@ -454,10 +511,12 @@ INSERT INTO public.categories (id, business_id, name, slug, sort_order) VALUES
   ('cat_apparel', 'biz_savannah_sea', 'Apparel', 'apparel', 50),
   ('cat_digital', 'biz_savannah_sea', 'Digital services', 'digital-services', 60),
   ('cat_custom', 'biz_savannah_sea', 'Custom items', 'custom-items', 70)
-ON CONFLICT (name) DO UPDATE SET
+ON CONFLICT (id) DO UPDATE SET
+  name = EXCLUDED.name,
   slug = EXCLUDED.slug,
   sort_order = EXCLUDED.sort_order,
   active = TRUE,
+  is_active = TRUE,
   updated_at = NOW();
 
 INSERT INTO public.products (
@@ -472,8 +531,9 @@ INSERT INTO public.products (
   ('prd_tee', 'biz_savannah_sea', 'Screen Printed Tee', 'APP-TEE-006', '740001000006', 'Apparel', 'cat_apparel', 48.00, 120.00, 17, 5, 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=80', 'Queen Street Apparel', '868-555-2005', TRUE),
   ('prd_topup', 'biz_savannah_sea', 'Digital Top-Up', 'DIG-TOP-007', '740001000007', 'Digital services', 'cat_digital', 45.00, 50.00, 999, 100, 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=900&q=80', 'Local Digital Services', '868-555-2006', TRUE),
   ('prd_repair', 'biz_savannah_sea', 'Custom Repair Service', 'SERV-REP-008', '740001000008', 'Services', 'cat_services', 80.00, 150.00, 999, 100, 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=900&q=80', 'In-house', '868-555-0100', TRUE)
-ON CONFLICT (sku) DO UPDATE SET
+ON CONFLICT (id) DO UPDATE SET
   name = EXCLUDED.name,
+  sku = EXCLUDED.sku,
   barcode = EXCLUDED.barcode,
   category = EXCLUDED.category,
   category_id = EXCLUDED.category_id,
@@ -668,6 +728,7 @@ INSERT INTO public.settings (key, business_id, value) VALUES
   ('whatsapp_business_number', 'biz_savannah_sea', to_jsonb(''::text)),
   ('whatsapp_country_code', 'biz_savannah_sea', to_jsonb('+1868'::text)),
   ('whatsapp_owner_alerts_enabled', 'biz_savannah_sea', 'true'::jsonb),
+  ('whatsapp_customer_confirmations_enabled', 'biz_savannah_sea', 'true'::jsonb),
   ('whatsapp_customer_receipts_enabled', 'biz_savannah_sea', 'false'::jsonb),
   ('whatsapp_driver_assignment_enabled', 'biz_savannah_sea', 'true'::jsonb),
   ('whatsapp_driver_alerts_enabled', 'biz_savannah_sea', 'true'::jsonb),
@@ -689,6 +750,10 @@ INSERT INTO public.settings (key, business_id, value) VALUES
   ('receipt_print_kitchen_enabled', 'biz_savannah_sea', 'false'::jsonb),
   ('receipt_email_enabled', 'biz_savannah_sea', 'true'::jsonb),
   ('receipt_whatsapp_enabled', 'biz_savannah_sea', 'false'::jsonb),
+  ('notification_whatsapp_enabled', 'biz_savannah_sea', 'true'::jsonb),
+  ('notification_sms_enabled', 'biz_savannah_sea', 'false'::jsonb),
+  ('notification_email_enabled', 'biz_savannah_sea', 'false'::jsonb),
+  ('default_prep_time_minutes', 'biz_savannah_sea', '25'::jsonb),
   ('order_counter', 'biz_savannah_sea', '1000'::jsonb),
   ('receipt_counter', 'biz_savannah_sea', '4000'::jsonb)
 ON CONFLICT (key) DO UPDATE SET

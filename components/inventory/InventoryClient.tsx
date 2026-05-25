@@ -1,28 +1,49 @@
 "use client";
 
 import { useDeferredValue, useMemo, useState } from "react";
-import { PackagePlus, Search, SlidersHorizontal, Trash2 } from "lucide-react";
+import { Edit3, PackagePlus, Search, SlidersHorizontal, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Field, SelectField } from "@/components/ui/Field";
 import { Panel, PanelHeader } from "@/components/ui/Panel";
-import { money, PRODUCT_CATEGORIES } from "@/lib/constants";
+import { money } from "@/lib/constants";
 import { readApiPayload } from "@/lib/client-response";
-import type { Product } from "@/lib/types";
+import type { Category, Product, ProductOption } from "@/lib/types";
 
-function emptyProduct() {
+function optionText(options?: ProductOption[]) {
+  return (options || []).map((option) => option.price_delta ? `${option.name}:${option.price_delta}` : option.name).join(", ");
+}
+
+function parseOptionText(value: string): ProductOption[] {
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((item) => {
+      const [name, price] = item.split(":").map((part) => part.trim());
+      return { name, price_delta: Number(price || 0) };
+    });
+}
+
+function emptyProduct(categories: Category[]) {
   return {
     name: "",
     sku: "",
     barcode: "",
-    category: "Meals",
+    category_id: categories[0]?.id || "",
+    category: categories[0]?.name || "Uncategorized",
+    description: "",
     cost_price: 0,
     selling_price: 0,
+    discount_price: "",
     stock_quantity: 0,
     low_stock_alert: 5,
     image_url: "",
     supplier_name: "",
-    supplier_phone: ""
+    supplier_phone: "",
+    variationsText: "",
+    addOnsText: "",
+    active: true
   };
 }
 
@@ -32,10 +53,13 @@ function usefulProductError(payloadError?: string, details?: unknown) {
   return "Product could not be saved. Please check the details and try again.";
 }
 
-export function InventoryClient({ products, currency }: { products: Product[]; currency: string }) {
+export function InventoryClient({ products, categories, currency }: { products: Product[]; categories: Category[]; currency: string }) {
   const [items, setItems] = useState(products);
+  const [categoryItems] = useState(categories);
   const [query, setQuery] = useState("");
-  const [draft, setDraft] = useState(emptyProduct());
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [editingId, setEditingId] = useState("");
+  const [draft, setDraft] = useState(emptyProduct(categories));
   const [adjustments, setAdjustments] = useState<Record<string, number>>({});
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
@@ -44,14 +68,16 @@ export function InventoryClient({ products, currency }: { products: Product[]; c
 
   const filtered = useMemo(() => {
     const q = deferredQuery.toLowerCase().trim();
-    return items.filter((product) =>
-      !q || [product.name, product.sku, product.barcode, product.category, product.supplier_name]
+    return items.filter((product) => {
+      const categoryMatch = categoryFilter === "all" || product.category_id === categoryFilter || product.category === categoryFilter;
+      const queryMatch = !q || [product.name, product.sku, product.barcode, product.category, product.supplier_name]
         .filter(Boolean)
         .join(" ")
         .toLowerCase()
-        .includes(q)
-    );
-  }, [items, deferredQuery]);
+        .includes(q);
+      return categoryMatch && queryMatch;
+    });
+  }, [items, deferredQuery, categoryFilter]);
 
   async function refreshProducts() {
     const response = await fetch("/api/inventory");
@@ -60,18 +86,53 @@ export function InventoryClient({ products, currency }: { products: Product[]; c
     if (payload.data?.products) setItems(payload.data.products);
   }
 
-  async function createProduct() {
+  function selectCategory(categoryId: string) {
+    const category = categoryItems.find((item) => item.id === categoryId);
+    setDraft({ ...draft, category_id: categoryId, category: category?.name || draft.category });
+  }
+
+  function editProduct(product: Product) {
+    setEditingId(product.id);
+    setDraft({
+      name: product.name,
+      sku: product.sku,
+      barcode: product.barcode || "",
+      category_id: product.category_id || categoryItems.find((item) => item.name === product.category)?.id || "",
+      category: product.category,
+      description: product.description || "",
+      cost_price: product.cost_price,
+      selling_price: product.selling_price,
+      discount_price: product.discount_price == null ? "" : String(product.discount_price),
+      stock_quantity: product.stock_quantity,
+      low_stock_alert: product.low_stock_alert,
+      image_url: product.image_url || "",
+      supplier_name: product.supplier_name || "",
+      supplier_phone: product.supplier_phone || "",
+      variationsText: optionText(product.variations),
+      addOnsText: optionText(product.add_ons),
+      active: product.active
+    });
+    setMessage(`Editing ${product.name}.`);
+  }
+
+  async function saveProduct() {
     setMessage("");
     if (!draft.name.trim()) {
       setMessage("Add a product name before saving.");
       return;
     }
+    const body = {
+      ...draft,
+      discount_price: draft.discount_price === "" ? null : Number(draft.discount_price),
+      variations: parseOptionText(draft.variationsText),
+      add_ons: parseOptionText(draft.addOnsText)
+    };
     setSaving(true);
     try {
-      const response = await fetch("/api/inventory", {
-        method: "POST",
+      const response = await fetch(editingId ? `/api/inventory/${editingId}` : "/api/inventory", {
+        method: editingId ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(draft)
+        body: JSON.stringify(body)
       });
       const payload = await readApiPayload<{ product: Product }>(response);
       if (!response.ok) {
@@ -82,8 +143,9 @@ export function InventoryClient({ products, currency }: { products: Product[]; c
       if (!product) return setMessage("Product saved, but no product details were returned.");
       await refreshProducts();
       setQuery("");
-      setDraft(emptyProduct());
-      setMessage("Product saved successfully.");
+      setEditingId("");
+      setDraft(emptyProduct(categoryItems));
+      setMessage(editingId ? "Product updated successfully." : "Product saved successfully.");
     } catch {
       setMessage("Product could not be saved. Check your connection and try again.");
     } finally {
@@ -137,7 +199,7 @@ export function InventoryClient({ products, currency }: { products: Product[]; c
     <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(340px,380px)]">
       <Panel>
         <PanelHeader title="Inventory" description="Products, categories, stock, suppliers, and low-stock alerts" />
-        <div className="border-b border-caribbean-line p-4 dark:border-slate-800">
+        <div className="grid gap-3 border-b border-caribbean-line p-4 dark:border-slate-800 md:grid-cols-[minmax(0,1fr)_220px]">
           <label className="relative min-w-0">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
@@ -147,6 +209,16 @@ export function InventoryClient({ products, currency }: { products: Product[]; c
               className="h-10 w-full rounded-card border border-caribbean-line bg-white pl-10 pr-3 text-sm font-semibold dark:border-slate-700 dark:bg-slate-900"
             />
           </label>
+          <select
+            value={categoryFilter}
+            onChange={(event) => setCategoryFilter(event.target.value)}
+            className="h-10 rounded-card border border-white/10 bg-black/30 px-3 text-sm font-bold text-white"
+          >
+            <option value="all">All categories</option>
+            {categoryItems.map((category) => (
+              <option key={category.id} value={category.id}>{category.name}</option>
+            ))}
+          </select>
         </div>
         <div className="grid gap-3 p-4 md:hidden">
           {filtered.map((product) => (
@@ -162,6 +234,7 @@ export function InventoryClient({ products, currency }: { products: Product[]; c
                 <div className="min-w-0 flex-1">
                   <p className="font-black">{product.name}</p>
                   <p className="text-xs font-semibold text-slate-500">{product.sku} - {product.barcode || "No barcode"}</p>
+                  {product.description ? <p className="mt-1 line-clamp-2 text-xs font-semibold text-slate-400">{product.description}</p> : null}
                   <div className="mt-2 flex flex-wrap gap-2">
                     <Badge tone={product.stock_quantity <= product.low_stock_alert ? "red" : "green"}>
                       {product.stock_quantity} in stock
@@ -172,9 +245,9 @@ export function InventoryClient({ products, currency }: { products: Product[]; c
               </div>
               <div className="mt-3 flex items-center justify-between text-sm">
                 <span>Price</span>
-                <strong>{formatMoney(product.selling_price)}</strong>
+                <strong>{formatMoney(product.discount_price || product.selling_price)}</strong>
               </div>
-              <div className="mt-3 grid grid-cols-[1fr_auto_auto] gap-2">
+              <div className="mt-3 grid grid-cols-[1fr_auto_auto_auto] gap-2">
                 <input
                   type="number"
                   value={adjustments[product.id] || 0}
@@ -182,6 +255,9 @@ export function InventoryClient({ products, currency }: { products: Product[]; c
                   className="h-10 min-w-0 rounded-card border border-caribbean-line px-2 text-sm font-bold dark:border-slate-700 dark:bg-slate-900"
                 />
                 <Button size="sm" onClick={() => adjust(product.id)}>Apply</Button>
+                <Button variant="secondary" size="icon" onClick={() => editProduct(product)} aria-label={`Edit ${product.name}`}>
+                  <Edit3 className="h-4 w-4" />
+                </Button>
                 <Button variant="danger" size="icon" onClick={() => deleteProduct(product.id, product.name)} aria-label={`Delete ${product.name}`}>
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -218,12 +294,16 @@ export function InventoryClient({ products, currency }: { products: Product[]; c
                       <div className="min-w-0">
                         <p className="font-black">{product.name}</p>
                         <p className="text-xs font-semibold text-slate-500">{product.sku} - {product.barcode || "No barcode"}</p>
+                        {product.description ? <p className="mt-1 max-w-md text-xs font-semibold text-slate-500">{product.description}</p> : null}
                       </div>
                     </div>
                   </td>
                   <td className="px-4 py-3">{product.category}</td>
                   <td className="px-4 py-3">{formatMoney(product.cost_price)}</td>
-                  <td className="px-4 py-3 font-black">{formatMoney(product.selling_price)}</td>
+                  <td className="px-4 py-3 font-black">
+                    <p>{formatMoney(product.discount_price || product.selling_price)}</p>
+                    {product.discount_price ? <p className="text-xs font-semibold text-slate-500 line-through">{formatMoney(product.selling_price)}</p> : null}
+                  </td>
                   <td className="px-4 py-3">
                     <Badge tone={product.stock_quantity <= product.low_stock_alert ? "red" : "green"}>
                       {product.stock_quantity} / alert {product.low_stock_alert}
@@ -248,9 +328,14 @@ export function InventoryClient({ products, currency }: { products: Product[]; c
                     </div>
                   </td>
                   <td className="px-4 py-3">
+                    <div className="flex gap-2">
+                    <Button variant="secondary" size="icon" onClick={() => editProduct(product)} aria-label={`Edit ${product.name}`}>
+                      <Edit3 className="h-4 w-4" />
+                    </Button>
                     <Button variant="danger" size="icon" onClick={() => deleteProduct(product.id, product.name)} aria-label={`Delete ${product.name}`}>
                       <Trash2 className="h-4 w-4" />
                     </Button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -268,32 +353,46 @@ export function InventoryClient({ products, currency }: { products: Product[]; c
       </Panel>
 
       <Panel className="self-start">
-        <PanelHeader title="Add product" description="Create products with stock tracking and supplier info" />
+        <PanelHeader title={editingId ? "Edit product" : "Add product"} description="Create products with pricing, images, stock, variations, and add-ons" />
         <div className="grid gap-3 p-4">
           <Field label="Product name" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} />
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="SKU optional" value={draft.sku} onChange={(event) => setDraft({ ...draft, sku: event.target.value })} />
             <Field label="Barcode" value={draft.barcode} onChange={(event) => setDraft({ ...draft, barcode: event.target.value })} />
           </div>
-          <SelectField label="Category" value={draft.category} onChange={(event) => setDraft({ ...draft, category: event.target.value })}>
-            {PRODUCT_CATEGORIES.map((category) => <option key={category}>{category}</option>)}
+          <SelectField label="Category" value={draft.category_id} onChange={(event) => selectCategory(event.target.value)}>
+            {!categoryItems.length ? <option value="">Uncategorized</option> : null}
+            {categoryItems.map((category) => <option key={category.id} value={category.id}>{category.icon ? `${category.icon} ` : ""}{category.name}</option>)}
           </SelectField>
+          <Field label="Description" value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} placeholder="Short menu or item description" />
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Cost price" type="number" value={draft.cost_price} onChange={(event) => setDraft({ ...draft, cost_price: Number(event.target.value) })} />
             <Field label="Selling price" type="number" value={draft.selling_price} onChange={(event) => setDraft({ ...draft, selling_price: Number(event.target.value) })} />
           </div>
+          <Field label="Discount price optional" type="number" value={draft.discount_price} onChange={(event) => setDraft({ ...draft, discount_price: event.target.value })} />
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Stock quantity" type="number" value={draft.stock_quantity} onChange={(event) => setDraft({ ...draft, stock_quantity: Number(event.target.value) })} />
             <Field label="Low stock alert" type="number" value={draft.low_stock_alert} onChange={(event) => setDraft({ ...draft, low_stock_alert: Number(event.target.value) })} />
           </div>
           <Field label="Product image URL" value={draft.image_url} onChange={(event) => setDraft({ ...draft, image_url: event.target.value })} />
+          <Field label="Variations" value={draft.variationsText} onChange={(event) => setDraft({ ...draft, variationsText: event.target.value })} placeholder="Small:0, Medium:8, Large:15" />
+          <Field label="Add-ons / extras" value={draft.addOnsText} onChange={(event) => setDraft({ ...draft, addOnsText: event.target.value })} placeholder="Extra sauce:3, Cheese:5" />
           <Field label="Supplier" value={draft.supplier_name} onChange={(event) => setDraft({ ...draft, supplier_name: event.target.value })} />
           <Field label="Supplier phone" value={draft.supplier_phone} onChange={(event) => setDraft({ ...draft, supplier_phone: event.target.value })} />
+          <label className="flex items-center gap-3 rounded-card border border-white/10 bg-black/20 p-3 text-sm font-black text-white">
+            <input type="checkbox" checked={draft.active} onChange={(event) => setDraft({ ...draft, active: event.target.checked })} />
+            Available in POS and storefront
+          </label>
           {message ? <p className="rounded-card bg-caribbean-cloud p-3 text-sm font-bold text-slate-700 dark:bg-slate-950 dark:text-slate-200">{message}</p> : null}
-          <Button variant="primary" onClick={createProduct} disabled={saving}>
+          <Button variant="primary" onClick={saveProduct} disabled={saving}>
             <PackagePlus className="h-4 w-4" />
-            {saving ? "Saving..." : "Save product"}
+            {saving ? "Saving..." : editingId ? "Save product changes" : "Save product"}
           </Button>
+          {editingId ? (
+            <Button variant="secondary" onClick={() => { setEditingId(""); setDraft(emptyProduct(categoryItems)); setMessage(""); }}>
+              Add a new product instead
+            </Button>
+          ) : null}
         </div>
       </Panel>
     </div>

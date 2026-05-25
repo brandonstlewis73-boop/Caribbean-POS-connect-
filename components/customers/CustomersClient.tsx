@@ -37,6 +37,9 @@ function emptyCustomerDraft(currency: string): Customer {
     preferred_payment_method: "",
     notes: "",
     birthday: "",
+    notification_whatsapp: true,
+    notification_sms: false,
+    notification_email: false,
     marketing_consent: false,
     loyalty_points: 0,
     total_spent: 0,
@@ -64,7 +67,10 @@ function toCustomerPayload(customer: Customer, currency: string): CustomerInput 
     delivery_notes: nullableText(customer.delivery_notes),
     waze_link: nullableText(customer.waze_link),
     gps_latitude: customer.gps_latitude ?? undefined,
-    gps_longitude: customer.gps_longitude ?? undefined
+    gps_longitude: customer.gps_longitude ?? undefined,
+    notification_whatsapp: customer.notification_whatsapp,
+    notification_sms: customer.notification_sms,
+    notification_email: customer.notification_email
   };
 }
 
@@ -354,6 +360,20 @@ export function CustomersClient({ customers, currency }: { customers: Customer[]
                     value={draft.gps_longitude ?? ""}
                     onChange={(event) => setDraft({ ...draft, gps_longitude: event.target.value ? Number(event.target.value) : null })}
                   />
+                </div>
+                <div className="grid gap-2 rounded-card border border-caribbean-line bg-white p-3 text-sm font-bold text-slate-700 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 sm:grid-cols-3">
+                  <label className="flex items-center gap-2">
+                    <input type="checkbox" checked={draft.notification_whatsapp} onChange={(event) => setDraft({ ...draft, notification_whatsapp: event.target.checked })} />
+                    WhatsApp updates
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input type="checkbox" checked={draft.notification_sms} onChange={(event) => setDraft({ ...draft, notification_sms: event.target.checked })} />
+                    SMS updates
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input type="checkbox" checked={draft.notification_email} onChange={(event) => setDraft({ ...draft, notification_email: event.target.checked })} />
+                    Email updates
+                  </label>
                 </div>
                 <div className="grid gap-2 sm:grid-cols-2">
                   <Button variant="primary" onClick={saveCustomer} disabled={saving}>

@@ -6,6 +6,7 @@ const PUBLIC_PREFIXES = [
   "/forgot-password",
   "/online",
   "/store",
+  "/track",
   "/privacy",
   "/contact",
   "/api",

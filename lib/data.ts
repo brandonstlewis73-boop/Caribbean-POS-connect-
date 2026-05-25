@@ -25,7 +25,12 @@ import type {
   SubscriptionPlanId,
   User,
   Business,
-  BusinessInput
+  BusinessInput,
+  Category,
+  CategoryInput,
+  CustomerNotification,
+  OrderStatusHistory,
+  ProductOption
 } from "./types";
 import { buildAddress, buildGoogleMapsLink, buildWazeLink } from "./waze";
 import {
@@ -116,7 +121,11 @@ export const defaultSettings: Settings = {
   receipt_print_customer_enabled: true,
   receipt_print_kitchen_enabled: false,
   receipt_email_enabled: true,
-  receipt_whatsapp_enabled: false
+  receipt_whatsapp_enabled: false,
+  notification_whatsapp_enabled: true,
+  notification_sms_enabled: false,
+  notification_email_enabled: false,
+  default_prep_time_minutes: 25
 };
 
 function parseJson<T>(value: unknown, fallback: T): T {
@@ -204,11 +213,34 @@ function buildPaymentLink({
 function rowToProduct(row: any): Product {
   return {
     ...row,
+    category_id: row.category_id || null,
+    description: row.description || null,
     cost_price: Number(row.cost_price),
     selling_price: Number(row.selling_price),
+    discount_price: row.discount_price === null || row.discount_price === undefined ? null : Number(row.discount_price),
     stock_quantity: Number(row.stock_quantity),
     low_stock_alert: Number(row.low_stock_alert),
+    variations: parseJson<ProductOption[]>(row.variations, []),
+    add_ons: parseJson<ProductOption[]>(row.add_ons, []),
     active: bool(row.active)
+  };
+}
+
+function rowToCategory(row: any): Category {
+  const isActive = row.is_active === undefined || row.is_active === null ? row.active : row.is_active;
+  return {
+    id: row.id,
+    business_id: row.business_id || null,
+    name: row.name,
+    slug: row.slug,
+    description: row.description || null,
+    icon: row.icon || null,
+    color: row.color || null,
+    sort_order: Number(row.sort_order || 0),
+    is_active: bool(isActive),
+    active: bool(isActive),
+    created_at: toDateString(row.created_at) || undefined,
+    updated_at: toDateString(row.updated_at) || undefined
   };
 }
 
@@ -347,6 +379,9 @@ function rowToSubscription(row: any): Subscription {
 function rowToCustomer(row: any): Customer {
   return {
     ...row,
+    notification_whatsapp: row.notification_whatsapp === undefined ? true : bool(row.notification_whatsapp),
+    notification_sms: bool(row.notification_sms),
+    notification_email: bool(row.notification_email),
     marketing_consent: bool(row.marketing_consent),
     gps_latitude: row.gps_latitude === null || row.gps_latitude === undefined ? null : Number(row.gps_latitude),
     gps_longitude: row.gps_longitude === null || row.gps_longitude === undefined ? null : Number(row.gps_longitude),
@@ -387,7 +422,39 @@ function rowToOrder(row: any, items: OrderItem[]): Order {
     created_at: toDateString(row.created_at) || "",
     completed_at: toDateString(row.completed_at),
     updated_at: toDateString(row.updated_at) || "",
-    items
+    items,
+    status_history: [],
+    customer_notifications: []
+  };
+}
+
+function rowToOrderStatusHistory(row: any): OrderStatusHistory {
+  return {
+    id: row.id,
+    order_id: row.order_id,
+    status: row.status,
+    note: row.note || null,
+    changed_by: row.changed_by || null,
+    changed_by_name: row.changed_by_name || null,
+    created_at: toDateString(row.created_at) || ""
+  };
+}
+
+function rowToCustomerNotification(row: any): CustomerNotification {
+  return {
+    id: row.id,
+    business_id: row.business_id || null,
+    order_id: row.order_id,
+    customer_id: row.customer_id || null,
+    channel: row.channel,
+    status: row.status,
+    message: row.message,
+    destination: row.destination || null,
+    provider: row.provider || null,
+    delivery_status: row.delivery_status || "queued",
+    error_message: row.error_message || null,
+    sent_at: toDateString(row.sent_at),
+    created_at: toDateString(row.created_at) || ""
   };
 }
 
@@ -429,18 +496,50 @@ function rowToReceipt(row: any): Receipt {
 async function hydrateOrders(rows: any[], client?: DbClient) {
   if (!rows.length) return [];
   const orderIds = rows.map((row) => row.id);
-  const itemRows = await query<any>(
-    "SELECT * FROM order_items WHERE order_id = ANY($1::text[]) ORDER BY created_at ASC",
-    [orderIds],
-    client
-  );
+  const [itemRows, historyRows, notificationRows] = await Promise.all([
+    query<any>(
+      "SELECT * FROM order_items WHERE order_id = ANY($1::text[]) ORDER BY created_at ASC",
+      [orderIds],
+      client
+    ),
+    query<any>(
+      `SELECT h.*, u.name AS changed_by_name
+       FROM order_status_history h
+       LEFT JOIN users u ON u.id = h.changed_by
+       WHERE h.order_id = ANY($1::text[])
+       ORDER BY h.created_at ASC`,
+      [orderIds],
+      client
+    ).catch(() => ({ rows: [] as any[] })),
+    query<any>(
+      "SELECT * FROM customer_notifications WHERE order_id = ANY($1::text[]) ORDER BY created_at ASC",
+      [orderIds],
+      client
+    ).catch(() => ({ rows: [] as any[] }))
+  ]);
   const itemsByOrder = new Map<string, OrderItem[]>();
   for (const row of itemRows.rows) {
     const items = itemsByOrder.get(row.order_id) || [];
     items.push(rowToOrderItem(row));
     itemsByOrder.set(row.order_id, items);
   }
-  return rows.map((row) => rowToOrder(row, itemsByOrder.get(row.id) || []));
+  const historyByOrder = new Map<string, OrderStatusHistory[]>();
+  for (const row of historyRows.rows) {
+    const history = historyByOrder.get(row.order_id) || [];
+    history.push(rowToOrderStatusHistory(row));
+    historyByOrder.set(row.order_id, history);
+  }
+  const notificationsByOrder = new Map<string, CustomerNotification[]>();
+  for (const row of notificationRows.rows) {
+    const notifications = notificationsByOrder.get(row.order_id) || [];
+    notifications.push(rowToCustomerNotification(row));
+    notificationsByOrder.set(row.order_id, notifications);
+  }
+  return rows.map((row) => ({
+    ...rowToOrder(row, itemsByOrder.get(row.id) || []),
+    status_history: historyByOrder.get(row.id) || [],
+    customer_notifications: notificationsByOrder.get(row.id) || []
+  }));
 }
 
 async function getCounter(client: DbClient, key: string, fallback: number, floor = fallback) {
@@ -989,20 +1088,198 @@ export async function updateSubscriptionPlan(planId: SubscriptionPlanId, userId?
   return getCurrentSubscription(resolvedBusinessId);
 }
 
-export async function listProducts(search?: string, includeInactive = false, businessId?: string | null): Promise<Product[]> {
+const DEFAULT_CATEGORY_COLORS = [
+  "#14b8a6",
+  "#22d3ee",
+  "#facc15",
+  "#22c55e",
+  "#f9735b",
+  "#38bdf8",
+  "#a78bfa",
+  "#f472b6"
+];
+
+function categoryColor(index: number) {
+  return DEFAULT_CATEGORY_COLORS[index % DEFAULT_CATEGORY_COLORS.length];
+}
+
+async function getCategoryByName(client: DbClient | undefined, businessId: string | null | undefined, name: string) {
+  const rows = await query<any>(
+    "SELECT * FROM categories WHERE LOWER(name) = LOWER($1) AND (business_id = $2 OR business_id IS NULL) LIMIT 1",
+    [name, businessId || DEFAULT_BUSINESS_ID],
+    client
+  ).catch(() => ({ rows: [] as any[] }));
+  return rows.rows[0] ? rowToCategory(rows.rows[0]) : null;
+}
+
+async function ensureCategory(
+  client: DbClient | undefined,
+  businessId: string | null | undefined,
+  input: { name: string; categoryId?: string | null }
+) {
+  const resolvedBusinessId = businessId || DEFAULT_BUSINESS_ID;
+  if (input.categoryId) {
+    const byId = await query<any>(
+      "SELECT * FROM categories WHERE id = $1 AND (business_id = $2 OR business_id IS NULL) LIMIT 1",
+      [input.categoryId, resolvedBusinessId],
+      client
+    ).catch(() => ({ rows: [] as any[] }));
+    if (byId.rows[0]) return rowToCategory(byId.rows[0]);
+  }
+  const existing = await getCategoryByName(client, resolvedBusinessId, input.name);
+  if (existing) return existing;
+  const count = await query<{ count: number }>(
+    "SELECT COUNT(*)::int AS count FROM categories WHERE business_id = $1",
+    [resolvedBusinessId],
+    client
+  ).catch(() => ({ rows: [{ count: 0 }] }));
+  const name = input.name.trim() || "Uncategorized";
+  const id = createId("cat");
+  await query(
+    `INSERT INTO categories (id, business_id, name, slug, icon, color, sort_order, active, is_active)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE, TRUE)`,
+    [id, resolvedBusinessId, name, slugify(name), name.slice(0, 2).toUpperCase(), categoryColor(Number(count.rows[0]?.count || 0)), (Number(count.rows[0]?.count || 0) + 1) * 10],
+    client
+  );
+  return (await getCategoryByName(client, resolvedBusinessId, name))!;
+}
+
+export async function listCategories(search?: string, includeInactive = false, businessId?: string | null): Promise<Category[]> {
   const params: unknown[] = [];
-  const clauses = includeInactive ? ["TRUE"] : ["active = TRUE"];
+  const clauses = includeInactive ? ["TRUE"] : ["COALESCE(is_active, active, TRUE) = TRUE"];
   if (businessId) clauses.push(businessScopedClause(params, businessId));
   if (search?.trim()) {
     const like = addParam(params, `%${search.trim()}%`);
-    clauses.push(`(name ILIKE ${like} OR sku ILIKE ${like} OR barcode ILIKE ${like} OR category ILIKE ${like})`);
+    clauses.push(`(name ILIKE ${like} OR slug ILIKE ${like} OR description ILIKE ${like})`);
+  }
+  const rows = await query<any>(
+    `SELECT *
+     FROM categories
+     WHERE ${clauses.join(" AND ")}
+     ORDER BY sort_order ASC, name ASC`,
+    params
+  );
+  return rows.rows.map(rowToCategory);
+}
+
+export async function createCategory(input: CategoryInput, userId?: string) {
+  const businessId = await getBusinessIdForUser(userId);
+  const existingRows = await query<{ count: number }>(
+    "SELECT COUNT(*)::int AS count FROM categories WHERE business_id = $1",
+    [businessId]
+  );
+  const name = input.name?.trim();
+  if (!name) throw new Error("Category name is required.");
+  const id = createId("cat");
+  const slug = slugify(input.slug || name);
+  await query(
+    `INSERT INTO categories (
+      id, business_id, name, slug, description, icon, color, sort_order, active, is_active
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9)`,
+    [
+      id,
+      businessId,
+      name,
+      slug,
+      input.description ?? null,
+      input.icon || name.slice(0, 2).toUpperCase(),
+      input.color || categoryColor(Number(existingRows.rows[0]?.count || 0)),
+      input.sort_order ?? (Number(existingRows.rows[0]?.count || 0) + 1) * 10,
+      input.is_active ?? input.active ?? true
+    ]
+  );
+  await auditLog("category:create", "category", id, input, userId);
+  return (await listCategories(undefined, true, businessId)).find((category) => category.id === id) || null;
+}
+
+export async function updateCategory(id: string, input: CategoryInput, userId?: string) {
+  const businessId = await getBusinessIdForUser(userId);
+  const existingRows = await query<any>(
+    "SELECT * FROM categories WHERE id = $1 AND (business_id = $2 OR business_id IS NULL)",
+    [id, businessId]
+  );
+  const existing = existingRows.rows[0] ? rowToCategory(existingRows.rows[0]) : null;
+  if (!existing) return null;
+  const nextName = input.name?.trim() || existing.name;
+  const nextSlug = slugify(input.slug || nextName);
+  const nextActive = input.is_active ?? input.active ?? existing.is_active;
+  await query(
+    `UPDATE categories SET
+      name = $1, slug = $2, description = $3, icon = $4, color = $5,
+      sort_order = $6, active = $7, is_active = $7, updated_at = NOW()
+     WHERE id = $8 AND (business_id = $9 OR business_id IS NULL)`,
+    [
+      nextName,
+      nextSlug,
+      input.description ?? existing.description ?? null,
+      input.icon ?? existing.icon ?? nextName.slice(0, 2).toUpperCase(),
+      input.color ?? existing.color ?? categoryColor(0),
+      input.sort_order ?? existing.sort_order,
+      nextActive,
+      id,
+      businessId
+    ]
+  );
+  await query(
+    "UPDATE products SET category = $1, updated_at = NOW() WHERE category_id = $2 AND (business_id = $3 OR business_id IS NULL)",
+    [nextName, id, businessId]
+  );
+  await auditLog("category:update", "category", id, input, userId);
+  return (await listCategories(undefined, true, businessId)).find((category) => category.id === id) || null;
+}
+
+export async function deleteCategory(id: string, userId?: string) {
+  return transaction(async (client) => {
+    const businessId = await getBusinessIdForUser(userId, client);
+    const existingRows = await query<any>(
+      "SELECT * FROM categories WHERE id = $1 AND (business_id = $2 OR business_id IS NULL)",
+      [id, businessId],
+      client
+    );
+    const existing = existingRows.rows[0] ? rowToCategory(existingRows.rows[0]) : null;
+    if (!existing) return null;
+    const fallback = await ensureCategory(client, businessId, { name: "Uncategorized" });
+    await query(
+      "UPDATE products SET category = $1, category_id = $2, updated_at = NOW() WHERE category_id = $3 AND (business_id = $4 OR business_id IS NULL)",
+      [fallback.name, fallback.id, id, businessId],
+      client
+    );
+    await query("DELETE FROM categories WHERE id = $1 AND (business_id = $2 OR business_id IS NULL)", [id, businessId], client);
+    await auditLog("category:delete", "category", id, { name: existing.name }, userId, client);
+    return existing;
+  });
+}
+
+export async function reorderCategories(input: Array<{ id: string; sort_order: number }>, userId?: string) {
+  const businessId = await getBusinessIdForUser(userId);
+  await transaction(async (client) => {
+    for (const item of input) {
+      await query(
+        "UPDATE categories SET sort_order = $1, updated_at = NOW() WHERE id = $2 AND (business_id = $3 OR business_id IS NULL)",
+        [item.sort_order, item.id, businessId],
+        client
+      );
+    }
+    await auditLog("category:reorder", "category", null, { count: input.length }, userId, client);
+  });
+  return listCategories(undefined, true, businessId);
+}
+
+export async function listProducts(search?: string, includeInactive = false, businessId?: string | null): Promise<Product[]> {
+  const params: unknown[] = [];
+  const clauses = includeInactive ? ["TRUE"] : ["p.active = TRUE"];
+  if (businessId) clauses.push(businessScopedClause(params, businessId, "p"));
+  if (search?.trim()) {
+    const like = addParam(params, `%${search.trim()}%`);
+    clauses.push(`(p.name ILIKE ${like} OR p.sku ILIKE ${like} OR p.barcode ILIKE ${like} OR p.category ILIKE ${like})`);
   }
 
   const rows = await query<any>(
-    `SELECT *
-     FROM products
+    `SELECT p.*
+     FROM products p
+     LEFT JOIN categories c ON c.id = p.category_id OR (c.business_id = p.business_id AND LOWER(c.name) = LOWER(p.category))
      WHERE ${clauses.join(" AND ")}
-     ORDER BY category ASC, name ASC`,
+     ORDER BY COALESCE(c.sort_order, 9999) ASC, p.category ASC, p.name ASC`,
     params
   );
   return rows.rows.map(rowToProduct);
@@ -1015,28 +1292,35 @@ export async function getProduct(id: string, businessId?: string | null) {
   return row.rows[0] ? rowToProduct(row.rows[0]) : null;
 }
 
-export async function createProduct(input: Omit<Product, "id" | "active">, userId?: string) {
+export async function createProduct(input: Omit<Product, "id" | "active"> & { active?: boolean }, userId?: string) {
   const id = createId("prd");
   const businessId = await getBusinessIdForUser(userId);
+  const category = await ensureCategory(undefined, businessId, { name: input.category, categoryId: input.category_id });
   await query(
     `INSERT INTO products (
-      id, business_id, name, sku, barcode, category, cost_price, selling_price, stock_quantity,
-      low_stock_alert, image_url, supplier_name, supplier_phone
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+      id, business_id, name, sku, barcode, category, category_id, description, cost_price, selling_price,
+      discount_price, stock_quantity, low_stock_alert, image_url, supplier_name, supplier_phone, variations, add_ons, active
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17::jsonb, $18::jsonb, $19)`,
     [
       id,
       businessId,
       input.name,
       input.sku,
       input.barcode ?? null,
-      input.category,
+      category.name,
+      category.id,
+      input.description ?? null,
       input.cost_price,
       input.selling_price,
+      input.discount_price ?? null,
       input.stock_quantity,
       input.low_stock_alert,
       input.image_url ?? null,
       input.supplier_name ?? null,
-      input.supplier_phone ?? null
+      input.supplier_phone ?? null,
+      JSON.stringify(input.variations || []),
+      JSON.stringify(input.add_ons || []),
+      input.active ?? true
     ]
   );
   await auditLog("product:create", "product", id, input, userId);
@@ -1070,24 +1354,31 @@ export async function updateProduct(id: string, input: Partial<Product>, userId?
   const existing = await getProduct(id, businessId);
   if (!existing) return null;
   const next = { ...existing, ...input };
+  const category = await ensureCategory(undefined, businessId, { name: next.category, categoryId: next.category_id });
   await query(
     `UPDATE products SET
-      name = $1, sku = $2, barcode = $3, category = $4, cost_price = $5, selling_price = $6,
-      stock_quantity = $7, low_stock_alert = $8, image_url = $9, supplier_name = $10,
-      supplier_phone = $11, active = $12, updated_at = NOW()
-     WHERE id = $13`,
+      name = $1, sku = $2, barcode = $3, category = $4, category_id = $5, description = $6,
+      cost_price = $7, selling_price = $8, discount_price = $9, stock_quantity = $10,
+      low_stock_alert = $11, image_url = $12, supplier_name = $13, supplier_phone = $14,
+      variations = $15::jsonb, add_ons = $16::jsonb, active = $17, updated_at = NOW()
+     WHERE id = $18`,
     [
       next.name,
       next.sku,
       next.barcode ?? null,
-      next.category,
+      category.name,
+      category.id,
+      next.description ?? null,
       next.cost_price,
       next.selling_price,
+      next.discount_price ?? null,
       next.stock_quantity,
       next.low_stock_alert,
       next.image_url ?? null,
       next.supplier_name ?? null,
       next.supplier_phone ?? null,
+      JSON.stringify(next.variations || []),
+      JSON.stringify(next.add_ons || []),
       next.active,
       id
     ]
@@ -1209,9 +1500,12 @@ async function upsertCustomer(client: DbClient, input?: CustomerInput | null, bu
         preferred_payment_method = COALESCE(NULLIF($14, ''), preferred_payment_method),
         notes = COALESCE(NULLIF($15, ''), notes),
         birthday = COALESCE(NULLIF($16, ''), birthday),
-        marketing_consent = COALESCE($17::boolean, marketing_consent),
+        notification_whatsapp = COALESCE($17::boolean, notification_whatsapp),
+        notification_sms = COALESCE($18::boolean, notification_sms),
+        notification_email = COALESCE($19::boolean, notification_email),
+        marketing_consent = COALESCE($20::boolean, marketing_consent),
         updated_at = NOW()
-       WHERE id = $18`,
+       WHERE id = $21`,
       [
         input.name ?? null,
         input.phone ?? null,
@@ -1229,6 +1523,9 @@ async function upsertCustomer(client: DbClient, input?: CustomerInput | null, bu
         input.preferred_payment_method ?? null,
         input.notes ?? null,
         input.birthday ?? null,
+        input.notification_whatsapp === undefined ? null : Boolean(input.notification_whatsapp),
+        input.notification_sms === undefined ? null : Boolean(input.notification_sms),
+        input.notification_email === undefined ? null : Boolean(input.notification_email),
         input.marketing_consent === undefined ? null : Boolean(input.marketing_consent),
         customerId
       ],
@@ -1239,8 +1536,9 @@ async function upsertCustomer(client: DbClient, input?: CustomerInput | null, bu
       `INSERT INTO customers (
         id, business_id, name, phone, phone_normalized, email, street_address, city, region,
         country, postal_code, delivery_notes, waze_link, gps_latitude, gps_longitude,
-        preferred_payment_method, notes, birthday, marketing_consent, tags
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20::jsonb)`,
+        preferred_payment_method, notes, birthday, notification_whatsapp, notification_sms,
+        notification_email, marketing_consent, tags
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23::jsonb)`,
       [
         customerId,
         businessId,
@@ -1260,6 +1558,9 @@ async function upsertCustomer(client: DbClient, input?: CustomerInput | null, bu
         input.preferred_payment_method ?? null,
         input.notes ?? null,
         input.birthday ?? null,
+        input.notification_whatsapp ?? true,
+        input.notification_sms ?? false,
+        input.notification_email ?? Boolean(input.email),
         Boolean(input.marketing_consent),
         JSON.stringify(tags)
       ],
@@ -1290,9 +1591,11 @@ export async function updateCustomer(id: string, input: CustomerInput, userId?: 
       name = $1, phone = $2, phone_normalized = $3, email = $4, street_address = $5,
       city = $6, region = $7, country = $8, postal_code = $9, delivery_notes = $10,
       waze_link = $11, gps_latitude = $12, gps_longitude = $13,
-      preferred_payment_method = $14, notes = $15, birthday = $16, marketing_consent = $17,
+      preferred_payment_method = $14, notes = $15, birthday = $16,
+      notification_whatsapp = $17, notification_sms = $18, notification_email = $19,
+      marketing_consent = $20,
       updated_at = NOW()
-     WHERE id = $18 AND (business_id = $19 OR business_id IS NULL)`,
+     WHERE id = $21 AND (business_id = $22 OR business_id IS NULL)`,
     [
       input.name ?? existing.name,
       input.phone ?? existing.phone,
@@ -1310,6 +1613,9 @@ export async function updateCustomer(id: string, input: CustomerInput, userId?: 
       input.preferred_payment_method ?? existing.preferred_payment_method,
       input.notes ?? existing.notes,
       input.birthday ?? existing.birthday,
+      input.notification_whatsapp === undefined ? existing.notification_whatsapp : Boolean(input.notification_whatsapp),
+      input.notification_sms === undefined ? existing.notification_sms : Boolean(input.notification_sms),
+      input.notification_email === undefined ? existing.notification_email : Boolean(input.notification_email),
       input.marketing_consent === undefined ? existing.marketing_consent : Boolean(input.marketing_consent),
       id,
       businessId
@@ -1504,6 +1810,124 @@ async function nextReceiptNumber(client: DbClient) {
   return `R-${await getCounter(client, "receipt_counter", 4024, receiptFloor)}`;
 }
 
+const CUSTOMER_STATUS_TEMPLATES: Record<Order["status"], string> = {
+  draft: "Hi {{customer_name}}, your order #{{order_number}} is saved as a draft.",
+  new: "Hi {{customer_name}}, we received your order #{{order_number}}. We'll update you shortly.",
+  accepted: "Good news {{customer_name}}, your order #{{order_number}} has been accepted.",
+  preparing: "Your order #{{order_number}} is now being prepared.",
+  ready: "Your order #{{order_number}} is ready.",
+  out_for_delivery: "Your order #{{order_number}} is out for delivery. Track or contact us here: {{tracking_link}}",
+  completed: "Thank you {{customer_name}}! Your order #{{order_number}} is completed. We appreciate your business.",
+  cancelled: "Your order #{{order_number}} was cancelled. Please contact us for more details."
+};
+
+function orderStatusLabel(status: string) {
+  return status.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function orderTrackingLink(order: Order) {
+  const base = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
+  const query = new URLSearchParams({
+    order: order.order_number,
+    phone: order.customer_snapshot.phone || ""
+  });
+  return `${base}/track?${query.toString()}`;
+}
+
+function renderCustomerStatusMessage(order: Order, status: Order["status"], settings: Settings) {
+  const template = CUSTOMER_STATUS_TEMPLATES[status] || CUSTOMER_STATUS_TEMPLATES.new;
+  return template
+    .replaceAll("{{customer_name}}", order.customer_snapshot.name || "Customer")
+    .replaceAll("{{order_number}}", order.order_number)
+    .replaceAll("{{business_name}}", settings.business_name)
+    .replaceAll("{{tracking_link}}", orderTrackingLink(order));
+}
+
+async function recordOrderStatusHistory(
+  client: DbClient,
+  orderId: string,
+  status: string,
+  note?: string | null,
+  userId?: string | null
+) {
+  await query(
+    "INSERT INTO order_status_history (id, order_id, status, note, changed_by) VALUES ($1, $2, $3, $4, $5)",
+    [createId("osh"), orderId, status, note ?? null, userId ?? null],
+    client
+  ).catch(() => undefined);
+}
+
+async function createCustomerStatusNotifications(
+  client: DbClient,
+  order: Order,
+  status: Order["status"],
+  settings: Settings
+) {
+  const message = renderCustomerStatusMessage(order, status, settings);
+  const wantsWhatsApp = order.customer_snapshot.notification_whatsapp !== false;
+  const wantsSms = Boolean(order.customer_snapshot.notification_sms);
+  const wantsEmail = Boolean(order.customer_snapshot.notification_email);
+  const channels: Array<Pick<CustomerNotification, "channel" | "destination" | "provider" | "delivery_status" | "error_message">> = [
+    {
+      channel: "in_app",
+      destination: orderTrackingLink(order),
+      provider: "tracking-page",
+      delivery_status: "sent",
+      error_message: null
+    }
+  ];
+  if (settings.notification_whatsapp_enabled && wantsWhatsApp) {
+    channels.push({
+      channel: "whatsapp",
+      destination: order.customer_snapshot.phone || null,
+      provider: settings.whatsapp_provider || "placeholder",
+      delivery_status: settings.whatsapp_enabled ? "queued" : "skipped",
+      error_message: settings.whatsapp_enabled ? null : "WhatsApp provider is not configured."
+    });
+  }
+  if (settings.notification_sms_enabled && wantsSms) {
+    channels.push({
+      channel: "sms",
+      destination: order.customer_snapshot.phone || null,
+      provider: "placeholder",
+      delivery_status: "skipped",
+      error_message: "SMS provider is not configured."
+    });
+  }
+  if (settings.notification_email_enabled && wantsEmail) {
+    channels.push({
+      channel: "email",
+      destination: order.customer_snapshot.email || null,
+      provider: "placeholder",
+      delivery_status: "skipped",
+      error_message: "Email provider is not configured."
+    });
+  }
+
+  for (const channel of channels) {
+    await query(
+      `INSERT INTO customer_notifications (
+        id, business_id, order_id, customer_id, channel, status, message,
+        destination, provider, delivery_status, error_message, sent_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CASE WHEN $10 = 'sent' THEN NOW() ELSE NULL END)`,
+      [
+        createId("ntf"),
+        order.business_id ?? null,
+        order.id,
+        order.customer_id ?? null,
+        channel.channel,
+        status,
+        message,
+        channel.destination ?? null,
+        channel.provider ?? null,
+        channel.delivery_status,
+        channel.error_message ?? null
+      ],
+      client
+    ).catch(() => undefined);
+  }
+}
+
 async function notifyOwnerOfNewOrder(order: Order, settings: Settings) {
   if (!settings.whatsapp_enabled || !settings.whatsapp_owner_alerts_enabled) return;
   const to = settings.whatsapp_business_number || process.env.BUSINESS_WHATSAPP_NUMBER;
@@ -1625,6 +2049,9 @@ export async function createOrder(payload: CheckoutPayload, userId?: string) {
           preferred_payment_method: customer.preferred_payment_method,
           notes: customer.notes,
           birthday: customer.birthday,
+          notification_whatsapp: customer.notification_whatsapp,
+          notification_sms: customer.notification_sms,
+          notification_email: customer.notification_email,
           marketing_consent: customer.marketing_consent
         }
       : {
@@ -1641,6 +2068,9 @@ export async function createOrder(payload: CheckoutPayload, userId?: string) {
           gps_latitude: customerInput.gps_latitude,
           gps_longitude: customerInput.gps_longitude,
           preferred_payment_method: payload.payment_method,
+          notification_whatsapp: customerInput.notification_whatsapp ?? true,
+          notification_sms: customerInput.notification_sms ?? false,
+          notification_email: customerInput.notification_email ?? Boolean(customerInput.email),
           marketing_consent: Boolean(customerInput.marketing_consent)
         };
 
@@ -1858,6 +2288,8 @@ export async function createOrder(payload: CheckoutPayload, userId?: string) {
       if (!order) throw new Error("Order not found");
     }
 
+    await recordOrderStatusHistory(client, orderId, orderStatus, "Order created", payload.created_by || userId || null);
+    await createCustomerStatusNotifications(client, order, orderStatus, settings);
     await auditLog("order:create", "order", orderId, { order_number: orderNumber, total }, userId, client);
     return order;
   });
@@ -1893,6 +2325,39 @@ async function readOrderById(client: DbClient | undefined, id: string, businessI
 
 export async function getOrder(id: string, businessId?: string | null) {
   return readOrderById(undefined, id, businessId);
+}
+
+export async function getPublicOrderTracking(orderNumber: string, phone: string) {
+  const normalizedPhone = cleanWhatsAppNumber(phone);
+  if (!orderNumber?.trim() || !normalizedPhone) return null;
+  const row = await query<any>(
+    `SELECT o.*, u.name AS assigned_driver_name, u.phone AS assigned_driver_phone, completed_user.name AS completed_by_name
+     FROM orders o
+     LEFT JOIN users u ON u.id = o.assigned_driver_id
+     LEFT JOIN users completed_user ON completed_user.id = o.completed_by
+     WHERE o.order_number = $1
+       AND (
+         regexp_replace(COALESCE(o.customer_snapshot->>'phone', ''), '\\D', '', 'g') = $2
+         OR RIGHT(regexp_replace(COALESCE(o.customer_snapshot->>'phone', ''), '\\D', '', 'g'), 7) = RIGHT($2, 7)
+       )
+     LIMIT 1`,
+    [orderNumber.trim(), normalizedPhone]
+  );
+  if (!row.rows[0]) return null;
+  const order = (await hydrateOrders([row.rows[0]]))[0] || null;
+  if (!order) return null;
+  const settings = await getBusinessSettings(order.business_id);
+  return {
+    order,
+    business: {
+      name: settings.business_name,
+      phone: settings.business_phone,
+      email: settings.business_email,
+      whatsapp: settings.whatsapp_business_number,
+      logo_url: settings.logo_url,
+      default_prep_time_minutes: settings.default_prep_time_minutes
+    }
+  };
 }
 
 export async function listOrders(options: {
@@ -1948,13 +2413,14 @@ export async function updateDeliveryStatus(orderId: string, status: Order["deliv
   const businessId = await getBusinessIdForUser(userId);
   const settings = await getBusinessSettings(businessId);
   let shouldNotifyOutForDelivery = false;
-  let updatedOrder = await transaction(async (client) => {
+  let updatedOrder: Order | null = await transaction(async (client) => {
     const order = await readOrderById(client, orderId, businessId);
     if (!order) return null;
     shouldNotifyOutForDelivery = order.delivery_status !== "out_for_delivery" && status === "out_for_delivery";
+    const nextOrderStatus = status === "out_for_delivery" ? "out_for_delivery" : order.status;
     await query(
-      "UPDATE orders SET delivery_status = $1, updated_at = NOW() WHERE id = $2",
-      [status, orderId],
+      "UPDATE orders SET delivery_status = $1, status = $2, updated_at = NOW() WHERE id = $3",
+      [status, nextOrderStatus, orderId],
       client
     );
     await query(
@@ -1963,7 +2429,12 @@ export async function updateDeliveryStatus(orderId: string, status: Order["deliv
       client
     );
     await auditLog("delivery:update_status", "order", orderId, { status }, userId, client);
-    return readOrderById(client, orderId, businessId);
+    const updated = await readOrderById(client, orderId, businessId);
+    if (updated && (order.delivery_status !== status || order.status !== updated.status)) {
+      await recordOrderStatusHistory(client, orderId, updated.status, `Delivery marked ${status.replaceAll("_", " ")}`, userId ?? null);
+      await createCustomerStatusNotifications(client, updated, updated.status, settings);
+    }
+    return updated;
   });
   if (updatedOrder && shouldNotifyOutForDelivery) {
     updatedOrder = await updateCustomerWhatsAppLink(
@@ -1982,7 +2453,7 @@ export async function updateOrder(id: string, input: Partial<Order>, userId?: st
   let shouldNotifyCustomerReceipt = false;
   let shouldNotifyDriverAssigned = false;
   let shouldNotifyOutForDelivery = false;
-  const updatedOrder = await transaction(async (client) => {
+  const updatedOrder: Order | null = await transaction(async (client) => {
     const existing = await readOrderById(client, id, businessId);
     if (!existing) return null;
     const nextStatus = input.status ?? existing.status;
@@ -2057,6 +2528,18 @@ export async function updateOrder(id: string, input: Partial<Order>, userId?: st
       await reverseCompletedOrderEffects(client, existing, userId ?? null);
     }
 
+    const orderAfterUpdate = await readOrderById(client, id, businessId);
+    if (orderAfterUpdate && existing.status !== nextStatus) {
+      await recordOrderStatusHistory(
+        client,
+        id,
+        nextStatus,
+        `Status changed from ${orderStatusLabel(existing.status)} to ${orderStatusLabel(nextStatus)}`,
+        userId ?? null
+      );
+      await createCustomerStatusNotifications(client, orderAfterUpdate, nextStatus, settings);
+    }
+
     await auditLog("order:update", "order", id, input, userId, client);
     if (isCancelling) {
       await auditLog(
@@ -2072,12 +2555,12 @@ export async function updateOrder(id: string, input: Partial<Order>, userId?: st
         client
       );
     }
-    return readOrderById(client, id, businessId);
+    return orderAfterUpdate;
   });
   if (updatedOrder && shouldNotifyCustomerReceipt) {
     await notifyCustomerReceipt(updatedOrder, settings);
   }
-  let orderForNotifications = updatedOrder;
+  let orderForNotifications: Order | null = updatedOrder;
   if (orderForNotifications && shouldNotifyDriverAssigned) {
     orderForNotifications = await updateCustomerWhatsAppLink(
       orderForNotifications,

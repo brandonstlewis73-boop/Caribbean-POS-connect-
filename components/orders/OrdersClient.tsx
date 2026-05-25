@@ -29,11 +29,11 @@ type PendingAction =
   | "status";
 
 const workflowStatuses: Array<{ value: Order["status"]; label: string }> = [
-  { value: "accepted", label: "Accept" },
-  { value: "preparing", label: "Preparing" },
-  { value: "ready", label: "Ready" },
-  { value: "out_for_delivery", label: "Out for delivery" },
-  { value: "completed", label: "Complete" }
+  { value: "accepted", label: "Accept Order" },
+  { value: "preparing", label: "Start Preparing" },
+  { value: "ready", label: "Mark Ready" },
+  { value: "out_for_delivery", label: "Send for Delivery" },
+  { value: "completed", label: "Complete Order" }
 ];
 
 export function OrdersClient({
@@ -50,6 +50,8 @@ export function OrdersClient({
   const [items, setItems] = useState(orders);
   const [query, setQuery] = useState("");
   const [type, setType] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("active");
+  const [dateFilter, setDateFilter] = useState("all");
   const [selectedId, setSelectedId] = useState(orders[0]?.id || "");
   const [message, setMessage] = useState("");
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
@@ -72,18 +74,44 @@ export function OrdersClient({
 
   const filtered = useMemo(() => {
     const q = deferredQuery.toLowerCase().trim();
+    const now = new Date();
     return items.filter((order) => {
       const typeMatch = type === "all" || order.order_type === type;
+      const statusMatch =
+        statusFilter === "all" ||
+        (statusFilter === "active" && !["completed", "cancelled"].includes(order.status)) ||
+        order.status === statusFilter;
+      const created = new Date(order.created_at);
+      const dateMatch =
+        dateFilter === "all" ||
+        (dateFilter === "today" && created.toDateString() === now.toDateString()) ||
+        (dateFilter === "week" && now.getTime() - created.getTime() <= 7 * 24 * 60 * 60 * 1000);
       const queryMatch =
         !q ||
-        [order.order_number, order.customer_snapshot.name, order.customer_snapshot.phone, order.payment_method]
+        [order.order_number, order.customer_snapshot.name, order.customer_snapshot.phone, order.payment_method, order.status, order.order_type]
           .filter(Boolean)
           .join(" ")
           .toLowerCase()
           .includes(q);
-      return typeMatch && queryMatch;
+      return typeMatch && statusMatch && dateMatch && queryMatch;
     });
-  }, [items, deferredQuery, type]);
+  }, [items, deferredQuery, type, statusFilter, dateFilter]);
+
+  const statusGroups = useMemo(() => {
+    const labels: Array<{ key: Order["status"] | "delivery_pickup"; label: string; statuses: string[] }> = [
+      { key: "new", label: "New", statuses: ["new"] },
+      { key: "accepted", label: "Accepted", statuses: ["accepted"] },
+      { key: "preparing", label: "Preparing", statuses: ["preparing"] },
+      { key: "ready", label: "Ready", statuses: ["ready"] },
+      { key: "delivery_pickup", label: "Delivery / Pickup", statuses: ["out_for_delivery"] },
+      { key: "completed", label: "Completed", statuses: ["completed"] },
+      { key: "cancelled", label: "Cancelled", statuses: ["cancelled"] }
+    ];
+    return labels.map((group) => ({
+      ...group,
+      orders: filtered.filter((order) => group.statuses.includes(order.status))
+    }));
+  }, [filtered]);
 
   async function patchOrder(orderId: string, body: Record<string, unknown>, action: PendingAction) {
     if (isBusy) return null;
@@ -212,7 +240,7 @@ export function OrdersClient({
           title="Orders"
           description="In-store, pickup, delivery, online, draft, completed, and cancelled orders"
         />
-        <div className="grid min-w-0 gap-3 border-b border-caribbean-line p-4 dark:border-slate-800 md:grid-cols-[minmax(0,1fr)_220px]">
+        <div className="grid min-w-0 gap-3 border-b border-caribbean-line p-4 dark:border-slate-800 md:grid-cols-[minmax(0,1fr)_160px_180px_160px]">
           <label className="relative min-w-0">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
@@ -234,6 +262,42 @@ export function OrdersClient({
             <option value="online">Online</option>
             <option value="draft">Draft</option>
           </select>
+          <select
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value)}
+            className="h-10 rounded-card border border-caribbean-line bg-white px-3 text-sm font-bold dark:border-slate-700 dark:bg-slate-900"
+          >
+            <option value="active">Active orders</option>
+            <option value="all">All statuses</option>
+            <option value="new">New</option>
+            <option value="accepted">Accepted</option>
+            <option value="preparing">Preparing</option>
+            <option value="ready">Ready</option>
+            <option value="out_for_delivery">Delivery / pickup</option>
+            <option value="completed">Completed</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+          <select
+            value={dateFilter}
+            onChange={(event) => setDateFilter(event.target.value)}
+            className="h-10 rounded-card border border-caribbean-line bg-white px-3 text-sm font-bold dark:border-slate-700 dark:bg-slate-900"
+          >
+            <option value="all">Any date</option>
+            <option value="today">Today</option>
+            <option value="week">This week</option>
+          </select>
+        </div>
+        <div className="grid gap-3 border-b border-white/10 p-4 sm:grid-cols-2 xl:grid-cols-4">
+          {statusGroups.map((group) => (
+            <button
+              key={group.label}
+              onClick={() => setStatusFilter(group.key === "delivery_pickup" ? "out_for_delivery" : group.key)}
+              className="rounded-card border border-white/10 bg-black/20 p-3 text-left"
+            >
+              <p className="text-xs font-black uppercase tracking-normal text-cyan-100/55">{group.label}</p>
+              <p className="mt-1 text-2xl font-black text-white">{group.orders.length}</p>
+            </button>
+          ))}
         </div>
         <div className="grid gap-3 p-4 md:hidden">
           {filtered.map((order) => (
@@ -347,6 +411,32 @@ export function OrdersClient({
                 Delivery {selected.delivery_status.replaceAll("_", " ")}
               </Badge>
             </div>
+            <div className="grid gap-2 rounded-card border border-white/10 bg-black/20 p-3">
+              <p className="text-xs font-black uppercase tracking-normal text-cyan-100/55">Status timeline</p>
+              {(selected.status_history?.length ? selected.status_history : [{ id: selected.id, status: selected.status, note: "Current status", created_at: selected.created_at }]).map((history) => (
+                <div key={history.id} className="grid grid-cols-[12px_1fr] gap-3 text-sm">
+                  <span className="mt-1.5 h-3 w-3 rounded-full bg-cyan-300" />
+                  <span>
+                    <span className="block font-black text-white">{String(history.status).replaceAll("_", " ")}</span>
+                    <span className="block text-xs font-semibold text-teal-50/55">{history.note || "Status updated"} · {new Date(history.created_at).toLocaleString()}</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+            {selected.customer_notifications?.length ? (
+              <div className="grid gap-2 rounded-card border border-white/10 bg-black/20 p-3">
+                <p className="text-xs font-black uppercase tracking-normal text-cyan-100/55">Customer notifications</p>
+                {selected.customer_notifications.slice(-5).map((notification) => (
+                  <div key={notification.id} className="flex items-start justify-between gap-3 text-sm">
+                    <span>
+                      <span className="block font-bold capitalize">{notification.channel}</span>
+                      <span className="block text-xs font-semibold text-teal-50/55">{notification.message}</span>
+                    </span>
+                    <Badge tone={notification.delivery_status === "sent" ? "green" : notification.delivery_status === "failed" ? "red" : "neutral"}>{notification.delivery_status}</Badge>
+                  </div>
+                ))}
+              </div>
+            ) : null}
             <div className="grid min-w-0 gap-2">
               {selected.items.map((item) => (
                 <div key={item.id} className="flex min-w-0 justify-between gap-3 text-sm">

@@ -81,15 +81,51 @@ export type Product = {
   name: string;
   sku: string;
   barcode?: string | null;
+  category_id?: string | null;
   category: string;
+  description?: string | null;
   cost_price: number;
   selling_price: number;
+  discount_price?: number | null;
   stock_quantity: number;
   low_stock_alert: number;
   image_url?: string | null;
   supplier_name?: string | null;
   supplier_phone?: string | null;
+  variations?: ProductOption[];
+  add_ons?: ProductOption[];
   active: boolean;
+};
+
+export type ProductOption = {
+  name: string;
+  price_delta?: number;
+};
+
+export type Category = {
+  id: string;
+  business_id?: string | null;
+  name: string;
+  slug: string;
+  description?: string | null;
+  icon?: string | null;
+  color?: string | null;
+  sort_order: number;
+  is_active: boolean;
+  active: boolean;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type CategoryInput = {
+  name?: string;
+  slug?: string | null;
+  description?: string | null;
+  icon?: string | null;
+  color?: string | null;
+  sort_order?: number;
+  is_active?: boolean;
+  active?: boolean;
 };
 
 export type Customer = {
@@ -111,6 +147,9 @@ export type Customer = {
   preferred_payment_method?: string | null;
   notes?: string | null;
   birthday?: string | null;
+  notification_whatsapp: boolean;
+  notification_sms: boolean;
+  notification_email: boolean;
   marketing_consent: boolean;
   loyalty_points: number;
   total_spent: number;
@@ -137,6 +176,9 @@ export type CustomerInput = Partial<
     | "preferred_payment_method"
     | "notes"
     | "birthday"
+    | "notification_whatsapp"
+    | "notification_sms"
+    | "notification_email"
     | "marketing_consent"
   >
 >;
@@ -208,6 +250,34 @@ export type Order = {
   created_at: string;
   updated_at: string;
   items: OrderItem[];
+  status_history?: OrderStatusHistory[];
+  customer_notifications?: CustomerNotification[];
+};
+
+export type OrderStatusHistory = {
+  id: string;
+  order_id: string;
+  status: Order["status"] | string;
+  note?: string | null;
+  changed_by?: string | null;
+  changed_by_name?: string | null;
+  created_at: string;
+};
+
+export type CustomerNotification = {
+  id: string;
+  business_id?: string | null;
+  order_id: string;
+  customer_id?: string | null;
+  channel: "whatsapp" | "sms" | "email" | "in_app";
+  status: string;
+  message: string;
+  destination?: string | null;
+  provider?: string | null;
+  delivery_status: "queued" | "sent" | "skipped" | "failed";
+  error_message?: string | null;
+  sent_at?: string | null;
+  created_at: string;
 };
 
 export type Receipt = {
@@ -291,6 +361,10 @@ export type Settings = {
   receipt_print_kitchen_enabled: boolean;
   receipt_email_enabled: boolean;
   receipt_whatsapp_enabled: boolean;
+  notification_whatsapp_enabled: boolean;
+  notification_sms_enabled: boolean;
+  notification_email_enabled: boolean;
+  default_prep_time_minutes: number;
 };
 
 export type CheckoutPayload = {

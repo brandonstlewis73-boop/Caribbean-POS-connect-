@@ -32,21 +32,53 @@ export const customerInputSchema = z.object({
   preferred_payment_method: optionalText,
   notes: optionalText,
   birthday: optionalText,
+  notification_whatsapp: z.boolean().optional().default(true),
+  notification_sms: z.boolean().optional().default(false),
+  notification_email: z.boolean().optional().default(false),
   marketing_consent: z.boolean().optional().default(false)
+});
+
+const productOptionSchema = z.object({
+  name: z.string().trim().min(1),
+  price_delta: z.coerce.number().optional().default(0)
 });
 
 export const productSchema = z.object({
   name: z.string().trim().min(1),
   sku: z.string().trim().min(1),
   barcode: optionalText,
+  category_id: optionalText,
   category: z.enum(PRODUCT_CATEGORIES).or(z.string().trim().min(1)),
+  description: optionalText,
   cost_price: z.coerce.number().min(0),
   selling_price: z.coerce.number().min(0),
+  discount_price: z.coerce.number().min(0).optional().nullable(),
   stock_quantity: z.coerce.number().int().min(0),
   low_stock_alert: z.coerce.number().int().min(0).default(5),
   image_url: optionalText,
   supplier_name: optionalText,
-  supplier_phone: optionalText
+  supplier_phone: optionalText,
+  active: z.boolean().optional(),
+  variations: z.array(productOptionSchema).optional().default([]),
+  add_ons: z.array(productOptionSchema).optional().default([])
+});
+
+export const categorySchema = z.object({
+  name: z.string().trim().min(1, "Category name is required."),
+  slug: optionalText,
+  description: optionalText,
+  icon: z.string().trim().max(8).optional().nullable(),
+  color: z.string().trim().max(32).optional().nullable(),
+  sort_order: z.coerce.number().int().min(0).optional().default(0),
+  is_active: z.boolean().optional().default(true),
+  active: z.boolean().optional()
+});
+
+export const categoryReorderSchema = z.object({
+  categories: z.array(z.object({
+    id: z.string().min(1),
+    sort_order: z.coerce.number().int().min(0)
+  })).min(1)
 });
 
 export const checkoutSchema = z.object({

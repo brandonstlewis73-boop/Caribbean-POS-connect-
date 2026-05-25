@@ -541,6 +541,14 @@ async function seedSettings() {
   await insertSetting("payment_paypal_enabled", true);
   await insertSetting("payment_wipay_enabled", true);
   await insertSetting("payment_pod_enabled", true);
+  await insertSetting("receipt_print_customer_enabled", true);
+  await insertSetting("receipt_print_kitchen_enabled", false);
+  await insertSetting("receipt_email_enabled", true);
+  await insertSetting("receipt_whatsapp_enabled", false);
+  await insertSetting("notification_whatsapp_enabled", true);
+  await insertSetting("notification_sms_enabled", false);
+  await insertSetting("notification_email_enabled", false);
+  await insertSetting("default_prep_time_minutes", 25);
   await insertSetting("order_counter", 1024);
   await insertSetting("receipt_counter", 4024);
 }

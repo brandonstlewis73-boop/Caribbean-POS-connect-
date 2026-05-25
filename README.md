@@ -77,10 +77,18 @@ NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<supabase-publishable-or-anon-key>
 ADMIN_EMAIL=owner@yourbusiness.com
 DEFAULT_WHATSAPP_NUMBER=4437582368
-WHATSAPP_PROVIDER=
+WHATSAPP_ENABLED=true
+WHATSAPP_PROVIDER=twilio
+DEFAULT_COUNTRY_CODE=+1868
+DEFAULT_COUNTRY=TT
+GEOCODING_PROVIDER=fallback
+GOOGLE_MAPS_API_KEY=
+MAPBOX_ACCESS_TOKEN=
+SMS_PROVIDER=
+EMAIL_PROVIDER=
 TWILIO_ACCOUNT_SID=
 TWILIO_AUTH_TOKEN=
-TWILIO_WHATSAPP_FROM=
+TWILIO_WHATSAPP_FROM=whatsapp:+14155238886
 BUSINESS_WHATSAPP_NUMBER=
 META_WHATSAPP_TOKEN=
 META_WHATSAPP_PHONE_NUMBER_ID=
@@ -231,12 +239,14 @@ Known local limitation:
 - `/orders`
 - `/customers`
 - `/staff`
+- `/categories`
 - `/inventory`
 - `/products`
 - `/deliveries`
 - `/reports`
 - `/settings`
 - `/subscription`
+- `/track`
 - `/online`
 - `/privacy`
 - `/contact`
@@ -252,14 +262,35 @@ https://waze.com/ul?q=ENCODED_ADDRESS&navigate=yes
 
 Receipts and shipping labels include Waze QR codes when a delivery navigation link exists.
 
-WhatsApp support uses click-to-chat links only:
+WhatsApp support has two layers:
+
+- Server-side automatic sending through Twilio WhatsApp or Meta WhatsApp Cloud API when provider credentials are configured.
+- Safe click-to-chat links on orders and receipts so checkout still works when provider credentials are missing.
 
 ```text
 https://wa.me/BUSINESS_PHONE_NUMBER?text=ENCODED_ORDER_MESSAGE
 https://wa.me/CUSTOMER_PHONE_NUMBER?text=ENCODED_CUSTOMER_MESSAGE
 ```
 
-The app cleans Trinidad and Tobago phone numbers before building WhatsApp links.
+The app cleans Trinidad and Tobago phone numbers before building WhatsApp links and automatic WhatsApp recipients.
+
+## Categories, Orders, And Tracking
+
+- `/categories` lets each business add, edit, hide/show, delete, search, and reorder its own product categories.
+- Inventory items can be assigned to categories and can store barcode, image, description, discount price, variations, add-ons, and availability.
+- Orders support the workflow `New -> Accepted -> Preparing -> Ready -> Out for Delivery/Pickup Ready -> Completed` plus `Cancelled`.
+- Every status change writes to `order_status_history` and creates safe customer notification records in `customer_notifications`.
+- `/track` is the public order tracking page. Customers enter order number and phone number to see order status, items, business contact details, maps links, and the status timeline.
+
+## Optional Test Data
+
+For a separate Irie Munchies test business with Caribbean food categories and sample orders, run this file manually in Supabase SQL Editor after the main schema:
+
+```text
+db/irie_munchies_test_data.sql
+```
+
+This file is not part of the default production seed.
 
 ## Privacy And Safety
 

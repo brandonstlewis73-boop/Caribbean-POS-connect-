@@ -650,6 +650,10 @@ export function SettingsClient({
             <Toggle label="Print kitchen ticket for food orders" checked={draft.receipt_print_kitchen_enabled} onChange={(value) => update("receipt_print_kitchen_enabled", value)} />
             <Toggle label="Enable email receipt option" checked={draft.receipt_email_enabled} onChange={(value) => update("receipt_email_enabled", value)} />
             <Toggle label="Enable WhatsApp receipt option" checked={draft.receipt_whatsapp_enabled} onChange={(value) => update("receipt_whatsapp_enabled", value)} />
+            <Toggle label="Record WhatsApp status notifications" checked={draft.notification_whatsapp_enabled} onChange={(value) => update("notification_whatsapp_enabled", value)} />
+            <Toggle label="Record SMS status notifications" checked={draft.notification_sms_enabled} onChange={(value) => update("notification_sms_enabled", value)} />
+            <Toggle label="Record email status notifications" checked={draft.notification_email_enabled} onChange={(value) => update("notification_email_enabled", value)} />
+            <Field label="Default prep time in minutes" type="number" min="0" value={draft.default_prep_time_minutes} onChange={(event) => update("default_prep_time_minutes", Number(event.target.value))} />
             <TextAreaField label="Receipt message" value={draft.receipt_message} onChange={(event) => update("receipt_message", event.target.value)} className="md:col-span-2" />
           </div>
         </Panel>
@@ -772,7 +776,7 @@ export function SettingsClient({
               Template variables: {"{{business_name}}"}, {"{{business_phone}}"}, {"{{order_number}}"}, {"{{customer_name}}"}, {"{{customer_phone}}"}, {"{{order_type}}"}, {"{{address}}"}, {"{{items}}"}, {"{{total}}"}, {"{{payment_method}}"}, {"{{payment_status}}"}, {"{{order_status}}"}, {"{{delivery_status}}"}, {"{{driver_name}}"}, {"{{driver_phone}}"}, {"{{date_time}}"}, {"{{completed_at}}"}, {"{{dashboard_link}}"}, {"{{payment_link}}"}, {"{{location_link}}"}, {"{{waze_link}}"}, {"{{receipt_message}}"}.
             </p>
             <p className="rounded-card bg-caribbean-cloud p-3 text-sm font-bold text-slate-700 dark:bg-slate-950 dark:text-slate-200">
-              Add provider secrets in Vercel only: WHATSAPP_PROVIDER, Twilio keys, or Meta WhatsApp token and phone number ID. If they are missing, orders still save and the server logs “WhatsApp is not configured.”
+              Add provider secrets in Vercel only: WHATSAPP_PROVIDER, Twilio keys, or Meta WhatsApp token and phone number ID. If they are missing, orders still save and the server logs &quot;WhatsApp is not configured.&quot;
             </p>
           </div>
         </Panel>

@@ -57,3 +57,10 @@ On this HP Windows laptop, PowerShell may block `npm.ps1` because scripts are di
 - TypeScript and production build passed after subscription and printer routes were added.
 - `/printer` now loads receipt preferences from settings and saves customer receipt, kitchen ticket, email receipt, and WhatsApp receipt toggles through `/api/settings`.
 - `/subscription` and `/printer` passed authenticated route smoke checks on the local dev server.
+
+## May 25, 2026 POS Platform Upgrade
+
+- TypeScript, ESLint, and production build pass after category management, richer inventory fields, order status history, customer notification records, and public order tracking were added.
+- `/track` is public in middleware and returns 200 in a production-server smoke test.
+- `/categories` is protected and redirects unauthenticated users as expected.
+- Local `/api/health` still reports the local `.env.local` database URL is the direct Supabase 5432 host. Use the Supabase transaction pooler on port 6543 in local and Vercel env vars before production smoke testing database writes.

@@ -23,10 +23,18 @@ NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<supabase-publishable-or-anon-key>
 ADMIN_EMAIL=owner@yourbusiness.com
 DEFAULT_WHATSAPP_NUMBER=4437582368
-WHATSAPP_PROVIDER=
+WHATSAPP_ENABLED=true
+WHATSAPP_PROVIDER=twilio
+DEFAULT_COUNTRY_CODE=+1868
+DEFAULT_COUNTRY=TT
+GEOCODING_PROVIDER=fallback
+GOOGLE_MAPS_API_KEY=
+MAPBOX_ACCESS_TOKEN=
+SMS_PROVIDER=
+EMAIL_PROVIDER=
 TWILIO_ACCOUNT_SID=
 TWILIO_AUTH_TOKEN=
-TWILIO_WHATSAPP_FROM=
+TWILIO_WHATSAPP_FROM=whatsapp:+14155238886
 BUSINESS_WHATSAPP_NUMBER=
 META_WHATSAPP_TOKEN=
 META_WHATSAPP_PHONE_NUMBER_ID=
@@ -71,8 +79,9 @@ In Vercel:
 5. Confirm the order appears in `/orders`.
 6. Confirm product stock decreased in `/inventory`.
 7. Open the receipt and shipping label.
-8. Confirm Waze and WhatsApp links are present.
-9. Log out and confirm protected pages redirect to `/login`.
+8. Update the order through Accepted, Preparing, Ready, Out for Delivery or Pickup Ready, and Completed.
+9. Confirm Waze/Google Maps links, WhatsApp links, receipt generation, and `/track` status history are present.
+10. Log out and confirm protected pages redirect to `/login`.
 
 ## Payments
 
@@ -85,6 +94,10 @@ WhatsApp can send automatically when provider credentials are configured. If cre
 Waze links prefer GPS latitude/longitude, then coordinates found in a shared location link, then address search.
 
 Receipt PDFs and shipping label PDFs include Waze QR codes when a delivery navigation link exists.
+
+## Order Workflow
+
+Business users can manage orders through New, Accepted, Preparing, Ready, Out for Delivery/Pickup Ready, Completed, and Cancelled. Each status change is saved in `order_status_history` and customer notification records are saved in `customer_notifications`; WhatsApp/SMS/email providers can be enabled later without changing the order workflow.
 
 ## Current Checkpoint
 
