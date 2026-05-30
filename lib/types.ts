@@ -415,6 +415,7 @@ export type DashboardData = {
   monthlySales: number;
   deliveryOrderCount: number;
   profitEstimate: number;
+  recentOrders: Order[];
   lowStock: Product[];
   bestSellers: Array<{ name: string; quantity: number; total: number }>;
   topCustomers: Array<{ name: string; total_spent: number; orders_count: number }>;

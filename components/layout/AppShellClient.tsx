@@ -12,6 +12,7 @@ import {
   LayoutDashboard,
   MapPinned,
   Menu,
+  MessageCircle,
   Printer,
   ReceiptText,
   Settings,
@@ -50,15 +51,22 @@ const navGroups: { label: string; items: NavItem[] }[] = [
       { label: "Customers", href: "/customers", icon: UsersRound },
       { label: "Categories", href: "/categories", icon: Tags },
       { label: "Inventory", href: "/inventory", icon: Boxes },
+      { label: "Storefront", href: "/online", icon: Store },
       { label: "Reports", href: "/reports", icon: BarChart3 }
     ]
   },
   {
-    label: "Business",
+    label: "Settings",
     items: [
-      { label: "Staff", href: "/staff", icon: UserCog },
-      { label: "Subscription", href: "/subscription", icon: CreditCard },
       { label: "Settings", href: "/settings", icon: Settings },
+      { label: "WhatsApp", href: "/settings#whatsapp", icon: MessageCircle },
+      { label: "Staff", href: "/staff", icon: UserCog },
+      { label: "Subscription", href: "/subscription", icon: CreditCard }
+    ]
+  },
+  {
+    label: "Support",
+    items: [
       { label: "Help & Support", href: "/help", icon: LifeBuoy }
     ]
   }
@@ -100,7 +108,7 @@ export function AppShellClient({
 
   return (
     <div className="min-h-screen overflow-x-hidden text-caribbean-ink">
-      <aside className="glass-panel fixed inset-y-0 left-0 z-30 hidden w-sidebar overflow-y-auto border-r border-white/10 px-4 py-5 lg:block">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-sidebar overflow-y-auto border-r border-white/10 bg-black/[0.42] px-3 py-4 shadow-soft backdrop-blur-xl lg:block">
         <SidebarContent active={active} currency={currency} />
       </aside>
 
@@ -115,7 +123,7 @@ export function AppShellClient({
 
       <aside
         className={cn(
-          "glass-panel-strong fixed inset-y-0 left-0 z-50 w-[86vw] max-w-[280px] overflow-y-auto px-4 py-5 transition-transform duration-300 ease-out lg:hidden",
+          "glass-panel-strong fixed inset-y-0 left-0 z-50 w-[86vw] max-w-[260px] overflow-y-auto px-4 py-5 transition-transform duration-300 ease-out lg:hidden",
           menuOpen ? "translate-x-0" : "-translate-x-full"
         )}
         aria-hidden={!menuOpen}
@@ -137,8 +145,8 @@ export function AppShellClient({
       </aside>
 
       <div className="min-w-0 lg:pl-sidebar">
-        <header className="glass-panel-strong sticky top-0 z-30 border-x-0 border-t-0 px-3 py-3 sm:px-5 lg:px-6">
-          <div className="flex min-h-[56px] min-w-0 flex-wrap items-center justify-between gap-3">
+        <header className="sticky top-0 z-30 border-b border-white/10 bg-black/[0.58] px-3 py-3 shadow-soft backdrop-blur-xl sm:px-5 lg:px-6">
+          <div className="mx-auto flex min-h-[52px] w-full max-w-[1360px] min-w-0 flex-wrap items-center justify-between gap-3">
             <div className="flex min-w-0 flex-1 items-center gap-3">
               <button
                 type="button"
@@ -152,7 +160,7 @@ export function AppShellClient({
                 <p className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-200/65 sm:text-xs">
                   {market} / {currency}
                 </p>
-                <h1 className="min-w-0 text-lg font-black leading-tight text-white xs:text-xl sm:text-2xl lg:text-3xl">
+                <h1 className="min-w-0 text-lg font-black leading-tight text-white xs:text-xl sm:text-2xl">
                   {title}
                 </h1>
               </div>
@@ -192,7 +200,7 @@ export function AppShellClient({
         </header>
 
         <main className="animate-fade-in min-w-0 max-w-full overflow-x-hidden px-3 pb-[calc(var(--bottom-nav-height)+1.5rem)] pt-4 xs:px-4 sm:px-5 lg:px-6 lg:pb-8">
-          {children}
+          <div className="mx-auto w-full max-w-[1360px] min-w-0">{children}</div>
         </main>
       </div>
 
@@ -201,7 +209,7 @@ export function AppShellClient({
       <Link
         href="/help"
         className={cn(
-          "fixed bottom-[calc(var(--bottom-nav-height)+1rem)] right-4 z-40 inline-flex min-h-11 items-center gap-2 rounded-full border border-white/10 px-4 py-2 text-sm font-black shadow-glow backdrop-blur-2xl transition hover:-translate-y-0.5 lg:bottom-5",
+          "fixed bottom-5 right-5 z-40 hidden min-h-11 items-center gap-2 rounded-full border border-white/10 px-4 py-2 text-sm font-black shadow-glow backdrop-blur-2xl transition hover:-translate-y-0.5 lg:inline-flex",
           active === "Help & Support"
             ? "bg-cyan-300 text-slate-950"
             : "bg-black/70 text-teal-50 hover:bg-white/[0.14]"
@@ -228,7 +236,7 @@ function SidebarContent({
       <Link
         href="/dashboard"
         onClick={onNavigate}
-        className="mb-6 flex min-w-0 items-center gap-3 rounded-panel border border-white/10 bg-gradient-to-br from-white/[0.1] to-white/[0.04] px-3 py-3 shadow-soft transition hover:border-cyan-200/30"
+        className="mb-5 flex min-w-0 items-center gap-3 rounded-card border border-white/10 bg-white/[0.06] px-3 py-3 shadow-soft transition hover:border-cyan-200/30"
       >
         <Image
           src="/logo.svg"
@@ -245,7 +253,7 @@ function SidebarContent({
 
       <nav className="grid gap-5">
         {navGroups.map((group) => (
-          <div key={group.label} className="grid gap-1.5">
+          <div key={group.label} className="grid gap-1">
             <p className="px-3 text-[11px] font-black uppercase tracking-[0.18em] text-teal-100/45">
               {group.label}
             </p>
@@ -258,7 +266,7 @@ function SidebarContent({
                   href={item.href}
                   onClick={onNavigate}
                   className={cn(
-                    "group flex min-h-11 min-w-0 items-center gap-3 rounded-card px-3 text-sm font-black transition duration-200",
+                    "group flex min-h-10 min-w-0 items-center gap-2.5 rounded-card px-3 text-sm font-black transition duration-200",
                     selected
                       ? "bg-gradient-to-r from-teal-300 to-cyan-300 text-slate-950 shadow-glow"
                       : "text-teal-50/75 hover:bg-white/[0.08] hover:text-white"

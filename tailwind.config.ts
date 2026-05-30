@@ -18,7 +18,7 @@ const config: Config = {
     },
     extend: {
       spacing: {
-        sidebar: "280px",
+        sidebar: "240px",
         header: "72px",
         "bottom-nav": "76px",
         "safe-bottom": "env(safe-area-inset-bottom)"

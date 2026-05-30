@@ -2697,7 +2697,8 @@ export async function getDashboardData(businessId?: string | null): Promise<Dash
     topCustomerRows,
     paymentRows,
     cashierRows,
-    seriesRows
+    seriesRows,
+    recentOrders
   ] = await Promise.all([
     getBusinessSettings(businessId),
     getBusinessById(businessId),
@@ -2782,7 +2783,8 @@ export async function getDashboardData(businessId?: string | null): Promise<Dash
        GROUP BY created_at::date
        ORDER BY date ASC`,
       businessId ? [month, businessId] : [month]
-    )
+    ),
+    listOrders({ businessId, limit: 6 })
   ]);
 
   return {
@@ -2801,6 +2803,7 @@ export async function getDashboardData(businessId?: string | null): Promise<Dash
     monthlySales,
     deliveryOrderCount: Number(deliveryOrderCountRows.rows[0]?.count || 0),
     profitEstimate: Number(profitEstimateRows.rows[0]?.profit || 0),
+    recentOrders,
     lowStock: lowStockRows.rows.map(rowToProduct),
     bestSellers: bestSellerRows.rows.map((row) => ({
       name: row.name,
