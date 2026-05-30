@@ -89,9 +89,22 @@ INSERT INTO public.businesses (
   currency = EXCLUDED.currency,
   updated_at = NOW();
 
+UPDATE public.staff_users
+SET
+  id = 'usr_irie_owner',
+  business_id = 'biz_irie_munchies',
+  name = 'Irie Owner',
+  password_hash = '$2a$12$TBtPQakrJnSP8Y8yJj0lOOiS2auAZ1hrNKyioYJRvkNQvIy4FFeAG',
+  role = 'admin',
+  phone = '+18683353697',
+  active = TRUE,
+  updated_at = NOW()
+WHERE email = 'owner@iriemunchies.test';
+
 INSERT INTO public.staff_users (
   id, business_id, name, email, password_hash, role, phone, active
-) VALUES (
+)
+SELECT
   'usr_irie_owner',
   'biz_irie_munchies',
   'Irie Owner',
@@ -100,18 +113,13 @@ INSERT INTO public.staff_users (
   'admin',
   '+18683353697',
   TRUE
-) ON CONFLICT (email) DO UPDATE SET
-  business_id = EXCLUDED.business_id,
-  name = EXCLUDED.name,
-  password_hash = EXCLUDED.password_hash,
-  role = EXCLUDED.role,
-  phone = EXCLUDED.phone,
-  active = EXCLUDED.active,
-  updated_at = NOW();
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.staff_users WHERE email = 'owner@iriemunchies.test'
+);
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_business_settings_business_key ON public.business_settings(business_id, key);
 
-INSERT INTO public.business_settings (business_id, key, value) VALUES
+WITH seed_business_settings (business_id, key, value) AS (VALUES
   ('biz_irie_munchies', 'business_name', to_jsonb('Irie Munchies'::text)),
   ('biz_irie_munchies', 'business_phone', to_jsonb('+18683353697'::text)),
   ('biz_irie_munchies', 'business_email', to_jsonb('owner@iriemunchies.test'::text)),
@@ -132,9 +140,30 @@ INSERT INTO public.business_settings (business_id, key, value) VALUES
   ('biz_irie_munchies', 'notification_sms_enabled', 'false'::jsonb),
   ('biz_irie_munchies', 'notification_email_enabled', 'false'::jsonb),
   ('biz_irie_munchies', 'default_prep_time_minutes', '25'::jsonb)
-ON CONFLICT (business_id, key) DO UPDATE SET
-  value = EXCLUDED.value,
-  updated_at = NOW();
+),
+updated_business_settings AS (
+  UPDATE public.business_settings existing
+  SET value = seed_business_settings.value, updated_at = NOW()
+  FROM seed_business_settings
+  WHERE existing.business_id = seed_business_settings.business_id
+    AND existing.key = seed_business_settings.key
+  RETURNING existing.business_id, existing.key
+)
+INSERT INTO public.business_settings (business_id, key, value)
+SELECT business_id, key, value
+FROM seed_business_settings
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM updated_business_settings
+  WHERE updated_business_settings.business_id = seed_business_settings.business_id
+    AND updated_business_settings.key = seed_business_settings.key
+)
+AND NOT EXISTS (
+  SELECT 1
+  FROM public.business_settings existing
+  WHERE existing.business_id = seed_business_settings.business_id
+    AND existing.key = seed_business_settings.key
+);
 
 INSERT INTO public.categories (id, business_id, name, slug, icon, color, sort_order, active, is_active) VALUES
   ('cat_irie_jerk', 'biz_irie_munchies', 'Jerk Chicken', 'jerk-chicken', 'JC', '#0f766e', 10, TRUE, TRUE),

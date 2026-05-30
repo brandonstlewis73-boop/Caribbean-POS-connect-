@@ -573,17 +573,33 @@ INSERT INTO public.businesses (
   business_whatsapp_number = COALESCE(public.businesses.business_whatsapp_number, EXCLUDED.business_whatsapp_number),
   updated_at = NOW();
 
+UPDATE public.staff_users
+SET
+  id = 'usr_store_owner',
+  business_id = 'biz_savannah_sea',
+  name = 'Store Owner',
+  password_hash = '$2a$12$TBtPQakrJnSP8Y8yJj0lOOiS2auAZ1hrNKyioYJRvkNQvIy4FFeAG',
+  role = 'admin',
+  phone = '',
+  active = TRUE,
+  updated_at = NOW()
+WHERE email = 'admin@caribbeanpos.test';
+
 INSERT INTO public.staff_users (
   id, business_id, name, email, password_hash, role, phone, active
-) VALUES
-  ('usr_store_owner', 'biz_savannah_sea', 'Store Owner', 'admin@caribbeanpos.test', '$2a$12$TBtPQakrJnSP8Y8yJj0lOOiS2auAZ1hrNKyioYJRvkNQvIy4FFeAG', 'admin', '', TRUE)
-ON CONFLICT (email) DO UPDATE SET
-  name = EXCLUDED.name,
-  password_hash = EXCLUDED.password_hash,
-  role = EXCLUDED.role,
-  phone = EXCLUDED.phone,
-  active = EXCLUDED.active,
-  updated_at = NOW();
+)
+SELECT
+  'usr_store_owner',
+  'biz_savannah_sea',
+  'Store Owner',
+  'admin@caribbeanpos.test',
+  '$2a$12$TBtPQakrJnSP8Y8yJj0lOOiS2auAZ1hrNKyioYJRvkNQvIy4FFeAG',
+  'admin',
+  '',
+  TRUE
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.staff_users WHERE email = 'admin@caribbeanpos.test'
+);
 
 INSERT INTO public.categories (id, business_id, name, slug, sort_order) VALUES
   ('cat_food', 'biz_savannah_sea', 'Food', 'food', 10),
@@ -738,11 +754,16 @@ INSERT INTO public.inventory_logs (
   ('mov_1027_plantain', 'biz_savannah_sea', 'prd_plantain', 'sale', -1, 'Sale order #1027', 'ord_1027', 'usr_manager_asha', NOW() - INTERVAL '4 hours')
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO public.receipts (id, order_id, receipt_number, channel) VALUES
+INSERT INTO public.receipts (id, order_id, receipt_number, channel)
+SELECT seed.id, seed.order_id, seed.receipt_number, seed.channel
+FROM (VALUES
   ('rcp_1025', 'ord_1025', 'R-4025', 'print'),
   ('rcp_1026', 'ord_1026', 'R-4026', 'print'),
   ('rcp_1027', 'ord_1027', 'R-4027', 'print')
-ON CONFLICT (receipt_number) DO NOTHING;
+) AS seed(id, order_id, receipt_number, channel)
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.receipts existing WHERE existing.receipt_number = seed.receipt_number
+);
 
 INSERT INTO public.loyalty_transactions (
   id, customer_id, order_id, points_delta, type, notes, created_at
@@ -779,7 +800,7 @@ INSERT INTO public.subscriptions (
   current_period_end = EXCLUDED.current_period_end,
   updated_at = NOW();
 
-INSERT INTO public.settings (key, business_id, value) VALUES
+WITH seed_settings (key, business_id, value) AS (VALUES
   ('business_name', 'biz_savannah_sea', to_jsonb('Your Business'::text)),
   ('business_phone', 'biz_savannah_sea', to_jsonb(''::text)),
   ('business_email', 'biz_savannah_sea', to_jsonb('owner@yourbusiness.com'::text)),
@@ -838,10 +859,26 @@ INSERT INTO public.settings (key, business_id, value) VALUES
   ('default_prep_time_minutes', 'biz_savannah_sea', '25'::jsonb),
   ('order_counter', 'biz_savannah_sea', '1000'::jsonb),
   ('receipt_counter', 'biz_savannah_sea', '4000'::jsonb)
-ON CONFLICT (key) DO UPDATE SET
-  value = EXCLUDED.value,
-  business_id = EXCLUDED.business_id,
-  updated_at = NOW();
+),
+updated_settings AS (
+  UPDATE public.settings existing
+  SET
+    value = seed_settings.value,
+    business_id = seed_settings.business_id,
+    updated_at = NOW()
+  FROM seed_settings
+  WHERE existing.key = seed_settings.key
+  RETURNING existing.key
+)
+INSERT INTO public.settings (key, business_id, value)
+SELECT key, business_id, value
+FROM seed_settings
+WHERE NOT EXISTS (
+  SELECT 1 FROM updated_settings WHERE updated_settings.key = seed_settings.key
+)
+AND NOT EXISTS (
+  SELECT 1 FROM public.settings existing WHERE existing.key = seed_settings.key
+);
 
 -- Start production databases clean: keep schema, owner account, categories, and settings only.
 DELETE FROM public.delivery_events WHERE order_id IN ('ord_1025', 'ord_1026', 'ord_1027');
