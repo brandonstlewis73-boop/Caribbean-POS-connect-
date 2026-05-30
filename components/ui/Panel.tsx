@@ -2,13 +2,16 @@ import { cn } from "@/lib/cn";
 
 export function Panel({
   children,
-  className
+  className,
+  id
 }: {
   children: React.ReactNode;
   className?: string;
+  id?: string;
 }) {
   return (
     <section
+      id={id}
       className={cn(
         "min-w-0 overflow-hidden rounded-card border border-white/10 bg-white/[0.05] shadow-soft backdrop-blur-md dark:border-white/10 dark:bg-white/[0.05]",
         className

@@ -1,22 +1,46 @@
 "use client";
 
-import { useState, type ChangeEvent } from "react";
-import { Building2, Link2, LocateFixed, MessageCircle, PlusCircle, RefreshCw, Save, ShieldCheck, Trash2, Truck, UsersRound } from "lucide-react";
-import { Button } from "@/components/ui/Button";
+import Image from "next/image";
+import { useMemo, useState, type ChangeEvent } from "react";
+import {
+  AlertTriangle,
+  Bell,
+  Building2,
+  Copy,
+  CreditCard,
+  ExternalLink,
+  GripVertical,
+  Image as ImageIcon,
+  LocateFixed,
+  PlusCircle,
+  Save,
+  ShieldAlert,
+  Store,
+  Tags,
+  Trash2,
+  Truck,
+  UserCog
+} from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
 import { Field, SelectField, TextAreaField } from "@/components/ui/Field";
 import { Panel, PanelHeader } from "@/components/ui/Panel";
-import {
-  CARIBBEAN_CURRENCIES,
-  ROLE_LABELS,
-  currencyOptionLabel,
-  getDefaultCountryForCurrency,
-  getDefaultDeliveryRatesForCurrency,
-  getDeliveryRegionsForCurrency
-} from "@/lib/constants";
 import { readApiPayload } from "@/lib/client-response";
 import { detectCurrentAddress } from "@/lib/location-client";
-import type { Business, Settings, User } from "@/lib/types";
+import { SUBSCRIPTION_PLANS, getDefaultDeliveryRatesForCurrency } from "@/lib/constants";
+import type { Business, Category, Settings, Subscription, User } from "@/lib/types";
+
+const MAX_LOGO_SIZE_BYTES = 750 * 1024;
+const LOGO_IMAGE_TYPES = ["image/png", "image/jpeg"];
+
+const notificationTemplates = {
+  received: "Hi {customer_name}, your order #{order_id} was received.",
+  accepted: "Good news {customer_name}, your order #{order_id} was accepted.",
+  preparing: "Your order is now being prepared.",
+  outForDelivery: "Your order is out for delivery.",
+  completed: "Your order has been completed. Thank you for shopping with {business_name}.",
+  cancelled: "Your order #{order_id} was cancelled. Please contact us for more details."
+};
 
 function Toggle({
   label,
@@ -28,71 +52,41 @@ function Toggle({
   onChange: (value: boolean) => void;
 }) {
   return (
-    <label className="flex min-w-0 items-center justify-between gap-3 rounded-card border border-caribbean-line bg-white p-3 text-sm font-bold leading-tight dark:border-slate-700 dark:bg-slate-900">
+    <label className="flex min-h-12 min-w-0 items-center justify-between gap-3 rounded-card border border-white/10 bg-white/[0.055] p-3 text-sm font-bold leading-tight text-teal-50">
       <span className="min-w-0">{label}</span>
-      <input className="shrink-0" type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
+      <input className="h-5 w-5 shrink-0 accent-cyan-300" type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
     </label>
   );
 }
 
-function createEmptyBusinessDraft(currency = "TTD") {
-  const regions = getDeliveryRegionsForCurrency(currency);
-  return {
-    name: "",
-    phone: "",
-    email: "",
-    street_address: "",
-    city: "",
-    region: regions[0] || "",
-    country: getDefaultCountryForCurrency(currency),
-    postal_code: "",
-    latitude: null as number | null,
-    longitude: null as number | null,
-    currency
-  };
+function SettingsCard({
+  icon: Icon,
+  title,
+  description,
+  children,
+  id
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  description: string;
+  children: React.ReactNode;
+  id?: string;
+}) {
+  return (
+    <Panel id={id} className="scroll-mt-24">
+      <PanelHeader
+        title={title}
+        description={description}
+        action={
+          <span className="grid h-10 w-10 place-items-center rounded-card border border-white/10 bg-cyan-300/10 text-cyan-100">
+            <Icon className="h-5 w-5" />
+          </span>
+        }
+      />
+      <div className="grid gap-4 p-4 sm:p-5">{children}</div>
+    </Panel>
+  );
 }
-
-function businessAddress(business: Business) {
-  return [business.street_address, business.city, business.region, business.postal_code, business.country].filter(Boolean).join(", ");
-}
-
-function formattedBusinessAddress(settings: Settings) {
-  return [
-    settings.business_street_address || settings.business_address,
-    settings.business_city,
-    settings.business_region,
-    settings.business_postal_code,
-    settings.business_country
-  ].filter(Boolean).join(", ");
-}
-
-const MAX_LOGO_SIZE_BYTES = 750 * 1024;
-const LOGO_IMAGE_TYPES = ["image/png", "image/jpeg"];
-
-type WhatsAppStatus = {
-  enabled: boolean;
-  selectedProvider: string | null;
-  configured: boolean;
-  missing: string[];
-  message: string;
-  twilio: {
-    hasAccountSid: boolean;
-    hasAuthToken: boolean;
-    hasFrom: boolean;
-    fromUsesWhatsAppPrefix: boolean;
-  };
-  meta: {
-    hasToken: boolean;
-    hasPhoneNumberId: boolean;
-  };
-};
-
-type WhatsAppTestResult = {
-  message: string;
-  ok: boolean;
-  skipped?: boolean;
-  status?: WhatsAppStatus;
-};
 
 function readFileAsDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
@@ -103,86 +97,83 @@ function readFileAsDataUrl(file: File) {
   });
 }
 
+function safeSlug(value: string) {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
 export function SettingsClient({
   settings,
   staff,
-  businesses
+  businesses,
+  categories,
+  subscription
 }: {
   settings: Settings;
   staff: User[];
   businesses: Business[];
+  categories: Category[];
+  subscription: Subscription | null;
 }) {
   const [draft, setDraft] = useState(settings);
-  const [businessItems, setBusinessItems] = useState(businesses);
-  const [businessDraft, setBusinessDraft] = useState(() => createEmptyBusinessDraft(settings.currency));
+  const [staffItems, setStaffItems] = useState(staff.filter((member) => member.role !== "kitchen"));
+  const [categoryItems, setCategoryItems] = useState(categories);
+  const [staffDraft, setStaffDraft] = useState({ name: "", email: "", phone: "", role: "cashier" });
+  const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
+  const [categoryDraft, setCategoryDraft] = useState({ name: "", icon: "•", color: "#14b8a6" });
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
-  const [whatsAppTestMessage, setWhatsAppTestMessage] = useState("");
-  const [businessLocationMessage, setBusinessLocationMessage] = useState("");
-  const [profileLocationMessage, setProfileLocationMessage] = useState("");
-  const [businessLocating, setBusinessLocating] = useState(false);
-  const [profileLocating, setProfileLocating] = useState(false);
+  const [staffMessage, setStaffMessage] = useState("");
+  const [categoryMessage, setCategoryMessage] = useState("");
+  const [locationMessage, setLocationMessage] = useState("");
   const [saving, setSaving] = useState(false);
-  const [businessBusyId, setBusinessBusyId] = useState("");
-  const deliveryRegions = getDeliveryRegionsForCurrency(draft.currency);
-  const defaultDeliveryRates = getDefaultDeliveryRatesForCurrency(draft.currency);
-  const deliveryRates = Object.fromEntries(
-    deliveryRegions.map((region) => [
-      region,
-      Number((draft.delivery_rates || {})[region] ?? defaultDeliveryRates[region] ?? draft.delivery_fee ?? 0)
-    ])
-  ) as Record<string, number>;
-  const businessRegionLabel = businessDraft.currency === "USD" ? "State / territory" : "Region/corporation";
-  const deliveryRateDescription =
-    draft.currency === "USD"
-      ? "USA states, territories, and USD Caribbean locations update Waze-ready delivery areas"
-      : "Areas update to match the selected store currency";
+  const [locating, setLocating] = useState(false);
+  const [busyId, setBusyId] = useState("");
+  const activeBusiness = businesses.find((business) => business.id === draft.active_business_id) || businesses[0] || null;
+  const storefrontSlug = activeBusiness?.storefront_slug || activeBusiness?.slug || safeSlug(draft.business_name) || "storefront";
+  const storefrontUrl = `/store/${storefrontSlug}`;
+  const absoluteStorefrontUrl = useMemo(() => {
+    if (typeof window === "undefined") return storefrontUrl;
+    return new URL(storefrontUrl, window.location.origin).toString();
+  }, [storefrontUrl]);
 
   function update<K extends keyof Settings>(key: K, value: Settings[K]) {
     setDraft((current) => ({ ...current, [key]: value }));
   }
 
-  function updateBusinessAddress(patch: Partial<Settings>) {
+  function updateAddress(patch: Partial<Settings>) {
     setDraft((current) => {
       const next = { ...current, ...patch };
-      return { ...next, business_address: formattedBusinessAddress(next) };
+      const businessAddress = [
+        next.business_street_address || next.business_address,
+        next.business_city,
+        next.business_region,
+        next.business_country
+      ].filter(Boolean).join(", ");
+      return { ...next, business_address: businessAddress };
     });
   }
 
-  function settingsWithCurrency(current: Settings, currency: string): Settings {
-    const rates = getDefaultDeliveryRatesForCurrency(currency);
-    return {
-      ...current,
-      currency,
-      delivery_rates: Object.fromEntries(
-        getDeliveryRegionsForCurrency(currency).map((region) => [
-          region,
-          Number((current.delivery_rates || {})[region] ?? rates[region] ?? current.delivery_fee ?? 0)
-        ])
-      )
-    };
-  }
-
-  async function saveSettings(nextDraft: Settings, successMessage = "Settings saved.") {
+  async function saveSettings(successMessage = "Settings saved.") {
     setMessage("");
     setSaving(true);
     try {
       const response = await fetch("/api/settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(nextDraft)
+        body: JSON.stringify(draft)
       });
       const payload = await readApiPayload<{ settings: Settings }>(response);
-      if (response.ok) {
-        if (!payload.data?.settings) {
-          setMessage("Settings saved, but no settings were returned.");
-          return false;
-        }
-        setDraft(payload.data.settings);
-        setMessage(successMessage);
-        return true;
+      if (!response.ok || !payload.data?.settings) {
+        setMessage(payload.error || "Settings could not be saved.");
+        return false;
       }
-      setMessage(payload.error || "Settings could not be saved.");
-      return false;
+      setDraft(payload.data.settings);
+      setMessage(successMessage);
+      return true;
     } catch {
       setMessage("Settings could not be saved. Check your connection and try again.");
       return false;
@@ -191,632 +182,502 @@ export function SettingsClient({
     }
   }
 
-  async function sendWhatsAppTest() {
-    setWhatsAppTestMessage("Sending WhatsApp test...");
+  async function useCurrentLocation() {
+    setLocationMessage("Finding your location...");
+    setLocating(true);
     try {
-      const response = await fetch("/api/whatsapp/test", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          to: draft.whatsapp_business_number,
-          message: `Test WhatsApp message from ${draft.business_name}.`
-        })
+      const { address } = await detectCurrentAddress();
+      updateAddress({
+        business_street_address: address.street || address.formatted,
+        business_city: address.city,
+        business_region: address.region,
+        business_country: address.country || "Trinidad and Tobago",
+        business_postal_code: address.postalCode,
+        business_latitude: address.lat,
+        business_longitude: address.lng
       });
-      const payload = await readApiPayload<{ result: WhatsAppTestResult; status: WhatsAppStatus }>(response);
-      if (!response.ok) {
-        setWhatsAppTestMessage(payload.error || "WhatsApp test failed.");
-        return;
-      }
-      setWhatsAppTestMessage(payload.data?.result?.message || payload.data?.status?.message || "WhatsApp test sent.");
-    } catch {
-      setWhatsAppTestMessage("WhatsApp test failed. Check server settings and try again.");
-    }
-  }
-
-  async function checkWhatsAppStatus() {
-    setWhatsAppTestMessage("Checking WhatsApp configuration...");
-    try {
-      const response = await fetch("/api/whatsapp/test");
-      const payload = await readApiPayload<{ status: WhatsAppStatus }>(response);
-      if (!response.ok) {
-        setWhatsAppTestMessage(payload.error || "WhatsApp configuration could not be checked.");
-        return;
-      }
-      setWhatsAppTestMessage(payload.data?.status?.message || "WhatsApp configuration checked.");
-    } catch {
-      setWhatsAppTestMessage("WhatsApp configuration could not be checked. Check your connection and try again.");
-    }
-  }
-
-  async function updateCurrency(currency: string) {
-    const previousDraft = draft;
-    const nextDraft = settingsWithCurrency(draft, currency);
-    setDraft(nextDraft);
-    setBusinessDraft((current) => ({
-      ...current,
-      currency,
-      region: getDeliveryRegionsForCurrency(currency)[0] || "",
-      country: getDefaultCountryForCurrency(currency)
-    }));
-    setMessage(`Switching store currency to ${currency}...`);
-    const saved = await saveSettings(nextDraft, `Store currency switched to ${currency}.`);
-    if (!saved) {
-      setDraft(previousDraft);
-      setBusinessDraft((current) => ({
-        ...current,
-        currency: previousDraft.currency,
-        region: getDeliveryRegionsForCurrency(previousDraft.currency)[0] || "",
-        country: getDefaultCountryForCurrency(previousDraft.currency)
-      }));
-    }
-  }
-
-  function updateBusinessCurrency(currency: string) {
-    setBusinessDraft((current) => ({
-      ...current,
-      currency,
-      region: getDeliveryRegionsForCurrency(currency)[0] || "",
-      country: getDefaultCountryForCurrency(currency)
-    }));
-  }
-
-  function updateDeliveryRate(region: string, value: number) {
-    update("delivery_rates", { ...deliveryRates, [region]: value });
-  }
-
-  function isLiveBusiness(business: Business) {
-    if (draft.active_business_id) return draft.active_business_id === business.id;
-    return draft.business_name === business.name && draft.currency === business.currency;
-  }
-
-  async function switchBusinessProfile(business: Business) {
-    const previousDraft = draft;
-    const currency = business.currency || draft.currency;
-    const nextDraft = settingsWithCurrency(
-      {
-        ...draft,
-        active_business_id: business.id,
-        business_name: business.name,
-        business_phone: business.phone || "",
-        business_email: business.email || "",
-        business_address: businessAddress(business) || draft.business_address,
-        business_street_address: business.street_address || "",
-        business_city: business.city || "",
-        business_region: business.region || "",
-        business_country: business.country || "",
-        business_postal_code: business.postal_code || "",
-        business_latitude: business.latitude ?? null,
-        business_longitude: business.longitude ?? null,
-        logo_url: business.logo_url || draft.logo_url || "/logo.svg"
-      },
-      currency
-    );
-    setDraft(nextDraft);
-    setBusinessDraft((current) => ({
-      ...current,
-      currency,
-      region: getDeliveryRegionsForCurrency(currency)[0] || "",
-      country: getDefaultCountryForCurrency(currency)
-    }));
-    setBusinessBusyId(business.id);
-    setMessage(`Switching live business to ${business.name}...`);
-    const saved = await saveSettings(nextDraft, `${business.name} is now the live business.`);
-    if (!saved) setDraft(previousDraft);
-    setBusinessBusyId("");
-  }
-
-  async function deleteBusinessProfile(business: Business) {
-    if (isLiveBusiness(business)) {
-      setMessage("Switch to another business before deleting the live business profile.");
-      return;
-    }
-    if (!window.confirm(`Delete ${business.name}? Store settings stay as-is, but this business profile will be removed.`)) return;
-    setBusinessBusyId(business.id);
-    setMessage("");
-    try {
-      const response = await fetch(`/api/businesses/${business.id}`, { method: "DELETE" });
-      const payload = await readApiPayload<{ business: Business }>(response);
-      if (!response.ok) {
-        setMessage(payload.error || "Business profile could not be deleted.");
-        return;
-      }
-      setBusinessItems((current) => current.filter((item) => item.id !== business.id));
-      setMessage("Business profile deleted.");
-    } catch {
-      setMessage("Business profile could not be deleted. Check your connection and try again.");
+      setLocationMessage("Address added. Review it before saving.");
+    } catch (error) {
+      setLocationMessage(error instanceof Error ? error.message : "Location could not be detected. Enter the address manually.");
     } finally {
-      setBusinessBusyId("");
+      setLocating(false);
     }
   }
 
-  async function uploadStoreLogo(event: ChangeEvent<HTMLInputElement>) {
+  async function uploadLogo(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
     if (!LOGO_IMAGE_TYPES.includes(file.type)) {
-      setMessage("Logo must be a PNG or JPG image so it can print on receipts.");
+      setMessage("Logo must be a PNG or JPG image.");
       return;
     }
     if (file.size > MAX_LOGO_SIZE_BYTES) {
       setMessage("Logo must be 750 KB or smaller.");
       return;
     }
-    const previousDraft = draft;
     try {
       const logoUrl = await readFileAsDataUrl(file);
-      const nextDraft = { ...draft, logo_url: logoUrl };
-      setDraft(nextDraft);
-      const saved = await saveSettings(nextDraft, "Store logo uploaded. It will appear on the storefront and receipts.");
-      if (!saved) setDraft(previousDraft);
+      setDraft((current) => ({ ...current, logo_url: logoUrl }));
+      setMessage("Logo ready. Save changes to apply it.");
     } catch {
-      setMessage("Logo could not be uploaded. Try a smaller PNG or JPG.");
+      setMessage("Logo could not be uploaded.");
     }
   }
 
-  async function useDefaultLogo() {
-    const previousDraft = draft;
-    const nextDraft = { ...draft, logo_url: "/logo.svg" };
-    setDraft(nextDraft);
-    const saved = await saveSettings(nextDraft, "Default logo restored.");
-    if (!saved) setDraft(previousDraft);
-  }
-
-  async function save() {
-    await saveSettings(draft);
-  }
-
-  async function useCurrentBusinessLocation() {
-    setBusinessLocationMessage("Finding your location...");
-    setBusinessLocating(true);
+  async function copyStorefrontLink() {
     try {
-      const { address } = await detectCurrentAddress();
-      const nextPatch: Partial<Settings> = {
-        business_street_address: address.street || address.formatted,
-        business_city: address.city,
-        business_region: address.region,
-        business_country: address.country,
-        business_postal_code: address.postalCode,
-        business_latitude: address.lat,
-        business_longitude: address.lng
-      };
-      updateBusinessAddress(nextPatch);
-      setBusinessLocationMessage("Address added. Please check it before saving.");
-    } catch (err) {
-      setBusinessLocationMessage(err instanceof Error ? err.message : "Location could not be detected. You can still enter the address manually.");
-    } finally {
-      setBusinessLocating(false);
+      await navigator.clipboard.writeText(absoluteStorefrontUrl);
+      setMessage("Storefront link copied.");
+    } catch {
+      setMessage("Copy failed. Open the storefront and copy the browser link.");
     }
   }
 
-  async function useCurrentProfileLocation() {
-    setProfileLocationMessage("Finding your location...");
-    setProfileLocating(true);
+  async function saveStaff() {
+    setStaffMessage("");
+    const payload = {
+      name: staffDraft.name,
+      email: staffDraft.email,
+      phone: staffDraft.phone || null,
+      role: staffDraft.role,
+      active: true
+    };
+    const url = editingStaffId ? `/api/staff/${editingStaffId}` : "/api/staff";
+    const method = editingStaffId ? "PATCH" : "POST";
+    setBusyId(editingStaffId || "new-staff");
     try {
-      const { address } = await detectCurrentAddress();
-      setBusinessDraft((current) => ({
-        ...current,
-        street_address: address.street || address.formatted || current.street_address,
-        city: address.city || current.city,
-        region: address.region || current.region,
-        country: address.country || current.country,
-        postal_code: address.postalCode || current.postal_code,
-        latitude: address.lat,
-        longitude: address.lng
-      }));
-      setProfileLocationMessage("Address added. Please check it before adding the profile.");
-    } catch (err) {
-      setProfileLocationMessage(err instanceof Error ? err.message : "Location could not be detected. You can still enter the address manually.");
+      const response = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const result = await readApiPayload<{ staff: User }>(response);
+      if (!response.ok || !result.data?.staff) {
+        setStaffMessage(result.error || "Staff profile could not be saved.");
+        return;
+      }
+      setStaffItems((current) => editingStaffId
+        ? current.map((member) => (member.id === editingStaffId ? result.data!.staff : member))
+        : [result.data!.staff, ...current]);
+      setStaffDraft({ name: "", email: "", phone: "", role: "cashier" });
+      setEditingStaffId(null);
+      setStaffMessage("Staff profile saved.");
+    } catch {
+      setStaffMessage("Staff profile could not be saved. Check your connection.");
     } finally {
-      setProfileLocating(false);
+      setBusyId("");
     }
   }
 
-  async function createBusinessProfile() {
-    setMessage("");
-    const response = await fetch("/api/businesses", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...businessDraft, logo_url: draft.logo_url || null })
+  function editStaff(member: User) {
+    setEditingStaffId(member.id);
+    setStaffDraft({
+      name: member.name,
+      email: member.email,
+      phone: member.phone || "",
+      role: member.role === "kitchen" ? "cashier" : member.role
     });
-    const payload = await readApiPayload<{ business: Business }>(response);
-    if (!response.ok) {
-      setMessage(payload.error || "Business profile could not be created.");
-      return;
+  }
+
+  async function deleteStaff(member: User) {
+    if (!window.confirm(`Delete ${member.name}?`)) return;
+    setBusyId(member.id);
+    setStaffMessage("");
+    try {
+      const response = await fetch(`/api/staff/${member.id}`, { method: "DELETE" });
+      const result = await readApiPayload<{ staff: User }>(response);
+      if (!response.ok) {
+        setStaffMessage(result.error || "Staff profile could not be deleted.");
+        return;
+      }
+      setStaffItems((current) => current.filter((item) => item.id !== member.id));
+      setStaffMessage("Staff profile deleted.");
+    } catch {
+      setStaffMessage("Staff profile could not be deleted.");
+    } finally {
+      setBusyId("");
     }
-    if (!payload.data?.business) {
-      setMessage("Business profile saved, but no profile was returned.");
-      return;
+  }
+
+  async function saveCategory() {
+    setCategoryMessage("");
+    const payload = {
+      name: categoryDraft.name,
+      icon: categoryDraft.icon,
+      color: categoryDraft.color,
+      sort_order: editingCategoryId
+        ? categoryItems.find((item) => item.id === editingCategoryId)?.sort_order || 0
+        : categoryItems.length,
+      is_active: true,
+      active: true
+    };
+    const url = editingCategoryId ? `/api/categories/${editingCategoryId}` : "/api/categories";
+    const method = editingCategoryId ? "PATCH" : "POST";
+    setBusyId(editingCategoryId || "new-category");
+    try {
+      const response = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const result = await readApiPayload<{ category: Category }>(response);
+      if (!response.ok || !result.data?.category) {
+        setCategoryMessage(result.error || "Category could not be saved.");
+        return;
+      }
+      setCategoryItems((current) => editingCategoryId
+        ? current.map((item) => (item.id === editingCategoryId ? result.data!.category : item))
+        : [...current, result.data!.category].sort((a, b) => a.sort_order - b.sort_order));
+      setCategoryDraft({ name: "", icon: "•", color: "#14b8a6" });
+      setEditingCategoryId(null);
+      setCategoryMessage("Category saved.");
+    } catch {
+      setCategoryMessage("Category could not be saved.");
+    } finally {
+      setBusyId("");
     }
-    setBusinessItems((current) => [payload.data!.business, ...current]);
-    setBusinessDraft(createEmptyBusinessDraft(draft.currency));
-    setMessage("Business profile created.");
+  }
+
+  function editCategory(category: Category) {
+    setEditingCategoryId(category.id);
+    setCategoryDraft({
+      name: category.name,
+      icon: category.icon || "•",
+      color: category.color || "#14b8a6"
+    });
+  }
+
+  async function deleteCategory(category: Category) {
+    if (!window.confirm(`Delete ${category.name}? Products assigned to it will need a new category.`)) return;
+    setBusyId(category.id);
+    setCategoryMessage("");
+    try {
+      const response = await fetch(`/api/categories/${category.id}`, { method: "DELETE" });
+      const result = await readApiPayload<{ category: Category }>(response);
+      if (!response.ok) {
+        setCategoryMessage(result.error || "Category could not be deleted.");
+        return;
+      }
+      setCategoryItems((current) => current.filter((item) => item.id !== category.id));
+      setCategoryMessage("Category deleted.");
+    } catch {
+      setCategoryMessage("Category could not be deleted.");
+    } finally {
+      setBusyId("");
+    }
+  }
+
+  async function moveCategory(category: Category, direction: -1 | 1) {
+    const index = categoryItems.findIndex((item) => item.id === category.id);
+    const nextIndex = index + direction;
+    if (index < 0 || nextIndex < 0 || nextIndex >= categoryItems.length) return;
+    const nextItems = [...categoryItems];
+    const [item] = nextItems.splice(index, 1);
+    nextItems.splice(nextIndex, 0, item);
+    const reordered = nextItems.map((entry, sort_order) => ({ ...entry, sort_order }));
+    setCategoryItems(reordered);
+    try {
+      const response = await fetch("/api/categories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "reorder",
+          categories: reordered.map(({ id, sort_order }) => ({ id, sort_order }))
+        })
+      });
+      const result = await readApiPayload<{ categories: Category[] }>(response);
+      if (!response.ok) {
+        setCategoryMessage(result.error || "Category order could not be saved.");
+        return;
+      }
+      if (result.data?.categories) setCategoryItems(result.data.categories);
+      setCategoryMessage("Category order updated.");
+    } catch {
+      setCategoryMessage("Category order could not be saved.");
+    }
+  }
+
+  function resetDanger(action: string) {
+    if (!window.confirm(`${action}? This action needs confirmation.`)) return;
+    setMessage(`${action} is not automated from this screen yet. Contact support before changing live business data.`);
   }
 
   return (
-    <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(360px,420px)]">
-      <div className="grid min-w-0 gap-4">
-        <Panel>
-          <PanelHeader title="Business profile" />
-          <div className="grid gap-3 p-4 md:grid-cols-2">
+    <div className="mx-auto grid w-full max-w-[1180px] gap-5 pb-4">
+      <section className="rounded-card border border-white/10 bg-white/[0.05] p-5 shadow-soft sm:p-6">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h2 className="text-2xl font-black text-white">Settings</h2>
+            <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-teal-50/65 sm:text-base">
+              Manage your business, storefront, team, payments, notifications, and subscription.
+            </p>
+          </div>
+          {message ? <p className="rounded-card border border-cyan-200/20 bg-cyan-300/10 px-3 py-2 text-sm font-black text-cyan-100">{message}</p> : null}
+        </div>
+      </section>
+
+      <div className="grid gap-5 xl:grid-cols-2">
+        <SettingsCard icon={Building2} title="Business Profile" description="Core business details used on the dashboard, storefront, receipts, and orders.">
+          <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Business name" value={draft.business_name} onChange={(event) => update("business_name", event.target.value)} />
-            <div className="grid gap-2 md:row-span-2">
-              <span className="text-sm font-bold text-teal-50">Storefront & receipt logo</span>
-              <div className="flex min-w-0 items-center gap-3 rounded-card border border-white/10 bg-black/30 p-3">
-                <img src={draft.logo_url || "/logo.svg"} alt="" className="h-14 w-14 shrink-0 rounded-card bg-white object-contain p-1" />
-                <div className="min-w-0 text-xs font-semibold text-teal-50/65">
-                  <p className="font-bold text-teal-50">Public storefront and receipt logo.</p>
-                  <p>PNG or JPG, 750 KB max.</p>
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <label className="inline-flex h-10 min-w-0 cursor-pointer items-center justify-center rounded-card border border-white/10 bg-white/[0.07] px-4 text-center text-sm font-black leading-tight text-white transition hover:bg-white/[0.12]">
-                  Upload logo
-                  <input type="file" accept="image/png,image/jpeg" className="sr-only" onChange={uploadStoreLogo} disabled={saving} />
-                </label>
-                <Button type="button" onClick={useDefaultLogo} disabled={saving}>
-                  Use default
-                </Button>
-              </div>
-            </div>
-            <Field label="Phone" value={draft.business_phone} onChange={(event) => update("business_phone", event.target.value)} />
-            <Field label="Email" type="email" value={draft.business_email} onChange={(event) => update("business_email", event.target.value)} />
-            <div className="grid gap-2 md:col-span-2">
-              <Button type="button" onClick={useCurrentBusinessLocation} disabled={businessLocating || saving}>
-                <LocateFixed className="h-4 w-4" />
-                {businessLocating ? "Finding your location..." : "Use My Current Location"}
-              </Button>
-              {businessLocationMessage ? <p className="text-sm font-bold text-slate-500">{businessLocationMessage}</p> : null}
-            </div>
-            <Field
-              label="Street address"
-              value={draft.business_street_address || draft.business_address || ""}
-              onChange={(event) => updateBusinessAddress({ business_street_address: event.target.value })}
-              className="md:col-span-2"
-            />
-            <Field label="City/Town" value={draft.business_city || ""} onChange={(event) => updateBusinessAddress({ business_city: event.target.value })} />
-            <Field label="Region/County" value={draft.business_region || ""} onChange={(event) => updateBusinessAddress({ business_region: event.target.value })} />
-            <Field label="Country" value={draft.business_country || getDefaultCountryForCurrency(draft.currency)} onChange={(event) => updateBusinessAddress({ business_country: event.target.value })} />
-            <Field label="Postal code optional" value={draft.business_postal_code || ""} onChange={(event) => updateBusinessAddress({ business_postal_code: event.target.value })} />
-            <Field
-              label="Latitude optional"
-              type="number"
-              step="0.000001"
-              value={draft.business_latitude ?? ""}
-              onChange={(event) => updateBusinessAddress({ business_latitude: event.target.value ? Number(event.target.value) : null })}
-            />
-            <Field
-              label="Longitude optional"
-              type="number"
-              step="0.000001"
-              value={draft.business_longitude ?? ""}
-              onChange={(event) => updateBusinessAddress({ business_longitude: event.target.value ? Number(event.target.value) : null })}
-            />
-            <SelectField label="Store currency" value={draft.currency} onChange={(event) => updateCurrency(event.target.value)} disabled={saving}>
-              {CARIBBEAN_CURRENCIES.map((currency) => (
-                <option key={currency.code} value={currency.code}>
-                  {currencyOptionLabel(currency)} - {currency.territories}
-                </option>
-              ))}
+            <SelectField label="Business type" value="retail" onChange={() => undefined}>
+              <option value="retail">Retail / food business</option>
+              <option value="restaurant">Restaurant</option>
+              <option value="vendor">Food vendor</option>
+              <option value="delivery">Delivery business</option>
             </SelectField>
+            <Field label="Phone number" value={draft.business_phone} onChange={(event) => update("business_phone", event.target.value)} />
+            <Field label="WhatsApp number" value={draft.whatsapp_business_number} onChange={(event) => update("whatsapp_business_number", event.target.value)} />
+            <Field label="Email" type="email" value={draft.business_email} onChange={(event) => update("business_email", event.target.value)} />
+            <Field label="Country" value={draft.business_country || "Trinidad and Tobago"} onChange={(event) => updateAddress({ business_country: event.target.value })} />
+            <Field label="Store address" value={draft.business_street_address || draft.business_address || ""} onChange={(event) => updateAddress({ business_street_address: event.target.value })} className="sm:col-span-2" />
+            <Field label="City / region" value={draft.business_city || draft.business_region || ""} onChange={(event) => updateAddress({ business_city: event.target.value, business_region: event.target.value })} />
+            <Field label="Currency" value={draft.currency || "TTD"} readOnly />
           </div>
-        </Panel>
-
-        <Panel>
-          <PanelHeader
-            title="Business profiles"
-            description="Switch the live store between saved businesses, branches, and vendor profiles"
-          />
-          <div className="grid gap-4 p-4">
-            <div className="grid gap-3 md:grid-cols-2">
-              <Field
-                label="Business name"
-                value={businessDraft.name}
-                onChange={(event) => setBusinessDraft((current) => ({ ...current, name: event.target.value }))}
-              />
-              <Field
-                label="Phone"
-                value={businessDraft.phone}
-                onChange={(event) => setBusinessDraft((current) => ({ ...current, phone: event.target.value }))}
-              />
-              <Field
-                label="Email"
-                type="email"
-                value={businessDraft.email}
-                onChange={(event) => setBusinessDraft((current) => ({ ...current, email: event.target.value }))}
-              />
-              <Field
-                label="City/town"
-                value={businessDraft.city}
-                onChange={(event) => setBusinessDraft((current) => ({ ...current, city: event.target.value }))}
-              />
-              <Field
-                label="Street address"
-                value={businessDraft.street_address}
-                onChange={(event) => setBusinessDraft((current) => ({ ...current, street_address: event.target.value }))}
-                className="md:col-span-2"
-              />
-              <div className="grid gap-2 md:col-span-2">
-                <Button type="button" onClick={useCurrentProfileLocation} disabled={profileLocating}>
-                  <LocateFixed className="h-4 w-4" />
-                  {profileLocating ? "Finding your location..." : "Use My Current Location"}
-                </Button>
-                {profileLocationMessage ? <p className="text-sm font-bold text-slate-500">{profileLocationMessage}</p> : null}
-              </div>
-              <SelectField
-                label={businessRegionLabel}
-                value={businessDraft.region}
-                onChange={(event) => setBusinessDraft((current) => ({ ...current, region: event.target.value }))}
-              >
-                {getDeliveryRegionsForCurrency(businessDraft.currency).map((region) => (
-                  <option key={region}>{region}</option>
-                ))}
-              </SelectField>
-              <Field label="Country/market" value={businessDraft.country} onChange={(event) => setBusinessDraft((current) => ({ ...current, country: event.target.value }))} />
-              <Field label="Postal code optional" value={businessDraft.postal_code} onChange={(event) => setBusinessDraft((current) => ({ ...current, postal_code: event.target.value }))} />
-              <div className="grid gap-3 md:col-span-2 md:grid-cols-2">
-                <Field
-                  label="Latitude optional"
-                  type="number"
-                  step="0.000001"
-                  value={businessDraft.latitude ?? ""}
-                  onChange={(event) => setBusinessDraft((current) => ({ ...current, latitude: event.target.value ? Number(event.target.value) : null }))}
-                />
-                <Field
-                  label="Longitude optional"
-                  type="number"
-                  step="0.000001"
-                  value={businessDraft.longitude ?? ""}
-                  onChange={(event) => setBusinessDraft((current) => ({ ...current, longitude: event.target.value ? Number(event.target.value) : null }))}
-                />
-              </div>
-              <SelectField
-                label="Profile currency"
-                value={businessDraft.currency}
-                onChange={(event) => updateBusinessCurrency(event.target.value)}
-              >
-                {CARIBBEAN_CURRENCIES.map((currency) => (
-                  <option key={currency.code} value={currency.code}>
-                    {currencyOptionLabel(currency)}
-                  </option>
-                ))}
-              </SelectField>
-            </div>
-            <Button variant="primary" onClick={createBusinessProfile} disabled={!businessDraft.name.trim()}>
-              <PlusCircle className="h-4 w-4" />
-              Add business profile
+          <div className="grid gap-3 sm:flex sm:flex-wrap">
+            <Button type="button" onClick={useCurrentLocation} disabled={locating || saving} className="w-full sm:w-auto">
+              <LocateFixed className="h-4 w-4" />
+              {locating ? "Finding location..." : "Use My Current Location"}
             </Button>
-            <div className="grid gap-3 md:grid-cols-2">
-              {businessItems.map((business) => (
-                <div key={business.id} className="min-w-0 rounded-card border border-caribbean-line bg-caribbean-cloud p-3 dark:border-slate-800 dark:bg-slate-950">
-                  <div className="flex min-w-0 items-start gap-3">
-                    {business.logo_url || draft.logo_url ? (
-                      <img
-                        src={business.logo_url || draft.logo_url || "/logo.svg"}
-                        alt=""
-                        className="h-9 w-9 shrink-0 rounded-card bg-white object-contain p-1"
-                      />
-                    ) : (
-                      <Building2 className="mt-0.5 h-5 w-5 shrink-0 text-caribbean-teal" />
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <div className="flex min-w-0 flex-wrap items-center gap-2">
-                        <p className="truncate font-black">{business.name}</p>
-                        {isLiveBusiness(business) ? <Badge tone="teal">Live</Badge> : null}
-                      </div>
-                      <p className="text-xs font-semibold text-slate-500">
-                        {businessAddress(business) || "No address yet"}
-                      </p>
-                      <p className="mt-1 text-xs font-bold text-slate-400">{business.phone || business.email || business.currency}</p>
-                    </div>
-                  </div>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <Button
-                      size="sm"
-                      variant={isLiveBusiness(business) ? "success" : "secondary"}
-                      onClick={() => switchBusinessProfile(business)}
-                      disabled={saving || businessBusyId === business.id || isLiveBusiness(business)}
-                    >
-                      <RefreshCw className="h-4 w-4" />
-                      {isLiveBusiness(business) ? "Live business" : "Switch"}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="danger"
-                      onClick={() => deleteBusinessProfile(business)}
-                      disabled={saving || businessBusyId === business.id || isLiveBusiness(business)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      Delete
-                    </Button>
+            <Button type="button" variant="primary" onClick={() => saveSettings("Business profile saved.")} disabled={saving} className="w-full sm:w-auto">
+              <Save className="h-4 w-4" />
+              {saving ? "Saving..." : "Save changes"}
+            </Button>
+          </div>
+          {locationMessage ? <p className="text-sm font-bold text-teal-50/60">{locationMessage}</p> : null}
+        </SettingsCard>
+
+        <SettingsCard icon={Store} title="Storefront Settings" description="Public storefront identity, order channels, and customer-facing controls.">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Storefront name" value={draft.business_name} onChange={(event) => update("business_name", event.target.value)} />
+            <Field label="Storefront slug/link" value={storefrontSlug} readOnly />
+            <SelectField label="Storefront status" value="live" onChange={() => undefined}>
+              <option value="live">Live</option>
+              <option value="paused">Paused</option>
+            </SelectField>
+            <Field label="Store hours" value="Open during business hours" onChange={() => undefined} />
+            <Toggle label="Delivery available" checked={draft.delivery_fee >= 0} onChange={() => undefined} />
+            <Toggle label="Pickup available" checked={draft.payment_pod_enabled || true} onChange={() => undefined} />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <a href={storefrontUrl} target="_blank" className="inline-flex min-h-10 items-center justify-center gap-2 rounded-card border border-white/10 bg-white/[0.07] px-4 text-sm font-black text-white transition hover:bg-white/[0.12]">
+              <ExternalLink className="h-4 w-4" />
+              Open storefront
+            </a>
+            <Button type="button" onClick={copyStorefrontLink} className="w-full">
+              <Copy className="h-4 w-4" />
+              Copy link
+            </Button>
+            <Button type="button" variant="primary" onClick={() => saveSettings("Storefront settings saved.")} disabled={saving} className="w-full">
+              <Save className="h-4 w-4" />
+              Save
+            </Button>
+          </div>
+        </SettingsCard>
+
+        <SettingsCard id="whatsapp" icon={Bell} title="Order Notifications" description="Automatic customer updates connected to order status changes.">
+          <div className="grid gap-3">
+            <Toggle label="Send WhatsApp message when order is received" checked={draft.whatsapp_customer_confirmations_enabled} onChange={(value) => update("whatsapp_customer_confirmations_enabled", value)} />
+            <Toggle label="Send message when order is accepted" checked={draft.notification_whatsapp_enabled} onChange={(value) => update("notification_whatsapp_enabled", value)} />
+            <Toggle label="Send message when order is preparing" checked={draft.notification_whatsapp_enabled} onChange={(value) => update("notification_whatsapp_enabled", value)} />
+            <Toggle label="Send message when order is out for delivery" checked={draft.whatsapp_out_for_delivery_enabled} onChange={(value) => update("whatsapp_out_for_delivery_enabled", value)} />
+            <Toggle label="Send message when order is completed" checked={draft.whatsapp_customer_receipts_enabled} onChange={(value) => update("whatsapp_customer_receipts_enabled", value)} />
+            <Toggle label="Send message when order is cancelled" checked={draft.notification_whatsapp_enabled} onChange={(value) => update("notification_whatsapp_enabled", value)} />
+          </div>
+          <div className="grid gap-4">
+            <TextAreaField label="Order received template" value={draft.whatsapp_customer_confirmation_template || notificationTemplates.received} onChange={(event) => update("whatsapp_customer_confirmation_template", event.target.value)} />
+            <TextAreaField label="Preparing / delivery template" value={draft.whatsapp_out_for_delivery_template || notificationTemplates.outForDelivery} onChange={(event) => update("whatsapp_out_for_delivery_template", event.target.value)} />
+            <TextAreaField label="Completed receipt template" value={draft.whatsapp_customer_receipt_template || notificationTemplates.completed} onChange={(event) => update("whatsapp_customer_receipt_template", event.target.value)} />
+          </div>
+          <Button type="button" variant="primary" onClick={() => saveSettings("Notification settings saved.")} disabled={saving} className="w-full sm:w-auto">
+            <Save className="h-4 w-4" />
+            Save notifications
+          </Button>
+        </SettingsCard>
+
+        <SettingsCard icon={UserCog} title="Team / Staff" description="Add, edit, and remove staff accounts for this business.">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Staff name" value={staffDraft.name} onChange={(event) => setStaffDraft((current) => ({ ...current, name: event.target.value }))} />
+            <SelectField label="Staff role" value={staffDraft.role} onChange={(event) => setStaffDraft((current) => ({ ...current, role: event.target.value }))}>
+              <option value="owner">Owner</option>
+              <option value="manager">Manager</option>
+              <option value="cashier">Cashier</option>
+              <option value="driver">Driver</option>
+            </SelectField>
+            <Field label="Staff email" type="email" value={staffDraft.email} onChange={(event) => setStaffDraft((current) => ({ ...current, email: event.target.value }))} />
+            <Field label="Phone optional" value={staffDraft.phone} onChange={(event) => setStaffDraft((current) => ({ ...current, phone: event.target.value }))} />
+          </div>
+          <Button type="button" variant="primary" onClick={saveStaff} disabled={!staffDraft.name.trim() || !staffDraft.email.trim() || Boolean(busyId)} className="w-full sm:w-auto">
+            <PlusCircle className="h-4 w-4" />
+            {editingStaffId ? "Save staff" : "Add staff"}
+          </Button>
+          {staffMessage ? <p className="text-sm font-bold text-teal-50/60">{staffMessage}</p> : null}
+          <div className="grid gap-3">
+            {staffItems.map((member) => (
+              <div key={member.id} className="grid gap-3 rounded-card border border-white/10 bg-black/20 p-3 sm:flex sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="font-black text-white">{member.name}</p>
+                  <p className="text-xs font-semibold text-teal-50/55">{member.email || member.phone}</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Badge tone={member.role === "owner" || member.role === "admin" ? "teal" : "green"}>{member.role === "admin" ? "Owner" : member.role}</Badge>
+                  <Button type="button" size="sm" onClick={() => editStaff(member)}>Edit</Button>
+                  <Button type="button" size="sm" variant="danger" onClick={() => deleteStaff(member)} disabled={busyId === member.id}>
+                    <Trash2 className="h-4 w-4" />
+                    Delete
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </SettingsCard>
+
+        <SettingsCard icon={Tags} title="Categories" description="Manage POS and storefront item groups. Changes update products, POS filters, and storefront categories.">
+          <div className="grid gap-4 sm:grid-cols-[1fr_80px_120px]">
+            <Field label="Category name" value={categoryDraft.name} onChange={(event) => setCategoryDraft((current) => ({ ...current, name: event.target.value }))} />
+            <Field label="Icon" value={categoryDraft.icon} onChange={(event) => setCategoryDraft((current) => ({ ...current, icon: event.target.value }))} />
+            <Field label="Color" value={categoryDraft.color} onChange={(event) => setCategoryDraft((current) => ({ ...current, color: event.target.value }))} />
+          </div>
+          <Button type="button" variant="primary" onClick={saveCategory} disabled={!categoryDraft.name.trim() || Boolean(busyId)} className="w-full sm:w-auto">
+            <PlusCircle className="h-4 w-4" />
+            {editingCategoryId ? "Rename category" : "Add category"}
+          </Button>
+          {categoryMessage ? <p className="text-sm font-bold text-teal-50/60">{categoryMessage}</p> : null}
+          <div className="grid gap-3">
+            {categoryItems.map((category) => (
+              <div key={category.id} className="grid gap-3 rounded-card border border-white/10 bg-black/20 p-3 sm:flex sm:items-center sm:justify-between">
+                <div className="flex min-w-0 items-center gap-3">
+                  <GripVertical className="h-4 w-4 text-teal-50/35" />
+                  <span className="grid h-9 w-9 place-items-center rounded-card border border-white/10" style={{ backgroundColor: category.color || "#14b8a6" }}>{category.icon || "•"}</span>
+                  <div className="min-w-0">
+                    <p className="font-black text-white">{category.name}</p>
+                    <p className="text-xs font-semibold text-teal-50/50">Sort {category.sort_order}</p>
                   </div>
                 </div>
-              ))}
-            </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" size="sm" onClick={() => moveCategory(category, -1)}>Up</Button>
+                  <Button type="button" size="sm" onClick={() => moveCategory(category, 1)}>Down</Button>
+                  <Button type="button" size="sm" onClick={() => editCategory(category)}>Edit</Button>
+                  <Button type="button" size="sm" variant="danger" onClick={() => deleteCategory(category)} disabled={busyId === category.id}>
+                    <Trash2 className="h-4 w-4" />
+                    Delete
+                  </Button>
+                </div>
+              </div>
+            ))}
           </div>
-        </Panel>
+        </SettingsCard>
 
-        <Panel>
-          <PanelHeader title="Tax, fees, receipt, and loyalty" />
-          <div className="grid gap-3 p-4 md:grid-cols-2">
-            <Toggle label="Enable tax/service fee line" checked={draft.tax_enabled} onChange={(value) => update("tax_enabled", value)} />
-            <Field label="Tax/Fee rate %" type="number" value={draft.tax_rate} onChange={(event) => update("tax_rate", Number(event.target.value))} />
-            <Toggle label="Enable service fee" checked={draft.service_fee_enabled} onChange={(value) => update("service_fee_enabled", value)} />
-            <Field label="Service fee rate %" type="number" value={draft.service_fee_rate} onChange={(event) => update("service_fee_rate", Number(event.target.value))} />
+        <SettingsCard icon={CreditCard} title="Payments" description="Choose payment methods and customer payment instructions.">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Toggle label="Cash" checked={draft.payment_cash_enabled} onChange={(value) => update("payment_cash_enabled", value)} />
+            <Toggle label="Card" checked={draft.payment_card_enabled} onChange={(value) => update("payment_card_enabled", value)} />
+            <Toggle label="Bank transfer" checked={draft.payment_bank_enabled} onChange={(value) => update("payment_bank_enabled", value)} />
+            <Toggle label="WiPay" checked={draft.payment_wipay_enabled} onChange={(value) => update("payment_wipay_enabled", value)} />
+            <Toggle label="PayPal" checked={draft.payment_paypal_enabled} onChange={(value) => update("payment_paypal_enabled", value)} />
+            <Toggle label="Payment required before fulfillment" checked={!draft.payment_pod_enabled} onChange={(value) => update("payment_pod_enabled", !value)} />
+          </div>
+          <TextAreaField label="Manual payment instructions" value={draft.payment_link_template} onChange={(event) => update("payment_link_template", event.target.value)} />
+          <Button type="button" variant="primary" onClick={() => saveSettings("Payment settings saved.")} disabled={saving} className="w-full sm:w-auto">
+            <Save className="h-4 w-4" />
+            Save payments
+          </Button>
+        </SettingsCard>
+
+        <SettingsCard icon={Truck} title="Delivery / Waze" description="Delivery pricing and navigation settings for drivers.">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Toggle label="Enable delivery" checked={draft.delivery_fee >= 0} onChange={(value) => update("delivery_fee", value ? Math.max(0, draft.delivery_fee) : 0)} />
             <Field label="Default delivery fee" type="number" value={draft.delivery_fee} onChange={(event) => update("delivery_fee", Number(event.target.value))} />
-            <Toggle label="Enable loyalty" checked={draft.loyalty_enabled} onChange={(value) => update("loyalty_enabled", value)} />
-            <Field label={`Points per ${draft.currency}`} type="number" step="0.01" value={draft.loyalty_points_per_ttd} onChange={(event) => update("loyalty_points_per_ttd", Number(event.target.value))} />
-            <Field label={`${draft.currency} value per point`} type="number" step="0.01" value={draft.loyalty_redeem_ttd_per_point} onChange={(event) => update("loyalty_redeem_ttd_per_point", Number(event.target.value))} />
-            <Toggle label="Print customer receipt after sale" checked={draft.receipt_print_customer_enabled} onChange={(value) => update("receipt_print_customer_enabled", value)} />
-            <Toggle label="Print kitchen ticket for food orders" checked={draft.receipt_print_kitchen_enabled} onChange={(value) => update("receipt_print_kitchen_enabled", value)} />
-            <Toggle label="Enable email receipt option" checked={draft.receipt_email_enabled} onChange={(value) => update("receipt_email_enabled", value)} />
-            <Toggle label="Enable WhatsApp receipt option" checked={draft.receipt_whatsapp_enabled} onChange={(value) => update("receipt_whatsapp_enabled", value)} />
-            <Toggle label="Record WhatsApp status notifications" checked={draft.notification_whatsapp_enabled} onChange={(value) => update("notification_whatsapp_enabled", value)} />
-            <Toggle label="Record SMS status notifications" checked={draft.notification_sms_enabled} onChange={(value) => update("notification_sms_enabled", value)} />
-            <Toggle label="Record email status notifications" checked={draft.notification_email_enabled} onChange={(value) => update("notification_email_enabled", value)} />
-            <Field label="Default prep time in minutes" type="number" min="0" value={draft.default_prep_time_minutes} onChange={(event) => update("default_prep_time_minutes", Number(event.target.value))} />
-            <TextAreaField label="Receipt message" value={draft.receipt_message} onChange={(event) => update("receipt_message", event.target.value)} className="md:col-span-2" />
+            <Field label="Free delivery minimum" type="number" value={0} onChange={() => undefined} />
+            <Toggle label="Waze navigation enabled" checked onChange={() => undefined} />
+            <Toggle label="Driver can open customer address in Waze" checked onChange={() => undefined} />
           </div>
-        </Panel>
-
-        <Panel>
-          <PanelHeader title={`Delivery rates by location (${draft.currency})`} description={deliveryRateDescription} />
-          <div className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
-            {deliveryRegions.map((region) => (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {Object.entries(draft.delivery_rates || getDefaultDeliveryRatesForCurrency(draft.currency)).slice(0, 8).map(([region, value]) => (
               <Field
                 key={region}
                 label={region}
                 type="number"
-                min="0"
-                step="0.01"
-                value={deliveryRates[region]}
-                onChange={(event) => updateDeliveryRate(region, Number(event.target.value))}
+                value={value}
+                onChange={(event) => update("delivery_rates", { ...(draft.delivery_rates || {}), [region]: Number(event.target.value) })}
               />
             ))}
           </div>
-        </Panel>
+          <Button type="button" variant="primary" onClick={() => saveSettings("Delivery settings saved.")} disabled={saving} className="w-full sm:w-auto">
+            <Save className="h-4 w-4" />
+            Save delivery
+          </Button>
+        </SettingsCard>
 
-        <Panel>
-          <PanelHeader title="Payment methods" />
-          <div className="grid gap-3 p-4 md:grid-cols-3">
-            <Toggle label="Cash" checked={draft.payment_cash_enabled} onChange={(value) => update("payment_cash_enabled", value)} />
-            <Toggle label="Card" checked={draft.payment_card_enabled} onChange={(value) => update("payment_card_enabled", value)} />
-            <Toggle label="Bank transfer" checked={draft.payment_bank_enabled} onChange={(value) => update("payment_bank_enabled", value)} />
-            <Toggle label="PayPal" checked={draft.payment_paypal_enabled} onChange={(value) => update("payment_paypal_enabled", value)} />
-            <Toggle label="WiPay / local digital wallet" checked={draft.payment_wipay_enabled} onChange={(value) => update("payment_wipay_enabled", value)} />
-            <Toggle label="Pay on delivery" checked={draft.payment_pod_enabled} onChange={(value) => update("payment_pod_enabled", value)} />
-          </div>
-        </Panel>
-
-        <Panel>
-          <PanelHeader title="Payment links and social channels" description="Store provider links; no automatic social posting is performed" />
-          <div className="grid gap-3 p-4">
-            <Toggle label="Generate payment links after checkout" checked={draft.payment_links_enabled} onChange={(value) => update("payment_links_enabled", value)} />
-            <TextAreaField
-              label="Payment link template"
-              value={draft.payment_link_template}
-              onChange={(event) => update("payment_link_template", event.target.value)}
-              className="min-h-28"
-            />
-            <p className="text-sm font-semibold text-slate-500">
-              Payment variables: {"{{order_number}}"}, {"{{receipt_number}}"}, {"{{amount}}"}, {"{{total_label}}"}, {"{{customer_name}}"}, {"{{customer_phone}}"}, {"{{payment_method}}"}.
-            </p>
-            <div className="grid gap-3 md:grid-cols-2">
-              <Field label="Facebook page URL" value={draft.facebook_url} onChange={(event) => update("facebook_url", event.target.value)} />
-              <Field label="Instagram profile URL" value={draft.instagram_url} onChange={(event) => update("instagram_url", event.target.value)} />
+        <SettingsCard icon={CreditCard} title="Subscription / Billing" description="Plan controls for selling Caribbean Connect POS as a SaaS product.">
+          <div className="grid gap-3">
+            <div className="rounded-card border border-white/10 bg-black/20 p-4">
+              <p className="text-sm font-bold text-teal-50/60">Current plan</p>
+              <p className="mt-1 text-2xl font-black text-white">{subscription?.plan_name || "Starter"}</p>
+              <p className="mt-1 text-sm font-semibold text-teal-50/60">Status: {subscription?.status || "trial"}</p>
             </div>
-          </div>
-        </Panel>
-
-        <Panel>
-          <PanelHeader title="WhatsApp automation" description="Automatic sending uses Twilio or Meta credentials from environment variables." />
-          <div className="grid gap-3 p-4">
-            <Toggle label="Enable WhatsApp features" checked={draft.whatsapp_enabled} onChange={(value) => update("whatsapp_enabled", value)} />
-            <Toggle label="Send owner alert when a new order is created" checked={draft.whatsapp_owner_alerts_enabled} onChange={(value) => update("whatsapp_owner_alerts_enabled", value)} />
-            <Toggle label="Send customer confirmation when order is placed" checked={draft.whatsapp_customer_confirmations_enabled} onChange={(value) => update("whatsapp_customer_confirmations_enabled", value)} />
-            <Toggle label="Send customer receipt when order is completed" checked={draft.whatsapp_customer_receipts_enabled} onChange={(value) => update("whatsapp_customer_receipts_enabled", value)} />
-            <Toggle label="Send customer update when a driver is assigned" checked={draft.whatsapp_driver_assignment_enabled} onChange={(value) => update("whatsapp_driver_assignment_enabled", value)} />
-            <Toggle label="Send driver alert when assigned to an order" checked={draft.whatsapp_driver_alerts_enabled} onChange={(value) => update("whatsapp_driver_alerts_enabled", value)} />
-            <Toggle label="Send customer update when order is out for delivery" checked={draft.whatsapp_out_for_delivery_enabled} onChange={(value) => update("whatsapp_out_for_delivery_enabled", value)} />
-            <div className="grid gap-3 md:grid-cols-2">
-              <SelectField label="WhatsApp provider" value={draft.whatsapp_provider || "twilio"} onChange={(event) => update("whatsapp_provider", event.target.value)}>
-                <option value="twilio">Twilio WhatsApp</option>
-                <option value="meta">Meta WhatsApp Cloud API</option>
-              </SelectField>
-              <Field label="Business WhatsApp number" value={draft.whatsapp_business_number} onChange={(event) => update("whatsapp_business_number", event.target.value)} />
-              <Field label="Default country code" value={draft.whatsapp_country_code} onChange={(event) => update("whatsapp_country_code", event.target.value)} placeholder="+1-868" />
-            </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <Button type="button" variant="secondary" onClick={checkWhatsAppStatus}>
-                <ShieldCheck className="h-4 w-4" />
-                Check config
-              </Button>
-              <Button type="button" onClick={sendWhatsAppTest}>
-                <MessageCircle className="h-4 w-4" />
-                Send test message
-              </Button>
-              {whatsAppTestMessage ? <span className="text-sm font-bold text-slate-500">{whatsAppTestMessage}</span> : null}
-            </div>
-            <TextAreaField
-              label="Owner order alert template"
-              value={draft.whatsapp_order_template}
-              onChange={(event) => update("whatsapp_order_template", event.target.value)}
-              className="min-h-48"
-            />
-            <TextAreaField
-              label="Customer order confirmation template"
-              value={draft.whatsapp_customer_confirmation_template}
-              onChange={(event) => update("whatsapp_customer_confirmation_template", event.target.value)}
-              className="min-h-40"
-            />
-            <TextAreaField
-              label="Customer receipt template"
-              value={draft.whatsapp_customer_receipt_template}
-              onChange={(event) => update("whatsapp_customer_receipt_template", event.target.value)}
-              className="min-h-48"
-            />
-            <TextAreaField
-              label="Customer driver assigned template"
-              value={draft.whatsapp_driver_assigned_template}
-              onChange={(event) => update("whatsapp_driver_assigned_template", event.target.value)}
-              className="min-h-36"
-            />
-            <TextAreaField
-              label="Driver assignment alert template"
-              value={draft.whatsapp_driver_alert_template}
-              onChange={(event) => update("whatsapp_driver_alert_template", event.target.value)}
-              className="min-h-36"
-            />
-            <TextAreaField
-              label="Customer out for delivery template"
-              value={draft.whatsapp_out_for_delivery_template}
-              onChange={(event) => update("whatsapp_out_for_delivery_template", event.target.value)}
-              className="min-h-36"
-            />
-            <p className="text-sm font-semibold text-slate-500">
-              Template variables: {"{{business_name}}"}, {"{{business_phone}}"}, {"{{order_number}}"}, {"{{customer_name}}"}, {"{{customer_phone}}"}, {"{{order_type}}"}, {"{{address}}"}, {"{{items}}"}, {"{{total}}"}, {"{{payment_method}}"}, {"{{payment_status}}"}, {"{{order_status}}"}, {"{{delivery_status}}"}, {"{{driver_name}}"}, {"{{driver_phone}}"}, {"{{date_time}}"}, {"{{completed_at}}"}, {"{{dashboard_link}}"}, {"{{payment_link}}"}, {"{{location_link}}"}, {"{{waze_link}}"}, {"{{receipt_message}}"}.
-            </p>
-            <p className="rounded-card bg-caribbean-cloud p-3 text-sm font-bold text-slate-700 dark:bg-slate-950 dark:text-slate-200">
-              Add provider secrets in Vercel only: WHATSAPP_PROVIDER, Twilio keys, or Meta WhatsApp token and phone number ID. If they are missing, orders still save and the server logs &quot;WhatsApp is not configured.&quot;
-            </p>
-          </div>
-        </Panel>
-      </div>
-
-      <aside className="grid min-w-0 gap-4 self-start xl:sticky xl:top-24">
-        <Panel>
-          <PanelHeader title="Staff and roles" description="Role permissions protect API routes and customer data" />
-          <div className="divide-y divide-caribbean-line dark:divide-slate-800">
-            {staff.map((user) => (
-              <div key={user.id} className="flex min-w-0 items-center justify-between gap-3 px-4 py-3">
-                <div className="min-w-0">
-                  <p className="font-black">{user.name}</p>
-                  <p className="text-xs font-semibold text-slate-500">{user.email}</p>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {SUBSCRIPTION_PLANS.map((plan) => (
+                <div key={plan.id} className="rounded-card border border-white/10 bg-white/[0.045] p-3">
+                  <p className="font-black text-white">{plan.name.replace(" Plan", "")}</p>
+                  <p className="mt-1 text-sm font-semibold text-teal-50/55">{plan.currency}{plan.monthly_price}/mo</p>
                 </div>
-                <Badge tone={user.role === "admin" ? "teal" : user.role === "driver" ? "amber" : "green"}>
-                  {ROLE_LABELS[user.role]}
-                </Badge>
-              </div>
-            ))}
+              ))}
+            </div>
+            <div className="grid gap-3 sm:flex sm:flex-wrap">
+              <a href="/subscription" className="inline-flex min-h-10 items-center justify-center rounded-card bg-cyan-300 px-4 text-sm font-black text-slate-950">Upgrade plan</a>
+              <Button type="button" variant="danger" onClick={() => resetDanger("Cancel subscription")} className="w-full sm:w-auto">Cancel subscription</Button>
+            </div>
+            <p className="rounded-card border border-white/10 bg-black/20 p-3 text-sm font-semibold text-teal-50/60">Billing history will appear here when payment processing is connected.</p>
           </div>
-        </Panel>
+        </SettingsCard>
 
-        <Panel>
-          <PanelHeader title="Privacy and safety" />
-          <div className="grid gap-3 p-4 text-sm font-semibold text-slate-600 dark:text-slate-300">
-            <p className="flex gap-2"><ShieldCheck className="h-4 w-4 text-caribbean-teal" /> Passwords are hashed before storage.</p>
-            <p className="flex gap-2"><UsersRound className="h-4 w-4 text-caribbean-teal" /> Customer records are available only through authenticated staff routes.</p>
-            <p className="flex gap-2"><MessageCircle className="h-4 w-4 text-caribbean-teal" /> WhatsApp uses user-clicked links unless a Business API integration is added.</p>
-            <p className="flex gap-2"><Truck className="h-4 w-4 text-caribbean-teal" /> Delivery fees are pulled from the customer region selected at checkout.</p>
-            <p className="flex gap-2"><Link2 className="h-4 w-4 text-caribbean-teal" /> Payment links use your configured provider template and are saved on the order.</p>
+        <SettingsCard icon={ImageIcon} title="Appearance / Branding" description="Customize storefront, receipt, and business visuals.">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="rounded-card border border-white/10 bg-black/20 p-4">
+              <Image
+                src={draft.logo_url || "/logo.svg"}
+                alt=""
+                width={64}
+                height={64}
+                unoptimized={Boolean(draft.logo_url?.startsWith("data:"))}
+                className="h-16 w-16 rounded-card bg-white object-contain p-2"
+              />
+              <label className="mt-4 inline-flex min-h-10 cursor-pointer items-center justify-center rounded-card border border-white/10 bg-white/[0.07] px-4 text-sm font-black text-white">
+                Upload logo
+                <input type="file" accept="image/png,image/jpeg" className="sr-only" onChange={uploadLogo} />
+              </label>
+            </div>
+            <div className="grid gap-4">
+              <Field label="Business color" value="#14b8a6" onChange={() => undefined} />
+              <Field label="Storefront banner" value={draft.logo_url || ""} onChange={(event) => update("logo_url", event.target.value)} />
+            </div>
           </div>
-        </Panel>
+          <TextAreaField label="Receipt footer message" value={draft.receipt_message} onChange={(event) => update("receipt_message", event.target.value)} />
+          <Button type="button" variant="primary" onClick={() => saveSettings("Branding settings saved.")} disabled={saving} className="w-full sm:w-auto">
+            <Save className="h-4 w-4" />
+            Save branding
+          </Button>
+        </SettingsCard>
 
-        {message ? <p className="rounded-card bg-caribbean-cloud p-3 text-sm font-black text-slate-700 dark:bg-slate-900 dark:text-slate-200">{message}</p> : null}
-        <Button variant="primary" size="lg" onClick={save} disabled={saving}>
-          <Save className="h-4 w-4" />
-          {saving ? "Saving..." : "Save settings"}
-        </Button>
-      </aside>
+        <SettingsCard icon={ShieldAlert} title="Danger Zone" description="High-risk business data actions. Confirmation is required.">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Button type="button" variant="danger" onClick={() => resetDanger("Delete demo data")} className="w-full">
+              <Trash2 className="h-4 w-4" />
+              Delete demo data
+            </Button>
+            <Button type="button" variant="danger" onClick={() => resetDanger("Reset business account")} className="w-full">
+              <AlertTriangle className="h-4 w-4" />
+              Reset business
+            </Button>
+            <Button type="button" variant="danger" onClick={() => resetDanger("Delete business")} className="w-full">
+              <Trash2 className="h-4 w-4" />
+              Delete business
+            </Button>
+          </div>
+        </SettingsCard>
+      </div>
     </div>
   );
 }
