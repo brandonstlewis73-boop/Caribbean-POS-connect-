@@ -51,6 +51,18 @@ CREATE TABLE IF NOT EXISTS settings (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+DO $$
+BEGIN
+  IF to_regclass('public.settings') IS NOT NULL THEN
+    DELETE FROM public.settings older
+    USING public.settings newer
+    WHERE older.key = newer.key
+      AND older.ctid < newer.ctid;
+  END IF;
+END $$;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_settings_key_unique ON settings(key);
+
 CREATE TABLE IF NOT EXISTS categories (
   id TEXT PRIMARY KEY,
   business_id TEXT,

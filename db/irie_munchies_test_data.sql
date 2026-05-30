@@ -62,6 +62,8 @@ INSERT INTO public.staff_users (
   active = EXCLUDED.active,
   updated_at = NOW();
 
+CREATE UNIQUE INDEX IF NOT EXISTS idx_business_settings_business_key ON public.business_settings(business_id, key);
+
 INSERT INTO public.business_settings (business_id, key, value) VALUES
   ('biz_irie_munchies', 'business_name', to_jsonb('Irie Munchies'::text)),
   ('biz_irie_munchies', 'business_phone', to_jsonb('+18683353697'::text)),

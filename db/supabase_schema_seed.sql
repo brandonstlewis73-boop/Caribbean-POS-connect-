@@ -251,6 +251,20 @@ CREATE TABLE IF NOT EXISTS public.settings (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS business_id TEXT;
+
+DO $$
+BEGIN
+  IF to_regclass('public.settings') IS NOT NULL THEN
+    DELETE FROM public.settings older
+    USING public.settings newer
+    WHERE older.key = newer.key
+      AND older.ctid < newer.ctid;
+  END IF;
+END $$;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_settings_key_unique ON public.settings(key);
+
 -- Extra tables used by the current app for receipts, loyalty, delivery tracking, and audit logs.
 CREATE TABLE IF NOT EXISTS public.receipts (
   id TEXT PRIMARY KEY,

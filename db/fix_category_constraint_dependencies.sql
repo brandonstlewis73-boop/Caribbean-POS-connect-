@@ -34,6 +34,19 @@ ALTER TABLE public.categories DROP CONSTRAINT IF EXISTS categories_slug_key;
 ALTER TABLE public.products DROP CONSTRAINT IF EXISTS products_category_fkey;
 ALTER TABLE public.products DROP CONSTRAINT IF EXISTS products_sku_key;
 
+ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS business_id TEXT;
+
+DO $$
+BEGIN
+  IF to_regclass('public.settings') IS NOT NULL THEN
+    DELETE FROM public.settings older
+    USING public.settings newer
+    WHERE older.key = newer.key
+      AND older.ctid < newer.ctid;
+  END IF;
+END $$;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_settings_key_unique ON public.settings(key);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_categories_business_slug ON public.categories((COALESCE(business_id, '')), slug);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_products_business_sku ON public.products((COALESCE(business_id, '')), sku);
 CREATE INDEX IF NOT EXISTS idx_categories_business_order ON public.categories(business_id, is_active, sort_order, name);
