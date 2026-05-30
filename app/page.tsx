@@ -8,7 +8,6 @@ import {
   ClipboardList,
   PackageCheck,
   Printer,
-  ReceiptText,
   ShoppingCart,
   Store,
   Tags,

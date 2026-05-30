@@ -10,6 +10,7 @@ import {
   ClipboardList,
   LifeBuoy,
   LayoutDashboard,
+  LogOut,
   MapPinned,
   Menu,
   MessageCircle,
@@ -35,19 +36,23 @@ type NavItem = {
 
 const navGroups: { label: string; items: NavItem[] }[] = [
   {
-    label: "Front Office",
+    label: "Main",
     items: [
+      { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
       { label: "POS", href: "/pos", icon: ShoppingCart },
       { label: "Orders", href: "/orders", icon: ClipboardList },
       { label: "Receipts", href: "/receipts", icon: ReceiptText },
       { label: "Deliveries", href: "/deliveries", icon: MapPinned },
-      { label: "Printer", href: "/printer", icon: Printer }
+      { label: "Printers", href: "/printer", icon: Printer },
+      { label: "Settings", href: "/settings", icon: Settings }
     ]
-  },
+  }
+];
+
+const secondaryGroups: { label: string; items: NavItem[] }[] = [
   {
     label: "Back Office",
     items: [
-      { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
       { label: "Customers", href: "/customers", icon: UsersRound },
       { label: "Categories", href: "/categories", icon: Tags },
       { label: "Inventory", href: "/inventory", icon: Boxes },
@@ -56,9 +61,8 @@ const navGroups: { label: string; items: NavItem[] }[] = [
     ]
   },
   {
-    label: "Settings",
+    label: "Business",
     items: [
-      { label: "Settings", href: "/settings", icon: Settings },
       { label: "WhatsApp", href: "/settings#whatsapp", icon: MessageCircle },
       { label: "Staff", href: "/staff", icon: UserCog },
       { label: "Subscription", href: "/subscription", icon: CreditCard }
@@ -108,29 +112,29 @@ export function AppShellClient({
 
   return (
     <div className="min-h-screen overflow-x-hidden text-caribbean-ink">
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-sidebar overflow-y-auto border-r border-white/10 bg-black/[0.42] px-3 py-4 shadow-soft backdrop-blur-xl lg:block">
-        <SidebarContent active={active} currency={currency} />
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-sidebar overflow-y-auto border-r border-white/10 bg-black/[0.42] px-3 py-4 shadow-soft backdrop-blur-xl md:block">
+        <SidebarContent active={active} currency={currency} includeSecondary />
       </aside>
 
       {menuOpen ? (
         <button
           type="button"
           aria-label="Close navigation"
-          className="fixed inset-0 z-40 bg-slate-950/70 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-40 bg-slate-950/70 backdrop-blur-sm md:hidden"
           onClick={() => setMenuOpen(false)}
         />
       ) : null}
 
       <aside
         className={cn(
-          "glass-panel-strong fixed inset-y-0 left-0 z-50 w-[86vw] max-w-[260px] overflow-y-auto px-4 py-5 transition-transform duration-300 ease-out lg:hidden",
+          "glass-panel-strong fixed inset-y-0 left-0 z-50 w-[86vw] max-w-[260px] overflow-y-auto px-4 py-5 transition-transform duration-300 ease-out md:hidden",
           menuOpen ? "translate-x-0" : "-translate-x-full"
         )}
         aria-hidden={!menuOpen}
       >
         <div className="mb-4 flex items-center justify-between gap-3">
           <span className="text-xs font-black uppercase tracking-[0.18em] text-cyan-100/60">
-            Navigation
+            More
           </span>
           <button
             type="button"
@@ -141,17 +145,17 @@ export function AppShellClient({
             <X className="h-5 w-5" />
           </button>
         </div>
-        <SidebarContent active={active} currency={currency} onNavigate={() => setMenuOpen(false)} />
+        <SecondaryMenu active={active} onNavigate={() => setMenuOpen(false)} />
       </aside>
 
-      <div className="min-w-0 lg:pl-sidebar">
+      <div className="min-w-0 md:pl-sidebar">
         <header className="sticky top-0 z-30 border-b border-white/10 bg-black/[0.58] px-3 py-3 shadow-soft backdrop-blur-xl sm:px-5 lg:px-6">
-          <div className="mx-auto flex min-h-[52px] w-full max-w-[1360px] min-w-0 flex-wrap items-center justify-between gap-3">
-            <div className="flex min-w-0 flex-1 items-center gap-3">
+          <div className="mx-auto grid min-h-[52px] w-full max-w-[1360px] min-w-0 gap-3 sm:flex sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-center gap-3">
               <button
                 type="button"
-                aria-label="Open navigation"
-                className="touch-target inline-grid shrink-0 place-items-center rounded-card border border-white/10 bg-white/[0.07] text-teal-50 shadow-soft transition hover:border-cyan-200/35 hover:bg-white/[0.12] lg:hidden"
+                aria-label="Open secondary menu"
+                className="touch-target inline-grid shrink-0 place-items-center rounded-card border border-white/10 bg-white/[0.07] text-teal-50 shadow-soft transition hover:border-cyan-200/35 hover:bg-white/[0.12] md:hidden"
                 onClick={() => setMenuOpen(true)}
               >
                 <Menu className="h-5 w-5" />
@@ -166,10 +170,10 @@ export function AppShellClient({
               </div>
             </div>
 
-            <div className="flex min-w-0 max-w-full flex-wrap items-center justify-end gap-2">
+            <div className="grid min-w-0 max-w-full gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-end">
               <Link
                 href="/online"
-                className="inline-flex min-h-10 items-center gap-2 rounded-card border border-white/10 bg-white/[0.07] px-3 py-2 text-center text-sm font-black leading-tight text-teal-50 shadow-soft transition hover:border-cyan-200/35 hover:bg-white/[0.12]"
+                className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-card border border-white/10 bg-white/[0.07] px-3 py-2 text-center text-sm font-black leading-tight text-teal-50 shadow-soft transition hover:border-cyan-200/35 hover:bg-white/[0.12] sm:w-auto"
               >
                 <Store className="h-4 w-4 shrink-0" />
                 <span>Storefront</span>
@@ -177,29 +181,9 @@ export function AppShellClient({
               {actions}
             </div>
           </div>
-
-          <nav className="scrollbar-none mt-3 flex gap-2 overflow-x-auto pb-1 lg:hidden">
-            {navItems.map((item) => {
-              const selected = item.label === active;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cn(
-                    "inline-flex min-h-10 shrink-0 items-center rounded-card px-3 py-2 text-sm font-black transition",
-                    selected
-                      ? "bg-gradient-to-r from-teal-300 to-cyan-300 text-slate-950 shadow-glow"
-                      : "border border-white/10 bg-white/[0.06] text-teal-50/85 hover:bg-white/[0.12] hover:text-white"
-                  )}
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
-          </nav>
         </header>
 
-        <main className="animate-fade-in min-w-0 max-w-full overflow-x-hidden px-3 pb-[calc(var(--bottom-nav-height)+1.5rem)] pt-4 xs:px-4 sm:px-5 lg:px-6 lg:pb-8">
+        <main className="animate-fade-in min-w-0 max-w-full overflow-x-hidden px-3 pb-[calc(var(--bottom-nav-height)+2rem)] pt-4 xs:px-4 sm:px-5 md:pb-8 lg:px-6">
           <div className="mx-auto w-full max-w-[1360px] min-w-0">{children}</div>
         </main>
       </div>
@@ -209,7 +193,7 @@ export function AppShellClient({
       <Link
         href="/help"
         className={cn(
-          "fixed bottom-5 right-5 z-40 hidden min-h-11 items-center gap-2 rounded-full border border-white/10 px-4 py-2 text-sm font-black shadow-glow backdrop-blur-2xl transition hover:-translate-y-0.5 lg:inline-flex",
+          "fixed bottom-5 right-5 z-40 hidden min-h-11 items-center gap-2 rounded-full border border-white/10 px-4 py-2 text-sm font-black shadow-glow backdrop-blur-2xl transition hover:-translate-y-0.5 md:inline-flex",
           active === "Help & Support"
             ? "bg-cyan-300 text-slate-950"
             : "bg-black/70 text-teal-50 hover:bg-white/[0.14]"
@@ -225,11 +209,13 @@ export function AppShellClient({
 function SidebarContent({
   active,
   currency,
-  onNavigate
+  onNavigate,
+  includeSecondary = false
 }: {
   active: string;
   currency: string;
   onNavigate?: () => void;
+  includeSecondary?: boolean;
 }) {
   return (
     <>
@@ -252,14 +238,14 @@ function SidebarContent({
       </Link>
 
       <nav className="grid gap-5">
-        {navGroups.map((group) => (
+        {[...navGroups, ...(includeSecondary ? secondaryGroups : [])].map((group) => (
           <div key={group.label} className="grid gap-1">
             <p className="px-3 text-[11px] font-black uppercase tracking-[0.18em] text-teal-100/45">
               {group.label}
             </p>
             {group.items.map((item) => {
               const Icon = item.icon;
-              const selected = item.label === active;
+              const selected = item.label === active || (item.label === "Printers" && active === "Printer");
               return (
                 <Link
                   key={item.href}
@@ -285,13 +271,85 @@ function SidebarContent({
           </div>
         ))}
       </nav>
+      {includeSecondary ? <SignOutButton /> : null}
     </>
+  );
+}
+
+function SecondaryMenu({ active, onNavigate }: { active: string; onNavigate: () => void }) {
+  return (
+    <div className="grid gap-5">
+      <div className="flex min-w-0 items-center gap-3 rounded-card border border-white/10 bg-white/[0.06] px-3 py-3 shadow-soft">
+        <Image
+          src="/logo.svg"
+          alt=""
+          width={44}
+          height={44}
+          className="h-11 w-11 shrink-0 rounded-card object-contain"
+        />
+        <span className="min-w-0">
+          <span className="block text-sm font-black leading-tight text-white">{APP_NAME}</span>
+          <span className="text-xs font-bold text-cyan-200/70">Account menu</span>
+        </span>
+      </div>
+      <nav className="grid gap-5">
+        {secondaryGroups.map((group) => (
+          <div key={group.label} className="grid gap-1">
+            <p className="px-3 text-[11px] font-black uppercase tracking-[0.18em] text-teal-100/45">
+              {group.label}
+            </p>
+            {group.items.map((item) => {
+              const Icon = item.icon;
+              const selected = item.label === active;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={onNavigate}
+                  className={cn(
+                    "group flex min-h-11 min-w-0 items-center gap-3 rounded-card px-3 text-sm font-black transition duration-200",
+                    selected
+                      ? "bg-gradient-to-r from-teal-300 to-cyan-300 text-slate-950 shadow-glow"
+                      : "text-teal-50/75 hover:bg-white/[0.08] hover:text-white"
+                  )}
+                >
+                  <Icon className={cn("h-4 w-4 shrink-0 transition", selected ? "text-slate-950" : "text-cyan-100/70 group-hover:text-cyan-100")} />
+                  <span className="min-w-0 truncate">{item.label}</span>
+                </Link>
+              );
+            })}
+          </div>
+        ))}
+      </nav>
+      <SignOutButton />
+    </div>
+  );
+}
+
+function SignOutButton() {
+  async function signOut() {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } finally {
+      window.location.href = "/login";
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={signOut}
+      className="mt-5 flex min-h-10 w-full min-w-0 items-center gap-2.5 rounded-card border border-white/10 bg-white/[0.06] px-3 text-sm font-black text-teal-50/75 transition hover:bg-red-400/12 hover:text-red-100"
+    >
+      <LogOut className="h-4 w-4 text-cyan-100/70" />
+      <span>Sign out</span>
+    </button>
   );
 }
 
 function BottomNavigation({ active }: { active: string }) {
   return (
-    <nav className="safe-bottom fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-black/[0.78] px-2 pt-2 shadow-medium backdrop-blur-2xl lg:hidden">
+    <nav className="safe-bottom fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-black/[0.78] px-2 pt-2 shadow-medium backdrop-blur-2xl md:hidden">
       <div className="grid grid-cols-5 gap-1">
         {bottomNavItems.map((item) => {
           const Icon = item.icon;

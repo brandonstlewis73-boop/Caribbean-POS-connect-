@@ -183,7 +183,7 @@ export function DashboardHome({ data }: { data: DashboardData }) {
 
           <div className="grid gap-5 lg:grid-cols-2">
             <Panel>
-              <PanelHeader title="Recent orders" description="Latest storefront and POS orders" action={<Link href="/orders" className="text-sm font-black text-cyan-100 hover:text-white">View all</Link>} />
+              <PanelHeader title="Recent orders" description="Latest storefront and POS orders" action={<Link href="/orders" className="hidden text-sm font-black text-cyan-100 hover:text-white lg:inline">View all</Link>} />
               <div className="divide-y divide-white/10">
                 {data.recentOrders.length ? (
                   data.recentOrders.map((order) => (
@@ -275,10 +275,6 @@ export function DashboardHome({ data }: { data: DashboardData }) {
           <Panel>
             <PanelHeader title="Quick actions" />
             <div className="grid gap-2 p-4">
-              <Link href="/pos" className="inline-flex min-h-11 items-center gap-2 rounded-card border border-white/10 bg-white/[0.07] px-3 text-sm font-black text-white hover:bg-white/[0.12]">
-                <ShoppingCart className="h-4 w-4" />
-                Open POS checkout
-              </Link>
               <Link href="/inventory" className="inline-flex min-h-11 items-center gap-2 rounded-card border border-white/10 bg-white/[0.07] px-3 text-sm font-black text-white hover:bg-white/[0.12]">
                 <PackageCheck className="h-4 w-4" />
                 Add inventory
