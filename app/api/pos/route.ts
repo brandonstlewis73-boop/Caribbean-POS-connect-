@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { fail, ok } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
-import { createOrder, listCustomers, listProducts } from "@/lib/data";
+import { createOrder, listCategories, listCustomers, listProducts } from "@/lib/data";
 import { checkoutSchema } from "@/lib/validators";
 
 export const runtime = "nodejs";
@@ -11,7 +11,8 @@ export async function GET(request: NextRequest) {
   if (!auth.user) return fail(auth.error, auth.status);
   return ok({
     products: await listProducts(request.nextUrl.searchParams.get("q") || undefined, false, auth.user.business_id),
-    customers: await listCustomers(undefined, auth.user.business_id)
+    customers: await listCustomers(undefined, auth.user.business_id),
+    categories: await listCategories(undefined, false, auth.user.business_id)
   });
 }
 

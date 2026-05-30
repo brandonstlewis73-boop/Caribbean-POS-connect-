@@ -55,14 +55,17 @@ function usefulProductError(payloadError?: string, details?: unknown) {
 
 export function InventoryClient({ products, categories, currency }: { products: Product[]; categories: Category[]; currency: string }) {
   const [items, setItems] = useState(products);
-  const [categoryItems] = useState(categories);
+  const [categoryItems, setCategoryItems] = useState(categories);
   const [query, setQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [editingId, setEditingId] = useState("");
   const [draft, setDraft] = useState(emptyProduct(categories));
+  const [newCategoryName, setNewCategoryName] = useState("");
   const [adjustments, setAdjustments] = useState<Record<string, number>>({});
   const [message, setMessage] = useState("");
+  const [categoryMessage, setCategoryMessage] = useState("");
   const [saving, setSaving] = useState(false);
+  const [savingCategory, setSavingCategory] = useState(false);
   const deferredQuery = useDeferredValue(query);
   const formatMoney = (value: number | string | null | undefined) => money(value, currency);
 
@@ -89,6 +92,37 @@ export function InventoryClient({ products, categories, currency }: { products: 
   function selectCategory(categoryId: string) {
     const category = categoryItems.find((item) => item.id === categoryId);
     setDraft({ ...draft, category_id: categoryId, category: category?.name || draft.category });
+  }
+
+  async function createQuickCategory() {
+    const name = newCategoryName.trim();
+    if (!name) {
+      setCategoryMessage("Enter a category name first.");
+      return;
+    }
+    setSavingCategory(true);
+    setCategoryMessage("");
+    try {
+      const response = await fetch("/api/categories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, sort_order: categoryItems.length, is_active: true, active: true })
+      });
+      const payload = await readApiPayload<{ category: Category }>(response);
+      if (!response.ok || !payload.data?.category) {
+        setCategoryMessage(payload.error || "Category could not be added.");
+        return;
+      }
+      const category = payload.data.category;
+      setCategoryItems((current) => [...current, category].sort((a, b) => a.sort_order - b.sort_order));
+      setDraft((current) => ({ ...current, category_id: category.id, category: category.name }));
+      setNewCategoryName("");
+      setCategoryMessage("Category added.");
+    } catch {
+      setCategoryMessage("Category could not be added. Check your connection and try again.");
+    } finally {
+      setSavingCategory(false);
+    }
   }
 
   function editProduct(product: Product) {
@@ -362,8 +396,17 @@ export function InventoryClient({ products, categories, currency }: { products: 
           </div>
           <SelectField label="Category" value={draft.category_id} onChange={(event) => selectCategory(event.target.value)}>
             {!categoryItems.length ? <option value="">Uncategorized</option> : null}
-            {categoryItems.map((category) => <option key={category.id} value={category.id}>{category.icon ? `${category.icon} ` : ""}{category.name}</option>)}
+            {categoryItems
+              .filter((category) => category.is_active !== false && category.active !== false)
+              .map((category) => <option key={category.id} value={category.id}>{category.icon ? `${category.icon} ` : ""}{category.name}</option>)}
           </SelectField>
+          <div className="grid gap-2 rounded-card border border-caribbean-line bg-caribbean-cloud p-3 dark:border-slate-800 dark:bg-slate-950 sm:grid-cols-[1fr_auto]">
+            <Field label="+ Add new category" value={newCategoryName} onChange={(event) => setNewCategoryName(event.target.value)} placeholder="Example: Drinks" />
+            <Button type="button" onClick={createQuickCategory} disabled={savingCategory || !newCategoryName.trim()} className="self-end">
+              {savingCategory ? "Adding..." : "Add category"}
+            </Button>
+            {categoryMessage ? <p className="text-sm font-bold text-slate-600 dark:text-slate-300 sm:col-span-2">{categoryMessage}</p> : null}
+          </div>
           <Field label="Description" value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} placeholder="Short menu or item description" />
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Cost price" type="number" value={draft.cost_price} onChange={(event) => setDraft({ ...draft, cost_price: Number(event.target.value) })} />

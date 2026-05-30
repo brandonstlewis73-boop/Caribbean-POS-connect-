@@ -5,11 +5,11 @@ import { CreditCard, ExternalLink, LocateFixed, MessageCircle, Minus, Plus, Send
 import { Button } from "@/components/ui/Button";
 import { Field, SelectField, TextAreaField } from "@/components/ui/Field";
 import { Badge } from "@/components/ui/Badge";
-import { getDefaultCountryForCurrency, getDeliveryRegionsForCurrency, money, PAYMENT_METHODS, PRODUCT_CATEGORIES } from "@/lib/constants";
+import { getDefaultCountryForCurrency, getDeliveryRegionsForCurrency, money, PAYMENT_METHODS } from "@/lib/constants";
 import { readApiPayload } from "@/lib/client-response";
 import { detectCurrentAddress } from "@/lib/location-client";
 import type { OnlineMarket } from "@/lib/online-market";
-import type { Order, Product, Settings } from "@/lib/types";
+import type { Category, Order, Product, Settings } from "@/lib/types";
 
 type CartItem = Product & { quantity: number };
 
@@ -43,6 +43,7 @@ function paymentMethodEnabled(method: string, settings: Settings) {
 
 export function OnlineOrderClient({
   products: initialProducts,
+  categories: initialCategories = [],
   settings: initialSettings,
   market: initialMarket = null,
   initialStatusMessage = "",
@@ -52,6 +53,7 @@ export function OnlineOrderClient({
   storefrontSlug = null
 }: {
   products: Product[];
+  categories?: Category[];
   settings: Settings;
   market?: OnlineMarket | null;
   initialStatusMessage?: string;
@@ -61,9 +63,10 @@ export function OnlineOrderClient({
   storefrontSlug?: string | null;
 }) {
   const [products, setProducts] = useState(initialProducts);
+  const [categories, setCategories] = useState(initialCategories);
   const [settings, setSettings] = useState(initialSettings);
   const [market, setMarket] = useState<OnlineMarket | null>(initialMarket);
-  const [category, setCategory] = useState("All");
+  const [category, setCategory] = useState("all");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [fulfillment, setFulfillment] = useState<"pickup" | "delivery">("delivery");
   const [customer, setCustomer] = useState(() => emptyCustomer(initialSettings.currency));
@@ -85,6 +88,7 @@ export function OnlineOrderClient({
         const response = await fetch(`${menuEndpoint}${window.location.search ? `${separator}${window.location.search.slice(1)}` : ""}`, { cache: "no-store" });
         const payload = await readApiPayload<{
           products: Product[];
+          categories?: Category[];
           settings: Settings;
           market?: OnlineMarket;
           statusMessage?: string | null;
@@ -95,6 +99,7 @@ export function OnlineOrderClient({
           return;
         }
         setProducts(payload.data?.products || []);
+        setCategories(payload.data?.categories || []);
         setSettings(payload.data?.settings || initialSettings);
         setMarket(payload.data?.market || null);
         setStatusMessage(payload.data?.statusMessage || "");
@@ -109,8 +114,16 @@ export function OnlineOrderClient({
   }, [initialSettings, menuEndpoint]);
 
   const visibleProducts = useMemo(
-    () => products.filter((product) => category === "All" || product.category === category),
-    [products, category]
+    () => {
+      const selectedCategory = categories.find((item) => item.id === category);
+      return products.filter(
+        (product) =>
+          category === "all" ||
+          product.category_id === category ||
+          (selectedCategory ? product.category === selectedCategory.name : false)
+      );
+    },
+    [products, category, categories]
   );
   const enabledPaymentMethods = PAYMENT_METHODS.filter((method) => paymentMethodEnabled(method, settings));
   const subtotal = cart.reduce((sum, item) => sum + item.selling_price * item.quantity, 0);
@@ -262,21 +275,36 @@ export function OnlineOrderClient({
 
       <div className="mx-auto grid max-w-7xl min-w-0 gap-4 px-4 py-4 xl:grid-cols-[minmax(0,1fr)_minmax(360px,420px)]">
         <section className="grid min-w-0 gap-4">
-          <div className="flex gap-2 overflow-x-auto">
-            {["All", ...PRODUCT_CATEGORIES].map((item) => (
+          <div className="flex gap-2 overflow-x-auto scroll-smooth">
+            <button
+              onClick={() => setCategory("all")}
+              className={`whitespace-nowrap rounded-card px-3 py-2 text-sm font-black ${
+                category === "all"
+                  ? "bg-caribbean-teal text-white"
+                  : "border border-caribbean-line bg-white dark:border-slate-700 dark:bg-slate-900"
+              }`}
+            >
+              All
+            </button>
+            {categories.map((item) => (
               <button
-                key={item}
-                onClick={() => setCategory(item)}
+                key={item.id}
+                onClick={() => setCategory(item.id)}
                 className={`whitespace-nowrap rounded-card px-3 py-2 text-sm font-black ${
-                  category === item
+                  category === item.id
                     ? "bg-caribbean-teal text-white"
                     : "border border-caribbean-line bg-white dark:border-slate-700 dark:bg-slate-900"
                 }`}
               >
-                {item}
+                {item.icon ? `${item.icon} ` : ""}{item.name}
               </button>
             ))}
           </div>
+          {!categories.length ? (
+            <p className="rounded-card border border-caribbean-line bg-white p-3 text-sm font-bold text-slate-500 dark:border-slate-800 dark:bg-slate-900">
+              No categories yet. Add one in Settings.
+            </p>
+          ) : null}
           <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
             {statusMessage ? (
               <div className="rounded-card border border-caribbean-line bg-white p-4 text-sm font-bold text-slate-600 shadow-soft dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 sm:col-span-2 md:col-span-3 xl:col-span-4">

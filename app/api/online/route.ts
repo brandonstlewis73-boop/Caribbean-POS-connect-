@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { defaultSettings, getSettings, listProducts } from "@/lib/data";
+import { defaultSettings, getSettings, listCategories, listProducts } from "@/lib/data";
 import { localizeOnlineSettings } from "@/lib/online-market";
 
 export const runtime = "nodejs";
@@ -23,11 +23,12 @@ function onlineJson(body: unknown) {
 
 export async function GET(request: NextRequest) {
   try {
-    const [products, settings] = await Promise.all([listProducts(), getSettings()]);
+    const [products, settings, categories] = await Promise.all([listProducts(), getSettings(), listCategories()]);
     const localized = localizeOnlineSettings(settings, countryFromRequest(request));
     return onlineJson({
       data: {
         products,
+        categories,
         settings: localized.settings,
         market: localized.market,
         statusMessage: null
@@ -38,6 +39,7 @@ export async function GET(request: NextRequest) {
     return onlineJson({
       data: {
         products: [],
+        categories: [],
         settings: localized.settings,
         market: localized.market,
         statusMessage: "Database status unavailable during build"

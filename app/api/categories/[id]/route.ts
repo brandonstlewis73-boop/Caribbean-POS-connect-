@@ -31,9 +31,11 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   const auth = await requireUser(request, "inventory:write");
   if (!auth.user) return fail(auth.error, auth.status);
   const { id } = await params;
+  const body = await request.json().catch(() => null);
+  const mode = body?.mode === "delete_category_only" ? "delete_category_only" : "move_to_uncategorized";
   try {
-    const category = await deleteCategory(id, auth.user.id);
-    return category ? ok({ category }) : fail("Category not found", 404);
+    const category = await deleteCategory(id, auth.user.id, mode);
+    return category ? ok({ category, mode }) : fail("Category not found", 404);
   } catch (error) {
     return fail(error instanceof Error ? error.message : "Category could not be deleted.", 500);
   }

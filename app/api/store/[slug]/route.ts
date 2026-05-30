@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getBusinessBySlug, getBusinessSettings, listProducts } from "@/lib/data";
+import { getBusinessBySlug, getBusinessSettings, listCategories, listProducts } from "@/lib/data";
 import { localizeOnlineSettings } from "@/lib/online-market";
 
 export const runtime = "nodejs";
@@ -21,15 +21,17 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!business) {
     return NextResponse.json({ error: "Storefront not found" }, { status: 404 });
   }
-  const [products, settings] = await Promise.all([
+  const [products, settings, categories] = await Promise.all([
     listProducts(undefined, false, business.id),
-    getBusinessSettings(business.id)
+    getBusinessSettings(business.id),
+    listCategories(undefined, false, business.id)
   ]);
   const localized = localizeOnlineSettings(settings, countryFromRequest(request));
   const response = NextResponse.json({
     data: {
       business,
       products,
+      categories,
       settings: localized.settings,
       market: localized.market,
       statusMessage: null

@@ -1231,7 +1231,11 @@ export async function updateCategory(id: string, input: CategoryInput, userId?: 
   return (await listCategories(undefined, true, businessId)).find((category) => category.id === id) || null;
 }
 
-export async function deleteCategory(id: string, userId?: string) {
+export async function deleteCategory(
+  id: string,
+  userId?: string,
+  mode: "move_to_uncategorized" | "delete_category_only" = "move_to_uncategorized"
+) {
   return transaction(async (client) => {
     const businessId = await getBusinessIdForUser(userId, client);
     const existingRows = await query<any>(
@@ -1241,14 +1245,22 @@ export async function deleteCategory(id: string, userId?: string) {
     );
     const existing = existingRows.rows[0] ? rowToCategory(existingRows.rows[0]) : null;
     if (!existing) return null;
-    const fallback = await ensureCategory(client, businessId, { name: "Uncategorized" });
-    await query(
-      "UPDATE products SET category = $1, category_id = $2, updated_at = NOW() WHERE category_id = $3 AND (business_id = $4 OR business_id IS NULL)",
-      [fallback.name, fallback.id, id, businessId],
-      client
-    );
+    if (mode === "delete_category_only") {
+      await query(
+        "UPDATE products SET category_id = NULL, updated_at = NOW() WHERE category_id = $1 AND (business_id = $2 OR business_id IS NULL)",
+        [id, businessId],
+        client
+      );
+    } else {
+      const fallback = await ensureCategory(client, businessId, { name: "Uncategorized" });
+      await query(
+        "UPDATE products SET category = $1, category_id = $2, updated_at = NOW() WHERE category_id = $3 AND (business_id = $4 OR business_id IS NULL)",
+        [fallback.name, fallback.id, id, businessId],
+        client
+      );
+    }
     await query("DELETE FROM categories WHERE id = $1 AND (business_id = $2 OR business_id IS NULL)", [id, businessId], client);
-    await auditLog("category:delete", "category", id, { name: existing.name }, userId, client);
+    await auditLog("category:delete", "category", id, { name: existing.name, mode }, userId, client);
     return existing;
   });
 }

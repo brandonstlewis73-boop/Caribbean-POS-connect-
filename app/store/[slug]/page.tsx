@@ -4,7 +4,7 @@ export const revalidate = 0;
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { OnlineOrderClient } from "@/components/orders/OnlineOrderClient";
-import { getBusinessBySlug, getBusinessSettings, listProducts } from "@/lib/data";
+import { getBusinessBySlug, getBusinessSettings, listCategories, listProducts } from "@/lib/data";
 import { localizeOnlineSettings } from "@/lib/online-market";
 
 function firstParam(value?: string | string[]) {
@@ -31,15 +31,17 @@ export default async function StorefrontPage({
     requestHeaders.get("x-vercel-ip-country") ||
     requestHeaders.get("cf-ipcountry") ||
     requestHeaders.get("x-country-code");
-  const [products, settings] = await Promise.all([
+  const [products, settings, categories] = await Promise.all([
     listProducts(undefined, false, business.id),
-    getBusinessSettings(business.id)
+    getBusinessSettings(business.id),
+    listCategories(undefined, false, business.id)
   ]);
   const localized = localizeOnlineSettings(settings, country);
 
   return (
     <OnlineOrderClient
       products={products}
+      categories={categories}
       settings={localized.settings}
       market={localized.market}
       menuEndpoint={`/api/store/${encodeURIComponent(slug)}`}

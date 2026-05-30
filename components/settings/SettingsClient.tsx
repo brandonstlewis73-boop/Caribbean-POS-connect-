@@ -42,6 +42,8 @@ const notificationTemplates = {
   cancelled: "Your order #{order_id} was cancelled. Please contact us for more details."
 };
 
+type CategoryDeleteMode = "move_to_uncategorized" | "delete_category_only";
+
 function Toggle({
   label,
   checked,
@@ -123,8 +125,10 @@ export function SettingsClient({
   const [categoryItems, setCategoryItems] = useState(categories);
   const [staffDraft, setStaffDraft] = useState({ name: "", email: "", phone: "", role: "cashier" });
   const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
-  const [categoryDraft, setCategoryDraft] = useState({ name: "", icon: "•", color: "#14b8a6" });
+  const [categoryDraft, setCategoryDraft] = useState({ name: "", icon: "#", color: "#14b8a6", is_active: true });
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+  const [categoryDeleteTarget, setCategoryDeleteTarget] = useState<Category | null>(null);
+  const [categoryDeleteMode, setCategoryDeleteMode] = useState<CategoryDeleteMode>("move_to_uncategorized");
   const [message, setMessage] = useState("");
   const [staffMessage, setStaffMessage] = useState("");
   const [categoryMessage, setCategoryMessage] = useState("");
@@ -309,8 +313,8 @@ export function SettingsClient({
       sort_order: editingCategoryId
         ? categoryItems.find((item) => item.id === editingCategoryId)?.sort_order || 0
         : categoryItems.length,
-      is_active: true,
-      active: true
+      is_active: categoryDraft.is_active,
+      active: categoryDraft.is_active
     };
     const url = editingCategoryId ? `/api/categories/${editingCategoryId}` : "/api/categories";
     const method = editingCategoryId ? "PATCH" : "POST";
@@ -329,9 +333,9 @@ export function SettingsClient({
       setCategoryItems((current) => editingCategoryId
         ? current.map((item) => (item.id === editingCategoryId ? result.data!.category : item))
         : [...current, result.data!.category].sort((a, b) => a.sort_order - b.sort_order));
-      setCategoryDraft({ name: "", icon: "•", color: "#14b8a6" });
+      setCategoryDraft({ name: "", icon: "#", color: "#14b8a6", is_active: true });
       setEditingCategoryId(null);
-      setCategoryMessage("Category saved.");
+      setCategoryMessage(editingCategoryId ? "Category updated." : "Category added.");
     } catch {
       setCategoryMessage("Category could not be saved.");
     } finally {
@@ -343,24 +347,56 @@ export function SettingsClient({
     setEditingCategoryId(category.id);
     setCategoryDraft({
       name: category.name,
-      icon: category.icon || "•",
-      color: category.color || "#14b8a6"
+      icon: category.icon || "#",
+      color: category.color || "#14b8a6",
+      is_active: category.is_active !== false && category.active !== false
     });
   }
 
-  async function deleteCategory(category: Category) {
-    if (!window.confirm(`Delete ${category.name}? Products assigned to it will need a new category.`)) return;
+  async function toggleCategory(category: Category) {
+    const nextActive = !(category.is_active !== false && category.active !== false);
     setBusyId(category.id);
     setCategoryMessage("");
     try {
-      const response = await fetch(`/api/categories/${category.id}`, { method: "DELETE" });
+      const response = await fetch(`/api/categories/${category.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_active: nextActive, active: nextActive })
+      });
       const result = await readApiPayload<{ category: Category }>(response);
+      if (!response.ok || !result.data?.category) {
+        setCategoryMessage(result.error || "Category status could not be updated.");
+        return;
+      }
+      setCategoryItems((current) => current.map((item) => (item.id === category.id ? result.data!.category : item)));
+      setCategoryMessage(nextActive ? "Category shown." : "Category hidden.");
+    } catch {
+      setCategoryMessage("Category status could not be updated.");
+    } finally {
+      setBusyId("");
+    }
+  }
+
+  async function confirmDeleteCategory() {
+    if (!categoryDeleteTarget) return;
+    const category = categoryDeleteTarget;
+    setBusyId(category.id);
+    setCategoryMessage("");
+    try {
+      const response = await fetch(`/api/categories/${category.id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: categoryDeleteMode })
+      });
+      const result = await readApiPayload<{ category: Category; mode: CategoryDeleteMode }>(response);
       if (!response.ok) {
         setCategoryMessage(result.error || "Category could not be deleted.");
         return;
       }
       setCategoryItems((current) => current.filter((item) => item.id !== category.id));
-      setCategoryMessage("Category deleted.");
+      setCategoryDeleteTarget(null);
+      setCategoryDeleteMode("move_to_uncategorized");
+      setCategoryMessage(categoryDeleteMode === "move_to_uncategorized" ? "Category deleted. Items moved to Uncategorized." : "Category deleted.");
     } catch {
       setCategoryMessage("Category could not be deleted.");
     } finally {
@@ -533,18 +569,31 @@ export function SettingsClient({
           </div>
         </SettingsCard>
 
-        <SettingsCard icon={Tags} title="Categories" description="Manage POS and storefront item groups. Changes update products, POS filters, and storefront categories.">
+        <SettingsCard icon={Tags} title="Categories" description="Manage POS and storefront item groups. Changes update products, POS filters, item forms, and storefront categories.">
           <div className="grid gap-4 sm:grid-cols-[1fr_80px_120px]">
             <Field label="Category name" value={categoryDraft.name} onChange={(event) => setCategoryDraft((current) => ({ ...current, name: event.target.value }))} />
             <Field label="Icon" value={categoryDraft.icon} onChange={(event) => setCategoryDraft((current) => ({ ...current, icon: event.target.value }))} />
             <Field label="Color" value={categoryDraft.color} onChange={(event) => setCategoryDraft((current) => ({ ...current, color: event.target.value }))} />
           </div>
-          <Button type="button" variant="primary" onClick={saveCategory} disabled={!categoryDraft.name.trim() || Boolean(busyId)} className="w-full sm:w-auto">
-            <PlusCircle className="h-4 w-4" />
-            {editingCategoryId ? "Rename category" : "Add category"}
-          </Button>
+          <div className="grid gap-3 sm:flex sm:flex-wrap sm:items-center">
+            <Toggle label="Active in POS and storefront" checked={categoryDraft.is_active} onChange={(value) => setCategoryDraft((current) => ({ ...current, is_active: value }))} />
+            <Button type="button" variant="primary" onClick={saveCategory} disabled={!categoryDraft.name.trim() || Boolean(busyId)} className="w-full sm:w-auto">
+              <PlusCircle className="h-4 w-4" />
+              {busyId === (editingCategoryId || "new-category") ? "Saving..." : editingCategoryId ? "Save category" : "Add category"}
+            </Button>
+            {editingCategoryId ? (
+              <Button type="button" onClick={() => { setEditingCategoryId(null); setCategoryDraft({ name: "", icon: "#", color: "#14b8a6", is_active: true }); }} className="w-full sm:w-auto">
+                Cancel edit
+              </Button>
+            ) : null}
+          </div>
           {categoryMessage ? <p className="text-sm font-bold text-teal-50/60">{categoryMessage}</p> : null}
           <div className="grid gap-3">
+            {!categoryItems.length ? (
+              <p className="rounded-card border border-white/10 bg-black/20 p-4 text-sm font-bold text-teal-50/60">
+                No categories yet. Add one above to use it in POS, inventory, and storefront.
+              </p>
+            ) : null}
             {categoryItems.map((category) => (
               <div key={category.id} className="grid gap-3 rounded-card border border-white/10 bg-black/20 p-3 sm:flex sm:items-center sm:justify-between">
                 <div className="flex min-w-0 items-center gap-3">
@@ -552,14 +601,22 @@ export function SettingsClient({
                   <span className="grid h-9 w-9 place-items-center rounded-card border border-white/10" style={{ backgroundColor: category.color || "#14b8a6" }}>{category.icon || "•"}</span>
                   <div className="min-w-0">
                     <p className="font-black text-white">{category.name}</p>
-                    <p className="text-xs font-semibold text-teal-50/50">Sort {category.sort_order}</p>
+                    <div className="mt-1 flex flex-wrap gap-2">
+                      <Badge tone={category.is_active !== false && category.active !== false ? "green" : "neutral"}>
+                        {category.is_active !== false && category.active !== false ? "Active" : "Hidden"}
+                      </Badge>
+                      <span className="text-xs font-semibold text-teal-50/50">Sort {category.sort_order}</span>
+                    </div>
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Button type="button" size="sm" onClick={() => moveCategory(category, -1)}>Up</Button>
                   <Button type="button" size="sm" onClick={() => moveCategory(category, 1)}>Down</Button>
                   <Button type="button" size="sm" onClick={() => editCategory(category)}>Edit</Button>
-                  <Button type="button" size="sm" variant="danger" onClick={() => deleteCategory(category)} disabled={busyId === category.id}>
+                  <Button type="button" size="sm" onClick={() => toggleCategory(category)} disabled={busyId === category.id}>
+                    {category.is_active !== false && category.active !== false ? "Hide" : "Show"}
+                  </Button>
+                  <Button type="button" size="sm" variant="danger" onClick={() => { setCategoryDeleteTarget(category); setCategoryDeleteMode("move_to_uncategorized"); }} disabled={busyId === category.id}>
                     <Trash2 className="h-4 w-4" />
                     Delete
                   </Button>
@@ -567,6 +624,33 @@ export function SettingsClient({
               </div>
             ))}
           </div>
+          {categoryDeleteTarget ? (
+            <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4">
+              <div className="w-full max-w-lg rounded-card border border-white/10 bg-slate-950 p-5 shadow-2xl">
+                <h3 className="text-lg font-black text-white">Are you sure you want to delete this category?</h3>
+                <p className="mt-2 text-sm font-semibold text-teal-50/60">
+                  {categoryDeleteTarget.name} will be removed from category lists. Products will not be deleted.
+                </p>
+                <div className="mt-4 grid gap-3">
+                  <label className="flex items-start gap-3 rounded-card border border-white/10 bg-white/[0.06] p-3 text-sm font-bold text-white">
+                    <input type="radio" checked={categoryDeleteMode === "move_to_uncategorized"} onChange={() => setCategoryDeleteMode("move_to_uncategorized")} className="mt-1" />
+                    <span>Move items in this category to Uncategorized</span>
+                  </label>
+                  <label className="flex items-start gap-3 rounded-card border border-white/10 bg-white/[0.06] p-3 text-sm font-bold text-white">
+                    <input type="radio" checked={categoryDeleteMode === "delete_category_only"} onChange={() => setCategoryDeleteMode("delete_category_only")} className="mt-1" />
+                    <span>Delete category only</span>
+                  </label>
+                </div>
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                  <Button type="button" onClick={() => setCategoryDeleteTarget(null)} disabled={Boolean(busyId)}>Cancel</Button>
+                  <Button type="button" variant="danger" onClick={confirmDeleteCategory} disabled={busyId === categoryDeleteTarget.id}>
+                    <Trash2 className="h-4 w-4" />
+                    {busyId === categoryDeleteTarget.id ? "Deleting..." : "Delete category"}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </SettingsCard>
 
         <SettingsCard icon={CreditCard} title="Payments" description="Choose payment methods and customer payment instructions.">

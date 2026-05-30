@@ -26,12 +26,11 @@ import {
   getDefaultCountryForCurrency,
   getDeliveryRegionsForCurrency,
   money,
-  PAYMENT_METHODS,
-  PRODUCT_CATEGORIES
+  PAYMENT_METHODS
 } from "@/lib/constants";
 import { readApiPayload } from "@/lib/client-response";
 import { detectCurrentAddress } from "@/lib/location-client";
-import type { Customer, Order, Product, Settings, User } from "@/lib/types";
+import type { Category, Customer, Order, Product, Settings, User } from "@/lib/types";
 
 type CartItem = Product & { quantity: number; discount: number };
 type BarcodeDetectorResult = { rawValue?: string };
@@ -72,17 +71,20 @@ export function POSClient({
   products: initialProducts,
   customers: initialCustomers,
   settings,
-  drivers
+  drivers,
+  categories: initialCategories
 }: {
   products: Product[];
   customers: Customer[];
   settings: Settings;
   drivers: User[];
+  categories: Category[];
 }) {
   const [products, setProducts] = useState(initialProducts);
   const [customers, setCustomers] = useState(initialCustomers);
+  const [categories, setCategories] = useState(initialCategories);
   const [query, setQuery] = useState("");
-  const [category, setCategory] = useState("All");
+  const [category, setCategory] = useState("all");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [customer, setCustomer] = useState(() => emptyCustomer(settings.currency));
   const [orderType, setOrderType] = useState<"in_store" | "pickup" | "delivery">("in_store");
@@ -117,8 +119,12 @@ export function POSClient({
 
   const filteredProducts = useMemo(() => {
     const normalized = deferredQuery.trim().toLowerCase();
+    const selectedCategory = categories.find((item) => item.id === category);
     return products.filter((product) => {
-      const categoryMatch = category === "All" || product.category === category;
+      const categoryMatch =
+        category === "all" ||
+        product.category_id === category ||
+        (selectedCategory ? product.category === selectedCategory.name : false);
       const queryMatch =
         !normalized ||
         [product.name, product.sku, product.barcode, product.category]
@@ -128,7 +134,7 @@ export function POSClient({
           .includes(normalized);
       return categoryMatch && queryMatch;
     });
-  }, [products, deferredQuery, category]);
+  }, [products, deferredQuery, category, categories]);
   const enabledPaymentMethods = PAYMENT_METHODS.filter((method) => paymentMethodEnabled(method, settings));
 
   const subtotal = cart.reduce((sum, item) => sum + item.selling_price * item.quantity, 0);
@@ -313,10 +319,11 @@ export function POSClient({
     setIsRefreshing(true);
     try {
       const response = await fetch("/api/pos");
-      const payload = await readApiPayload<{ products: Product[]; customers: Customer[] }>(response);
+      const payload = await readApiPayload<{ products: Product[]; customers: Customer[]; categories: Category[] }>(response);
       if (!response.ok) throw new Error(payload.error || "Could not refresh POS data.");
       if (payload.data?.products) setProducts(payload.data.products);
       if (payload.data?.customers) setCustomers(payload.data.customers);
+      if (payload.data?.categories) setCategories(payload.data.categories);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not refresh POS data.");
     } finally {
@@ -450,21 +457,36 @@ export function POSClient({
               {barcodeMessage}
             </p>
           ) : null}
-          <div className="flex gap-2 overflow-x-auto border-t border-caribbean-line px-4 py-3 dark:border-slate-800">
-            {["All", ...PRODUCT_CATEGORIES].map((item) => (
+          <div className="flex gap-2 overflow-x-auto scroll-smooth border-t border-caribbean-line px-4 py-3 dark:border-slate-800">
+            <button
+              onClick={() => setCategory("all")}
+              className={`whitespace-nowrap rounded-card px-3 py-2 text-sm font-bold transition ${
+                category === "all"
+                  ? "bg-caribbean-teal text-white"
+                  : "border border-caribbean-line bg-white text-slate-600 hover:bg-caribbean-cloud dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+              }`}
+            >
+              All
+            </button>
+            {categories.map((item) => (
               <button
-                key={item}
-                onClick={() => setCategory(item)}
+                key={item.id}
+                onClick={() => setCategory(item.id)}
                 className={`whitespace-nowrap rounded-card px-3 py-2 text-sm font-bold transition ${
-                  category === item
+                  category === item.id
                     ? "bg-caribbean-teal text-white"
                     : "border border-caribbean-line bg-white text-slate-600 hover:bg-caribbean-cloud dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
                 }`}
               >
-                {item}
+                {item.icon ? `${item.icon} ` : ""}{item.name}
               </button>
             ))}
           </div>
+          {!categories.length ? (
+            <p className="border-t border-caribbean-line px-4 pb-4 pt-1 text-sm font-bold text-slate-500 dark:border-slate-800">
+              No categories yet. Add one in Settings.
+            </p>
+          ) : null}
         </Panel>
 
         <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 2xl:grid-cols-4">
