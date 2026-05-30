@@ -1,6 +1,53 @@
 -- Optional test data for a separate Caribbean food business.
 -- Run manually after db/supabase_schema_seed.sql when you want sample storefront/POS data.
 
+DO $$
+DECLARE
+  target RECORD;
+BEGIN
+  FOR target IN
+    SELECT *
+    FROM (VALUES
+      ('public.businesses', 'id', 'idx_businesses_id_conflict_unique'),
+      ('public.staff_users', 'email', 'idx_staff_users_email_conflict_unique'),
+      ('public.categories', 'id', 'idx_categories_id_conflict_unique'),
+      ('public.products', 'id', 'idx_products_id_conflict_unique'),
+      ('public.customers', 'id', 'idx_customers_id_conflict_unique'),
+      ('public.orders', 'id', 'idx_orders_id_conflict_unique'),
+      ('public.order_items', 'id', 'idx_order_items_id_conflict_unique'),
+      ('public.order_status_history', 'id', 'idx_order_status_history_id_conflict_unique'),
+      ('public.customer_notifications', 'id', 'idx_customer_notifications_id_conflict_unique')
+    ) AS targets(table_name, column_name, index_name)
+  LOOP
+    IF to_regclass(target.table_name) IS NOT NULL THEN
+      EXECUTE format(
+        'DELETE FROM %s older USING %s newer WHERE older.%I IS NOT NULL AND older.%I = newer.%I AND older.ctid < newer.ctid',
+        target.table_name,
+        target.table_name,
+        target.column_name,
+        target.column_name,
+        target.column_name
+      );
+      EXECUTE format(
+        'CREATE UNIQUE INDEX IF NOT EXISTS %I ON %s (%I)',
+        target.index_name,
+        target.table_name,
+        target.column_name
+      );
+    END IF;
+  END LOOP;
+
+  IF to_regclass('public.business_settings') IS NOT NULL THEN
+    DELETE FROM public.business_settings older
+    USING public.business_settings newer
+    WHERE older.business_id = newer.business_id
+      AND older.key = newer.key
+      AND older.ctid < newer.ctid;
+
+    EXECUTE 'CREATE UNIQUE INDEX IF NOT EXISTS idx_business_settings_business_key_conflict_unique ON public.business_settings(business_id, key)';
+  END IF;
+END $$;
+
 INSERT INTO public.businesses (
   id, name, legal_name, slug, storefront_slug, owner_name, owner_email, owner_phone,
   business_whatsapp_number, phone, email, street_address, city, region, country, currency,
