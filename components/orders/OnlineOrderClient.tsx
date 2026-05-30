@@ -68,7 +68,9 @@ export function OnlineOrderClient({
   const [market, setMarket] = useState<OnlineMarket | null>(initialMarket);
   const [category, setCategory] = useState("all");
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [fulfillment, setFulfillment] = useState<"pickup" | "delivery">("delivery");
+  const [fulfillment, setFulfillment] = useState<"pickup" | "delivery">(
+    initialSettings.delivery_enabled === false && initialSettings.pickup_enabled !== false ? "pickup" : "delivery"
+  );
   const [customer, setCustomer] = useState(() => emptyCustomer(initialSettings.currency));
   const [paymentMethod, setPaymentMethod] = useState("Pay on delivery");
   const [coords, setCoords] = useState({ latitude: "", longitude: "" });
@@ -113,9 +115,16 @@ export function OnlineOrderClient({
     };
   }, [initialSettings, menuEndpoint]);
 
+  const storefrontCategories = useMemo(() => {
+    if (settings.show_empty_categories) return categories;
+    return categories.filter((item) =>
+      products.some((product) => product.category_id === item.id || product.category === item.name)
+    );
+  }, [categories, products, settings.show_empty_categories]);
+
   const visibleProducts = useMemo(
     () => {
-      const selectedCategory = categories.find((item) => item.id === category);
+      const selectedCategory = storefrontCategories.find((item) => item.id === category);
       return products.filter(
         (product) =>
           category === "all" ||
@@ -123,14 +132,16 @@ export function OnlineOrderClient({
           (selectedCategory ? product.category === selectedCategory.name : false)
       );
     },
-    [products, category, categories]
+    [products, category, storefrontCategories]
   );
   const enabledPaymentMethods = PAYMENT_METHODS.filter((method) => paymentMethodEnabled(method, settings));
   const subtotal = cart.reduce((sum, item) => sum + item.selling_price * item.quantity, 0);
   const tax = settings.tax_enabled ? subtotal * (settings.tax_rate / 100) : 0;
   const deliveryFee =
     fulfillment === "delivery"
-      ? Number((settings.delivery_rates || {})[customer.region] ?? settings.delivery_fee ?? 0)
+      ? settings.free_delivery_minimum && subtotal >= settings.free_delivery_minimum
+        ? 0
+        : Number((settings.delivery_rates || {})[customer.region] ?? settings.delivery_fee ?? 0)
       : 0;
   const total = subtotal + tax + deliveryFee;
   const formatMoney = (value: number | string | null | undefined) => money(value, settings.currency);
@@ -149,6 +160,15 @@ export function OnlineOrderClient({
       return { ...current, region: nextRegion, country: nextCountry };
     });
   }, [defaultDeliveryRegion, deliveryRegions, initialCountry, marketCountry]);
+
+  useEffect(() => {
+    if (settings.delivery_enabled === false && fulfillment === "delivery") {
+      setFulfillment(settings.pickup_enabled === false ? "delivery" : "pickup");
+    }
+    if (settings.pickup_enabled === false && fulfillment === "pickup") {
+      setFulfillment(settings.delivery_enabled === false ? "pickup" : "delivery");
+    }
+  }, [fulfillment, settings.delivery_enabled, settings.pickup_enabled]);
 
   function add(product: Product) {
     setCart((current) => {
@@ -197,6 +217,12 @@ export function OnlineOrderClient({
 
   async function submitOrder() {
     setError("");
+    if (settings.storefront_status === "paused") return setError("This storefront is paused right now. Please contact the business.");
+    if (settings.delivery_enabled === false && settings.pickup_enabled === false) {
+      return setError("Ordering is currently unavailable for this storefront.");
+    }
+    if (fulfillment === "delivery" && settings.delivery_enabled === false) return setError("Delivery is not available right now.");
+    if (fulfillment === "pickup" && settings.pickup_enabled === false) return setError("Pickup is not available right now.");
     if (!cart.length) return setError("Please add at least one product.");
     if (!customer.name || !customer.phone) return setError("Name and phone number are required.");
     if (fulfillment === "delivery" && !customer.street_address) return setError("Delivery address is required.");
@@ -275,6 +301,19 @@ export function OnlineOrderClient({
 
       <div className="mx-auto grid max-w-7xl min-w-0 gap-4 px-4 py-4 xl:grid-cols-[minmax(0,1fr)_minmax(360px,420px)]">
         <section className="grid min-w-0 gap-4">
+          {settings.storefront_banner_url ? (
+            <img src={settings.storefront_banner_url} alt="" className="h-36 w-full rounded-card object-cover shadow-soft" />
+          ) : null}
+          {settings.storefront_status === "paused" ? (
+            <p className="rounded-card border border-amber-200 bg-amber-50 p-3 text-sm font-black text-amber-800 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">
+              This storefront is paused right now. You can view products, but ordering is temporarily unavailable.
+            </p>
+          ) : null}
+          {settings.store_hours ? (
+            <p className="rounded-card border border-caribbean-line bg-white p-3 text-sm font-bold text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
+              Hours: {settings.store_hours}
+            </p>
+          ) : null}
           <div className="flex gap-2 overflow-x-auto scroll-smooth">
             <button
               onClick={() => setCategory("all")}
@@ -286,7 +325,7 @@ export function OnlineOrderClient({
             >
               All
             </button>
-            {categories.map((item) => (
+            {storefrontCategories.map((item) => (
               <button
                 key={item.id}
                 onClick={() => setCategory(item.id)}
@@ -300,7 +339,7 @@ export function OnlineOrderClient({
               </button>
             ))}
           </div>
-          {!categories.length ? (
+          {!storefrontCategories.length ? (
             <p className="rounded-card border border-caribbean-line bg-white p-3 text-sm font-bold text-slate-500 dark:border-slate-800 dark:bg-slate-900">
               No categories yet. Add one in Settings.
             </p>
@@ -379,8 +418,20 @@ export function OnlineOrderClient({
           <section className="rounded-card border border-caribbean-line bg-white p-4 shadow-soft dark:border-slate-800 dark:bg-slate-900">
             <div className="grid gap-3">
               <div className="grid grid-cols-2 gap-2">
-                <button onClick={() => setFulfillment("delivery")} className={`h-10 rounded-card text-sm font-black ${fulfillment === "delivery" ? "bg-caribbean-teal text-white" : "border border-caribbean-line dark:border-slate-700"}`}>Delivery</button>
-                <button onClick={() => setFulfillment("pickup")} className={`h-10 rounded-card text-sm font-black ${fulfillment === "pickup" ? "bg-caribbean-teal text-white" : "border border-caribbean-line dark:border-slate-700"}`}>Pickup</button>
+                <button
+                  onClick={() => setFulfillment("delivery")}
+                  disabled={settings.delivery_enabled === false}
+                  className={`h-10 rounded-card text-sm font-black disabled:cursor-not-allowed disabled:opacity-45 ${fulfillment === "delivery" ? "bg-caribbean-teal text-white" : "border border-caribbean-line dark:border-slate-700"}`}
+                >
+                  Delivery
+                </button>
+                <button
+                  onClick={() => setFulfillment("pickup")}
+                  disabled={settings.pickup_enabled === false}
+                  className={`h-10 rounded-card text-sm font-black disabled:cursor-not-allowed disabled:opacity-45 ${fulfillment === "pickup" ? "bg-caribbean-teal text-white" : "border border-caribbean-line dark:border-slate-700"}`}
+                >
+                  Pickup
+                </button>
               </div>
               <Field label="Name" value={customer.name} onChange={(event) => setCustomer({ ...customer, name: event.target.value })} />
               <Field label="Phone" value={customer.phone} onChange={(event) => setCustomer({ ...customer, phone: event.target.value })} />

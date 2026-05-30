@@ -491,6 +491,17 @@ async function seedSettings() {
   await insertSetting("business_email", "owner@yourbusiness.com");
   await insertSetting("business_address", "");
   await insertSetting("logo_url", "/logo.svg");
+  await insertSetting("business_type", "retail");
+  await insertSetting("business_color", "#14b8a6");
+  await insertSetting("storefront_banner_url", "");
+  await insertSetting("storefront_status", "live");
+  await insertSetting("store_hours", "Open during business hours");
+  await insertSetting("delivery_enabled", true);
+  await insertSetting("pickup_enabled", true);
+  await insertSetting("free_delivery_minimum", 0);
+  await insertSetting("waze_enabled", true);
+  await insertSetting("driver_waze_enabled", true);
+  await insertSetting("show_empty_categories", false);
   await insertSetting("active_business_id", "biz_savannah_sea");
   await insertSetting("currency", "TTD");
   await insertSetting("tax_enabled", true);

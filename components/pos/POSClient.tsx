@@ -143,7 +143,9 @@ export function POSClient({
   const tax = settings.tax_enabled ? taxable * (settings.tax_rate / 100) : 0;
   const deliveryFee =
     orderType === "delivery"
-      ? Number((settings.delivery_rates || {})[customer.region] ?? settings.delivery_fee ?? 0)
+      ? settings.free_delivery_minimum && taxable >= settings.free_delivery_minimum
+        ? 0
+        : Number((settings.delivery_rates || {})[customer.region] ?? settings.delivery_fee ?? 0)
       : 0;
   const total = taxable + tax + deliveryFee;
   const formatMoney = (value: number | string | null | undefined) => money(value, settings.currency);

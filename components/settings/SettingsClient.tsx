@@ -457,7 +457,7 @@ export function SettingsClient({
         <SettingsCard icon={Building2} title="Business Profile" description="Core business details used on the dashboard, storefront, receipts, and orders.">
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Business name" value={draft.business_name} onChange={(event) => update("business_name", event.target.value)} />
-            <SelectField label="Business type" value="retail" onChange={() => undefined}>
+            <SelectField label="Business type" value={draft.business_type || "retail"} onChange={(event) => update("business_type", event.target.value)}>
               <option value="retail">Retail / food business</option>
               <option value="restaurant">Restaurant</option>
               <option value="vendor">Food vendor</option>
@@ -488,13 +488,14 @@ export function SettingsClient({
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Storefront name" value={draft.business_name} onChange={(event) => update("business_name", event.target.value)} />
             <Field label="Storefront slug/link" value={storefrontSlug} readOnly />
-            <SelectField label="Storefront status" value="live" onChange={() => undefined}>
+            <SelectField label="Storefront status" value={draft.storefront_status || "live"} onChange={(event) => update("storefront_status", event.target.value)}>
               <option value="live">Live</option>
               <option value="paused">Paused</option>
             </SelectField>
-            <Field label="Store hours" value="Open during business hours" onChange={() => undefined} />
-            <Toggle label="Delivery available" checked={draft.delivery_fee >= 0} onChange={() => undefined} />
-            <Toggle label="Pickup available" checked={draft.payment_pod_enabled || true} onChange={() => undefined} />
+            <Field label="Store hours" value={draft.store_hours || ""} onChange={(event) => update("store_hours", event.target.value)} />
+            <Toggle label="Delivery available" checked={draft.delivery_enabled !== false} onChange={(value) => update("delivery_enabled", value)} />
+            <Toggle label="Pickup available" checked={draft.pickup_enabled !== false} onChange={(value) => update("pickup_enabled", value)} />
+            <Toggle label="Show empty categories" checked={Boolean(draft.show_empty_categories)} onChange={(value) => update("show_empty_categories", value)} />
           </div>
           <div className="grid gap-3 sm:grid-cols-3">
             <a href={storefrontUrl} target="_blank" className="inline-flex min-h-10 items-center justify-center gap-2 rounded-card border border-white/10 bg-white/[0.07] px-4 text-sm font-black text-white transition hover:bg-white/[0.12]">
@@ -671,11 +672,11 @@ export function SettingsClient({
 
         <SettingsCard icon={Truck} title="Delivery / Waze" description="Delivery pricing and navigation settings for drivers.">
           <div className="grid gap-4 sm:grid-cols-2">
-            <Toggle label="Enable delivery" checked={draft.delivery_fee >= 0} onChange={(value) => update("delivery_fee", value ? Math.max(0, draft.delivery_fee) : 0)} />
+            <Toggle label="Enable delivery" checked={draft.delivery_enabled !== false} onChange={(value) => update("delivery_enabled", value)} />
             <Field label="Default delivery fee" type="number" value={draft.delivery_fee} onChange={(event) => update("delivery_fee", Number(event.target.value))} />
-            <Field label="Free delivery minimum" type="number" value={0} onChange={() => undefined} />
-            <Toggle label="Waze navigation enabled" checked onChange={() => undefined} />
-            <Toggle label="Driver can open customer address in Waze" checked onChange={() => undefined} />
+            <Field label="Free delivery minimum" type="number" value={draft.free_delivery_minimum || 0} onChange={(event) => update("free_delivery_minimum", Number(event.target.value))} />
+            <Toggle label="Waze navigation enabled" checked={draft.waze_enabled !== false} onChange={(value) => update("waze_enabled", value)} />
+            <Toggle label="Driver can open customer address in Waze" checked={draft.driver_waze_enabled !== false} onChange={(value) => update("driver_waze_enabled", value)} />
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             {Object.entries(draft.delivery_rates || getDefaultDeliveryRatesForCurrency(draft.currency)).slice(0, 8).map(([region, value]) => (
@@ -734,8 +735,8 @@ export function SettingsClient({
               </label>
             </div>
             <div className="grid gap-4">
-              <Field label="Business color" value="#14b8a6" onChange={() => undefined} />
-              <Field label="Storefront banner" value={draft.logo_url || ""} onChange={(event) => update("logo_url", event.target.value)} />
+              <Field label="Business color" value={draft.business_color || "#14b8a6"} onChange={(event) => update("business_color", event.target.value)} />
+              <Field label="Storefront banner" value={draft.storefront_banner_url || ""} onChange={(event) => update("storefront_banner_url", event.target.value)} />
             </div>
           </div>
           <TextAreaField label="Receipt footer message" value={draft.receipt_message} onChange={(event) => update("receipt_message", event.target.value)} />

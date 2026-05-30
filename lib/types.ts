@@ -319,6 +319,17 @@ export type Settings = {
   business_latitude?: number | null;
   business_longitude?: number | null;
   logo_url?: string | null;
+  business_type?: string | null;
+  business_color?: string | null;
+  storefront_banner_url?: string | null;
+  storefront_status?: "live" | "paused" | string;
+  store_hours?: string | null;
+  delivery_enabled?: boolean;
+  pickup_enabled?: boolean;
+  free_delivery_minimum?: number;
+  waze_enabled?: boolean;
+  driver_waze_enabled?: boolean;
+  show_empty_categories?: boolean;
   active_business_id?: string | null;
   currency: string;
   tax_enabled: boolean;
