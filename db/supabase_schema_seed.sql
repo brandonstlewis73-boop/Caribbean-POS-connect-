@@ -364,6 +364,21 @@ CREATE TABLE IF NOT EXISTS public.ai_support_logs (
 );
 
 CREATE INDEX IF NOT EXISTS idx_staff_users_email ON public.staff_users(email);
+DO $$
+DECLARE
+  dependency RECORD;
+BEGIN
+  IF to_regclass('public.categories') IS NOT NULL THEN
+    FOR dependency IN
+      SELECT conrelid::regclass AS table_name, conname
+      FROM pg_constraint
+      WHERE contype = 'f'
+        AND confrelid = 'public.categories'::regclass
+    LOOP
+      EXECUTE format('ALTER TABLE %s DROP CONSTRAINT IF EXISTS %I', dependency.table_name, dependency.conname);
+    END LOOP;
+  END IF;
+END $$;
 ALTER TABLE public.categories DROP CONSTRAINT IF EXISTS categories_name_key;
 ALTER TABLE public.categories DROP CONSTRAINT IF EXISTS categories_slug_key;
 ALTER TABLE public.products DROP CONSTRAINT IF EXISTS products_category_fkey;
