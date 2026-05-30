@@ -558,20 +558,7 @@ INSERT INTO public.businesses (
   'starter',
   'trial',
   NOW() + INTERVAL '14 days'
-) ON CONFLICT (id) DO UPDATE SET
-  name = EXCLUDED.name,
-  phone = EXCLUDED.phone,
-  email = EXCLUDED.email,
-  street_address = EXCLUDED.street_address,
-  city = EXCLUDED.city,
-  region = EXCLUDED.region,
-  postal_code = EXCLUDED.postal_code,
-  latitude = COALESCE(public.businesses.latitude, EXCLUDED.latitude),
-  longitude = COALESCE(public.businesses.longitude, EXCLUDED.longitude),
-  storefront_slug = COALESCE(public.businesses.storefront_slug, EXCLUDED.storefront_slug),
-  owner_email = COALESCE(public.businesses.owner_email, EXCLUDED.owner_email),
-  business_whatsapp_number = COALESCE(public.businesses.business_whatsapp_number, EXCLUDED.business_whatsapp_number),
-  updated_at = NOW();
+) ON CONFLICT DO NOTHING;
 
 UPDATE public.staff_users
 SET
@@ -609,13 +596,7 @@ INSERT INTO public.categories (id, business_id, name, slug, sort_order) VALUES
   ('cat_apparel', 'biz_savannah_sea', 'Apparel', 'apparel', 50),
   ('cat_digital', 'biz_savannah_sea', 'Digital services', 'digital-services', 60),
   ('cat_custom', 'biz_savannah_sea', 'Custom items', 'custom-items', 70)
-ON CONFLICT (id) DO UPDATE SET
-  name = EXCLUDED.name,
-  slug = EXCLUDED.slug,
-  sort_order = EXCLUDED.sort_order,
-  active = TRUE,
-  is_active = TRUE,
-  updated_at = NOW();
+ON CONFLICT DO NOTHING;
 
 INSERT INTO public.products (
   id, business_id, name, sku, barcode, category, category_id, cost_price, selling_price,
@@ -629,21 +610,7 @@ INSERT INTO public.products (
   ('prd_tee', 'biz_savannah_sea', 'Screen Printed Tee', 'APP-TEE-006', '740001000006', 'Apparel', 'cat_apparel', 48.00, 120.00, 17, 5, 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=80', 'Queen Street Apparel', '868-555-2005', TRUE),
   ('prd_topup', 'biz_savannah_sea', 'Digital Top-Up', 'DIG-TOP-007', '740001000007', 'Digital services', 'cat_digital', 45.00, 50.00, 999, 100, 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=900&q=80', 'Local Digital Services', '868-555-2006', TRUE),
   ('prd_repair', 'biz_savannah_sea', 'Custom Repair Service', 'SERV-REP-008', '740001000008', 'Services', 'cat_services', 80.00, 150.00, 999, 100, 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=900&q=80', 'In-house', '868-555-0100', TRUE)
-ON CONFLICT (id) DO UPDATE SET
-  name = EXCLUDED.name,
-  sku = EXCLUDED.sku,
-  barcode = EXCLUDED.barcode,
-  category = EXCLUDED.category,
-  category_id = EXCLUDED.category_id,
-  cost_price = EXCLUDED.cost_price,
-  selling_price = EXCLUDED.selling_price,
-  stock_quantity = EXCLUDED.stock_quantity,
-  low_stock_alert = EXCLUDED.low_stock_alert,
-  image_url = EXCLUDED.image_url,
-  supplier_name = EXCLUDED.supplier_name,
-  supplier_phone = EXCLUDED.supplier_phone,
-  active = EXCLUDED.active,
-  updated_at = NOW();
+ON CONFLICT DO NOTHING;
 
 INSERT INTO public.customers (
   id, business_id, name, phone, phone_normalized, email, street_address, city, region,
@@ -653,24 +620,7 @@ INSERT INTO public.customers (
   ('cus_john', 'biz_savannah_sea', 'John Doe', '868-123-4567', '18681234567', 'john@example.com', '25 Main Road', 'Chaguanas', 'Chaguanas', 'Trinidad and Tobago', 'Call when outside', 'Cash', 'Prefers delivery after 5 PM', TRUE, 16, 165.63, 1, NOW() - INTERVAL '2 days', '["New Customer","Owes Balance"]'::jsonb),
   ('cus_priya', 'biz_savannah_sea', 'Priya Singh', '868-222-9988', '18682229988', 'priya@example.com', '7 Coffee Street', 'Tunapuna', 'Tunapuna-Piarco', 'Trinidad and Tobago', 'Leave at reception', 'WiPay', 'Likes sorrel and mauby', TRUE, 9, 85.50, 1, NOW() - INTERVAL '1 day', '["Frequent Buyer"]'::jsonb),
   ('cus_maria', 'biz_savannah_sea', 'Maria Joseph', '868-333-4444', '18683334444', 'maria@example.com', '12 High Street', 'San Fernando', 'San Fernando', 'Trinidad and Tobago', 'Ring gate bell', 'Card', 'Pickup customer', FALSE, 14, 141.75, 1, NOW() - INTERVAL '4 hours', '["New Customer"]'::jsonb)
-ON CONFLICT (id) DO UPDATE SET
-  name = EXCLUDED.name,
-  phone = EXCLUDED.phone,
-  phone_normalized = EXCLUDED.phone_normalized,
-  email = EXCLUDED.email,
-  street_address = EXCLUDED.street_address,
-  city = EXCLUDED.city,
-  region = EXCLUDED.region,
-  delivery_notes = EXCLUDED.delivery_notes,
-  preferred_payment_method = EXCLUDED.preferred_payment_method,
-  notes = EXCLUDED.notes,
-  marketing_consent = EXCLUDED.marketing_consent,
-  loyalty_points = EXCLUDED.loyalty_points,
-  total_spent = EXCLUDED.total_spent,
-  orders_count = EXCLUDED.orders_count,
-  last_order_at = EXCLUDED.last_order_at,
-  tags = EXCLUDED.tags,
-  updated_at = NOW();
+ON CONFLICT DO NOTHING;
 
 INSERT INTO public.orders (
   id, business_id, order_number, customer_id, customer_snapshot, order_type, status,
@@ -708,11 +658,7 @@ INSERT INTO public.orders (
     NULL, 'https://wa.me/18683334444?text=Hi%20Maria%20Joseph%2C%20your%20order%20%231027%20was%20received.%20Total%3A%20TT%24141.75.',
     'usr_manager_asha', NOW() - INTERVAL '4 hours'
   )
-ON CONFLICT (id) DO UPDATE SET
-  payment_status = EXCLUDED.payment_status,
-  delivery_status = EXCLUDED.delivery_status,
-  total = EXCLUDED.total,
-  updated_at = NOW();
+ON CONFLICT DO NOTHING;
 
 INSERT INTO public.order_items (
   id, order_id, product_id, product_name, sku, quantity, unit_price, cost_price, discount, line_total
@@ -723,12 +669,7 @@ INSERT INTO public.order_items (
   ('itm_1026_mauby', 'ord_1026', 'prd_mauby', 'Mauby Bottle', 'DRINK-MAU-004', 2, 14.00, 5.00, 0.00, 28.00),
   ('itm_1027_tee', 'ord_1027', 'prd_tee', 'Screen Printed Tee', 'APP-TEE-006', 1, 120.00, 48.00, 10.00, 110.00),
   ('itm_1027_plantain', 'ord_1027', 'prd_plantain', 'Plantain Chips', 'SNACK-PLA-005', 1, 16.00, 7.00, 0.00, 16.00)
-ON CONFLICT (id) DO UPDATE SET
-  quantity = EXCLUDED.quantity,
-  unit_price = EXCLUDED.unit_price,
-  cost_price = EXCLUDED.cost_price,
-  discount = EXCLUDED.discount,
-  line_total = EXCLUDED.line_total;
+ON CONFLICT DO NOTHING;
 
 INSERT INTO public.payments (
   id, business_id, order_id, method, status, amount, currency, provider, payment_link, paid_at, metadata
@@ -736,12 +677,7 @@ INSERT INTO public.payments (
   ('pay_1025', 'biz_savannah_sea', 'ord_1025', 'Pay on delivery', 'unpaid', 165.63, 'TTD', 'manual', 'https://pay.example.com/caribbean-pos-connect?order=1025&amount=165.63&phone=18681234567', NULL, '{"note":"Collect on delivery"}'::jsonb),
   ('pay_1026', 'biz_savannah_sea', 'ord_1026', 'Cash', 'paid', 85.50, 'TTD', 'cash', NULL, NOW() - INTERVAL '1 day', '{}'::jsonb),
   ('pay_1027', 'biz_savannah_sea', 'ord_1027', 'Card', 'paid', 141.75, 'TTD', 'card', 'https://pay.example.com/caribbean-pos-connect?order=1027&amount=141.75&phone=18683334444', NOW() - INTERVAL '4 hours', '{}'::jsonb)
-ON CONFLICT (id) DO UPDATE SET
-  status = EXCLUDED.status,
-  amount = EXCLUDED.amount,
-  payment_link = EXCLUDED.payment_link,
-  paid_at = EXCLUDED.paid_at,
-  updated_at = NOW();
+ON CONFLICT DO NOTHING;
 
 INSERT INTO public.inventory_logs (
   id, business_id, product_id, type, quantity_delta, reason, reference_id, user_id, created_at
@@ -752,7 +688,7 @@ INSERT INTO public.inventory_logs (
   ('mov_1026_mauby', 'biz_savannah_sea', 'prd_mauby', 'sale', -2, 'Sale order #1026', 'ord_1026', 'usr_cashier_renee', NOW() - INTERVAL '1 day'),
   ('mov_1027_tee', 'biz_savannah_sea', 'prd_tee', 'sale', -1, 'Sale order #1027', 'ord_1027', 'usr_manager_asha', NOW() - INTERVAL '4 hours'),
   ('mov_1027_plantain', 'biz_savannah_sea', 'prd_plantain', 'sale', -1, 'Sale order #1027', 'ord_1027', 'usr_manager_asha', NOW() - INTERVAL '4 hours')
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT DO NOTHING;
 
 INSERT INTO public.receipts (id, order_id, receipt_number, channel)
 SELECT seed.id, seed.order_id, seed.receipt_number, seed.channel
@@ -771,13 +707,13 @@ INSERT INTO public.loyalty_transactions (
   ('loy_1025', 'cus_john', 'ord_1025', 16, 'earned', 'Earned on order #1025', NOW() - INTERVAL '2 days'),
   ('loy_1026', 'cus_priya', 'ord_1026', 9, 'earned', 'Earned on order #1026', NOW() - INTERVAL '1 day'),
   ('loy_1027', 'cus_maria', 'ord_1027', 14, 'earned', 'Earned on order #1027', NOW() - INTERVAL '4 hours')
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT DO NOTHING;
 
 INSERT INTO public.delivery_events (
   id, order_id, driver_id, status, notes, created_at
 ) VALUES
   ('del_1025_created', 'ord_1025', 'usr_driver_malik', 'assigned', 'Delivery order assigned to driver', NOW() - INTERVAL '2 days')
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT DO NOTHING;
 
 INSERT INTO public.subscriptions (
   id, business_id, plan_name, status, seats, monthly_price, currency, provider,
@@ -794,11 +730,7 @@ INSERT INTO public.subscriptions (
   NOW(),
   NOW() + INTERVAL '30 days',
   '{"notes":"Seed subscription for launch testing"}'::jsonb
-) ON CONFLICT (id) DO UPDATE SET
-  plan_name = EXCLUDED.plan_name,
-  status = EXCLUDED.status,
-  current_period_end = EXCLUDED.current_period_end,
-  updated_at = NOW();
+) ON CONFLICT DO NOTHING;
 
 WITH seed_settings (key, business_id, value) AS (VALUES
   ('business_name', 'biz_savannah_sea', to_jsonb('Your Business'::text)),
@@ -917,6 +849,7 @@ INSERT INTO public.audit_logs (
   'business',
   'biz_savannah_sea',
   '{"source":"db/supabase_schema_seed.sql"}'::jsonb
-) ON CONFLICT (id) DO NOTHING;
+) ON CONFLICT DO NOTHING;
 
 COMMIT;
+

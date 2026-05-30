@@ -474,7 +474,13 @@ async function initializeDatabase() {
 
 async function insertSetting(key: string, value: unknown) {
   await rawQuery(
-    "INSERT INTO settings (key, value) VALUES ($1, $2::jsonb) ON CONFLICT (key) DO NOTHING",
+    "UPDATE settings SET value = value WHERE key = $1",
+    [key]
+  );
+  await rawQuery(
+    `INSERT INTO settings (key, value)
+     SELECT $1, $2::jsonb
+     WHERE NOT EXISTS (SELECT 1 FROM settings WHERE key = $1)`,
     [key, JSON.stringify(value)]
   );
 }
@@ -558,8 +564,9 @@ async function seedHelpArticles() {
     await rawQuery(
       `INSERT INTO help_articles (
         id, title, category, content, tags, visibility, published, last_updated_at
-      ) VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8)
-      ON CONFLICT (id) DO NOTHING`,
+      )
+      SELECT $1, $2, $3, $4, $5::jsonb, $6, $7, $8
+      WHERE NOT EXISTS (SELECT 1 FROM help_articles WHERE id = $1)`,
       [
         article.id,
         article.title,
@@ -577,8 +584,8 @@ async function seedHelpArticles() {
 async function seedInitialData() {
   await rawQuery(
     `INSERT INTO businesses (id, name, legal_name, slug, phone, email, street_address, city, region, country, currency, logo_url)
-     VALUES ($1, $2, $2, $3, $4, $5, $6, $7, $8, 'Trinidad and Tobago', 'TTD', '/logo.svg')
-     ON CONFLICT (id) DO NOTHING`,
+     SELECT $1, $2, $2, $3, $4, $5, $6, $7, $8, 'Trinidad and Tobago', 'TTD', '/logo.svg'
+     WHERE NOT EXISTS (SELECT 1 FROM businesses WHERE id = $1)`,
     [
       "biz_savannah_sea",
       "Your Business",
@@ -606,8 +613,8 @@ async function seedInitialData() {
   for (const [index, category] of PRODUCT_CATEGORIES.entries()) {
     await rawQuery(
       `INSERT INTO categories (id, name, slug, sort_order, active)
-       VALUES ($1, $2, $3, $4, TRUE)
-       ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name, sort_order = EXCLUDED.sort_order, active = TRUE, updated_at = NOW()`,
+       SELECT $1, $2, $3, $4, TRUE
+       WHERE NOT EXISTS (SELECT 1 FROM categories WHERE slug = $3)`,
       [
         `cat_${category.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "")}`,
         category,

@@ -96,7 +96,8 @@ INSERT INTO public.staff_users (
   role,
   phone,
   active
-) VALUES (
+)
+SELECT
   'usr_setup_admin',
   'biz_savannah_sea',
   'Asha Maharaj',
@@ -105,14 +106,9 @@ INSERT INTO public.staff_users (
   'admin',
   '868-555-1001',
   TRUE
-)
-ON CONFLICT (email) DO UPDATE SET
-  name = EXCLUDED.name,
-  password_hash = EXCLUDED.password_hash,
-  role = EXCLUDED.role,
-  phone = EXCLUDED.phone,
-  active = TRUE,
-  updated_at = NOW();
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.staff_users WHERE email = 'admin@caribbeanpos.test'
+);
 
 -- Subscription columns used by the app.
 ALTER TABLE public.subscriptions ADD COLUMN IF NOT EXISTS plan_id TEXT NOT NULL DEFAULT 'starter';
@@ -127,11 +123,7 @@ INSERT INTO public.categories (id, business_id, name, slug, sort_order, active) 
   ('cat_services', 'biz_savannah_sea', 'Services', 'services', 50, TRUE),
   ('cat_digital', 'biz_savannah_sea', 'Digital services', 'digital-services', 60, TRUE),
   ('cat_custom', 'biz_savannah_sea', 'Custom items', 'custom-items', 70, TRUE)
-ON CONFLICT (name) DO UPDATE SET
-  slug = EXCLUDED.slug,
-  sort_order = EXCLUDED.sort_order,
-  active = TRUE,
-  updated_at = NOW();
+ON CONFLICT DO NOTHING;
 
 -- Replace launch subscription text with a real plan record if needed.
 UPDATE public.subscriptions

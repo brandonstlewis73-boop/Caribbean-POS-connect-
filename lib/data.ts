@@ -321,31 +321,51 @@ async function getStaffAvatarMap(client?: DbClient): Promise<StaffAvatarMap> {
   return parseJson<StaffAvatarMap>(row.rows[0]?.value, {});
 }
 
+async function saveSettingValue(key: string, value: unknown, client?: DbClient) {
+  await query(
+    "UPDATE settings SET value = $2::jsonb, updated_at = NOW() WHERE key = $1",
+    [key, JSON.stringify(value)],
+    client
+  );
+  await query(
+    `INSERT INTO settings (key, value, updated_at)
+     SELECT $1, $2::jsonb, NOW()
+     WHERE NOT EXISTS (SELECT 1 FROM settings WHERE key = $1)`,
+    [key, JSON.stringify(value)],
+    client
+  );
+}
+
+async function saveBusinessSettingValue(businessId: string, key: string, value: unknown, client?: DbClient) {
+  await query(
+    "UPDATE business_settings SET value = $3::jsonb, updated_at = NOW() WHERE business_id = $1 AND key = $2",
+    [businessId, key, JSON.stringify(value)],
+    client
+  ).catch(() => undefined);
+  await query(
+    `INSERT INTO business_settings (business_id, key, value, updated_at)
+     SELECT $1, $2, $3::jsonb, NOW()
+     WHERE NOT EXISTS (
+       SELECT 1 FROM business_settings WHERE business_id = $1 AND key = $2
+     )`,
+    [businessId, key, JSON.stringify(value)],
+    client
+  ).catch(() => undefined);
+}
+
 async function saveStaffAvatar(userId: string, input: StaffInput, client?: DbClient) {
   const avatars = await getStaffAvatarMap(client);
   avatars[userId] = {
     avatar_key: input.avatar_key || avatars[userId]?.avatar_key || "teal-register",
     avatar_url: input.avatar_url ?? avatars[userId]?.avatar_url ?? null
   };
-  await query(
-    `INSERT INTO settings (key, value, updated_at)
-     VALUES ('staff_avatar_profiles', $1::jsonb, NOW())
-     ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
-    [JSON.stringify(avatars)],
-    client
-  );
+  await saveSettingValue("staff_avatar_profiles", avatars, client);
 }
 
 async function deleteStaffAvatar(userId: string, client?: DbClient) {
   const avatars = await getStaffAvatarMap(client);
   delete avatars[userId];
-  await query(
-    `INSERT INTO settings (key, value, updated_at)
-     VALUES ('staff_avatar_profiles', $1::jsonb, NOW())
-     ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
-    [JSON.stringify(avatars)],
-    client
-  );
+  await saveSettingValue("staff_avatar_profiles", avatars, client);
 }
 
 function rowToUser(row: any, avatar?: Pick<User, "avatar_key" | "avatar_url">): User {
@@ -551,13 +571,7 @@ async function getCounter(client: DbClient, key: string, fallback: number, floor
   );
   const current = parseJson<number>(existing.rows[0]?.value, fallback);
   const next = Math.max(Number(current || fallback), floor) + 1;
-  await query(
-    `INSERT INTO settings (key, value, updated_at)
-     VALUES ($1, $2::jsonb, NOW())
-     ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
-    [key, JSON.stringify(next)],
-    client
-  );
+  await saveSettingValue(key, next, client);
   return next;
 }
 
@@ -654,21 +668,9 @@ export async function updateSettings(input: Partial<Settings>, userId?: string) 
   await transaction(async (client) => {
     const businessId = await getBusinessIdForUser(userId, client);
     for (const [key, value] of Object.entries(nextInput)) {
-      await query(
-        `INSERT INTO settings (key, value, updated_at)
-         VALUES ($1, $2::jsonb, NOW())
-         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
-        [key, JSON.stringify(value)],
-        client
-      );
+      await saveSettingValue(key, value, client);
       if (businessId) {
-        await query(
-          `INSERT INTO business_settings (business_id, key, value, updated_at)
-           VALUES ($1, $2, $3::jsonb, NOW())
-           ON CONFLICT (business_id, key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
-          [businessId, key, JSON.stringify(value)],
-          client
-        );
+        await saveBusinessSettingValue(businessId, key, value, client);
       }
     }
     if (businessId) {
@@ -970,13 +972,7 @@ export async function createBusinessOwnerAccount(input: {
       whatsapp_customer_receipts_enabled: true
     };
     for (const [key, value] of Object.entries(businessSettings)) {
-      await query(
-        `INSERT INTO business_settings (business_id, key, value, updated_at)
-         VALUES ($1, $2, $3::jsonb, NOW())
-         ON CONFLICT (business_id, key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
-        [businessId, key, JSON.stringify(value)],
-        client
-      );
+      await saveBusinessSettingValue(businessId, key, value, client);
     }
     const plan = SUBSCRIPTION_PLANS[0];
     await query(
@@ -1062,28 +1058,35 @@ export async function updateSubscriptionPlan(planId: SubscriptionPlanId, userId?
   const existing = await getCurrentSubscription(businessId);
   const subscriptionId = existing?.id || createId("sub");
   const resolvedBusinessId = existing?.business_id || businessId || DEFAULT_BUSINESS_ID;
-  await query(
-    `INSERT INTO subscriptions (
-      id, business_id, plan_id, plan_name, status, seats, monthly_price, currency,
-      provider, current_period_start, current_period_end, trial_ends_at, metadata
-    ) VALUES ($1, $2, $3, $4, 'trialing', $5, $6, $7, 'manual', NOW(), NOW() + INTERVAL '30 days', NOW() + INTERVAL '14 days', '{}'::jsonb)
-    ON CONFLICT (id) DO UPDATE SET
-      plan_id = EXCLUDED.plan_id,
-      plan_name = EXCLUDED.plan_name,
-      seats = EXCLUDED.seats,
-      monthly_price = EXCLUDED.monthly_price,
-      currency = EXCLUDED.currency,
-      updated_at = NOW()`,
-    [
-      subscriptionId,
-      resolvedBusinessId,
-      plan.id,
-      plan.name,
-      plan.max_staff,
-      plan.monthly_price,
-      plan.currency
-    ]
-  );
+  if (existing) {
+    await query(
+      `UPDATE subscriptions SET
+        plan_id = $2,
+        plan_name = $3,
+        seats = $4,
+        monthly_price = $5,
+        currency = $6,
+        updated_at = NOW()
+       WHERE id = $1`,
+      [subscriptionId, plan.id, plan.name, plan.max_staff, plan.monthly_price, plan.currency]
+    );
+  } else {
+    await query(
+      `INSERT INTO subscriptions (
+        id, business_id, plan_id, plan_name, status, seats, monthly_price, currency,
+        provider, current_period_start, current_period_end, trial_ends_at, metadata
+      ) VALUES ($1, $2, $3, $4, 'trialing', $5, $6, $7, 'manual', NOW(), NOW() + INTERVAL '30 days', NOW() + INTERVAL '14 days', '{}'::jsonb)`,
+      [
+        subscriptionId,
+        resolvedBusinessId,
+        plan.id,
+        plan.name,
+        plan.max_staff,
+        plan.monthly_price,
+        plan.currency
+      ]
+    );
+  }
   await auditLog("subscription:update_plan", "subscription", subscriptionId, { plan_id: plan.id }, userId);
   return getCurrentSubscription(resolvedBusinessId);
 }
@@ -1758,48 +1761,61 @@ async function createOrUpdateReceiptRecord(
   receiptNumber: string,
   completedBy?: string | null
 ) {
+  const values = [
+    order.business_id ?? null,
+    order.id,
+    receiptNumber,
+    order.order_number,
+    order.customer_id ?? null,
+    order.customer_snapshot.name || "Walk-in customer",
+    order.customer_snapshot.phone || null,
+    JSON.stringify(order.items),
+    order.subtotal,
+    order.discount_total,
+    order.tax_total,
+    order.delivery_fee,
+    order.total,
+    order.payment_method,
+    order.payment_status,
+    completedBy ?? order.completed_by ?? null,
+    order.completed_at ?? null
+  ];
+  const updated = await query(
+    `UPDATE receipts SET
+      business_id = $1,
+      receipt_number = $3,
+      order_number = $4,
+      customer_id = $5,
+      customer_name = $6,
+      customer_phone = $7,
+      items = $8::jsonb,
+      subtotal = $9,
+      discount_total = $10,
+      tax_total = $11,
+      delivery_fee = $12,
+      total = $13,
+      payment_method = $14,
+      payment_status = $15,
+      completed_by = $16,
+      completed_at = COALESCE($17::timestamptz, completed_at, NOW()),
+      updated_at = NOW()
+     WHERE order_id = $2
+     RETURNING id`,
+    values,
+    client
+  );
+  if (updated.rowCount) return;
   await query(
     `INSERT INTO receipts (
       id, business_id, order_id, receipt_number, order_number, customer_id, customer_name, customer_phone,
       items, subtotal, discount_total, tax_total, delivery_fee, total, payment_method,
       payment_status, completed_by, completed_at, channel, updated_at
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11, $12, $13, $14, $15, $16, $17, COALESCE($18::timestamptz, NOW()), 'print', NOW())
-    ON CONFLICT (order_id) DO UPDATE SET
-      business_id = EXCLUDED.business_id,
-      order_number = EXCLUDED.order_number,
-      customer_id = EXCLUDED.customer_id,
-      customer_name = EXCLUDED.customer_name,
-      customer_phone = EXCLUDED.customer_phone,
-      items = EXCLUDED.items,
-      subtotal = EXCLUDED.subtotal,
-      discount_total = EXCLUDED.discount_total,
-      tax_total = EXCLUDED.tax_total,
-      delivery_fee = EXCLUDED.delivery_fee,
-      total = EXCLUDED.total,
-      payment_method = EXCLUDED.payment_method,
-      payment_status = EXCLUDED.payment_status,
-      completed_by = EXCLUDED.completed_by,
-      completed_at = EXCLUDED.completed_at,
-      updated_at = NOW()`,
+    )
+    SELECT $18, $1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11, $12, $13, $14, $15, $16, COALESCE($17::timestamptz, NOW()), 'print', NOW()
+    WHERE NOT EXISTS (SELECT 1 FROM receipts WHERE order_id = $2)`,
     [
-      createId("rcp"),
-      order.business_id ?? null,
-      order.id,
-      receiptNumber,
-      order.order_number,
-      order.customer_id ?? null,
-      order.customer_snapshot.name || "Walk-in customer",
-      order.customer_snapshot.phone || null,
-      JSON.stringify(order.items),
-      order.subtotal,
-      order.discount_total,
-      order.tax_total,
-      order.delivery_fee,
-      order.total,
-      order.payment_method,
-      order.payment_status,
-      completedBy ?? order.completed_by ?? null,
-      order.completed_at ?? null
+      ...values,
+      createId("rcp")
     ],
     client
   );

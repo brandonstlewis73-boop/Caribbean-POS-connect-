@@ -73,21 +73,7 @@ INSERT INTO public.businesses (
   'starter',
   'trial',
   NOW() + INTERVAL '14 days'
-) ON CONFLICT (id) DO UPDATE SET
-  name = EXCLUDED.name,
-  storefront_slug = EXCLUDED.storefront_slug,
-  owner_name = EXCLUDED.owner_name,
-  owner_email = EXCLUDED.owner_email,
-  owner_phone = EXCLUDED.owner_phone,
-  business_whatsapp_number = EXCLUDED.business_whatsapp_number,
-  phone = EXCLUDED.phone,
-  email = EXCLUDED.email,
-  street_address = EXCLUDED.street_address,
-  city = EXCLUDED.city,
-  region = EXCLUDED.region,
-  country = EXCLUDED.country,
-  currency = EXCLUDED.currency,
-  updated_at = NOW();
+) ON CONFLICT DO NOTHING;
 
 UPDATE public.staff_users
 SET
@@ -171,15 +157,7 @@ INSERT INTO public.categories (id, business_id, name, slug, icon, color, sort_or
   ('cat_irie_drinks', 'biz_irie_munchies', 'Drinks', 'drinks', 'DR', '#2563eb', 30, TRUE, TRUE),
   ('cat_irie_desserts', 'biz_irie_munchies', 'Desserts', 'desserts', 'DE', '#be123c', 40, TRUE, TRUE),
   ('cat_irie_specials', 'biz_irie_munchies', 'Specials', 'specials', 'SP', '#9333ea', 50, TRUE, TRUE)
-ON CONFLICT (id) DO UPDATE SET
-  name = EXCLUDED.name,
-  slug = EXCLUDED.slug,
-  icon = EXCLUDED.icon,
-  color = EXCLUDED.color,
-  sort_order = EXCLUDED.sort_order,
-  active = EXCLUDED.active,
-  is_active = EXCLUDED.is_active,
-  updated_at = NOW();
+ON CONFLICT DO NOTHING;
 
 INSERT INTO public.products (
   id, business_id, name, sku, barcode, category, category_id, description, cost_price, selling_price,
@@ -191,21 +169,7 @@ INSERT INTO public.products (
   ('prd_irie_sorrel', 'biz_irie_munchies', 'Sorrel', 'IRIE-SORREL', '868210000004', 'Drinks', 'cat_irie_drinks', 'House sorrel drink.', 5.00, 15.00, 50, 10, '', '[{"name":"Bottle","price_delta":0},{"name":"Large bottle","price_delta":8}]'::jsonb, '[]'::jsonb, TRUE),
   ('prd_irie_mauby', 'biz_irie_munchies', 'Mauby', 'IRIE-MAUBY', '868210000005', 'Drinks', 'cat_irie_drinks', 'Local mauby drink.', 5.00, 14.00, 46, 10, '', '[]'::jsonb, '[]'::jsonb, TRUE),
   ('prd_irie_black_cake', 'biz_irie_munchies', 'Black Cake', 'IRIE-BLACK-CAKE', '868210000006', 'Desserts', 'cat_irie_desserts', 'Rich Caribbean black cake slice.', 10.00, 25.00, 24, 6, '', '[]'::jsonb, '[]'::jsonb, TRUE)
-ON CONFLICT (id) DO UPDATE SET
-  name = EXCLUDED.name,
-  sku = EXCLUDED.sku,
-  barcode = EXCLUDED.barcode,
-  category = EXCLUDED.category,
-  category_id = EXCLUDED.category_id,
-  description = EXCLUDED.description,
-  cost_price = EXCLUDED.cost_price,
-  selling_price = EXCLUDED.selling_price,
-  stock_quantity = EXCLUDED.stock_quantity,
-  low_stock_alert = EXCLUDED.low_stock_alert,
-  variations = EXCLUDED.variations,
-  add_ons = EXCLUDED.add_ons,
-  active = EXCLUDED.active,
-  updated_at = NOW();
+ON CONFLICT DO NOTHING;
 
 INSERT INTO public.customers (
   id, business_id, name, phone, phone_normalized, email, street_address, city, region, country,
@@ -214,19 +178,7 @@ INSERT INTO public.customers (
 ) VALUES
   ('cus_irie_brandon', 'biz_irie_munchies', 'Brandon', '868-335-3697', '18683353697', 'brandon@example.com', 'Coffee Street', 'San Fernando', 'San Fernando', 'Trinidad and Tobago', 'Call on arrival', 'Pay on delivery', TRUE, FALSE, FALSE, TRUE, '["Storefront"]'::jsonb),
   ('cus_irie_alicia', 'biz_irie_munchies', 'Alicia James', '868-555-8800', '18685558800', 'alicia@example.com', 'Main Road', 'Chaguanas', 'Chaguanas', 'Trinidad and Tobago', 'Gate code 22', 'Cash', TRUE, FALSE, TRUE, TRUE, '["Pickup"]'::jsonb)
-ON CONFLICT (id) DO UPDATE SET
-  name = EXCLUDED.name,
-  phone = EXCLUDED.phone,
-  phone_normalized = EXCLUDED.phone_normalized,
-  email = EXCLUDED.email,
-  street_address = EXCLUDED.street_address,
-  city = EXCLUDED.city,
-  region = EXCLUDED.region,
-  delivery_notes = EXCLUDED.delivery_notes,
-  notification_whatsapp = EXCLUDED.notification_whatsapp,
-  notification_sms = EXCLUDED.notification_sms,
-  notification_email = EXCLUDED.notification_email,
-  updated_at = NOW();
+ON CONFLICT DO NOTHING;
 
 INSERT INTO public.orders (
   id, business_id, order_number, customer_id, customer_snapshot, order_type, status,
@@ -238,12 +190,7 @@ INSERT INTO public.orders (
   ('ord_irie_2103', 'biz_irie_munchies', '2103', 'cus_irie_brandon', '{"name":"Brandon","phone":"868-335-3697","email":"brandon@example.com","street_address":"Coffee Street","city":"San Fernando","region":"San Fernando","country":"Trinidad and Tobago","notification_whatsapp":true,"notification_sms":false,"notification_email":false}'::jsonb, 'delivery', 'preparing', 'Pay on delivery', 'unpaid', 'pending', 95.00, 0.00, 0.00, 0.00, 25.00, 120.00, 'Preparing order', 'https://waze.com/ul?q=Coffee%20Street%20San%20Fernando%20Trinidad%20and%20Tobago&navigate=yes', 'https://maps.google.com/?q=Coffee%20Street%20San%20Fernando%20Trinidad%20and%20Tobago', 'usr_irie_owner', NOW() - INTERVAL '20 minutes'),
   ('ord_irie_2104', 'biz_irie_munchies', '2104', 'cus_irie_alicia', '{"name":"Alicia James","phone":"868-555-8800","email":"alicia@example.com","street_address":"Main Road","city":"Chaguanas","region":"Chaguanas","country":"Trinidad and Tobago","notification_whatsapp":true,"notification_sms":false,"notification_email":true}'::jsonb, 'pickup', 'ready', 'Cash', 'paid', 'not_required', 40.00, 0.00, 0.00, 0.00, 0.00, 40.00, 'Ready for pickup', NULL, NULL, 'usr_irie_owner', NOW() - INTERVAL '12 minutes'),
   ('ord_irie_2105', 'biz_irie_munchies', '2105', 'cus_irie_brandon', '{"name":"Brandon","phone":"868-335-3697","email":"brandon@example.com","street_address":"Coffee Street","city":"San Fernando","region":"San Fernando","country":"Trinidad and Tobago","notification_whatsapp":true,"notification_sms":false,"notification_email":false}'::jsonb, 'delivery', 'completed', 'Card', 'paid', 'delivered', 75.00, 0.00, 0.00, 0.00, 25.00, 100.00, 'Completed sample order', 'https://waze.com/ul?q=Coffee%20Street%20San%20Fernando%20Trinidad%20and%20Tobago&navigate=yes', 'https://maps.google.com/?q=Coffee%20Street%20San%20Fernando%20Trinidad%20and%20Tobago', 'usr_irie_owner', NOW() - INTERVAL '1 day')
-ON CONFLICT (id) DO UPDATE SET
-  status = EXCLUDED.status,
-  payment_status = EXCLUDED.payment_status,
-  delivery_status = EXCLUDED.delivery_status,
-  total = EXCLUDED.total,
-  updated_at = NOW();
+ON CONFLICT DO NOTHING;
 
 INSERT INTO public.order_items (
   id, order_id, product_id, product_name, sku, quantity, unit_price, cost_price, discount, line_total
@@ -257,12 +204,7 @@ INSERT INTO public.order_items (
   ('itm_irie_2103_curry', 'ord_irie_2103', 'prd_irie_curry_plate', 'Curry Chicken Plate', 'IRIE-CURRY-PLATE', 1, 45.00, 24.00, 0.00, 45.00),
   ('itm_irie_2104_black_cake', 'ord_irie_2104', 'prd_irie_black_cake', 'Black Cake', 'IRIE-BLACK-CAKE', 1, 25.00, 10.00, 0.00, 25.00),
   ('itm_irie_2105_sorrel', 'ord_irie_2105', 'prd_irie_sorrel', 'Sorrel', 'IRIE-SORREL', 5, 15.00, 5.00, 0.00, 75.00)
-ON CONFLICT (id) DO UPDATE SET
-  quantity = EXCLUDED.quantity,
-  unit_price = EXCLUDED.unit_price,
-  cost_price = EXCLUDED.cost_price,
-  discount = EXCLUDED.discount,
-  line_total = EXCLUDED.line_total;
+ON CONFLICT DO NOTHING;
 
 INSERT INTO public.order_status_history (id, order_id, status, note, changed_by, created_at) VALUES
   ('osh_irie_2101_new', 'ord_irie_2101', 'new', 'Order received from storefront', 'usr_irie_owner', NOW() - INTERVAL '50 minutes'),
@@ -275,7 +217,7 @@ INSERT INTO public.order_status_history (id, order_id, status, note, changed_by,
   ('osh_irie_2104_ready', 'ord_irie_2104', 'ready', 'Pickup order ready', 'usr_irie_owner', NOW() - INTERVAL '5 minutes'),
   ('osh_irie_2105_new', 'ord_irie_2105', 'new', 'Order received from storefront', 'usr_irie_owner', NOW() - INTERVAL '1 day'),
   ('osh_irie_2105_completed', 'ord_irie_2105', 'completed', 'Order completed', 'usr_irie_owner', NOW() - INTERVAL '23 hours')
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT DO NOTHING;
 
 INSERT INTO public.customer_notifications (
   id, business_id, order_id, customer_id, channel, status, message, destination, provider, delivery_status, created_at
@@ -285,4 +227,5 @@ INSERT INTO public.customer_notifications (
   ('ntf_irie_2103_whatsapp', 'biz_irie_munchies', 'ord_irie_2103', 'cus_irie_brandon', 'whatsapp', 'preparing', 'Your order #2103 is now being prepared.', '18683353697', 'placeholder', 'skipped', NOW() - INTERVAL '15 minutes'),
   ('ntf_irie_2104_whatsapp', 'biz_irie_munchies', 'ord_irie_2104', 'cus_irie_alicia', 'whatsapp', 'ready', 'Your order #2104 is ready.', '18685558800', 'placeholder', 'skipped', NOW() - INTERVAL '5 minutes'),
   ('ntf_irie_2105_whatsapp', 'biz_irie_munchies', 'ord_irie_2105', 'cus_irie_brandon', 'whatsapp', 'completed', 'Thank you Brandon! Your order #2105 is completed. We appreciate your business.', '18683353697', 'placeholder', 'skipped', NOW() - INTERVAL '23 hours')
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT DO NOTHING;
+
