@@ -53,9 +53,9 @@ import {
   buildDriverAssignmentWhatsAppMessage,
   buildOrderWhatsAppMessage,
   buildWhatsAppLink,
-  cleanWhatsAppNumber,
-  sendWhatsAppMessage
+  cleanWhatsAppNumber
 } from "./whatsapp";
+import { sendWhatsAppMessage } from "./whatsapp-server";
 
 type DbClient = PoolClient;
 const DEFAULT_BUSINESS_ID = "biz_savannah_sea";
@@ -2095,10 +2095,13 @@ async function createCustomerStatusNotifications(
 async function notifyOwnerOfNewOrder(order: Order, settings: Settings) {
   if (!settings.whatsapp_enabled || !settings.whatsapp_owner_alerts_enabled) return;
   if (!(await canUseWhatsAppForBusiness(order.business_id || settings.active_business_id))) return;
-  const to = settings.whatsapp_business_number || process.env.BUSINESS_WHATSAPP_NUMBER;
+  const to = settings.whatsapp_business_number;
   const result = await sendWhatsAppMessage(to, buildOrderWhatsAppMessage(order, settings), {
     defaultCountryCode: settings.whatsapp_country_code,
-    provider: settings.whatsapp_provider
+    businessId: order.business_id || settings.active_business_id,
+    orderId: order.id,
+    customerId: order.customer_id,
+    status: "owner_new_order"
   });
   if (!result.ok && !result.skipped) {
     console.warn("Owner WhatsApp alert was not sent", { orderId: order.id, reason: result.message });
@@ -2110,7 +2113,10 @@ async function notifyCustomerReceipt(order: Order, settings: Settings) {
   if (!(await canUseWhatsAppForBusiness(order.business_id || settings.active_business_id))) return;
   const result = await sendWhatsAppMessage(order.customer_snapshot.phone, buildCustomerReceiptWhatsAppMessage(order, settings), {
     defaultCountryCode: settings.whatsapp_country_code,
-    provider: settings.whatsapp_provider
+    businessId: order.business_id || settings.active_business_id,
+    orderId: order.id,
+    customerId: order.customer_id,
+    status: "customer_receipt"
   });
   if (result.ok) {
     await query("UPDATE receipts SET whatsapp_sent_at = NOW(), updated_at = NOW() WHERE order_id = $1", [order.id]);
@@ -2124,7 +2130,10 @@ async function notifyCustomerOrderConfirmation(order: Order, settings: Settings)
   if (!(await canUseWhatsAppForBusiness(order.business_id || settings.active_business_id))) return;
   const result = await sendWhatsAppMessage(order.customer_snapshot.phone, buildCustomerConfirmationMessage(order, settings), {
     defaultCountryCode: settings.whatsapp_country_code,
-    provider: settings.whatsapp_provider
+    businessId: order.business_id || settings.active_business_id,
+    orderId: order.id,
+    customerId: order.customer_id,
+    status: "customer_confirmation"
   });
   if (!result.ok && !result.skipped) {
     console.warn("Customer order confirmation WhatsApp was not sent", { orderId: order.id, reason: result.message });
@@ -2136,7 +2145,10 @@ async function notifyCustomerDriverAssigned(order: Order, settings: Settings) {
   if (!(await canUseWhatsAppForBusiness(order.business_id || settings.active_business_id))) return;
   const result = await sendWhatsAppMessage(order.customer_snapshot.phone, buildCustomerDriverAssignedWhatsAppMessage(order, settings), {
     defaultCountryCode: settings.whatsapp_country_code,
-    provider: settings.whatsapp_provider
+    businessId: order.business_id || settings.active_business_id,
+    orderId: order.id,
+    customerId: order.customer_id,
+    status: "driver_assigned_customer"
   });
   if (!result.ok && !result.skipped) {
     console.warn("Customer driver-assigned WhatsApp was not sent", { orderId: order.id, reason: result.message });
@@ -2148,7 +2160,10 @@ async function notifyDriverOfAssignment(order: Order, settings: Settings) {
   if (!(await canUseWhatsAppForBusiness(order.business_id || settings.active_business_id))) return;
   const result = await sendWhatsAppMessage(order.assigned_driver_phone, buildDriverAssignmentWhatsAppMessage(order, settings), {
     defaultCountryCode: settings.whatsapp_country_code,
-    provider: settings.whatsapp_provider
+    businessId: order.business_id || settings.active_business_id,
+    orderId: order.id,
+    customerId: order.customer_id,
+    status: "driver_assigned_driver"
   });
   if (!result.ok && !result.skipped) {
     console.warn("Driver assignment WhatsApp was not sent", { orderId: order.id, reason: result.message });
@@ -2160,7 +2175,10 @@ async function notifyCustomerOutForDelivery(order: Order, settings: Settings) {
   if (!(await canUseWhatsAppForBusiness(order.business_id || settings.active_business_id))) return;
   const result = await sendWhatsAppMessage(order.customer_snapshot.phone, buildCustomerOutForDeliveryWhatsAppMessage(order, settings), {
     defaultCountryCode: settings.whatsapp_country_code,
-    provider: settings.whatsapp_provider
+    businessId: order.business_id || settings.active_business_id,
+    orderId: order.id,
+    customerId: order.customer_id,
+    status: "out_for_delivery"
   });
   if (!result.ok && !result.skipped) {
     console.warn("Customer out-for-delivery WhatsApp was not sent", { orderId: order.id, reason: result.message });
@@ -2970,7 +2988,7 @@ export async function getDashboardData(businessId?: string | null): Promise<Dash
     currency: settings.currency,
     business,
     storefrontUrl: business?.storefront_slug || business?.slug ? `/store/${business.storefront_slug || business.slug}` : "/online",
-    whatsappConfigured: Boolean(settings.whatsapp_enabled && (settings.whatsapp_business_number || process.env.BUSINESS_WHATSAPP_NUMBER)),
+    whatsappConfigured: Boolean(settings.whatsapp_enabled && settings.whatsapp_business_number),
     subscription,
     setupChecklist: setupChecklistForBusiness(business, settings, checklistProductRows.rows.map(rowToProduct)),
     newOrders: Number(newOrderRows.rows[0]?.count || 0),
@@ -3082,7 +3100,10 @@ export async function resendReceiptWhatsApp(receiptId: string, userId?: string) 
   const settings = await getBusinessSettings(businessId);
   const result = await sendWhatsAppMessage(order.customer_snapshot.phone, buildCustomerReceiptWhatsAppMessage(order, settings), {
     defaultCountryCode: settings.whatsapp_country_code,
-    provider: settings.whatsapp_provider
+    businessId: order.business_id || settings.active_business_id,
+    orderId: order.id,
+    customerId: order.customer_id,
+    status: "receipt_resend"
   });
   if (result.ok) {
     await query("UPDATE receipts SET whatsapp_sent_at = NOW(), updated_at = NOW() WHERE id = $1", [receipt.id]);

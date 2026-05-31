@@ -167,7 +167,8 @@ export const forgotPasswordSchema = z.object({
 
 export const whatsappTestSchema = z.object({
   to: optionalText,
-  message: z.string().trim().min(2).max(1000).optional()
+  message: z.string().trim().min(2).max(1000).optional(),
+  testMode: z.boolean().optional().default(false)
 });
 
 export const staffUserSchema = z.object({

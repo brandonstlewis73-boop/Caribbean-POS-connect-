@@ -135,6 +135,7 @@ export function SettingsClient({
   const [message, setMessage] = useState("");
   const [staffMessage, setStaffMessage] = useState("");
   const [categoryMessage, setCategoryMessage] = useState("");
+  const [whatsappTestMessage, setWhatsappTestMessage] = useState("");
   const [locationMessage, setLocationMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [locating, setLocating] = useState(false);
@@ -238,6 +239,32 @@ export function SettingsClient({
       setMessage("Storefront link copied.");
     } catch {
       setMessage("Copy failed. Open the storefront and copy the browser link.");
+    }
+  }
+
+  async function sendWhatsAppTest(testMode = false) {
+    setWhatsappTestMessage(testMode ? "Validating Twilio WhatsApp setup..." : "Sending test WhatsApp message...");
+    setBusyId(testMode ? "whatsapp-test-mode" : "whatsapp-test-send");
+    try {
+      const response = await fetch("/api/whatsapp/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: draft.whatsapp_business_number,
+          message: `Test WhatsApp message from ${draft.business_name}.`,
+          testMode
+        })
+      });
+      const payload = await readApiPayload<{ result: { ok: boolean; message: string; skipped?: boolean } }>(response);
+      if (!response.ok) {
+        setWhatsappTestMessage(payload.error || "WhatsApp test failed.");
+        return;
+      }
+      setWhatsappTestMessage(payload.data?.result?.message || "WhatsApp test completed.");
+    } catch {
+      setWhatsappTestMessage("WhatsApp test failed. Check the server connection and try again.");
+    } finally {
+      setBusyId("");
     }
   }
 
@@ -530,10 +557,21 @@ export function SettingsClient({
             <TextAreaField label="Preparing / delivery template" value={draft.whatsapp_out_for_delivery_template || notificationTemplates.outForDelivery} onChange={(event) => update("whatsapp_out_for_delivery_template", event.target.value)} />
             <TextAreaField label="Completed receipt template" value={draft.whatsapp_customer_receipt_template || notificationTemplates.completed} onChange={(event) => update("whatsapp_customer_receipt_template", event.target.value)} />
           </div>
-          <Button type="button" variant="primary" onClick={() => saveSettings("Notification settings saved.")} disabled={saving} className="w-full sm:w-auto">
-            <Save className="h-4 w-4" />
-            Save notifications
-          </Button>
+          <div className="grid gap-3 sm:flex sm:flex-wrap">
+            <Button type="button" variant="primary" onClick={() => saveSettings("Notification settings saved.")} disabled={saving} className="w-full sm:w-auto">
+              <Save className="h-4 w-4" />
+              Save notifications
+            </Button>
+            <Button type="button" onClick={() => sendWhatsAppTest(true)} disabled={Boolean(busyId)} className="w-full sm:w-auto">
+              {busyId === "whatsapp-test-mode" ? "Validating..." : "Test mode"}
+            </Button>
+            <Button type="button" onClick={() => sendWhatsAppTest(false)} disabled={Boolean(busyId) || !draft.whatsapp_business_number.trim()} className="w-full sm:w-auto">
+              {busyId === "whatsapp-test-send" ? "Sending..." : "Send test message"}
+            </Button>
+          </div>
+          {whatsappTestMessage ? (
+            <p className="rounded-card border border-white/10 bg-black/20 p-3 text-sm font-bold text-teal-50/70">{whatsappTestMessage}</p>
+          ) : null}
         </SettingsCard>
 
         <SettingsCard icon={UserCog} title="Team / Staff" description="Add, edit, and remove staff accounts for this business.">

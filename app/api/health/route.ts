@@ -5,7 +5,7 @@ import {
   databaseErrorMessage,
   getDb
 } from "@/lib/db";
-import { whatsappConfigStatus } from "@/lib/whatsapp";
+import { whatsappConfigStatus } from "@/lib/whatsapp-server";
 
 export const runtime = "nodejs";
 

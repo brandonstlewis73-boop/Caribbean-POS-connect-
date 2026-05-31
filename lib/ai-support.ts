@@ -26,7 +26,7 @@ const SECRET_PATTERNS = [
   /postgres(?:ql)?:\/\/[^\s"'<>]+/gi,
   /\bsk-[A-Za-z0-9_-]{12,}\b/g,
   /\bBearer\s+[A-Za-z0-9._-]+/gi,
-  /\b(?:DATABASE_URL|SUPABASE_DB_URL|OPENAI_API_KEY|TWILIO_AUTH_TOKEN|META_WHATSAPP_TOKEN|SESSION_SECRET)\s*=\s*[^\s]+/gi,
+  /\b(?:DATABASE_URL|SUPABASE_DB_URL|OPENAI_API_KEY|TWILIO_ACCOUNT_SID|TWILIO_AUTH_TOKEN|TWILIO_PHONE_NUMBER|TWILIO_WHATSAPP_FROM|SESSION_SECRET)\s*=\s*[^\s]+/gi,
   /\b(password|auth_token|api_key|secret)\s*[:=]\s*[^\s"'<>]+/gi
 ];
 

@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { fail, ok } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
 import { PlanGateError, assertFeatureAccess, assertUsageLimit, getBusinessSettings } from "@/lib/data";
-import { sendWhatsAppMessage, whatsappConfigStatus } from "@/lib/whatsapp";
+import { sendWhatsAppMessage, whatsappConfigStatus } from "@/lib/whatsapp-server";
 import { whatsappTestSchema } from "@/lib/validators";
 
 export const runtime = "nodejs";
@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
 
   const settings = await getBusinessSettings(auth.user.business_id);
   return ok({
-    status: whatsappConfigStatus(settings.whatsapp_provider),
+    status: whatsappConfigStatus(),
     settings: {
       whatsappEnabled: settings.whatsapp_enabled,
       provider: settings.whatsapp_provider || "twilio",
@@ -47,7 +47,12 @@ export async function POST(request: NextRequest) {
   const result = await sendWhatsAppMessage(
     to,
     parsed.data.message || `Test WhatsApp message from ${settings.business_name}.`,
-    { defaultCountryCode: settings.whatsapp_country_code, provider: settings.whatsapp_provider }
+    {
+      defaultCountryCode: settings.whatsapp_country_code,
+      businessId: auth.user.business_id,
+      status: "settings_test",
+      testMode: parsed.data.testMode
+    }
   );
-  return ok({ result, status: whatsappConfigStatus(settings.whatsapp_provider) });
+  return ok({ result, status: whatsappConfigStatus() });
 }

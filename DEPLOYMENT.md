@@ -22,9 +22,6 @@ NEXT_PUBLIC_APP_URL=https://your-domain.com
 NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<supabase-publishable-or-anon-key>
 ADMIN_EMAIL=owner@yourbusiness.com
-DEFAULT_WHATSAPP_NUMBER=4437582368
-WHATSAPP_ENABLED=true
-WHATSAPP_PROVIDER=twilio
 DEFAULT_COUNTRY_CODE=+1868
 DEFAULT_COUNTRY=TT
 GEOCODING_PROVIDER=fallback
@@ -34,10 +31,8 @@ SMS_PROVIDER=
 EMAIL_PROVIDER=
 TWILIO_ACCOUNT_SID=
 TWILIO_AUTH_TOKEN=
+TWILIO_PHONE_NUMBER=
 TWILIO_WHATSAPP_FROM=whatsapp:+14155238886
-BUSINESS_WHATSAPP_NUMBER=
-META_WHATSAPP_TOKEN=
-META_WHATSAPP_PHONE_NUMBER_ID=
 ```
 
 Use the Supabase transaction pooler connection string for Vercel. For this project, the host should end with `pooler.supabase.com:6543`; do not use the direct `db.<project-ref>.supabase.co:5432` host for production.
