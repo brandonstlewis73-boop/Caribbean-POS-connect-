@@ -6,6 +6,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import {
   BarChart3,
   Boxes,
+  BrainCircuit,
   CreditCard,
   ClipboardList,
   LifeBuoy,
@@ -64,6 +65,7 @@ const secondaryGroups: { label: string; items: NavItem[] }[] = [
     label: "Business",
     items: [
       { label: "WhatsApp", href: "/settings#whatsapp", icon: MessageCircle },
+      { label: "AI Tools", href: "/ai", icon: BrainCircuit },
       { label: "Staff", href: "/staff", icon: UserCog },
       { label: "Subscription", href: "/subscription", icon: CreditCard }
     ]

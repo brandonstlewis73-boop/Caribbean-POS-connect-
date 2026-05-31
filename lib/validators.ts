@@ -231,3 +231,9 @@ export const aiSupportChatSchema = z.object({
     .default([]),
   quickPrompt: z.enum(QUICK_HELP_PROMPTS as unknown as [string, ...string[]]).optional()
 });
+
+export const aiBusinessToolSchema = z.object({
+  toolId: z.string().trim().min(2).max(80),
+  prompt: z.string().trim().min(2).max(4000),
+  extraContext: optionalText
+});

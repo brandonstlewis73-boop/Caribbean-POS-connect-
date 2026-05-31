@@ -76,6 +76,9 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<supabase-publishable-or-anon-key>
 ADMIN_EMAIL=owner@yourbusiness.com
+OPENAI_API_KEY=
+AI_MODEL=gpt-5
+AI_SUPPORT_ENABLED=true
 DEFAULT_COUNTRY_CODE=+1868
 DEFAULT_COUNTRY=TT
 GEOCODING_PROVIDER=fallback
@@ -239,6 +242,7 @@ Known local limitation:
 - `/products`
 - `/deliveries`
 - `/reports`
+- `/ai`
 - `/settings`
 - `/subscription`
 - `/track`
@@ -259,7 +263,7 @@ Receipts and shipping labels include Waze QR codes when a delivery navigation li
 
 WhatsApp support has two layers:
 
-- Server-side automatic sending through Twilio WhatsApp or Meta WhatsApp Cloud API when provider credentials are configured.
+- Server-side automatic sending through Twilio WhatsApp when provider credentials are configured.
 - Safe click-to-chat links on orders and receipts so checkout still works when provider credentials are missing.
 
 ```text
@@ -268,6 +272,13 @@ https://wa.me/CUSTOMER_PHONE_NUMBER?text=ENCODED_CUSTOMER_MESSAGE
 ```
 
 The app cleans Trinidad and Tobago phone numbers before building WhatsApp links and automatic WhatsApp recipients.
+
+## AI Business OS
+
+- `/ai` adds AI workflows for WhatsApp ordering, missed calls, product descriptions, promos, slow-day sales boosts, loyalty, inventory forecasts, prep lists, delivery dispatch, delay detection, business coaching, profit advice, review replies, onboarding, SaaS support, receipt/expense review, Caribbean business mode, and smart checkout upsells.
+- AI calls run backend-only through `OPENAI_API_KEY` and are scoped to the logged-in business.
+- AI outputs are drafts only. Staff must review before sending, saving, posting, or applying anything.
+- AI usage is plan-gated and counted in monthly AI generation usage.
 
 ## Categories, Orders, And Tracking
 

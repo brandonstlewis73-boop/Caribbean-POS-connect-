@@ -22,6 +22,9 @@ NEXT_PUBLIC_APP_URL=https://your-domain.com
 NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<supabase-publishable-or-anon-key>
 ADMIN_EMAIL=owner@yourbusiness.com
+OPENAI_API_KEY=
+AI_MODEL=gpt-5
+AI_SUPPORT_ENABLED=true
 DEFAULT_COUNTRY_CODE=+1868
 DEFAULT_COUNTRY=TT
 GEOCODING_PROVIDER=fallback
@@ -36,6 +39,8 @@ TWILIO_WHATSAPP_FROM=whatsapp:+14155238886
 ```
 
 Use the Supabase transaction pooler connection string for Vercel. For this project, the host should end with `pooler.supabase.com:6543`; do not use the direct `db.<project-ref>.supabase.co:5432` host for production.
+
+AI tools require `OPENAI_API_KEY` in Vercel Production environment variables. `AI_MODEL` defaults to `gpt-5`, and `AI_SUPPORT_ENABLED=true` enables AI support and AI Business OS tools after a fresh redeploy.
 
 ## Supabase Setup
 

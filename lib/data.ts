@@ -1163,17 +1163,19 @@ export async function getSubscriptionPlanId(businessId?: string | null) {
 export async function getPlanUsage(businessId?: string | null): Promise<UsageSnapshot> {
   const resolvedBusinessId = businessId || DEFAULT_BUSINESS_ID;
   const start = monthStartIso();
-  const [products, staff, locations, aiGenerations, whatsappMessages] = await Promise.all([
+  const [products, staff, locations, aiSupportGenerations, aiBusinessGenerations, whatsappMessages] = await Promise.all([
     countRows("SELECT COUNT(*)::int AS count FROM products WHERE business_id = $1 AND active = TRUE", [resolvedBusinessId]),
     countRows("SELECT COUNT(*)::int AS count FROM users WHERE business_id = $1 AND active = TRUE", [resolvedBusinessId]),
     countRows("SELECT COUNT(*)::int AS count FROM businesses WHERE id = $1 AND active = TRUE", [resolvedBusinessId]),
     countRows("SELECT COUNT(*)::int AS count FROM ai_support_logs WHERE business_id = $1 AND created_at >= $2", [resolvedBusinessId, start]).catch(() => 0),
+    countRows("SELECT COUNT(*)::int AS count FROM ai_business_logs WHERE business_id = $1 AND created_at >= $2", [resolvedBusinessId, start]).catch(() => 0),
     countRows(
       "SELECT COUNT(*)::int AS count FROM customer_notifications WHERE business_id = $1 AND channel = 'whatsapp' AND created_at >= $2",
       [resolvedBusinessId, start]
     ).catch(() => 0)
   ]);
 
+  const aiGenerations = aiSupportGenerations + aiBusinessGenerations;
   return { aiGenerations, whatsappMessages, staff, products, locations: Math.max(locations, 1) };
 }
 
