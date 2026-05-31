@@ -279,6 +279,7 @@ The app cleans Trinidad and Tobago phone numbers before building WhatsApp links 
 - AI calls run backend-only through `OPENAI_API_KEY` and are scoped to the logged-in business.
 - AI outputs are drafts only. Staff must review before sending, saving, posting, or applying anything.
 - AI usage is plan-gated and counted in monthly AI generation usage.
+- Apply AI logging with `npm run db:ai-logs` or run `db/add_ai_business_logs.sql` in Supabase SQL Editor.
 
 ## Categories, Orders, And Tracking
 

@@ -42,6 +42,8 @@ Use the Supabase transaction pooler connection string for Vercel. For this proje
 
 AI tools require `OPENAI_API_KEY` in Vercel Production environment variables. `AI_MODEL` defaults to `gpt-5`, and `AI_SUPPORT_ENABLED=true` enables AI support and AI Business OS tools after a fresh redeploy.
 
+After deploying AI tools, apply the AI logging migration with `npm run db:ai-logs` from a trusted machine that has `DATABASE_URL`, or run `db/add_ai_business_logs.sql` in Supabase SQL Editor.
+
 ## Supabase Setup
 
 Run this SQL once in Supabase SQL Editor:

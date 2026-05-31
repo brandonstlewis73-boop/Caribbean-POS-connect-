@@ -77,7 +77,7 @@ export function whatsappConfigStatus(): WhatsAppConfigStatus {
     authTokenHadWhitespace: twilioAuthToken.hadWhitespace,
     authTokenHadWrappingQuotes: twilioAuthToken.hadWrappingQuotes,
     phoneNumberLooksValid: !twilioPhoneNumber.value || isValidWhatsAppE164(normalizedPhoneNumber),
-    fromUsesWhatsAppPrefix: twilioFrom.value.startsWith("whatsapp:"),
+    fromUsesWhatsAppPrefix: normalizedFrom.startsWith("whatsapp:"),
     fromLooksValid: normalizedFrom.startsWith("whatsapp:+") && isValidWhatsAppE164(normalizedFrom.replace(/^whatsapp:/, "")),
     fromHadWhitespace: twilioFrom.hadWhitespace,
     fromHadWrappingQuotes: twilioFrom.hadWrappingQuotes,
@@ -99,7 +99,7 @@ export function whatsappConfigStatus(): WhatsAppConfigStatus {
   if (twilio.hasAccountSid && twilio.accountSidHadWhitespace) warnings.push("TWILIO_ACCOUNT_SID had leading/trailing spaces; the app will trim them.");
   if (twilio.hasAuthToken && twilio.authTokenHadWrappingQuotes) warnings.push("TWILIO_AUTH_TOKEN had wrapping quotes; the app will trim them.");
   if (twilio.hasAuthToken && twilio.authTokenHadWhitespace) warnings.push("TWILIO_AUTH_TOKEN had leading/trailing spaces; the app will trim them.");
-  if (twilio.hasFrom && !twilio.fromUsesWhatsAppPrefix) warnings.push("TWILIO_WHATSAPP_FROM should be saved as whatsapp:+14155238886.");
+  if (twilio.hasFrom && !twilioFrom.value.startsWith("whatsapp:")) warnings.push("TWILIO_WHATSAPP_FROM was normalized to whatsapp:+number automatically.");
 
   const configured = enabled && missing.length === 0;
   const message = configured

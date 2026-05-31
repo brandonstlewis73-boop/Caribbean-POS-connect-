@@ -5,6 +5,7 @@ import {
   databaseErrorMessage,
   getDb
 } from "@/lib/db";
+import { aiSupportStatus } from "@/lib/ai-support";
 import { whatsappConfigStatus } from "@/lib/whatsapp-server";
 
 export const runtime = "nodejs";
@@ -51,16 +52,132 @@ function deploymentStatus() {
   };
 }
 
+async function checkRelation(name: string) {
+  try {
+    const result = await getDb().query<{ exists: boolean }>(
+      `SELECT EXISTS (
+        SELECT 1
+        FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_name = $1
+      ) AS exists`,
+      [name]
+    );
+    return Boolean(result.rows[0]?.exists);
+  } catch {
+    return false;
+  }
+}
+
+async function checkColumn(tableName: string, columnName: string) {
+  try {
+    const result = await getDb().query<{ exists: boolean }>(
+      `SELECT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = $1 AND column_name = $2
+      ) AS exists`,
+      [tableName, columnName]
+    );
+    return Boolean(result.rows[0]?.exists);
+  } catch {
+    return false;
+  }
+}
+
+async function getSchemaReadiness() {
+  const [
+    businesses,
+    businessSettings,
+    products,
+    categories,
+    customers,
+    orders,
+    receipts,
+    aiSupportLogs,
+    aiBusinessLogs,
+    customerNotifications,
+    orderStatusHistory,
+    productsBusinessId,
+    ordersBusinessId,
+    receiptsBusinessId,
+    aiBusinessLogsUserId
+  ] = await Promise.all([
+    checkRelation("businesses"),
+    checkRelation("business_settings"),
+    checkRelation("products"),
+    checkRelation("categories"),
+    checkRelation("customers"),
+    checkRelation("orders"),
+    checkRelation("receipts"),
+    checkRelation("ai_support_logs"),
+    checkRelation("ai_business_logs"),
+    checkRelation("customer_notifications"),
+    checkRelation("order_status_history"),
+    checkColumn("products", "business_id"),
+    checkColumn("orders", "business_id"),
+    checkColumn("receipts", "business_id"),
+    checkColumn("ai_business_logs", "user_id")
+  ]);
+  const tables = {
+    businesses,
+    businessSettings,
+    products,
+    categories,
+    customers,
+    orders,
+    receipts,
+    aiSupportLogs,
+    aiBusinessLogs,
+    customerNotifications,
+    orderStatusHistory
+  };
+  const columns = {
+    productsBusinessId,
+    ordersBusinessId,
+    receiptsBusinessId,
+    aiBusinessLogsUserId
+  };
+  const missingTables = Object.entries(tables).filter(([, exists]) => !exists).map(([name]) => name);
+  const missingColumns = Object.entries(columns).filter(([, exists]) => !exists).map(([name]) => name);
+  return {
+    ok: missingTables.length === 0 && missingColumns.length === 0,
+    tables,
+    columns,
+    missingTables,
+    missingColumns,
+    message: missingTables.length || missingColumns.length
+      ? "Database schema is missing required production tables or columns. Apply db/schema.sql or the specific migration file."
+      : "Database schema is ready."
+  };
+}
+
+function billingReadiness() {
+  const stripe = Boolean(process.env.STRIPE_SECRET_KEY);
+  const paypal = Boolean(process.env.PAYPAL_CLIENT_ID && process.env.PAYPAL_CLIENT_SECRET);
+  const wipay = Boolean(process.env.WIPAY_ACCOUNT_NUMBER || process.env.WIPAY_API_KEY);
+  return {
+    configured: stripe || paypal || wipay,
+    stripe,
+    paypal,
+    wipay,
+    message: stripe || paypal || wipay
+      ? "At least one payment provider is configured."
+      : "Subscription checkout is not fully configured. Add Stripe, PayPal, or WiPay credentials, or keep billing as manual."
+  };
+}
+
 export async function GET() {
   const config = databaseConfigStatus();
   const diagnostics = databaseConnectionDiagnostics();
   const deployment = deploymentStatus();
   const whatsapp = whatsappConfigStatus();
+  const ai = aiSupportStatus();
+  const billing = billingReadiness();
   const startedAt = Date.now();
 
   try {
     await getDb().query("SELECT 1");
-    const auth = await getAuthStoreStatus();
+    const [auth, schema] = await Promise.all([getAuthStoreStatus(), getSchemaReadiness()]);
     return NextResponse.json({
       ok: true,
       mode: "postgres",
@@ -72,9 +189,12 @@ export async function GET() {
         latencyMs: Date.now() - startedAt
       },
       auth,
+      schema,
       config,
       deployment,
-      whatsapp
+      whatsapp,
+      ai,
+      billing
     });
   } catch (error) {
     return NextResponse.json(
@@ -89,7 +209,9 @@ export async function GET() {
         },
         config,
         deployment,
-        whatsapp
+        whatsapp,
+        ai,
+        billing
       },
       { status: 500 }
     );

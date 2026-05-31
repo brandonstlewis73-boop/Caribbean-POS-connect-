@@ -809,9 +809,9 @@ export function SettingsClient({
 
         <SettingsCard icon={ShieldAlert} title="Danger Zone" description="High-risk business data actions. Confirmation is required.">
           <div className="grid gap-3 sm:grid-cols-3">
-            <Button type="button" variant="danger" onClick={() => resetDanger("Delete demo data")} className="w-full">
+            <Button type="button" variant="danger" onClick={() => resetDanger("Delete sample data")} className="w-full">
               <Trash2 className="h-4 w-4" />
-              Delete demo data
+              Delete sample data
             </Button>
             <Button type="button" variant="danger" onClick={() => resetDanger("Reset business account")} className="w-full">
               <AlertTriangle className="h-4 w-4" />
