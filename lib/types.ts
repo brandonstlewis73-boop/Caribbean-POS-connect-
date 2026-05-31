@@ -233,6 +233,8 @@ export type Order = {
   loyalty_points_earned: number;
   loyalty_points_redeemed: number;
   notes?: string | null;
+  driver_notes?: string | null;
+  estimated_delivery_at?: string | null;
   delivery_latitude?: number | null;
   delivery_longitude?: number | null;
   delivery_postal_code?: string | null;

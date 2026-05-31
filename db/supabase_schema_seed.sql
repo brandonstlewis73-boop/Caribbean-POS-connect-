@@ -166,6 +166,8 @@ CREATE TABLE IF NOT EXISTS public.orders (
   loyalty_points_earned INTEGER NOT NULL DEFAULT 0,
   loyalty_points_redeemed INTEGER NOT NULL DEFAULT 0,
   notes TEXT,
+  driver_notes TEXT,
+  estimated_delivery_at TIMESTAMPTZ,
   delivery_latitude NUMERIC(10, 7),
   delivery_longitude NUMERIC(10, 7),
   delivery_postal_code TEXT,
@@ -182,6 +184,9 @@ CREATE TABLE IF NOT EXISTS public.orders (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS driver_notes TEXT;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS estimated_delivery_at TIMESTAMPTZ;
 
 CREATE TABLE IF NOT EXISTS public.order_items (
   id TEXT PRIMARY KEY,

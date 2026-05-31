@@ -201,6 +201,8 @@ CREATE TABLE IF NOT EXISTS orders (
   loyalty_points_earned INTEGER NOT NULL DEFAULT 0,
   loyalty_points_redeemed INTEGER NOT NULL DEFAULT 0,
   notes TEXT,
+  driver_notes TEXT,
+  estimated_delivery_at TIMESTAMPTZ,
   delivery_latitude NUMERIC,
   delivery_longitude NUMERIC,
   delivery_postal_code TEXT,
@@ -221,6 +223,9 @@ CREATE TABLE IF NOT EXISTS orders (
   FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
   FOREIGN KEY (completed_by) REFERENCES users(id) ON DELETE SET NULL
 );
+
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS driver_notes TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS estimated_delivery_at TIMESTAMPTZ;
 
 ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_status_check;
 ALTER TABLE orders ADD CONSTRAINT orders_status_check CHECK (status IN ('draft', 'new', 'accepted', 'preparing', 'ready', 'out_for_delivery', 'completed', 'cancelled'));

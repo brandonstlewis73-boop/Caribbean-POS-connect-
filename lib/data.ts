@@ -451,6 +451,7 @@ function rowToOrder(row: any, items: OrderItem[]): Order {
     delivery_latitude: row.delivery_latitude === null ? null : Number(row.delivery_latitude),
     delivery_longitude: row.delivery_longitude === null ? null : Number(row.delivery_longitude),
     created_at: toDateString(row.created_at) || "",
+    estimated_delivery_at: toDateString(row.estimated_delivery_at),
     completed_at: toDateString(row.completed_at),
     updated_at: toDateString(row.updated_at) || "",
     items,
@@ -2538,6 +2539,30 @@ export async function updateOrder(id: string, input: Partial<Order>, userId?: st
       ],
       client
     );
+
+    if ("driver_notes" in input || "estimated_delivery_at" in input) {
+      try {
+        await query(
+          `UPDATE orders SET
+            driver_notes = $1,
+            estimated_delivery_at = $2::timestamptz,
+            updated_at = NOW()
+           WHERE id = $3`,
+          [
+            input.driver_notes ?? existing.driver_notes ?? null,
+            input.estimated_delivery_at ?? existing.estimated_delivery_at ?? null,
+            id
+          ],
+          client
+        );
+      } catch (error) {
+        const code = typeof error === "object" && error ? (error as { code?: string }).code : undefined;
+        if (code === "42703") {
+          throw new Error("Delivery driver notes need the latest database schema. Apply db/schema.sql, then try again.");
+        }
+        throw error;
+      }
+    }
 
     if (isCompleting && !existing.inventory_applied) {
       let completed = await readOrderById(client, id, businessId);

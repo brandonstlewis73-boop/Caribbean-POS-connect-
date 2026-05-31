@@ -5,6 +5,14 @@ export type WazeInput = {
   address?: string | null;
 };
 
+export type DeliveryMapLinks = {
+  address: string;
+  addressNeedsReview: boolean;
+  hasCoordinates: boolean;
+  wazeLink: string | null;
+  googleMapsLink: string | null;
+};
+
 const GENERIC_ADDRESS_PARTS = new Set([
   "mainland united states",
   "us dollar caribbean territories",
@@ -59,6 +67,36 @@ export function buildGoogleMapsLink({ latitude, longitude, locationLink, address
   }
 
   return null;
+}
+
+export function addressNeedsReview(address?: string | null) {
+  const normalized = address?.trim().replace(/\s+/g, " ") || "";
+  if (!normalized) return true;
+  const parts = normalized.split(",").map((part) => part.trim()).filter(Boolean);
+  if (parts.length < 2) return true;
+  if (normalized.length < 10) return true;
+  return false;
+}
+
+export function buildDeliveryMapLinks(input: WazeInput): DeliveryMapLinks {
+  const address = input.address?.trim() || "";
+  const sharedLocation = extractCoordinates(input.locationLink);
+  const latitude = Number.isFinite(input.latitude) ? input.latitude : sharedLocation?.latitude ?? null;
+  const longitude = Number.isFinite(input.longitude) ? input.longitude : sharedLocation?.longitude ?? null;
+  const normalizedInput = {
+    latitude,
+    longitude,
+    locationLink: input.locationLink,
+    address
+  };
+
+  return {
+    address,
+    addressNeedsReview: !Number.isFinite(latitude) || !Number.isFinite(longitude) ? addressNeedsReview(address) : false,
+    hasCoordinates: Number.isFinite(latitude) && Number.isFinite(longitude),
+    wazeLink: buildWazeLink(normalizedInput),
+    googleMapsLink: buildGoogleMapsLink(normalizedInput)
+  };
 }
 
 function extractCoordinates(value?: string | null) {
