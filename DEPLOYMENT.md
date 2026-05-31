@@ -36,6 +36,12 @@ TWILIO_ACCOUNT_SID=
 TWILIO_AUTH_TOKEN=
 TWILIO_PHONE_NUMBER=
 TWILIO_WHATSAPP_FROM=whatsapp:+14155238886
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
+STRIPE_STARTER_PRICE_ID=
+STRIPE_PRO_PRICE_ID=
+STRIPE_PREMIUM_PRICE_ID=
+STRIPE_ENTERPRISE_PRICE_ID=
 ```
 
 Use the Supabase transaction pooler connection string for Vercel. For this project, the host should end with `pooler.supabase.com:6543`; do not use the direct `db.<project-ref>.supabase.co:5432` host for production.
@@ -43,6 +49,8 @@ Use the Supabase transaction pooler connection string for Vercel. For this proje
 AI tools require `OPENAI_API_KEY` in Vercel Production environment variables. `AI_MODEL` defaults to `gpt-5`, and `AI_SUPPORT_ENABLED=true` enables AI support and AI Business OS tools after a fresh redeploy.
 
 After deploying AI tools, apply the AI logging migration with `npm run db:ai-logs` from a trusted machine that has `DATABASE_URL`, or run `db/add_ai_business_logs.sql` in Supabase SQL Editor.
+
+Stripe billing requires Product Prices in Stripe for Starter, Pro, Premium, and optionally Enterprise. Set those price IDs in Vercel, add a Stripe webhook that points to `https://your-domain.com/api/stripe/webhook`, copy the signing secret into `STRIPE_WEBHOOK_SECRET`, then redeploy so production can start Checkout and sync subscription status. Enable these Stripe webhook events: `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, and `customer.subscription.deleted`.
 
 ## Supabase Setup
 

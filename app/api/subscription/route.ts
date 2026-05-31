@@ -3,6 +3,7 @@ import { fail, ok } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
 import { getCurrentSubscription, listSubscriptionPlans, updateSubscriptionPlan } from "@/lib/data";
 import { normalizePlanId } from "@/lib/plan-gating";
+import { stripeConfigStatus } from "@/lib/stripe";
 import type { SubscriptionPlanId } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -10,14 +11,16 @@ export const runtime = "nodejs";
 export async function GET(request: NextRequest) {
   const auth = await requireUser(request, "settings:write");
   if (!auth.user) return fail(auth.error, auth.status);
+  const stripe = stripeConfigStatus();
   return ok({
     plans: listSubscriptionPlans(),
     subscription: await getCurrentSubscription(auth.user.business_id),
     paymentProvidersReady: {
-      stripe: Boolean(process.env.STRIPE_SECRET_KEY),
+      stripe: stripe.configured,
       paypal: Boolean(process.env.PAYPAL_CLIENT_ID && process.env.PAYPAL_CLIENT_SECRET),
       wipay: Boolean(process.env.WIPAY_ACCOUNT_NUMBER || process.env.WIPAY_API_KEY)
-    }
+    },
+    stripe
   });
 }
 

@@ -1127,6 +1127,103 @@ export async function updateSubscriptionPlan(planId: SubscriptionPlanId, userId?
   return getCurrentSubscription(resolvedBusinessId);
 }
 
+export async function syncStripeSubscription(input: {
+  businessId: string;
+  planId: SubscriptionPlanId | string;
+  stripeCustomerId: string;
+  stripeSubscriptionId: string;
+  status: Subscription["status"];
+  currentPeriodStart?: string | null;
+  currentPeriodEnd?: string | null;
+  trialEndsAt?: string | null;
+  metadata?: Record<string, unknown>;
+}) {
+  const normalizedPlanId = normalizePlanId(input.planId);
+  const plan = getPlanConfig(normalizedPlanId);
+  const existing = await getCurrentSubscription(input.businessId);
+  const subscriptionId = existing?.id || createId("sub");
+  const businessStatus = input.status === "active"
+    ? "active"
+    : input.status === "cancelled"
+      ? "cancelled"
+      : input.status === "past_due"
+        ? "past_due"
+        : "trial";
+
+  if (existing) {
+    await query(
+      `UPDATE subscriptions SET
+        plan_id = $2,
+        plan_name = $3,
+        status = $4,
+        seats = $5,
+        monthly_price = $6,
+        currency = $7,
+        provider = 'stripe',
+        provider_customer_id = $8,
+        provider_subscription_id = $9,
+        current_period_start = $10,
+        current_period_end = $11,
+        trial_ends_at = $12,
+        metadata = $13::jsonb,
+        updated_at = NOW()
+       WHERE id = $1`,
+      [
+        subscriptionId,
+        plan.id,
+        plan.name,
+        input.status,
+        plan.limits.staff,
+        plan.monthlyPrice,
+        plan.currency,
+        input.stripeCustomerId,
+        input.stripeSubscriptionId,
+        input.currentPeriodStart,
+        input.currentPeriodEnd,
+        input.trialEndsAt,
+        JSON.stringify(input.metadata || {})
+      ]
+    );
+  } else {
+    await query(
+      `INSERT INTO subscriptions (
+        id, business_id, plan_id, plan_name, status, seats, monthly_price, currency,
+        provider, provider_customer_id, provider_subscription_id, current_period_start,
+        current_period_end, trial_ends_at, metadata
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'stripe', $9, $10, $11, $12, $13, $14::jsonb)`,
+      [
+        subscriptionId,
+        input.businessId,
+        plan.id,
+        plan.name,
+        input.status,
+        plan.limits.staff,
+        plan.monthlyPrice,
+        plan.currency,
+        input.stripeCustomerId,
+        input.stripeSubscriptionId,
+        input.currentPeriodStart,
+        input.currentPeriodEnd,
+        input.trialEndsAt,
+        JSON.stringify(input.metadata || {})
+      ]
+    );
+  }
+
+  await query(
+    `UPDATE businesses
+     SET subscription_plan = $2, subscription_status = $3, updated_at = NOW()
+     WHERE id = $1`,
+    [input.businessId, plan.id, businessStatus]
+  );
+  await auditLog("subscription:stripe_sync", "subscription", subscriptionId, {
+    plan_id: plan.id,
+    stripe_subscription_id: input.stripeSubscriptionId,
+    status: input.status
+  });
+  return getCurrentSubscription(input.businessId);
+}
+
 export class PlanGateError extends Error {
   status = 402;
   details: {

@@ -90,6 +90,12 @@ TWILIO_ACCOUNT_SID=
 TWILIO_AUTH_TOKEN=
 TWILIO_PHONE_NUMBER=
 TWILIO_WHATSAPP_FROM=whatsapp:+14155238886
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
+STRIPE_STARTER_PRICE_ID=
+STRIPE_PRO_PRICE_ID=
+STRIPE_PREMIUM_PRICE_ID=
+STRIPE_ENTERPRISE_PRICE_ID=
 ```
 
 Notes:
@@ -100,6 +106,7 @@ Notes:
 - Do not use the direct Supabase Postgres URI on port `5432` for production.
 - `SESSION_SECRET` should be a long random value before production use.
 - Leave WhatsApp provider variables blank to keep orders working with safe "WhatsApp is not configured" logs.
+- Stripe billing uses Checkout Sessions and the Customer Portal. Add `STRIPE_SECRET_KEY`, one Stripe Price ID per paid plan, and `STRIPE_WEBHOOK_SECRET` after creating a webhook endpoint for `/api/stripe/webhook`.
 - Never commit `.env.local`.
 
 ## Supabase Setup

@@ -7,6 +7,7 @@ import {
 } from "@/lib/db";
 import { aiSupportStatus } from "@/lib/ai-support";
 import { whatsappConfigStatus } from "@/lib/whatsapp-server";
+import { stripeConfigStatus } from "@/lib/stripe";
 
 export const runtime = "nodejs";
 
@@ -152,17 +153,21 @@ async function getSchemaReadiness() {
 }
 
 function billingReadiness() {
-  const stripe = Boolean(process.env.STRIPE_SECRET_KEY);
+  const stripe = stripeConfigStatus();
   const paypal = Boolean(process.env.PAYPAL_CLIENT_ID && process.env.PAYPAL_CLIENT_SECRET);
   const wipay = Boolean(process.env.WIPAY_ACCOUNT_NUMBER || process.env.WIPAY_API_KEY);
   return {
-    configured: stripe || paypal || wipay,
-    stripe,
+    configured: stripe.configured || paypal || wipay,
+    stripe: stripe.configured,
+    stripeWebhookConfigured: stripe.webhookConfigured,
+    stripeReadyForPaidCheckout: stripe.readyForPaidCheckout,
+    stripePriceIds: stripe.priceIds,
+    missingStripe: stripe.missing,
     paypal,
     wipay,
-    message: stripe || paypal || wipay
-      ? "At least one payment provider is configured."
-      : "Subscription checkout is not fully configured. Add Stripe, PayPal, or WiPay credentials, or keep billing as manual."
+    message: stripe.readyForPaidCheckout || paypal || wipay
+      ? "At least one payment provider is configured for checkout."
+      : "Subscription checkout is not fully configured. Add Stripe secret, webhook secret, and price IDs in Vercel, then redeploy."
   };
 }
 

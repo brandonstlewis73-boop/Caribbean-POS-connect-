@@ -14,12 +14,19 @@ export function SubscriptionClient({
   plans,
   subscription,
   usageSummary,
-  paymentProvidersReady
+  paymentProvidersReady,
+  stripeStatus
 }: {
   plans: SubscriptionPlan[];
   subscription: Subscription | null;
   usageSummary: PlanUsageSummary;
   paymentProvidersReady: { stripe: boolean; paypal: boolean; wipay: boolean };
+  stripeStatus?: {
+    configured: boolean;
+    webhookConfigured: boolean;
+    readyForPaidCheckout: boolean;
+    missing: string[];
+  };
 }) {
   const [current, setCurrent] = useState(subscription);
   const [message, setMessage] = useState("");
@@ -29,6 +36,28 @@ export function SubscriptionClient({
   async function choosePlan(planId: SubscriptionPlanId) {
     setMessage("");
     setLoadingPlan(planId);
+    const selectedPlan = plans.find((plan) => plan.id === planId);
+    if (selectedPlan && selectedPlan.monthly_price > 0) {
+      if (!paymentProvidersReady.stripe) {
+        setLoadingPlan(null);
+        setMessage("Stripe is not configured. Add STRIPE_SECRET_KEY and plan price IDs in Vercel, then redeploy.");
+        return;
+      }
+      const checkout = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan_id: planId })
+      });
+      const checkoutPayload = await readApiPayload<{ url: string }>(checkout);
+      setLoadingPlan(null);
+      if (!checkout.ok || !checkoutPayload.data?.url) {
+        setMessage(checkoutPayload.error || "Stripe checkout could not be started.");
+        return;
+      }
+      window.location.href = checkoutPayload.data.url;
+      return;
+    }
+
     const response = await fetch("/api/subscription", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -46,7 +75,21 @@ export function SubscriptionClient({
     }
   }
 
+  async function openBillingPortal() {
+    setMessage("");
+    setLoadingPlan("business");
+    const response = await fetch("/api/stripe/portal", { method: "POST" });
+    const payload = await readApiPayload<{ url: string }>(response);
+    setLoadingPlan(null);
+    if (!response.ok || !payload.data?.url) {
+      setMessage(payload.error || "Stripe billing portal could not be opened.");
+      return;
+    }
+    window.location.href = payload.data.url;
+  }
+
   const hasPaymentProvider = paymentProvidersReady.stripe || paymentProvidersReady.paypal || paymentProvidersReady.wipay;
+  const canManageStripe = paymentProvidersReady.stripe && current?.provider === "stripe" && Boolean(current.provider_customer_id);
 
   return (
     <div className="grid min-w-0 gap-4">
@@ -69,7 +112,16 @@ export function SubscriptionClient({
           </div>
           <div className="rounded-card border border-white/10 bg-black/25 p-4">
             <p className="text-sm font-bold text-teal-50/60">Payment checkout</p>
-            <p className="mt-2 text-sm font-black">{hasPaymentProvider ? "Provider keys detected" : "Ready for Stripe, PayPal, or WiPay setup"}</p>
+            <p className="mt-2 text-sm font-black">{hasPaymentProvider ? "Stripe checkout available" : "Ready for Stripe, PayPal, or WiPay setup"}</p>
+            {stripeStatus && stripeStatus.missing.length ? (
+              <p className="mt-2 text-xs font-bold text-amber-200">Missing Stripe setup: {stripeStatus.missing.join(", ")}</p>
+            ) : null}
+            {canManageStripe ? (
+              <Button type="button" variant="secondary" className="mt-3 w-full" onClick={openBillingPortal} disabled={loadingPlan !== null}>
+                <CreditCard className="h-4 w-4" />
+                Manage billing
+              </Button>
+            ) : null}
           </div>
         </div>
       </Panel>
@@ -125,7 +177,7 @@ export function SubscriptionClient({
                 </div>
                 <Button variant={active ? "secondary" : "primary"} onClick={() => choosePlan(plan.id)} disabled={loadingPlan !== null || active}>
                   {plan.id === "starter" ? <Sparkles className="h-4 w-4" /> : <CreditCard className="h-4 w-4" />}
-                  {loadingPlan === plan.id ? "Updating..." : active ? "Current plan" : current ? "Upgrade Plan" : "Start Trial"}
+                  {loadingPlan === plan.id ? "Loading..." : active ? "Current plan" : plan.monthly_price > 0 ? "Checkout with Stripe" : current ? "Switch plan" : "Start trial"}
                 </Button>
               </div>
             </Panel>
