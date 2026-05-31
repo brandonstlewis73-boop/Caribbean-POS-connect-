@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type InputHTMLAttributes, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
 import { CreditCard, ExternalLink, LocateFixed, MessageCircle, Minus, Plus, Send, ShoppingBag, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { Field, SelectField, TextAreaField } from "@/components/ui/Field";
 import { Badge } from "@/components/ui/Badge";
 import { getDefaultCountryForCurrency, getDeliveryRegionsForCurrency, money, PAYMENT_METHODS } from "@/lib/constants";
 import { readApiPayload } from "@/lib/client-response";
@@ -39,6 +38,44 @@ function paymentMethodEnabled(method: string, settings: Settings) {
   if (method === "WiPay") return settings.payment_wipay_enabled;
   if (method === "Pay on delivery") return settings.payment_pod_enabled;
   return true;
+}
+
+function StoreField({ label, className, ...props }: InputHTMLAttributes<HTMLInputElement> & { label: string }) {
+  return (
+    <label className="grid min-w-0 gap-2 text-sm font-bold text-slate-700">
+      <span>{label}</span>
+      <input
+        className={`min-h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-teal-500 focus:ring-4 focus:ring-teal-100 ${className || ""}`}
+        {...props}
+      />
+    </label>
+  );
+}
+
+function StoreSelect({ label, children, className, ...props }: SelectHTMLAttributes<HTMLSelectElement> & { label: string }) {
+  return (
+    <label className="grid min-w-0 gap-2 text-sm font-bold text-slate-700">
+      <span>{label}</span>
+      <select
+        className={`min-h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100 ${className || ""}`}
+        {...props}
+      >
+        {children}
+      </select>
+    </label>
+  );
+}
+
+function StoreTextArea({ label, className, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement> & { label: string }) {
+  return (
+    <label className="grid min-w-0 gap-2 text-sm font-bold text-slate-700">
+      <span>{label}</span>
+      <textarea
+        className={`min-h-24 w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm font-semibold text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-teal-500 focus:ring-4 focus:ring-teal-100 ${className || ""}`}
+        {...props}
+      />
+    </label>
+  );
 }
 
 export function OnlineOrderClient({
@@ -269,58 +306,71 @@ export function OnlineOrderClient({
   }
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[#03100f] text-white">
-      <header className="sticky top-0 z-30 border-b border-white/10 bg-[#03100f]/90 px-4 py-4 shadow-soft backdrop-blur-xl">
+    <main className="min-h-screen overflow-x-hidden bg-[#f7faf8] pb-24 text-slate-950 xl:pb-0">
+      <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/95 px-4 py-4 shadow-sm backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            <img src={settings.logo_url || "/logo.svg"} alt="" className="h-11 w-11 shrink-0 rounded-card bg-white object-contain p-1" />
+            <img src={settings.logo_url || "/logo.svg"} alt="" className="h-12 w-12 shrink-0 rounded-2xl border border-slate-200 bg-white object-contain p-1 shadow-sm" />
             <div className="min-w-0">
-              <h1 className="text-lg font-black leading-tight">{settings.business_name}</h1>
-              <p className="text-sm font-semibold text-teal-50/60">Online ordering - {marketCountry} / {settings.currency}</p>
+              <h1 className="truncate text-xl font-black leading-tight tracking-tight text-slate-950">{settings.business_name}</h1>
+              <p className="text-sm font-semibold text-slate-500">Online ordering - {marketCountry} / {settings.currency}</p>
             </div>
           </div>
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             {settings.facebook_url ? (
-              <a href={settings.facebook_url} target="_blank" rel="noreferrer" className="inline-flex min-h-10 items-center gap-2 rounded-card border border-white/10 bg-white/[0.07] px-3 py-2 text-sm font-bold leading-tight text-white hover:bg-white/[0.12]">
+              <a href={settings.facebook_url} target="_blank" rel="noreferrer" className="inline-flex min-h-10 items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-bold leading-tight text-slate-700 shadow-sm hover:border-teal-300 hover:text-teal-700">
                 <ExternalLink className="h-4 w-4" />
                 Facebook
               </a>
             ) : null}
             {settings.instagram_url ? (
-              <a href={settings.instagram_url} target="_blank" rel="noreferrer" className="inline-flex min-h-10 items-center gap-2 rounded-card border border-white/10 bg-white/[0.07] px-3 py-2 text-sm font-bold leading-tight text-white hover:bg-white/[0.12]">
+              <a href={settings.instagram_url} target="_blank" rel="noreferrer" className="inline-flex min-h-10 items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-bold leading-tight text-slate-700 shadow-sm hover:border-teal-300 hover:text-teal-700">
                 <ExternalLink className="h-4 w-4" />
                 Instagram
               </a>
             ) : null}
-            <div className="rounded-card border border-cyan-200/20 bg-cyan-300/12 px-3 py-2 text-sm font-bold text-cyan-100">
+            <a href="#checkout" className="rounded-full border border-teal-200 bg-teal-50 px-3 py-2 text-sm font-black text-teal-800 shadow-sm">
               Cart {cart.length} - {formatMoney(total)}
-            </div>
+            </a>
           </div>
         </div>
       </header>
 
-      <div className="mx-auto grid max-w-7xl min-w-0 gap-5 px-4 py-5 xl:grid-cols-[minmax(0,1fr)_minmax(360px,420px)]">
+      <div className="mx-auto grid max-w-7xl min-w-0 gap-6 px-4 py-6 xl:grid-cols-[minmax(0,1fr)_minmax(380px,420px)]">
         <section className="grid min-w-0 gap-4">
-          {settings.storefront_banner_url ? (
-            <img src={settings.storefront_banner_url} alt="" className="h-36 w-full rounded-card object-cover shadow-soft" />
-          ) : null}
+          <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
+            {settings.storefront_banner_url ? (
+              <img src={settings.storefront_banner_url} alt="" className="h-44 w-full object-cover sm:h-56" />
+            ) : (
+              <div className="h-32 bg-gradient-to-br from-teal-50 via-white to-amber-50 sm:h-44" />
+            )}
+            <div className="grid gap-4 p-5 sm:flex sm:items-end sm:justify-between sm:p-6">
+              <div className="min-w-0">
+                <p className="text-sm font-black uppercase tracking-[0.16em] text-teal-700">Order online</p>
+                <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">{settings.business_name}</h2>
+                <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-600">
+                  Choose your items, select pickup or delivery, and submit your order securely.
+                </p>
+              </div>
+              {settings.store_hours ? (
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-600">
+                  Hours: {settings.store_hours}
+                </div>
+              ) : null}
+            </div>
+          </div>
           {settings.storefront_status === "paused" ? (
-            <p className="rounded-card border border-amber-300/20 bg-amber-300/10 p-3 text-sm font-black text-amber-100">
+            <p className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-black text-amber-800">
               This storefront is paused right now. You can view products, but ordering is temporarily unavailable.
             </p>
           ) : null}
-          {settings.store_hours ? (
-            <p className="rounded-card border border-white/10 bg-white/[0.06] p-3 text-sm font-bold text-teal-50/70">
-              Hours: {settings.store_hours}
-            </p>
-          ) : null}
-          <div className="flex gap-2 overflow-x-auto scroll-smooth">
+          <div className="flex gap-2 overflow-x-auto scroll-smooth rounded-[24px] border border-slate-200 bg-white p-2 shadow-sm">
             <button
               onClick={() => setCategory("all")}
-              className={`whitespace-nowrap rounded-card px-3 py-2 text-sm font-black ${
+              className={`min-h-11 whitespace-nowrap rounded-full px-4 py-2 text-sm font-black transition ${
                 category === "all"
-                  ? "bg-cyan-300 text-slate-950"
-                  : "border border-white/10 bg-white/[0.07] text-teal-50"
+                  ? "bg-slate-950 text-white"
+                  : "text-slate-600 hover:bg-slate-100"
               }`}
             >
               All
@@ -329,10 +379,10 @@ export function OnlineOrderClient({
               <button
                 key={item.id}
                 onClick={() => setCategory(item.id)}
-                className={`whitespace-nowrap rounded-card px-3 py-2 text-sm font-black ${
+                className={`min-h-11 whitespace-nowrap rounded-full px-4 py-2 text-sm font-black transition ${
                   category === item.id
-                    ? "bg-cyan-300 text-slate-950"
-                    : "border border-white/10 bg-white/[0.07] text-teal-50"
+                    ? "bg-slate-950 text-white"
+                    : "text-slate-600 hover:bg-slate-100"
                 }`}
               >
                 {item.icon ? `${item.icon} ` : ""}{item.name}
@@ -340,126 +390,139 @@ export function OnlineOrderClient({
             ))}
           </div>
           {!storefrontCategories.length ? (
-            <p className="rounded-card border border-white/10 bg-white/[0.06] p-3 text-sm font-bold text-teal-50/60">
+            <p className="rounded-2xl border border-slate-200 bg-white p-4 text-sm font-bold text-slate-500 shadow-sm">
               No categories yet. Add one in Settings.
             </p>
           ) : null}
-          <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
+          <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
             {statusMessage ? (
-              <div className="rounded-card border border-white/10 bg-white/[0.06] p-4 text-sm font-bold text-teal-50/70 shadow-soft sm:col-span-2 md:col-span-3 xl:col-span-4">
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm font-bold text-slate-600 shadow-sm sm:col-span-2 md:col-span-3 xl:col-span-4">
                 {statusMessage}
               </div>
             ) : null}
             {visibleProducts.map((product) => (
-              <button key={product.id} onClick={() => add(product)} className="min-h-[220px] min-w-0 overflow-hidden rounded-card border border-white/10 bg-white/[0.055] text-left shadow-soft transition hover:-translate-y-0.5 hover:border-cyan-200/30">
-                <div className="relative h-28 bg-slate-950/60">
+              <button key={product.id} onClick={() => add(product)} className="group min-h-[248px] min-w-0 overflow-hidden rounded-[24px] border border-slate-200 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:border-teal-300 hover:shadow-md">
+                <div className="relative h-36 bg-slate-100">
                   {product.image_url ? (
                     <img src={product.image_url} alt={product.name} loading="lazy" className="h-full w-full object-cover" />
                   ) : (
-                    <div className="grid h-full place-items-center">
-                      <ShoppingBag className="h-6 w-6 text-cyan-200" />
+                    <div className="grid h-full place-items-center bg-gradient-to-br from-teal-50 to-amber-50">
+                      <ShoppingBag className="h-7 w-7 text-teal-600" />
                     </div>
                   )}
                   <div className="absolute right-2 top-2">
                     <Badge tone={product.stock_quantity <= product.low_stock_alert ? "red" : "green"}>{product.stock_quantity}</Badge>
                   </div>
                 </div>
-                <div className="p-3">
-                  <p className="line-clamp-2 min-h-10 text-sm font-black leading-tight">{product.name}</p>
-                  <p className="mt-2 text-lg font-black text-cyan-200">{formatMoney(product.selling_price)}</p>
+                <div className="grid gap-3 p-4">
+                  <p className="line-clamp-2 min-h-10 text-base font-black leading-tight text-slate-950">{product.name}</p>
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-lg font-black text-teal-700">{formatMoney(product.selling_price)}</p>
+                    <span className="rounded-full bg-slate-950 px-3 py-1.5 text-xs font-black text-white transition group-hover:bg-teal-700">Add</span>
+                  </div>
                 </div>
               </button>
             ))}
             {!visibleProducts.length ? (
-              <div className="grid min-h-64 place-items-center rounded-card border border-white/10 bg-white/[0.055] p-6 text-center shadow-soft sm:col-span-2 md:col-span-3 xl:col-span-4">
+              <div className="grid min-h-64 place-items-center rounded-[24px] border border-slate-200 bg-white p-6 text-center shadow-sm sm:col-span-2 md:col-span-3 xl:col-span-4">
                 <div>
-                  <p className="text-lg font-black">No products yet.</p>
-                  <p className="mt-2 text-sm font-semibold text-teal-50/60">Products added by the business will appear here.</p>
+                  <p className="text-lg font-black text-slate-950">No products yet.</p>
+                  <p className="mt-2 text-sm font-semibold text-slate-500">Products added by the business will appear here.</p>
                 </div>
               </div>
             ) : null}
           </div>
         </section>
 
-        <aside className="grid min-w-0 gap-4 self-start xl:sticky xl:top-4">
-          <section className="rounded-card border border-white/10 bg-white/[0.06] shadow-soft">
-            <div className="border-b border-white/10 px-4 py-3">
-              <h2 className="font-black">Your order</h2>
+        <aside id="checkout" className="grid min-w-0 gap-4 self-start scroll-mt-24 xl:sticky xl:top-24">
+          <section className="rounded-[24px] border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-200 px-5 py-4">
+              <h2 className="text-lg font-black tracking-tight text-slate-950">Your order</h2>
+              <p className="mt-1 text-sm font-semibold text-slate-500">{cart.length ? `${cart.length} item${cart.length === 1 ? "" : "s"} selected` : "Build your cart from the menu"}</p>
             </div>
             <div className="max-h-64 overflow-auto">
               {cart.map((item) => (
-                <div key={item.id} className="grid gap-2 border-b border-white/10 p-3">
+                <div key={item.id} className="grid gap-3 border-b border-slate-100 p-4">
                   <div className="flex min-w-0 justify-between gap-3">
-                    <p className="min-w-0 text-sm font-black leading-tight">{item.name}</p>
-                    <button className="shrink-0" onClick={() => setCart((current) => current.filter((entry) => entry.id !== item.id))} aria-label={`Remove ${item.name}`}>
+                    <p className="min-w-0 text-sm font-black leading-tight text-slate-950">{item.name}</p>
+                    <button className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-slate-400 transition hover:bg-red-50 hover:text-red-600" onClick={() => setCart((current) => current.filter((entry) => entry.id !== item.id))} aria-label={`Remove ${item.name}`}>
                       <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
                   <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
-                    <div className="flex shrink-0 items-center rounded-card border border-white/10 bg-slate-950/35">
-                      <button className="grid h-9 w-9 place-items-center" onClick={() => update(item.id, -1)}><Minus className="h-4 w-4" /></button>
-                      <span className="grid h-9 w-9 place-items-center font-black">{item.quantity}</span>
-                      <button className="grid h-9 w-9 place-items-center" onClick={() => update(item.id, 1)}><Plus className="h-4 w-4" /></button>
+                    <div className="flex shrink-0 items-center rounded-full border border-slate-200 bg-slate-50">
+                      <button className="grid h-9 w-9 place-items-center text-slate-600" onClick={() => update(item.id, -1)}><Minus className="h-4 w-4" /></button>
+                      <span className="grid h-9 w-9 place-items-center font-black text-slate-950">{item.quantity}</span>
+                      <button className="grid h-9 w-9 place-items-center text-slate-600" onClick={() => update(item.id, 1)}><Plus className="h-4 w-4" /></button>
                     </div>
-                    <strong>{formatMoney(item.selling_price * item.quantity)}</strong>
+                    <strong className="text-slate-950">{formatMoney(item.selling_price * item.quantity)}</strong>
                   </div>
                 </div>
               ))}
-              {!cart.length ? <p className="p-4 text-sm font-semibold text-teal-50/55">Select products to start.</p> : null}
+              {!cart.length ? (
+                <div className="grid place-items-center p-8 text-center">
+                  <ShoppingBag className="h-8 w-8 text-slate-300" />
+                  <p className="mt-3 text-sm font-semibold text-slate-500">Select products to start your order.</p>
+                </div>
+              ) : null}
             </div>
-            <div className="grid gap-1 p-4 text-sm">
-              <div className="flex justify-between"><span>Subtotal</span><strong>{formatMoney(subtotal)}</strong></div>
-              <div className="flex justify-between"><span>Tax/Fee</span><strong>{formatMoney(tax)}</strong></div>
-              <div className="flex justify-between"><span>Delivery</span><strong>{formatMoney(deliveryFee)}</strong></div>
-              <div className="mt-2 flex justify-between text-xl font-black"><span>Total</span><span>{formatMoney(total)}</span></div>
+            <div className="grid gap-2 border-t border-slate-200 bg-slate-50/80 p-5 text-sm text-slate-600">
+              <div className="flex justify-between"><span>Subtotal</span><strong className="text-slate-950">{formatMoney(subtotal)}</strong></div>
+              <div className="flex justify-between"><span>Tax/Fee</span><strong className="text-slate-950">{formatMoney(tax)}</strong></div>
+              <div className="flex justify-between"><span>Delivery</span><strong className="text-slate-950">{formatMoney(deliveryFee)}</strong></div>
+              <div className="mt-2 flex justify-between border-t border-slate-200 pt-3 text-xl font-black text-slate-950"><span>Total</span><span>{formatMoney(total)}</span></div>
             </div>
           </section>
 
-          <section className="rounded-card border border-white/10 bg-white/[0.06] p-4 shadow-soft">
+          <section className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-4">
+              <h2 className="text-lg font-black tracking-tight text-slate-950">Checkout</h2>
+              <p className="mt-1 text-sm font-semibold text-slate-500">Confirm your contact, address, and payment preference.</p>
+            </div>
             <div className="grid gap-3">
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => setFulfillment("delivery")}
                   disabled={settings.delivery_enabled === false}
-                  className={`min-h-11 rounded-card text-sm font-black disabled:cursor-not-allowed disabled:opacity-45 ${fulfillment === "delivery" ? "bg-cyan-300 text-slate-950" : "border border-white/10 bg-slate-950/30 text-white"}`}
+                  className={`min-h-11 rounded-full text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-45 ${fulfillment === "delivery" ? "bg-slate-950 text-white" : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}
                 >
                   Delivery
                 </button>
                 <button
                   onClick={() => setFulfillment("pickup")}
                   disabled={settings.pickup_enabled === false}
-                  className={`min-h-11 rounded-card text-sm font-black disabled:cursor-not-allowed disabled:opacity-45 ${fulfillment === "pickup" ? "bg-cyan-300 text-slate-950" : "border border-white/10 bg-slate-950/30 text-white"}`}
+                  className={`min-h-11 rounded-full text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-45 ${fulfillment === "pickup" ? "bg-slate-950 text-white" : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}
                 >
                   Pickup
                 </button>
               </div>
-              <Field label="Name" value={customer.name} onChange={(event) => setCustomer({ ...customer, name: event.target.value })} />
-              <Field label="Phone" value={customer.phone} onChange={(event) => setCustomer({ ...customer, phone: event.target.value })} />
-              <Field label="Email optional" type="email" value={customer.email} onChange={(event) => setCustomer({ ...customer, email: event.target.value })} />
+              <StoreField label="Name" value={customer.name} onChange={(event) => setCustomer({ ...customer, name: event.target.value })} />
+              <StoreField label="Phone" value={customer.phone} onChange={(event) => setCustomer({ ...customer, phone: event.target.value })} />
+              <StoreField label="Email optional" type="email" value={customer.email} onChange={(event) => setCustomer({ ...customer, email: event.target.value })} />
               {fulfillment === "delivery" ? (
                 <div className="grid gap-3">
-                  <Field label="Street address" value={customer.street_address} onChange={(event) => setCustomer({ ...customer, street_address: event.target.value })} />
-                  <Field label="City/town" value={customer.city} onChange={(event) => setCustomer({ ...customer, city: event.target.value })} />
+                  <StoreField label="Street address" value={customer.street_address} onChange={(event) => setCustomer({ ...customer, street_address: event.target.value })} />
+                  <StoreField label="City/town" value={customer.city} onChange={(event) => setCustomer({ ...customer, city: event.target.value })} />
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <Field label="Country" value={customer.country} onChange={(event) => setCustomer({ ...customer, country: event.target.value })} />
-                    <Field label="Postal code optional" value={customer.postal_code} onChange={(event) => setCustomer({ ...customer, postal_code: event.target.value })} />
+                    <StoreField label="Country" value={customer.country} onChange={(event) => setCustomer({ ...customer, country: event.target.value })} />
+                    <StoreField label="Postal code optional" value={customer.postal_code} onChange={(event) => setCustomer({ ...customer, postal_code: event.target.value })} />
                   </div>
-                  <SelectField label={deliveryRegionLabel} value={customer.region} onChange={(event) => setCustomer({ ...customer, region: event.target.value })}>
+                  <StoreSelect label={deliveryRegionLabel} value={customer.region} onChange={(event) => setCustomer({ ...customer, region: event.target.value })}>
                     {deliveryRegions.map((region) => <option key={region}>{region}</option>)}
-                  </SelectField>
-                  <TextAreaField label="Delivery instructions" value={customer.delivery_notes} onChange={(event) => setCustomer({ ...customer, delivery_notes: event.target.value })} />
-                  <Button type="button" onClick={captureLocation} disabled={locating}>
+                  </StoreSelect>
+                  <StoreTextArea label="Delivery instructions" value={customer.delivery_notes} onChange={(event) => setCustomer({ ...customer, delivery_notes: event.target.value })} />
+                  <Button type="button" variant="secondary" onClick={captureLocation} disabled={locating} className="border-slate-200 bg-white text-slate-800 hover:border-teal-300 hover:bg-teal-50">
                     <LocateFixed className="h-4 w-4" />
                     {locating ? "Finding your location..." : "Use My Current Location"}
                   </Button>
-                  {locationStatus ? <p className="text-xs font-bold text-caribbean-teal">{locationStatus}</p> : null}
-                  <Field label="Shared location link optional" value={locationLink} onChange={(event) => setLocationLink(event.target.value)} />
+                  {locationStatus ? <p className="text-xs font-bold text-teal-700">{locationStatus}</p> : null}
+                  <StoreField label="Shared location link optional" value={locationLink} onChange={(event) => setLocationLink(event.target.value)} />
                 </div>
               ) : null}
-              <SelectField label="Payment method" value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)}>
+              <StoreSelect label="Payment method" value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)}>
                 {enabledPaymentMethods.map((method) => <option key={method}>{method}</option>)}
-              </SelectField>
-              <label className="flex items-start gap-2 text-sm font-semibold text-teal-50/65">
+              </StoreSelect>
+              <label className="flex items-start gap-2 text-sm font-semibold leading-6 text-slate-600">
                 <input
                   type="checkbox"
                   checked={customer.marketing_consent}
@@ -468,8 +531,8 @@ export function OnlineOrderClient({
                 />
                 I agree to receive optional marketing messages. My order data will be stored for receipts, delivery, loyalty, and customer service.
               </label>
-              {error ? <p className="rounded-card border border-red-300/20 bg-red-400/12 p-3 text-sm font-bold text-red-100">{error}</p> : null}
-              <Button variant="primary" size="lg" onClick={submitOrder} disabled={loading}>
+              {error ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm font-bold text-red-700">{error}</p> : null}
+              <Button variant="primary" size="lg" onClick={submitOrder} disabled={loading} className="rounded-full bg-slate-950 text-white hover:bg-teal-700">
                 <Send className="h-4 w-4" />
                 {loading ? "Submitting..." : "Submit order"}
               </Button>
@@ -477,24 +540,24 @@ export function OnlineOrderClient({
           </section>
 
           {order ? (
-            <section className="rounded-card border border-white/10 bg-white/[0.06] p-4 shadow-soft">
-              <h2 className="font-black">Order #{order.order_number} received</h2>
-              <p className="mt-2 text-sm font-semibold text-teal-50/60">Total: {formatMoney(order.total)}</p>
+            <section className="rounded-[24px] border border-emerald-200 bg-emerald-50 p-5 shadow-sm">
+              <h2 className="text-lg font-black text-emerald-950">Order #{order.order_number} received</h2>
+              <p className="mt-2 text-sm font-semibold text-emerald-800">Total: {formatMoney(order.total)}</p>
               <div className="mt-4 grid gap-2">
                 {order.whatsapp_business_link ? (
-                  <a href={order.whatsapp_business_link} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-card bg-caribbean-palm px-3 py-2 text-center text-sm font-black leading-tight text-white">
+                  <a href={order.whatsapp_business_link} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-emerald-700 px-3 py-2 text-center text-sm font-black leading-tight text-white">
                     <MessageCircle className="h-4 w-4" />
                     Send order to WhatsApp
                   </a>
                 ) : null}
                 {order.payment_link ? (
-                  <a href={order.payment_link} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-card bg-caribbean-mango px-3 py-2 text-center text-sm font-black leading-tight text-slate-950">
+                  <a href={order.payment_link} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-amber-300 px-3 py-2 text-center text-sm font-black leading-tight text-slate-950">
                     <CreditCard className="h-4 w-4" />
                     Pay order
                   </a>
                 ) : null}
                 {order.whatsapp_customer_link ? (
-                  <a href={order.whatsapp_customer_link} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-card border border-white/10 bg-white/[0.07] px-3 py-2 text-center text-sm font-black leading-tight text-white">
+                  <a href={order.whatsapp_customer_link} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-emerald-200 bg-white px-3 py-2 text-center text-sm font-black leading-tight text-emerald-900">
                     <MessageCircle className="h-4 w-4" />
                     WhatsApp confirmation
                   </a>
@@ -504,10 +567,18 @@ export function OnlineOrderClient({
           ) : null}
         </aside>
       </div>
-      <footer className="mx-auto flex max-w-7xl flex-wrap gap-3 px-4 pb-6 text-sm font-bold text-teal-50/45">
-        <a href="/privacy" className="hover:text-cyan-100">Privacy policy</a>
-        <a href="/contact" className="hover:text-cyan-100">Contact</a>
-        <a href="/login" className="hover:text-cyan-100">Staff login</a>
+      {cart.length ? (
+        <a href="#checkout" className="fixed inset-x-3 bottom-3 z-40 grid rounded-full bg-slate-950 px-5 py-3 text-white shadow-2xl xl:hidden">
+          <span className="flex items-center justify-between gap-3 text-sm font-black">
+            <span>{cart.length} item{cart.length === 1 ? "" : "s"}</span>
+            <span>Checkout - {formatMoney(total)}</span>
+          </span>
+        </a>
+      ) : null}
+      <footer className="mx-auto flex max-w-7xl flex-wrap gap-3 px-4 pb-8 text-sm font-bold text-slate-500">
+        <a href="/privacy" className="hover:text-teal-700">Privacy policy</a>
+        <a href="/contact" className="hover:text-teal-700">Contact</a>
+        <a href="/login" className="hover:text-teal-700">Staff login</a>
       </footer>
     </main>
   );
