@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { fail, ok } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
-import { getBusinessSettings } from "@/lib/data";
+import { PlanGateError, assertFeatureAccess, assertUsageLimit, getBusinessSettings } from "@/lib/data";
 import { sendWhatsAppMessage, whatsappConfigStatus } from "@/lib/whatsapp";
 import { whatsappTestSchema } from "@/lib/validators";
 
@@ -36,6 +36,13 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) return fail("Invalid WhatsApp test payload", 422, parsed.error.flatten());
 
   const settings = await getBusinessSettings(auth.user.business_id);
+  try {
+    await assertFeatureAccess(auth.user.business_id, "whatsappMessaging");
+    await assertUsageLimit(auth.user.business_id, "whatsappMessages", 1);
+  } catch (error) {
+    if (error instanceof PlanGateError) return fail(error.message, error.status, error.details);
+    return fail("WhatsApp plan access could not be checked.", 500);
+  }
   const to = parsed.data.to || settings.whatsapp_business_number;
   const result = await sendWhatsAppMessage(
     to,

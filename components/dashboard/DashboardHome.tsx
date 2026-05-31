@@ -114,8 +114,8 @@ export function DashboardHome({ data }: { data: DashboardData }) {
 
   return (
     <div className="mx-auto grid w-full max-w-[1180px] gap-5">
-      <section className="grid gap-4 lg:grid-cols-4">
-        <div className="rounded-card border border-white/10 bg-white/[0.055] p-5 shadow-soft lg:col-span-2">
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
+        <div className="rounded-card border border-white/10 bg-[rgba(8,24,22,0.78)] p-5 shadow-soft sm:p-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
               <p className="text-sm font-bold text-teal-50/62">Business storefront</p>
@@ -150,18 +150,22 @@ export function DashboardHome({ data }: { data: DashboardData }) {
           {copyMessage ? <p className="mt-3 text-sm font-bold text-cyan-100/70">{copyMessage}</p> : null}
         </div>
 
-        {topStats.map((stat) => {
-          const Icon = stat.icon;
-          return (
-            <div key={stat.label} className="rounded-card border border-white/10 bg-white/[0.055] p-4 shadow-soft">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-sm font-bold text-teal-50/62">{stat.label}</p>
-                <Icon className="h-4 w-4 text-cyan-200" />
+        <div className="grid gap-4 sm:grid-cols-2">
+          {topStats.map((stat) => {
+            const Icon = stat.icon;
+            return (
+              <div key={stat.label} className="rounded-card border border-white/10 bg-[rgba(8,24,22,0.7)] p-4 shadow-soft">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-bold text-teal-50/62">{stat.label}</p>
+                  <span className="grid h-9 w-9 place-items-center rounded-card bg-cyan-300/10 text-cyan-200">
+                    <Icon className="h-4 w-4" />
+                  </span>
+                </div>
+                <p className="mt-4 text-2xl font-black text-white">{stat.value}</p>
               </div>
-              <p className="mt-4 text-2xl font-black text-white">{stat.value}</p>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </section>
 
       <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">

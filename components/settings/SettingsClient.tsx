@@ -27,7 +27,8 @@ import { Field, SelectField, TextAreaField } from "@/components/ui/Field";
 import { Panel, PanelHeader } from "@/components/ui/Panel";
 import { readApiPayload } from "@/lib/client-response";
 import { detectCurrentAddress } from "@/lib/location-client";
-import { SUBSCRIPTION_PLANS, getDefaultDeliveryRatesForCurrency } from "@/lib/constants";
+import { getDefaultDeliveryRatesForCurrency } from "@/lib/constants";
+import { PLAN_CONFIG, PLAN_ORDER, type PlanUsageSummary } from "@/lib/plan-gating";
 import type { Business, Category, Settings, Subscription, User } from "@/lib/types";
 
 const MAX_LOGO_SIZE_BYTES = 750 * 1024;
@@ -112,13 +113,15 @@ export function SettingsClient({
   staff,
   businesses,
   categories,
-  subscription
+  subscription,
+  planUsage
 }: {
   settings: Settings;
   staff: User[];
   businesses: Business[];
   categories: Category[];
   subscription: Subscription | null;
+  planUsage: PlanUsageSummary;
 }) {
   const [draft, setDraft] = useState(settings);
   const [staffItems, setStaffItems] = useState(staff.filter((member) => member.role !== "kitchen"));
@@ -703,10 +706,30 @@ export function SettingsClient({
               <p className="mt-1 text-sm font-semibold text-teal-50/60">Status: {subscription?.status || "trial"}</p>
             </div>
             <div className="grid gap-3 sm:grid-cols-3">
-              {SUBSCRIPTION_PLANS.map((plan) => (
+              {PLAN_ORDER.map((planId) => {
+                const plan = PLAN_CONFIG[planId];
+                return (
                 <div key={plan.id} className="rounded-card border border-white/10 bg-white/[0.045] p-3">
                   <p className="font-black text-white">{plan.name.replace(" Plan", "")}</p>
-                  <p className="mt-1 text-sm font-semibold text-teal-50/55">{plan.currency}{plan.monthly_price}/mo</p>
+                  <p className="mt-1 text-sm font-semibold text-teal-50/55">
+                    {plan.id === "trial" ? "Free trial" : plan.monthlyPrice ? `${plan.currency}${plan.monthlyPrice}/mo` : "Custom"}
+                  </p>
+                </div>
+                );
+              })}
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {planUsage.meters.map((meter) => (
+                <div key={meter.key} className="rounded-card border border-white/10 bg-black/20 p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-black text-white">{meter.label}</p>
+                    <Badge tone={meter.locked ? "amber" : meter.limit === null ? "green" : "neutral"}>
+                      {meter.locked ? "Locked" : meter.limit === null ? "Unlimited" : `${meter.used}/${meter.limit}`}
+                    </Badge>
+                  </div>
+                  <div className="mt-3 h-2 rounded-full bg-white/10">
+                    <div className="h-2 rounded-full bg-cyan-300" style={{ width: `${meter.limit === null ? 100 : meter.percent}%` }} />
+                  </div>
                 </div>
               ))}
             </div>

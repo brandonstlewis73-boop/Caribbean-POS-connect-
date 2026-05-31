@@ -4,11 +4,23 @@ import { query, transaction, createId, type PoolClient } from "./db";
 import {
   CURRENCY_CODE,
   DEFAULT_DELIVERY_RATES,
-  SUBSCRIPTION_PLANS,
   getDefaultDeliveryRatesForCurrency,
   getDeliveryRegionsForCurrency,
   money
 } from "./constants";
+import {
+  PLAN_ORDER,
+  PLAN_CONFIG,
+  buildUsageMeters,
+  canUseFeature,
+  getPlanConfig,
+  isWithinLimit,
+  normalizePlanId,
+  type FeatureKey,
+  type PlanUsageSummary,
+  type UsageLimitKey,
+  type UsageSnapshot
+} from "./plan-gating";
 import type {
   CheckoutPayload,
   Customer,
@@ -986,7 +998,7 @@ export async function createBusinessOwnerAccount(input: {
     for (const [key, value] of Object.entries(businessSettings)) {
       await saveBusinessSettingValue(businessId, key, value, client);
     }
-    const plan = SUBSCRIPTION_PLANS[0];
+    const plan = PLAN_CONFIG.trial;
     await query(
       `INSERT INTO subscriptions (
         id, business_id, plan_id, plan_name, status, seats, monthly_price, currency,
@@ -997,10 +1009,16 @@ export async function createBusinessOwnerAccount(input: {
         businessId,
         plan.id,
         plan.name,
-        plan.max_staff,
-        plan.monthly_price,
+        plan.limits.staff,
+        plan.monthlyPrice,
         currency,
-        JSON.stringify({ max_products: plan.max_products, whatsapp_enabled: plan.whatsapp_enabled })
+        JSON.stringify({
+          max_products: plan.limits.products,
+          max_staff: plan.limits.staff,
+          max_ai_generations: plan.limits.aiGenerations,
+          max_whatsapp_messages: plan.limits.whatsappMessages,
+          whatsapp_enabled: plan.features.includes("whatsappMessaging")
+        })
       ],
       client
     );
@@ -1035,18 +1053,24 @@ export async function deleteBusiness(id: string, userId?: string) {
 }
 
 export function listSubscriptionPlans(): SubscriptionPlan[] {
-  return SUBSCRIPTION_PLANS.map((plan) => ({
-    id: plan.id,
-    name: plan.name,
-    audience: plan.audience,
-    monthly_price: plan.monthly_price,
-    currency: plan.currency,
-    max_products: plan.max_products,
-    max_staff: plan.max_staff,
-    whatsapp_enabled: plan.whatsapp_enabled,
-    ai_support_enabled: plan.ai_support_enabled,
-    features: [...plan.features]
-  })) as SubscriptionPlan[];
+  return PLAN_ORDER.map((planId) => {
+    const plan = PLAN_CONFIG[planId];
+    return {
+      id: plan.id,
+      name: plan.name,
+      audience: plan.audience,
+      monthly_price: plan.monthlyPrice,
+      currency: plan.currency,
+      max_products: plan.limits.products,
+      max_staff: plan.limits.staff,
+      max_locations: plan.limits.locations,
+      max_ai_generations: plan.limits.aiGenerations,
+      max_whatsapp_messages: plan.limits.whatsappMessages,
+      whatsapp_enabled: plan.features.includes("whatsappMessaging"),
+      ai_support_enabled: plan.features.includes("aiSupport"),
+      features: [...plan.featureList]
+    };
+  }) as SubscriptionPlan[];
 }
 
 export async function getCurrentSubscription(businessId?: string | null): Promise<Subscription | null> {
@@ -1064,8 +1088,8 @@ export async function getCurrentSubscription(businessId?: string | null): Promis
 }
 
 export async function updateSubscriptionPlan(planId: SubscriptionPlanId, userId?: string) {
-  const plan = SUBSCRIPTION_PLANS.find((item) => item.id === planId);
-  if (!plan) return null;
+  const normalizedPlanId = normalizePlanId(planId);
+  const plan = getPlanConfig(normalizedPlanId);
   const businessId = await getBusinessIdForUser(userId);
   const existing = await getCurrentSubscription(businessId);
   const subscriptionId = existing?.id || createId("sub");
@@ -1080,7 +1104,7 @@ export async function updateSubscriptionPlan(planId: SubscriptionPlanId, userId?
         currency = $6,
         updated_at = NOW()
        WHERE id = $1`,
-      [subscriptionId, plan.id, plan.name, plan.max_staff, plan.monthly_price, plan.currency]
+      [subscriptionId, plan.id, plan.name, plan.limits.staff, plan.monthlyPrice, plan.currency]
     );
   } else {
     await query(
@@ -1093,14 +1117,104 @@ export async function updateSubscriptionPlan(planId: SubscriptionPlanId, userId?
         resolvedBusinessId,
         plan.id,
         plan.name,
-        plan.max_staff,
-        plan.monthly_price,
+        plan.limits.staff,
+        plan.monthlyPrice,
         plan.currency
       ]
     );
   }
   await auditLog("subscription:update_plan", "subscription", subscriptionId, { plan_id: plan.id }, userId);
   return getCurrentSubscription(resolvedBusinessId);
+}
+
+export class PlanGateError extends Error {
+  status = 402;
+  details: {
+    planId: string;
+    requiredPlan?: string;
+    feature?: FeatureKey;
+    limitKey?: UsageLimitKey;
+    limit?: number | null;
+    usage?: number;
+  };
+
+  constructor(message: string, details: PlanGateError["details"]) {
+    super(message);
+    this.name = "PlanGateError";
+    this.details = details;
+  }
+}
+
+async function countRows(sql: string, params: unknown[]) {
+  const rows = await query<{ count: number }>(sql, params);
+  return Number(rows.rows[0]?.count || 0);
+}
+
+function monthStartIso() {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+}
+
+export async function getSubscriptionPlanId(businessId?: string | null) {
+  const subscription = await getCurrentSubscription(businessId);
+  return normalizePlanId(subscription?.plan_id || subscription?.plan_name);
+}
+
+export async function getPlanUsage(businessId?: string | null): Promise<UsageSnapshot> {
+  const resolvedBusinessId = businessId || DEFAULT_BUSINESS_ID;
+  const start = monthStartIso();
+  const [products, staff, locations, aiGenerations, whatsappMessages] = await Promise.all([
+    countRows("SELECT COUNT(*)::int AS count FROM products WHERE business_id = $1 AND active = TRUE", [resolvedBusinessId]),
+    countRows("SELECT COUNT(*)::int AS count FROM users WHERE business_id = $1 AND active = TRUE", [resolvedBusinessId]),
+    countRows("SELECT COUNT(*)::int AS count FROM businesses WHERE id = $1 AND active = TRUE", [resolvedBusinessId]),
+    countRows("SELECT COUNT(*)::int AS count FROM ai_support_logs WHERE business_id = $1 AND created_at >= $2", [resolvedBusinessId, start]).catch(() => 0),
+    countRows(
+      "SELECT COUNT(*)::int AS count FROM customer_notifications WHERE business_id = $1 AND channel = 'whatsapp' AND created_at >= $2",
+      [resolvedBusinessId, start]
+    ).catch(() => 0)
+  ]);
+
+  return { aiGenerations, whatsappMessages, staff, products, locations: Math.max(locations, 1) };
+}
+
+export async function getPlanUsageSummary(businessId?: string | null): Promise<PlanUsageSummary> {
+  const planId = await getSubscriptionPlanId(businessId);
+  const plan = getPlanConfig(planId);
+  const usage = await getPlanUsage(businessId);
+  return {
+    planId,
+    planName: plan.name,
+    usage,
+    meters: buildUsageMeters(planId, usage)
+  };
+}
+
+export async function assertFeatureAccess(businessId: string | null | undefined, feature: FeatureKey) {
+  const planId = await getSubscriptionPlanId(businessId);
+  const gate = canUseFeature(planId, feature);
+  if (!gate.allowed) {
+    throw new PlanGateError(gate.message, {
+      planId,
+      requiredPlan: gate.requiredPlan,
+      feature
+    });
+  }
+  return gate;
+}
+
+export async function assertUsageLimit(businessId: string | null | undefined, key: UsageLimitKey, adding = 1) {
+  const planId = await getSubscriptionPlanId(businessId);
+  const usage = await getPlanUsage(businessId);
+  const gate = isWithinLimit(planId, key, usage[key], adding);
+  if (!gate.allowed) {
+    throw new PlanGateError(gate.message, {
+      planId,
+      limitKey: key,
+      limit: gate.limit,
+      usage: gate.usage
+    });
+  }
+  return gate;
 }
 
 const DEFAULT_CATEGORY_COLORS = [
@@ -1883,6 +1997,13 @@ function renderCustomerStatusMessage(order: Order, status: Order["status"], sett
     .replaceAll("{{tracking_link}}", orderTrackingLink(order));
 }
 
+async function canUseWhatsAppForBusiness(businessId?: string | null) {
+  const planId = await getSubscriptionPlanId(businessId);
+  if (!canUseFeature(planId, "whatsappMessaging").allowed) return false;
+  const usage = await getPlanUsage(businessId);
+  return isWithinLimit(planId, "whatsappMessages", usage.whatsappMessages, 1).allowed;
+}
+
 async function recordOrderStatusHistory(
   client: DbClient,
   orderId: string,
@@ -1904,6 +2025,7 @@ async function createCustomerStatusNotifications(
   settings: Settings
 ) {
   const message = renderCustomerStatusMessage(order, status, settings);
+  const whatsappAllowed = await canUseWhatsAppForBusiness(order.business_id || settings.active_business_id);
   const wantsWhatsApp = order.customer_snapshot.notification_whatsapp !== false;
   const wantsSms = Boolean(order.customer_snapshot.notification_sms);
   const wantsEmail = Boolean(order.customer_snapshot.notification_email);
@@ -1921,8 +2043,10 @@ async function createCustomerStatusNotifications(
       channel: "whatsapp",
       destination: order.customer_snapshot.phone || null,
       provider: settings.whatsapp_provider || "placeholder",
-      delivery_status: settings.whatsapp_enabled ? "queued" : "skipped",
-      error_message: settings.whatsapp_enabled ? null : "WhatsApp provider is not configured."
+      delivery_status: settings.whatsapp_enabled && whatsappAllowed ? "queued" : "skipped",
+      error_message: settings.whatsapp_enabled
+        ? whatsappAllowed ? null : "Upgrade plan to enable WhatsApp messaging."
+        : "WhatsApp provider is not configured."
     });
   }
   if (settings.notification_sms_enabled && wantsSms) {
@@ -1970,6 +2094,7 @@ async function createCustomerStatusNotifications(
 
 async function notifyOwnerOfNewOrder(order: Order, settings: Settings) {
   if (!settings.whatsapp_enabled || !settings.whatsapp_owner_alerts_enabled) return;
+  if (!(await canUseWhatsAppForBusiness(order.business_id || settings.active_business_id))) return;
   const to = settings.whatsapp_business_number || process.env.BUSINESS_WHATSAPP_NUMBER;
   const result = await sendWhatsAppMessage(to, buildOrderWhatsAppMessage(order, settings), {
     defaultCountryCode: settings.whatsapp_country_code,
@@ -1982,6 +2107,7 @@ async function notifyOwnerOfNewOrder(order: Order, settings: Settings) {
 
 async function notifyCustomerReceipt(order: Order, settings: Settings) {
   if (!settings.whatsapp_enabled || !(settings.whatsapp_customer_receipts_enabled || settings.receipt_whatsapp_enabled)) return;
+  if (!(await canUseWhatsAppForBusiness(order.business_id || settings.active_business_id))) return;
   const result = await sendWhatsAppMessage(order.customer_snapshot.phone, buildCustomerReceiptWhatsAppMessage(order, settings), {
     defaultCountryCode: settings.whatsapp_country_code,
     provider: settings.whatsapp_provider
@@ -1995,6 +2121,7 @@ async function notifyCustomerReceipt(order: Order, settings: Settings) {
 
 async function notifyCustomerOrderConfirmation(order: Order, settings: Settings) {
   if (!settings.whatsapp_enabled || !settings.whatsapp_customer_confirmations_enabled) return;
+  if (!(await canUseWhatsAppForBusiness(order.business_id || settings.active_business_id))) return;
   const result = await sendWhatsAppMessage(order.customer_snapshot.phone, buildCustomerConfirmationMessage(order, settings), {
     defaultCountryCode: settings.whatsapp_country_code,
     provider: settings.whatsapp_provider
@@ -2006,6 +2133,7 @@ async function notifyCustomerOrderConfirmation(order: Order, settings: Settings)
 
 async function notifyCustomerDriverAssigned(order: Order, settings: Settings) {
   if (!settings.whatsapp_enabled || !settings.whatsapp_driver_assignment_enabled) return;
+  if (!(await canUseWhatsAppForBusiness(order.business_id || settings.active_business_id))) return;
   const result = await sendWhatsAppMessage(order.customer_snapshot.phone, buildCustomerDriverAssignedWhatsAppMessage(order, settings), {
     defaultCountryCode: settings.whatsapp_country_code,
     provider: settings.whatsapp_provider
@@ -2017,6 +2145,7 @@ async function notifyCustomerDriverAssigned(order: Order, settings: Settings) {
 
 async function notifyDriverOfAssignment(order: Order, settings: Settings) {
   if (!settings.whatsapp_enabled || !settings.whatsapp_driver_alerts_enabled || !order.assigned_driver_phone) return;
+  if (!(await canUseWhatsAppForBusiness(order.business_id || settings.active_business_id))) return;
   const result = await sendWhatsAppMessage(order.assigned_driver_phone, buildDriverAssignmentWhatsAppMessage(order, settings), {
     defaultCountryCode: settings.whatsapp_country_code,
     provider: settings.whatsapp_provider
@@ -2028,6 +2157,7 @@ async function notifyDriverOfAssignment(order: Order, settings: Settings) {
 
 async function notifyCustomerOutForDelivery(order: Order, settings: Settings) {
   if (!settings.whatsapp_enabled || !settings.whatsapp_out_for_delivery_enabled) return;
+  if (!(await canUseWhatsAppForBusiness(order.business_id || settings.active_business_id))) return;
   const result = await sendWhatsAppMessage(order.customer_snapshot.phone, buildCustomerOutForDeliveryWhatsAppMessage(order, settings), {
     defaultCountryCode: settings.whatsapp_country_code,
     provider: settings.whatsapp_provider
@@ -2039,6 +2169,7 @@ async function notifyCustomerOutForDelivery(order: Order, settings: Settings) {
 
 async function updateCustomerWhatsAppLink(order: Order, message: string, settings: Settings) {
   if (!settings.whatsapp_enabled) return order;
+  if (!(await canUseWhatsAppForBusiness(order.business_id || settings.active_business_id))) return order;
   await query(
     "UPDATE orders SET whatsapp_customer_link = $1, updated_at = NOW() WHERE id = $2",
     [buildWhatsAppLink(order.customer_snapshot.phone, message, settings.whatsapp_country_code), order.id]

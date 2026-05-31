@@ -7,18 +7,18 @@ type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
 };
 
 const variants = {
-  primary: "bg-gradient-to-r from-teal-400 via-cyan-400 to-emerald-400 text-slate-950 shadow-[0_12px_34px_rgba(20,184,166,0.24)] hover:brightness-110",
-  secondary: "border border-white/10 bg-white/[0.07] text-white hover:bg-white/[0.12]",
+  primary: "border border-cyan-200/20 bg-cyan-300 text-slate-950 shadow-[0_10px_28px_rgba(34,211,238,0.18)] hover:bg-cyan-200",
+  secondary: "border border-white/10 bg-white/[0.075] text-white hover:border-cyan-200/25 hover:bg-white/[0.12]",
   ghost: "text-teal-50 hover:bg-white/[0.08]",
-  danger: "bg-red-500/90 text-white hover:bg-red-500",
-  success: "bg-emerald-500 text-slate-950 hover:bg-emerald-400"
+  danger: "border border-red-300/20 bg-red-500/90 text-white hover:bg-red-500",
+  success: "border border-emerald-200/20 bg-emerald-400 text-slate-950 hover:bg-emerald-300"
 };
 
 const sizes = {
-  sm: "h-9 px-3 text-sm",
-  md: "h-10 px-4 text-sm",
-  lg: "h-12 px-5 text-base",
-  icon: "h-10 w-10 p-0"
+  sm: "min-h-9 px-3 text-sm",
+  md: "min-h-11 px-4 text-sm",
+  lg: "min-h-12 px-5 text-base",
+  icon: "h-11 w-11 p-0"
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(

@@ -112,7 +112,7 @@ export function AppShellClient({
 
   return (
     <div className="min-h-screen overflow-x-hidden text-caribbean-ink">
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-sidebar overflow-y-auto border-r border-white/10 bg-black/[0.42] px-3 py-4 shadow-soft backdrop-blur-xl md:block">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-sidebar overflow-y-auto border-r border-white/10 bg-[#041211]/95 px-3 py-4 shadow-soft backdrop-blur-xl md:block">
         <SidebarContent active={active} currency={currency} includeSecondary />
       </aside>
 
@@ -149,8 +149,8 @@ export function AppShellClient({
       </aside>
 
       <div className="min-w-0 md:pl-sidebar">
-        <header className="sticky top-0 z-30 border-b border-white/10 bg-black/[0.58] px-3 py-3 shadow-soft backdrop-blur-xl sm:px-5 lg:px-6">
-          <div className="mx-auto grid min-h-[52px] w-full max-w-[1360px] min-w-0 gap-3 sm:flex sm:items-center sm:justify-between">
+        <header className="sticky top-0 z-30 border-b border-white/10 bg-[#03100f]/88 px-3 py-3 shadow-soft backdrop-blur-xl sm:px-5 lg:px-6">
+          <div className="mx-auto grid min-h-[52px] w-full max-w-[1240px] min-w-0 gap-3 sm:flex sm:items-center sm:justify-between">
             <div className="flex min-w-0 items-center gap-3">
               <button
                 type="button"
@@ -164,7 +164,7 @@ export function AppShellClient({
                 <p className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-200/65 sm:text-xs">
                   {market} / {currency}
                 </p>
-                <h1 className="min-w-0 text-lg font-black leading-tight text-white xs:text-xl sm:text-2xl">
+                <h1 className="min-w-0 text-xl font-black leading-tight text-white sm:text-2xl">
                   {title}
                 </h1>
               </div>
@@ -184,7 +184,7 @@ export function AppShellClient({
         </header>
 
         <main className="animate-fade-in min-w-0 max-w-full overflow-x-hidden px-3 pb-[calc(var(--bottom-nav-height)+2rem)] pt-4 xs:px-4 sm:px-5 md:pb-8 lg:px-6">
-          <div className="mx-auto w-full max-w-[1360px] min-w-0">{children}</div>
+          <div className="mx-auto w-full max-w-[1240px] min-w-0">{children}</div>
         </main>
       </div>
 
@@ -229,7 +229,7 @@ function SidebarContent({
           alt=""
           width={48}
           height={48}
-          className="h-12 w-12 shrink-0 rounded-card object-contain glow-accent"
+          className="h-11 w-11 shrink-0 rounded-card object-contain"
         />
         <span className="min-w-0">
           <span className="block text-sm font-black leading-tight text-white">{APP_NAME}</span>
@@ -254,7 +254,7 @@ function SidebarContent({
                   className={cn(
                     "group flex min-h-10 min-w-0 items-center gap-2.5 rounded-card px-3 text-sm font-black transition duration-200",
                     selected
-                      ? "bg-gradient-to-r from-teal-300 to-cyan-300 text-slate-950 shadow-glow"
+                      ? "bg-cyan-300 text-slate-950 shadow-glow"
                       : "text-teal-50/75 hover:bg-white/[0.08] hover:text-white"
                   )}
                 >
@@ -309,7 +309,7 @@ function SecondaryMenu({ active, onNavigate }: { active: string; onNavigate: () 
                   className={cn(
                     "group flex min-h-11 min-w-0 items-center gap-3 rounded-card px-3 text-sm font-black transition duration-200",
                     selected
-                      ? "bg-gradient-to-r from-teal-300 to-cyan-300 text-slate-950 shadow-glow"
+                      ? "bg-cyan-300 text-slate-950 shadow-glow"
                       : "text-teal-50/75 hover:bg-white/[0.08] hover:text-white"
                   )}
                 >

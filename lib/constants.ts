@@ -341,64 +341,7 @@ export const STAFF_AVATAR_OPTIONS = [
   { key: "gold-cashier", label: "Gold cashier", initials: "GC", gradient: "from-yellow-200 to-amber-500" }
 ] as const;
 
-export const SUBSCRIPTION_PLANS = [
-  {
-    id: "starter",
-    name: "Starter Plan",
-    audience: "For small food businesses",
-    monthly_price: 149,
-    currency: CURRENCY_CODE,
-    max_products: 100,
-    max_staff: 3,
-    whatsapp_enabled: true,
-    ai_support_enabled: false,
-    features: [
-      "Basic POS",
-      "Customer management",
-      "Order tracking",
-      "Basic reports",
-      "WhatsApp order alerts"
-    ]
-  },
-  {
-    id: "pro",
-    name: "Pro Plan",
-    audience: "For growing retail and delivery teams",
-    monthly_price: 299,
-    currency: CURRENCY_CODE,
-    max_products: 500,
-    max_staff: 10,
-    whatsapp_enabled: true,
-    ai_support_enabled: true,
-    features: [
-      "Everything in Starter",
-      "Multi-user staff access",
-      "Inventory management",
-      "Delivery management",
-      "WhatsApp order alerts",
-      "Advanced reports"
-    ]
-  },
-  {
-    id: "premium",
-    name: "Premium Plan",
-    audience: "For multi-branch operators",
-    monthly_price: 499,
-    currency: CURRENCY_CODE,
-    max_products: 2000,
-    max_staff: 30,
-    whatsapp_enabled: true,
-    ai_support_enabled: true,
-    features: [
-      "Everything in Pro",
-      "Multi-branch support",
-      "Role permissions",
-      "Priority support",
-      "Custom branding",
-      "Full back office tools"
-    ]
-  }
-] as const;
+export { PLAN_CONFIG, FEATURE_PLANS } from "./plan-gating";
 
 export function money(value: number | string | null | undefined, currency = CURRENCY_CODE) {
   const numeric = Number(value ?? 0);

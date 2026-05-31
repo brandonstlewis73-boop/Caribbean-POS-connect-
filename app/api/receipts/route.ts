@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { fail, ok } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
-import { listReceipts, resendReceiptWhatsApp } from "@/lib/data";
+import { PlanGateError, assertFeatureAccess, assertUsageLimit, listReceipts, resendReceiptWhatsApp } from "@/lib/data";
 
 export const runtime = "nodejs";
 
@@ -24,6 +24,13 @@ export async function POST(request: NextRequest) {
   if (body?.action !== "resend_whatsapp" || !body?.receipt_id) {
     return fail("Receipt action and receipt_id are required.", 422);
   }
-  const result = await resendReceiptWhatsApp(String(body.receipt_id), auth.user.id);
-  return result ? ok(result) : fail("Receipt not found", 404);
+  try {
+    await assertFeatureAccess(auth.user.business_id, "whatsappMessaging");
+    await assertUsageLimit(auth.user.business_id, "whatsappMessages", 1);
+    const result = await resendReceiptWhatsApp(String(body.receipt_id), auth.user.id);
+    return result ? ok(result) : fail("Receipt not found", 404);
+  } catch (error) {
+    if (error instanceof PlanGateError) return fail(error.message, error.status, error.details);
+    return fail(error instanceof Error ? error.message : "Receipt WhatsApp could not be sent.", 500);
+  }
 }

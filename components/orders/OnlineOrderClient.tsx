@@ -269,48 +269,48 @@ export function OnlineOrderClient({
   }
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-caribbean-cloud text-caribbean-ink dark:bg-slate-950 dark:text-white">
-      <header className="border-b border-caribbean-line bg-white px-4 py-4 dark:border-slate-800 dark:bg-slate-950">
+    <main className="min-h-screen overflow-x-hidden bg-[#03100f] text-white">
+      <header className="sticky top-0 z-30 border-b border-white/10 bg-[#03100f]/90 px-4 py-4 shadow-soft backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <img src={settings.logo_url || "/logo.svg"} alt="" className="h-11 w-11 shrink-0 rounded-card bg-white object-contain p-1" />
             <div className="min-w-0">
               <h1 className="text-lg font-black leading-tight">{settings.business_name}</h1>
-              <p className="text-sm font-semibold text-slate-500">Online ordering - {marketCountry} / {settings.currency}</p>
+              <p className="text-sm font-semibold text-teal-50/60">Online ordering - {marketCountry} / {settings.currency}</p>
             </div>
           </div>
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             {settings.facebook_url ? (
-              <a href={settings.facebook_url} target="_blank" rel="noreferrer" className="inline-flex min-h-10 items-center gap-2 rounded-card border border-caribbean-line bg-white px-3 py-2 text-sm font-bold leading-tight dark:border-slate-700 dark:bg-slate-900">
+              <a href={settings.facebook_url} target="_blank" rel="noreferrer" className="inline-flex min-h-10 items-center gap-2 rounded-card border border-white/10 bg-white/[0.07] px-3 py-2 text-sm font-bold leading-tight text-white hover:bg-white/[0.12]">
                 <ExternalLink className="h-4 w-4" />
                 Facebook
               </a>
             ) : null}
             {settings.instagram_url ? (
-              <a href={settings.instagram_url} target="_blank" rel="noreferrer" className="inline-flex min-h-10 items-center gap-2 rounded-card border border-caribbean-line bg-white px-3 py-2 text-sm font-bold leading-tight dark:border-slate-700 dark:bg-slate-900">
+              <a href={settings.instagram_url} target="_blank" rel="noreferrer" className="inline-flex min-h-10 items-center gap-2 rounded-card border border-white/10 bg-white/[0.07] px-3 py-2 text-sm font-bold leading-tight text-white hover:bg-white/[0.12]">
                 <ExternalLink className="h-4 w-4" />
                 Instagram
               </a>
             ) : null}
-            <div className="rounded-card border border-caribbean-line bg-caribbean-cloud px-3 py-2 text-sm font-bold dark:border-slate-700 dark:bg-slate-900">
+            <div className="rounded-card border border-cyan-200/20 bg-cyan-300/12 px-3 py-2 text-sm font-bold text-cyan-100">
               Cart {cart.length} - {formatMoney(total)}
             </div>
           </div>
         </div>
       </header>
 
-      <div className="mx-auto grid max-w-7xl min-w-0 gap-4 px-4 py-4 xl:grid-cols-[minmax(0,1fr)_minmax(360px,420px)]">
+      <div className="mx-auto grid max-w-7xl min-w-0 gap-5 px-4 py-5 xl:grid-cols-[minmax(0,1fr)_minmax(360px,420px)]">
         <section className="grid min-w-0 gap-4">
           {settings.storefront_banner_url ? (
             <img src={settings.storefront_banner_url} alt="" className="h-36 w-full rounded-card object-cover shadow-soft" />
           ) : null}
           {settings.storefront_status === "paused" ? (
-            <p className="rounded-card border border-amber-200 bg-amber-50 p-3 text-sm font-black text-amber-800 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">
+            <p className="rounded-card border border-amber-300/20 bg-amber-300/10 p-3 text-sm font-black text-amber-100">
               This storefront is paused right now. You can view products, but ordering is temporarily unavailable.
             </p>
           ) : null}
           {settings.store_hours ? (
-            <p className="rounded-card border border-caribbean-line bg-white p-3 text-sm font-bold text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
+            <p className="rounded-card border border-white/10 bg-white/[0.06] p-3 text-sm font-bold text-teal-50/70">
               Hours: {settings.store_hours}
             </p>
           ) : null}
@@ -319,8 +319,8 @@ export function OnlineOrderClient({
               onClick={() => setCategory("all")}
               className={`whitespace-nowrap rounded-card px-3 py-2 text-sm font-black ${
                 category === "all"
-                  ? "bg-caribbean-teal text-white"
-                  : "border border-caribbean-line bg-white dark:border-slate-700 dark:bg-slate-900"
+                  ? "bg-cyan-300 text-slate-950"
+                  : "border border-white/10 bg-white/[0.07] text-teal-50"
               }`}
             >
               All
@@ -331,8 +331,8 @@ export function OnlineOrderClient({
                 onClick={() => setCategory(item.id)}
                 className={`whitespace-nowrap rounded-card px-3 py-2 text-sm font-black ${
                   category === item.id
-                    ? "bg-caribbean-teal text-white"
-                    : "border border-caribbean-line bg-white dark:border-slate-700 dark:bg-slate-900"
+                    ? "bg-cyan-300 text-slate-950"
+                    : "border border-white/10 bg-white/[0.07] text-teal-50"
                 }`}
               >
                 {item.icon ? `${item.icon} ` : ""}{item.name}
@@ -340,24 +340,24 @@ export function OnlineOrderClient({
             ))}
           </div>
           {!storefrontCategories.length ? (
-            <p className="rounded-card border border-caribbean-line bg-white p-3 text-sm font-bold text-slate-500 dark:border-slate-800 dark:bg-slate-900">
+            <p className="rounded-card border border-white/10 bg-white/[0.06] p-3 text-sm font-bold text-teal-50/60">
               No categories yet. Add one in Settings.
             </p>
           ) : null}
           <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
             {statusMessage ? (
-              <div className="rounded-card border border-caribbean-line bg-white p-4 text-sm font-bold text-slate-600 shadow-soft dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 sm:col-span-2 md:col-span-3 xl:col-span-4">
+              <div className="rounded-card border border-white/10 bg-white/[0.06] p-4 text-sm font-bold text-teal-50/70 shadow-soft sm:col-span-2 md:col-span-3 xl:col-span-4">
                 {statusMessage}
               </div>
             ) : null}
             {visibleProducts.map((product) => (
-              <button key={product.id} onClick={() => add(product)} className="min-h-[220px] min-w-0 overflow-hidden rounded-card border border-caribbean-line bg-white text-left shadow-soft transition hover:-translate-y-0.5 dark:border-slate-800 dark:bg-slate-900">
-                <div className="relative h-28 bg-gradient-to-br from-teal-50 to-orange-50 dark:from-teal-950 dark:to-slate-900">
+              <button key={product.id} onClick={() => add(product)} className="min-h-[220px] min-w-0 overflow-hidden rounded-card border border-white/10 bg-white/[0.055] text-left shadow-soft transition hover:-translate-y-0.5 hover:border-cyan-200/30">
+                <div className="relative h-28 bg-slate-950/60">
                   {product.image_url ? (
                     <img src={product.image_url} alt={product.name} loading="lazy" className="h-full w-full object-cover" />
                   ) : (
                     <div className="grid h-full place-items-center">
-                      <ShoppingBag className="h-6 w-6 text-caribbean-teal" />
+                      <ShoppingBag className="h-6 w-6 text-cyan-200" />
                     </div>
                   )}
                   <div className="absolute right-2 top-2">
@@ -366,15 +366,15 @@ export function OnlineOrderClient({
                 </div>
                 <div className="p-3">
                   <p className="line-clamp-2 min-h-10 text-sm font-black leading-tight">{product.name}</p>
-                  <p className="mt-2 text-lg font-black text-caribbean-teal">{formatMoney(product.selling_price)}</p>
+                  <p className="mt-2 text-lg font-black text-cyan-200">{formatMoney(product.selling_price)}</p>
                 </div>
               </button>
             ))}
             {!visibleProducts.length ? (
-              <div className="grid min-h-64 place-items-center rounded-card border border-caribbean-line bg-white p-6 text-center shadow-soft dark:border-slate-800 dark:bg-slate-900 sm:col-span-2 md:col-span-3 xl:col-span-4">
+              <div className="grid min-h-64 place-items-center rounded-card border border-white/10 bg-white/[0.055] p-6 text-center shadow-soft sm:col-span-2 md:col-span-3 xl:col-span-4">
                 <div>
                   <p className="text-lg font-black">No products yet.</p>
-                  <p className="mt-2 text-sm font-semibold text-slate-500">Products added by the business will appear here.</p>
+                  <p className="mt-2 text-sm font-semibold text-teal-50/60">Products added by the business will appear here.</p>
                 </div>
               </div>
             ) : null}
@@ -382,13 +382,13 @@ export function OnlineOrderClient({
         </section>
 
         <aside className="grid min-w-0 gap-4 self-start xl:sticky xl:top-4">
-          <section className="rounded-card border border-caribbean-line bg-white shadow-soft dark:border-slate-800 dark:bg-slate-900">
-            <div className="border-b border-caribbean-line px-4 py-3 dark:border-slate-800">
+          <section className="rounded-card border border-white/10 bg-white/[0.06] shadow-soft">
+            <div className="border-b border-white/10 px-4 py-3">
               <h2 className="font-black">Your order</h2>
             </div>
             <div className="max-h-64 overflow-auto">
               {cart.map((item) => (
-                <div key={item.id} className="grid gap-2 border-b border-caribbean-line p-3 dark:border-slate-800">
+                <div key={item.id} className="grid gap-2 border-b border-white/10 p-3">
                   <div className="flex min-w-0 justify-between gap-3">
                     <p className="min-w-0 text-sm font-black leading-tight">{item.name}</p>
                     <button className="shrink-0" onClick={() => setCart((current) => current.filter((entry) => entry.id !== item.id))} aria-label={`Remove ${item.name}`}>
@@ -396,7 +396,7 @@ export function OnlineOrderClient({
                     </button>
                   </div>
                   <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
-                    <div className="flex shrink-0 items-center rounded-card border border-caribbean-line dark:border-slate-700">
+                    <div className="flex shrink-0 items-center rounded-card border border-white/10 bg-slate-950/35">
                       <button className="grid h-9 w-9 place-items-center" onClick={() => update(item.id, -1)}><Minus className="h-4 w-4" /></button>
                       <span className="grid h-9 w-9 place-items-center font-black">{item.quantity}</span>
                       <button className="grid h-9 w-9 place-items-center" onClick={() => update(item.id, 1)}><Plus className="h-4 w-4" /></button>
@@ -405,7 +405,7 @@ export function OnlineOrderClient({
                   </div>
                 </div>
               ))}
-              {!cart.length ? <p className="p-4 text-sm font-semibold text-slate-500">Select products to start.</p> : null}
+              {!cart.length ? <p className="p-4 text-sm font-semibold text-teal-50/55">Select products to start.</p> : null}
             </div>
             <div className="grid gap-1 p-4 text-sm">
               <div className="flex justify-between"><span>Subtotal</span><strong>{formatMoney(subtotal)}</strong></div>
@@ -415,20 +415,20 @@ export function OnlineOrderClient({
             </div>
           </section>
 
-          <section className="rounded-card border border-caribbean-line bg-white p-4 shadow-soft dark:border-slate-800 dark:bg-slate-900">
+          <section className="rounded-card border border-white/10 bg-white/[0.06] p-4 shadow-soft">
             <div className="grid gap-3">
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => setFulfillment("delivery")}
                   disabled={settings.delivery_enabled === false}
-                  className={`h-10 rounded-card text-sm font-black disabled:cursor-not-allowed disabled:opacity-45 ${fulfillment === "delivery" ? "bg-caribbean-teal text-white" : "border border-caribbean-line dark:border-slate-700"}`}
+                  className={`min-h-11 rounded-card text-sm font-black disabled:cursor-not-allowed disabled:opacity-45 ${fulfillment === "delivery" ? "bg-cyan-300 text-slate-950" : "border border-white/10 bg-slate-950/30 text-white"}`}
                 >
                   Delivery
                 </button>
                 <button
                   onClick={() => setFulfillment("pickup")}
                   disabled={settings.pickup_enabled === false}
-                  className={`h-10 rounded-card text-sm font-black disabled:cursor-not-allowed disabled:opacity-45 ${fulfillment === "pickup" ? "bg-caribbean-teal text-white" : "border border-caribbean-line dark:border-slate-700"}`}
+                  className={`min-h-11 rounded-card text-sm font-black disabled:cursor-not-allowed disabled:opacity-45 ${fulfillment === "pickup" ? "bg-cyan-300 text-slate-950" : "border border-white/10 bg-slate-950/30 text-white"}`}
                 >
                   Pickup
                 </button>
@@ -459,7 +459,7 @@ export function OnlineOrderClient({
               <SelectField label="Payment method" value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)}>
                 {enabledPaymentMethods.map((method) => <option key={method}>{method}</option>)}
               </SelectField>
-              <label className="flex items-start gap-2 text-sm font-semibold text-slate-600 dark:text-slate-300">
+              <label className="flex items-start gap-2 text-sm font-semibold text-teal-50/65">
                 <input
                   type="checkbox"
                   checked={customer.marketing_consent}
@@ -468,7 +468,7 @@ export function OnlineOrderClient({
                 />
                 I agree to receive optional marketing messages. My order data will be stored for receipts, delivery, loyalty, and customer service.
               </label>
-              {error ? <p className="rounded-card bg-red-50 p-3 text-sm font-bold text-red-700">{error}</p> : null}
+              {error ? <p className="rounded-card border border-red-300/20 bg-red-400/12 p-3 text-sm font-bold text-red-100">{error}</p> : null}
               <Button variant="primary" size="lg" onClick={submitOrder} disabled={loading}>
                 <Send className="h-4 w-4" />
                 {loading ? "Submitting..." : "Submit order"}
@@ -477,9 +477,9 @@ export function OnlineOrderClient({
           </section>
 
           {order ? (
-            <section className="rounded-card border border-caribbean-line bg-white p-4 shadow-soft dark:border-slate-800 dark:bg-slate-900">
+            <section className="rounded-card border border-white/10 bg-white/[0.06] p-4 shadow-soft">
               <h2 className="font-black">Order #{order.order_number} received</h2>
-              <p className="mt-2 text-sm font-semibold text-slate-500">Total: {formatMoney(order.total)}</p>
+              <p className="mt-2 text-sm font-semibold text-teal-50/60">Total: {formatMoney(order.total)}</p>
               <div className="mt-4 grid gap-2">
                 {order.whatsapp_business_link ? (
                   <a href={order.whatsapp_business_link} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-card bg-caribbean-palm px-3 py-2 text-center text-sm font-black leading-tight text-white">
@@ -494,7 +494,7 @@ export function OnlineOrderClient({
                   </a>
                 ) : null}
                 {order.whatsapp_customer_link ? (
-                  <a href={order.whatsapp_customer_link} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-card border border-caribbean-line px-3 py-2 text-center text-sm font-black leading-tight dark:border-slate-700">
+                  <a href={order.whatsapp_customer_link} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-card border border-white/10 bg-white/[0.07] px-3 py-2 text-center text-sm font-black leading-tight text-white">
                     <MessageCircle className="h-4 w-4" />
                     WhatsApp confirmation
                   </a>
@@ -504,10 +504,10 @@ export function OnlineOrderClient({
           ) : null}
         </aside>
       </div>
-      <footer className="mx-auto flex max-w-7xl flex-wrap gap-3 px-4 pb-6 text-sm font-bold text-slate-500">
-        <a href="/privacy" className="hover:text-caribbean-teal">Privacy policy</a>
-        <a href="/contact" className="hover:text-caribbean-teal">Contact</a>
-        <a href="/login" className="hover:text-caribbean-teal">Staff login</a>
+      <footer className="mx-auto flex max-w-7xl flex-wrap gap-3 px-4 pb-6 text-sm font-bold text-teal-50/45">
+        <a href="/privacy" className="hover:text-cyan-100">Privacy policy</a>
+        <a href="/contact" className="hover:text-cyan-100">Contact</a>
+        <a href="/login" className="hover:text-cyan-100">Staff login</a>
       </footer>
     </main>
   );

@@ -7,20 +7,24 @@ import { Button } from "@/components/ui/Button";
 import { Panel, PanelHeader } from "@/components/ui/Panel";
 import { money } from "@/lib/constants";
 import { readApiPayload } from "@/lib/client-response";
+import { normalizePlanId, type PlanUsageSummary } from "@/lib/plan-gating";
 import type { Subscription, SubscriptionPlan, SubscriptionPlanId } from "@/lib/types";
 
 export function SubscriptionClient({
   plans,
   subscription,
+  usageSummary,
   paymentProvidersReady
 }: {
   plans: SubscriptionPlan[];
   subscription: Subscription | null;
+  usageSummary: PlanUsageSummary;
   paymentProvidersReady: { stripe: boolean; paypal: boolean; wipay: boolean };
 }) {
   const [current, setCurrent] = useState(subscription);
   const [message, setMessage] = useState("");
   const [loadingPlan, setLoadingPlan] = useState<SubscriptionPlanId | null>(null);
+  const currentPlanId = normalizePlanId(current?.plan_id);
 
   async function choosePlan(planId: SubscriptionPlanId) {
     setMessage("");
@@ -70,9 +74,34 @@ export function SubscriptionClient({
         </div>
       </Panel>
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <Panel>
+        <PanelHeader
+          title="Usage this month"
+          description="Plan limits are enforced in the dashboard and API so locked features show upgrade options instead of breaking."
+        />
+        <div className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-5">
+          {usageSummary.meters.map((meter) => (
+            <div key={meter.key} className="rounded-card border border-white/10 bg-black/25 p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-black text-white">{meter.label}</p>
+                  <p className="mt-1 text-xs font-bold text-teal-50/55">
+                    {meter.locked ? "Locked on this plan" : meter.limit === null ? `${meter.used} used` : `${meter.used} / ${meter.limit}`}
+                  </p>
+                </div>
+                {meter.locked ? <Badge tone="amber">Upgrade</Badge> : meter.limit === null ? <Badge tone="green">Unlimited</Badge> : null}
+              </div>
+              <div className="mt-3 h-2 rounded-full bg-white/10">
+                <div className="h-2 rounded-full bg-cyan-300" style={{ width: `${meter.limit === null ? 100 : meter.percent}%` }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </Panel>
+
+      <div className="grid gap-4 lg:grid-cols-3 xl:grid-cols-5">
         {plans.map((plan) => {
-          const active = current?.plan_id === plan.id;
+          const active = currentPlanId === plan.id;
           return (
             <Panel key={plan.id} className={active ? "border-cyan-300/60" : ""}>
               <div className="grid h-full gap-4 p-5">

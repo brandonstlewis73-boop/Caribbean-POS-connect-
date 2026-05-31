@@ -437,7 +437,7 @@ export type DashboardData = {
   salesSeries: Array<{ date: string; total: number }>;
 };
 
-export type SubscriptionPlanId = "starter" | "pro" | "premium" | "business";
+export type SubscriptionPlanId = "trial" | "starter" | "pro" | "premium" | "enterprise" | "business";
 
 export type SubscriptionPlan = {
   id: SubscriptionPlanId;
@@ -445,8 +445,11 @@ export type SubscriptionPlan = {
   audience: string;
   monthly_price: number;
   currency: string;
-  max_products?: number;
-  max_staff?: number;
+  max_products?: number | null;
+  max_staff?: number | null;
+  max_locations?: number | null;
+  max_ai_generations?: number | null;
+  max_whatsapp_messages?: number | null;
   whatsapp_enabled?: boolean;
   ai_support_enabled?: boolean;
   features: string[];

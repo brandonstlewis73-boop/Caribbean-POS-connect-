@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { fail, ok } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
-import { createProduct, listProducts } from "@/lib/data";
+import { PlanGateError, assertUsageLimit, createProduct, listProducts } from "@/lib/data";
 import { productSchema } from "@/lib/validators";
 
 export const runtime = "nodejs";
@@ -56,9 +56,11 @@ export async function POST(request: NextRequest) {
   const parsed = productSchema.safeParse(prepareProductBody(await request.json().catch(() => null)));
   if (!parsed.success) return fail("Invalid product data", 422, parsed.error.flatten());
   try {
+    await assertUsageLimit(auth.user.business_id, "products", 1);
     const product = await createProduct(parsed.data, auth.user.id);
     return ok({ product }, { status: 201 });
   } catch (error) {
+    if (error instanceof PlanGateError) return fail(error.message, error.status, error.details);
     return fail(productSaveError(error), 500);
   }
 }

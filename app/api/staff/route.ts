@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { fail, ok } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
-import { createStaffUser, listUsers } from "@/lib/data";
+import { PlanGateError, assertUsageLimit, createStaffUser, listUsers } from "@/lib/data";
 import { staffUserSchema } from "@/lib/validators";
 
 export const runtime = "nodejs";
@@ -18,9 +18,11 @@ export async function POST(request: NextRequest) {
   const parsed = staffUserSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return fail("Invalid staff profile", 422, parsed.error.flatten());
   try {
+    await assertUsageLimit(auth.user.business_id, "staff", 1);
     const staff = await createStaffUser(parsed.data, auth.user.id);
     return staff ? ok({ staff }, { status: 201 }) : fail("Staff profile could not be saved.", 400);
   } catch (error) {
+    if (error instanceof PlanGateError) return fail(error.message, error.status, error.details);
     return fail(error instanceof Error ? error.message : "Staff profile could not be saved.", 500);
   }
 }
