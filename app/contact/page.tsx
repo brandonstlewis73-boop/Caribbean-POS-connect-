@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Mail, MapPin, MessageCircle, Phone } from "lucide-react";
 import { APP_NAME } from "@/lib/constants";
 import { cleanWhatsAppNumber } from "@/lib/whatsapp";
@@ -20,7 +21,7 @@ export default function ContactPage() {
     <main className="min-h-screen bg-caribbean-cloud px-4 py-8 text-caribbean-ink dark:bg-slate-950 dark:text-white">
       <section className="mx-auto grid max-w-3xl gap-5 rounded-card border border-caribbean-line bg-white p-6 shadow-soft dark:border-slate-800 dark:bg-slate-900">
         <div className="flex items-center gap-3">
-          <img src="/logo.svg" alt="" className="h-14 w-14 rounded-card object-contain" />
+          <Image src="/logo.svg" alt="" width={56} height={56} className="h-14 w-14 rounded-card object-contain" priority />
           <div>
             <p className="text-sm font-bold uppercase tracking-normal text-caribbean-teal">{APP_NAME}</p>
             <h1 className="text-2xl font-black">{business.name}</h1>

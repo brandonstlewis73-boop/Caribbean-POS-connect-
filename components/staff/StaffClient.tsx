@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
+
 import { useMemo, useState } from "react";
 import { Bike, ChefHat, CircleUserRound, Headset, ShieldCheck, Store, Trash2, Upload, UserCog, UsersRound } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";

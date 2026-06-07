@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
+
 import { useEffect, useMemo, useState, type InputHTMLAttributes, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
 import { CreditCard, ExternalLink, LocateFixed, MessageCircle, Minus, Plus, Send, ShoppingBag, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";

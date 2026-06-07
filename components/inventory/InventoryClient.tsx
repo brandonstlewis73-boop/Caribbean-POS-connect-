@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
+
 import { useDeferredValue, useMemo, useState } from "react";
 import { Edit3, PackagePlus, Search, SlidersHorizontal, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";

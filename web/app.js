@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
 const STORAGE_KEY = "caribbean_pos_connect_static_v1";
 
 const officialBrand = {

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { LogIn } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
@@ -62,7 +63,7 @@ export function LoginForm() {
   return (
     <form onSubmit={submit} className="grid w-full max-w-md gap-4 rounded-card border border-white/10 bg-white/[0.06] p-6 shadow-soft backdrop-blur-xl">
       <div>
-        <img src="/logo.svg" alt="" className="mb-4 h-14 w-14 rounded-2xl object-contain" />
+        <Image src="/logo.svg" alt="" width={56} height={56} className="mb-4 h-14 w-14 rounded-2xl object-contain" priority />
         <h1 className="text-2xl font-black">Caribbean Connect POS</h1>
         <p className="mt-2 text-sm font-semibold text-teal-50/65">
           Sign in to manage sales, customers, inventory, orders, delivery, reports, and subscriptions.

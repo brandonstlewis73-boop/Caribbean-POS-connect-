@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
+
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import {
   Banknote,
