@@ -16,7 +16,7 @@ export default async function HelpSupportPage() {
   const [settings, articles, tickets] = await Promise.all([
     getBusinessSettings(user.business_id),
     listHelpArticles({ role: user.role, includeUnpublished: canManage }),
-    listSupportTickets({ role: user.role, userId: user.id })
+    listSupportTickets({ role: user.role, userId: user.id, businessId: user.business_id })
   ]);
   const dbStatus = databaseConfigStatus();
 

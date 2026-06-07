@@ -352,6 +352,7 @@ CREATE TABLE IF NOT EXISTS public.help_articles (
 
 CREATE TABLE IF NOT EXISTS public.support_tickets (
   id TEXT PRIMARY KEY,
+  business_id TEXT REFERENCES public.businesses(id) ON DELETE SET NULL,
   ticket_number TEXT NOT NULL UNIQUE,
   name TEXT NOT NULL,
   business_name TEXT,
@@ -423,6 +424,7 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON public.audit_logs(created_a
 CREATE INDEX IF NOT EXISTS idx_help_articles_search ON public.help_articles(title, category);
 CREATE INDEX IF NOT EXISTS idx_help_articles_visibility ON public.help_articles(visibility, published);
 CREATE INDEX IF NOT EXISTS idx_support_tickets_status ON public.support_tickets(status, priority);
+CREATE INDEX IF NOT EXISTS idx_support_tickets_business ON public.support_tickets(business_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_support_tickets_submitter ON public.support_tickets(submitted_by);
 CREATE INDEX IF NOT EXISTS idx_ai_support_logs_user ON public.ai_support_logs(user_id, created_at);
 

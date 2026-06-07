@@ -1,4 +1,5 @@
 import { createId, query, transaction } from "./db";
+import { getBusinessIdForUser } from "./data";
 import type {
   HelpArticle,
   HelpArticleInput,
@@ -67,6 +68,7 @@ function rowToHelpArticle(row: any): HelpArticle {
 function rowToSupportTicket(row: any): SupportTicket {
   return {
     id: row.id,
+    business_id: row.business_id || null,
     ticket_number: row.ticket_number,
     name: row.name,
     business_name: row.business_name,
@@ -197,15 +199,17 @@ function ticketNumber() {
 export async function createSupportTicket(
   input: SupportTicketInput,
   userId?: string | null,
+  businessId?: string | null,
   aiFields: TicketAiFields = {}
 ) {
   const id = createId("tic");
+  const resolvedBusinessId = businessId || (await getBusinessIdForUser(userId));
   await query(
     `INSERT INTO support_tickets (
       id, ticket_number, name, business_name, email, phone, issue_category, priority,
       status, message, screenshot_url, ai_summary, ai_category, ai_priority,
-      ai_possible_solution, ai_steps_tried, submitted_by
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'new', $9, $10, $11, $12, $13, $14, $15::jsonb, $16)`,
+      ai_possible_solution, ai_steps_tried, submitted_by, business_id
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'new', $9, $10, $11, $12, $13, $14, $15::jsonb, $16, $17)`,
     [
       id,
       ticketNumber(),
@@ -222,26 +226,40 @@ export async function createSupportTicket(
       aiFields.ai_priority || null,
       aiFields.ai_possible_solution || null,
       JSON.stringify(aiFields.ai_steps_tried || []),
-      userId || null
+      userId || null,
+      resolvedBusinessId || null
     ]
   );
-  return getSupportTicket(id);
+  return getSupportTicket(id, resolvedBusinessId);
 }
 
 export async function listSupportTickets({
   role,
   userId,
+  businessId,
   search
 }: {
   role?: Role | null;
   userId?: string | null;
+  businessId?: string | null;
   search?: string | null;
 } = {}) {
   const params: unknown[] = [];
   const clauses: string[] = [];
+  const resolvedBusinessId = businessId || (await getBusinessIdForUser(userId));
+  if (resolvedBusinessId) {
+    params.push(resolvedBusinessId);
+    const businessParam = `$${params.length}`;
+    if (userId) {
+      params.push(userId);
+      clauses.push(`(t.business_id = ${businessParam} OR (t.business_id IS NULL AND t.submitted_by = $${params.length}))`);
+    } else {
+      clauses.push(`t.business_id = ${businessParam}`);
+    }
+  }
   if (!role || !canManageSupport(role)) {
     params.push(userId || "");
-    clauses.push(`submitted_by = $${params.length}`);
+    clauses.push(`t.submitted_by = $${params.length}`);
   }
   if (search?.trim()) {
     params.push(`%${search.trim()}%`);
@@ -260,19 +278,24 @@ export async function listSupportTickets({
   return rows.rows.map(rowToSupportTicket);
 }
 
-export async function getSupportTicket(id: string) {
+export async function getSupportTicket(id: string, businessId?: string | null) {
+  const params: unknown[] = [id];
+  const businessClause = businessId
+    ? `AND (t.business_id = $2 OR t.business_id IS NULL)`
+    : "";
+  if (businessId) params.push(businessId);
   const rows = await query<any>(
     `SELECT t.*, u.name AS submitted_by_name
      FROM support_tickets t
      LEFT JOIN users u ON u.id = t.submitted_by
-     WHERE t.id = $1`,
-    [id]
+     WHERE t.id = $1 ${businessClause}`,
+    params
   );
   return rows.rows[0] ? rowToSupportTicket(rows.rows[0]) : null;
 }
 
-export async function updateSupportTicket(id: string, input: SupportTicketUpdate) {
-  const existing = await getSupportTicket(id);
+export async function updateSupportTicket(id: string, input: SupportTicketUpdate, businessId?: string | null) {
+  const existing = await getSupportTicket(id, businessId);
   if (!existing) return null;
   const next = { ...existing, ...input };
   await query(
@@ -283,17 +306,18 @@ export async function updateSupportTicket(id: string, input: SupportTicketUpdate
       ai_summary = $4,
       ai_possible_solution = $5,
       updated_at = NOW()
-     WHERE id = $6`,
+     WHERE id = $6 ${businessId ? "AND (business_id = $7 OR business_id IS NULL)" : ""}`,
     [
       next.status,
       next.priority,
       next.issue_category,
       next.ai_summary || null,
       next.ai_possible_solution || null,
-      id
+      id,
+      ...(businessId ? [businessId] : [])
     ]
   );
-  return getSupportTicket(id);
+  return getSupportTicket(id, businessId);
 }
 
 export async function createAiSupportLog({

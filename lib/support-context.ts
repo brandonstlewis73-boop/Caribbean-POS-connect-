@@ -2,16 +2,18 @@ import type { HelpArticle } from "./types";
 
 export const HELP_CATEGORIES = [
   "Getting Started",
-  "POS Checkout",
-  "Products & Inventory",
+  "Orders & Checkout",
+  "Products & Categories",
   "Customers",
+  "Storefront Setup",
   "Orders",
   "Delivery",
-  "WhatsApp Messaging",
+  "WhatsApp/SMS Notifications",
   "Receipts",
   "Reports",
   "Staff",
-  "Subscriptions",
+  "AI Features",
+  "Billing & Subscriptions",
   "Troubleshooting"
 ] as const;
 
@@ -28,15 +30,14 @@ export const QUICK_HELP_PROMPTS = [
 ];
 
 export const GETTING_STARTED_CHECKLIST = [
-  "Add business name",
-  "Add WhatsApp number",
-  "Add products",
-  "Add barcode/SKU",
-  "Add staff",
-  "Set receipt settings",
-  "Test checkout",
-  "Test WhatsApp receipt",
-  "Set subscription/payment settings"
+  "Add business profile",
+  "Add first category",
+  "Add first product",
+  "Set pickup/delivery options",
+  "Configure WhatsApp/SMS/email",
+  "Customize storefront",
+  "Test customer checkout",
+  "Enable AI features"
 ];
 
 export const FAQS = [
@@ -95,7 +96,7 @@ export const DEFAULT_HELP_ARTICLES: HelpArticle[] = [
   {
     id: "help_pos_complete_order",
     title: "Complete an order in POS checkout",
-    category: "POS Checkout",
+    category: "Orders & Checkout",
     content:
       "Open POS, add products to the cart, choose or create the customer if needed, choose payment method and order type, then submit. For active orders, open Orders and move the status to Completed. Completion updates receipts, customer history, and inventory.",
     tags: ["checkout", "complete order", "pos"],
@@ -106,7 +107,7 @@ export const DEFAULT_HELP_ARTICLES: HelpArticle[] = [
   {
     id: "help_barcode_scanning",
     title: "Use barcode scanning",
-    category: "Products & Inventory",
+    category: "Products & Categories",
     content:
       "Add each product barcode in Inventory. On POS checkout, keep the barcode input ready, scan with a USB/Bluetooth scanner, or enter the barcode manually and press Enter. Matching products are added to the cart or quantity is increased.",
     tags: ["barcode", "scanner", "inventory"],
@@ -150,7 +151,7 @@ export const DEFAULT_HELP_ARTICLES: HelpArticle[] = [
   {
     id: "help_whatsapp_setup",
     title: "Set up WhatsApp automation",
-    category: "WhatsApp Messaging",
+    category: "WhatsApp/SMS Notifications",
     content:
       "In Settings, add the business WhatsApp number and default country code. Add Twilio or Meta WhatsApp credentials in Vercel environment variables. Enable owner alerts, customer receipts, driver assignment messages, and out-for-delivery messages as needed.",
     tags: ["whatsapp", "twilio", "meta", "settings"],
@@ -194,7 +195,7 @@ export const DEFAULT_HELP_ARTICLES: HelpArticle[] = [
   {
     id: "help_subscriptions",
     title: "How subscriptions work",
-    category: "Subscriptions",
+    category: "Billing & Subscriptions",
     content:
       "Subscription settings show the current plan, trial, seats, and billing status. Owners can review plan options and keep payment settings up to date before selling the app as SaaS to more locations.",
     tags: ["subscription", "billing", "plan"],

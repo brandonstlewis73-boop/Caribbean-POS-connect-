@@ -407,6 +407,7 @@ CREATE INDEX IF NOT EXISTS idx_help_articles_visibility ON help_articles(visibil
 
 CREATE TABLE IF NOT EXISTS support_tickets (
   id TEXT PRIMARY KEY,
+  business_id TEXT REFERENCES businesses(id) ON DELETE SET NULL,
   ticket_number TEXT NOT NULL UNIQUE,
   name TEXT NOT NULL,
   business_name TEXT,
@@ -428,12 +429,14 @@ CREATE TABLE IF NOT EXISTS support_tickets (
 );
 
 ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS screenshot_url TEXT;
+ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS business_id TEXT REFERENCES businesses(id) ON DELETE SET NULL;
 ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS ai_summary TEXT;
 ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS ai_category TEXT;
 ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS ai_priority TEXT;
 ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS ai_possible_solution TEXT;
 ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS ai_steps_tried JSONB NOT NULL DEFAULT '[]'::jsonb;
 CREATE INDEX IF NOT EXISTS idx_support_tickets_status ON support_tickets(status, priority);
+CREATE INDEX IF NOT EXISTS idx_support_tickets_business ON support_tickets(business_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_support_tickets_submitter ON support_tickets(submitted_by);
 CREATE INDEX IF NOT EXISTS idx_support_tickets_created ON support_tickets(created_at);
 
@@ -526,7 +529,6 @@ ALTER TABLE customers ADD COLUMN IF NOT EXISTS business_id TEXT REFERENCES busin
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS business_id TEXT REFERENCES businesses(id) ON DELETE CASCADE;
 ALTER TABLE receipts ADD COLUMN IF NOT EXISTS business_id TEXT REFERENCES businesses(id) ON DELETE CASCADE;
 ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS business_id TEXT REFERENCES businesses(id) ON DELETE SET NULL;
-ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS business_id TEXT REFERENCES businesses(id) ON DELETE SET NULL;
 ALTER TABLE ai_support_logs ADD COLUMN IF NOT EXISTS business_id TEXT REFERENCES businesses(id) ON DELETE SET NULL;
 
 DO $$
