@@ -1,44 +1,58 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 
 function formatValue(value: number, prefix = "", suffix = "") {
   return `${prefix}${Math.round(value).toLocaleString("en-US")}${suffix}`;
 }
 
-export function AnimatedCounter({
+function AnimatedCounterComponent({
   value,
   prefix = "",
   suffix = "",
-  duration = 1200
+  duration = 900
 }: {
   value: number;
   prefix?: string;
   suffix?: string;
   duration?: number;
 }) {
-  const [displayValue, setDisplayValue] = useState(0);
-  const frameRef = useRef<number | null>(null);
+  const [displayValue, setDisplayValue] = useState(value);
+  const intervalRef = useRef<number | null>(null);
 
   useEffect(() => {
-    const start = performance.now();
-
-    function tick(now: number) {
-      const progress = Math.min((now - start) / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      setDisplayValue(value * eased);
-
-      if (progress < 1) {
-        frameRef.current = requestAnimationFrame(tick);
-      }
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setDisplayValue(value);
+      return;
     }
 
-    frameRef.current = requestAnimationFrame(tick);
+    const startAnimation = () => {
+      const start = performance.now();
+      const frameMs = 50;
+      setDisplayValue(0);
+
+      intervalRef.current = window.setInterval(() => {
+        const progress = Math.min((performance.now() - start) / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        setDisplayValue(value * eased);
+
+        if (progress >= 1 && intervalRef.current) {
+          window.clearInterval(intervalRef.current);
+          intervalRef.current = null;
+          setDisplayValue(value);
+        }
+      }, frameMs);
+    };
+
+    const startId = window.setTimeout(startAnimation, 220);
 
     return () => {
-      if (frameRef.current) cancelAnimationFrame(frameRef.current);
+      window.clearTimeout(startId);
+      if (intervalRef.current) window.clearInterval(intervalRef.current);
     };
   }, [duration, value]);
 
   return <span>{formatValue(displayValue, prefix, suffix)}</span>;
 }
+
+export const AnimatedCounter = memo(AnimatedCounterComponent);
