@@ -405,23 +405,31 @@ export function HelpSupportClient({
             <PanelHeader title="Search Help Articles" description="Find setup guides and troubleshooting steps for real POS workflows." />
             <div className="grid gap-3 p-4 sm:p-5">
               <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_260px]">
-                <label className="relative block min-w-0">
+                <label htmlFor="help-search" className="relative block min-w-0">
+                  <span className="sr-only">Search help articles</span>
                   <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-cyan-100/55" />
                   <input
+                    id="help-search"
+                    name="helpSearch"
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
                     className="min-h-11 w-full min-w-0 rounded-card border border-white/10 bg-slate-950/45 pl-9 pr-3 text-sm font-semibold text-white outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20"
                     placeholder="Search products, orders, WhatsApp, billing, storefront..."
                   />
                 </label>
-                <select
-                  value={selectedCategory}
+                <div className="grid gap-1">
+                  <label htmlFor="help-category-filter" className="sr-only">Select support category</label>
+                  <select
+                    id="help-category-filter"
+                    name="supportCategory"
+                    value={selectedCategory}
                   onChange={(event) => setSelectedCategory(event.target.value)}
                   className="min-h-11 w-full rounded-card border border-white/10 bg-slate-950/45 px-3 text-sm font-semibold text-white outline-none focus:border-cyan-300"
                 >
                   <option>All</option>
                   {HELP_CATEGORIES.map((category) => <option key={category}>{category}</option>)}
-                </select>
+                  </select>
+                </div>
               </div>
 
               <div className="flex gap-2 overflow-x-auto pb-1">
@@ -570,7 +578,10 @@ export function HelpSupportClient({
                 {chatBusy ? <p className="text-sm font-bold text-cyan-100/70">AI Support is checking the help context...</p> : null}
               </div>
               <div className="grid gap-2">
+                <label htmlFor="ai-support-question" className="sr-only">Ask AI Support question</label>
                 <textarea
+                  id="ai-support-question"
+                  name="aiSupportQuestion"
                   value={chatInput}
                   onChange={(event) => setChatInput(event.target.value)}
                   className="min-h-24 w-full rounded-card border border-white/10 bg-slate-950/45 px-3 py-3 text-sm font-semibold text-white outline-none focus:border-cyan-300"
@@ -587,22 +598,22 @@ export function HelpSupportClient({
           <Panel>
             <PanelHeader title="Contact Support" description="Submit a real support request for this business." action={<LifeBuoy className="h-5 w-5 text-cyan-100" />} />
             <div className="grid gap-3 p-4 sm:p-5">
-              <Field label="Name" value={ticketDraft.name} onChange={(event) => setTicketDraft({ ...ticketDraft, name: event.target.value })} />
-              <Field label="Email" type="email" value={ticketDraft.email} onChange={(event) => setTicketDraft({ ...ticketDraft, email: event.target.value })} />
-              <Field label="Business name" value={ticketDraft.business_name} onChange={(event) => setTicketDraft({ ...ticketDraft, business_name: event.target.value })} />
-              <SelectField label="Issue category" value={ticketDraft.issue_category} onChange={(event) => setTicketDraft({ ...ticketDraft, issue_category: event.target.value })}>
+              <Field id="support-name" name="supportName" label="Name" value={ticketDraft.name} onChange={(event) => setTicketDraft({ ...ticketDraft, name: event.target.value })} />
+              <Field id="support-email" name="supportEmail" label="Email" type="email" value={ticketDraft.email} onChange={(event) => setTicketDraft({ ...ticketDraft, email: event.target.value })} />
+              <Field id="support-business-name" name="supportBusinessName" label="Business name" value={ticketDraft.business_name} onChange={(event) => setTicketDraft({ ...ticketDraft, business_name: event.target.value })} />
+              <SelectField id="support-issue-category" name="supportIssueCategory" label="Issue category" value={ticketDraft.issue_category} onChange={(event) => setTicketDraft({ ...ticketDraft, issue_category: event.target.value })}>
                 {HELP_CATEGORIES.map((category) => <option key={category}>{category}</option>)}
               </SelectField>
-              <SelectField label="Priority" value={ticketDraft.priority} onChange={(event) => setTicketDraft({ ...ticketDraft, priority: event.target.value as SupportTicketPriority })}>
+              <SelectField id="support-priority" name="supportPriority" label="Priority" value={ticketDraft.priority} onChange={(event) => setTicketDraft({ ...ticketDraft, priority: event.target.value as SupportTicketPriority })}>
                 <option value="low">Low</option>
                 <option value="medium">Medium</option>
                 <option value="high">High</option>
                 <option value="urgent">Urgent</option>
               </SelectField>
-              <TextAreaField label="Message" value={ticketDraft.message} onChange={(event) => setTicketDraft({ ...ticketDraft, message: event.target.value })} placeholder="Tell us what happened and what you already tried." />
-              <label className="grid gap-2 text-sm font-bold text-teal-50">
+              <TextAreaField id="support-message" name="supportMessage" label="Message" value={ticketDraft.message} onChange={(event) => setTicketDraft({ ...ticketDraft, message: event.target.value })} placeholder="Tell us what happened and what you already tried." />
+              <label htmlFor="support-screenshot" className="grid gap-2 text-sm font-bold text-teal-50">
                 <span className="text-teal-50/86">Screenshot upload</span>
-                <input type="file" accept="image/png,image/jpeg" onChange={handleScreenshot} className="rounded-card border border-white/10 bg-slate-950/45 px-3 py-2 text-sm font-semibold text-white" />
+                <input id="support-screenshot" name="supportScreenshot" type="file" accept="image/png,image/jpeg" onChange={handleScreenshot} className="rounded-card border border-white/10 bg-slate-950/45 px-3 py-2 text-sm font-semibold text-white" />
               </label>
               {ticketDraft.screenshot_url ? <Badge tone="green">Screenshot attached</Badge> : null}
               {ticketMessage ? (
@@ -644,10 +655,12 @@ export function HelpSupportClient({
                   ) : null}
                   {canManage ? (
                     <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
-                      <select value={ticket.status} onChange={(event) => updateTicket(ticket.id, { status: event.target.value as SupportTicketStatus })} disabled={busy === ticket.id} className="min-h-9 rounded-card border border-white/10 bg-slate-950/45 px-2 text-xs font-bold text-white">
+                      <label htmlFor={`ticket-status-${ticket.id}`} className="sr-only">Select issue type for {ticket.ticket_number}</label>
+                      <select id={`ticket-status-${ticket.id}`} name={`ticketStatus-${ticket.id}`} value={ticket.status} onChange={(event) => updateTicket(ticket.id, { status: event.target.value as SupportTicketStatus })} disabled={busy === ticket.id} className="min-h-9 rounded-card border border-white/10 bg-slate-950/45 px-2 text-xs font-bold text-white">
                         {["new", "open", "waiting_on_customer", "resolved", "closed"].map((status) => <option key={status} value={status}>{labelize(status)}</option>)}
                       </select>
-                      <select value={ticket.priority} onChange={(event) => updateTicket(ticket.id, { priority: event.target.value as SupportTicketPriority })} disabled={busy === ticket.id} className="min-h-9 rounded-card border border-white/10 bg-slate-950/45 px-2 text-xs font-bold text-white">
+                      <label htmlFor={`ticket-priority-${ticket.id}`} className="sr-only">Select priority for {ticket.ticket_number}</label>
+                      <select id={`ticket-priority-${ticket.id}`} name={`ticketPriority-${ticket.id}`} value={ticket.priority} onChange={(event) => updateTicket(ticket.id, { priority: event.target.value as SupportTicketPriority })} disabled={busy === ticket.id} className="min-h-9 rounded-card border border-white/10 bg-slate-950/45 px-2 text-xs font-bold text-white">
                         {["low", "medium", "high", "urgent"].map((priority) => <option key={priority} value={priority}>{labelize(priority)}</option>)}
                       </select>
                     </div>
@@ -670,3 +683,5 @@ export function HelpSupportClient({
     </div>
   );
 }
+
+
