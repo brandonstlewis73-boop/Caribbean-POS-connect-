@@ -1,4 +1,5 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
+import { PwaInstaller } from "@/components/pwa/PwaInstaller";
 import "./globals.css";
 
 function getAppUrl() {
@@ -25,7 +26,24 @@ export const metadata: Metadata = {
     "Premium POS, orders, inventory, delivery, receipts, subscriptions, and customer management for Caribbean businesses.",
   metadataBase: appUrl,
   icons: {
-    icon: "/logo.svg"
+    icon: [
+      { url: "/logo.svg", type: "image/svg+xml" },
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" }
+    ],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }]
+  },
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    title: "Caribbean Connect POS",
+    statusBarStyle: "black-translucent"
+  },
+  applicationName: "Caribbean Connect POS",
+  formatDetection: {
+    telephone: true,
+    address: true,
+    email: true
   },
   openGraph: {
     title: "Caribbean Connect POS",
@@ -37,10 +55,20 @@ export const metadata: Metadata = {
   }
 };
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#03100f"
+};
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className="dark">
-      <body>{children}</body>
+      <body>
+        {children}
+        <PwaInstaller />
+      </body>
     </html>
   );
 }

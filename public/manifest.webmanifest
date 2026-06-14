@@ -1,0 +1,52 @@
+{
+  "name": "Caribbean Connect POS",
+  "short_name": "Connect POS",
+  "description": "POS, storefront, inventory, receipts, delivery, and WhatsApp workflows for Caribbean businesses.",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#03100f",
+  "theme_color": "#03100f",
+  "categories": ["business", "productivity", "shopping"],
+  "icons": [
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Open POS",
+      "short_name": "POS",
+      "url": "/pos",
+      "description": "Open the POS checkout"
+    },
+    {
+      "name": "Orders",
+      "short_name": "Orders",
+      "url": "/orders",
+      "description": "View business orders"
+    },
+    {
+      "name": "Storefront",
+      "short_name": "Storefront",
+      "url": "/online",
+      "description": "Open online ordering"
+    }
+  ]
+}
