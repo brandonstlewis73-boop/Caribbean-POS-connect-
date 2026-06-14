@@ -13,3 +13,5 @@ backups
 .DS_Store
 *-admin.ps1
 web/qa-*.png
+
+.vercel
