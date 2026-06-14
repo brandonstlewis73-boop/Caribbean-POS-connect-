@@ -1,3 +1,5 @@
+import { readFile } from "fs/promises";
+import path from "path";
 import PDFDocument from "pdfkit";
 import QRCode from "qrcode";
 import { money } from "./constants";
@@ -5,7 +7,7 @@ import { getReceiptNumber, getSettings } from "./data";
 import { buildAddress } from "./waze";
 import type { CustomerInput, Order } from "./types";
 
-const MAX_RECEIPT_LOGO_BYTES = 1024 * 1024;
+const MAX_RECEIPT_LOGO_BYTES = 2 * 1024 * 1024;
 
 function pdfToBuffer(doc: PDFKit.PDFDocument) {
   const chunks: Buffer[] = [];
@@ -35,7 +37,7 @@ async function createQrBuffer(value?: string | null, width = 110) {
 
 async function createLogoBuffer(logoUrl?: string | null) {
   const value = logoUrl?.trim();
-  if (!value || value === "/logo.svg" || value.toLowerCase().endsWith(".svg")) return null;
+  if (!value || value.toLowerCase().endsWith(".svg")) return null;
 
   if (value.startsWith("data:image/")) {
     const [metadata, base64Data] = value.split(",", 2);
@@ -44,6 +46,14 @@ async function createLogoBuffer(logoUrl?: string | null) {
     return buffer.length <= MAX_RECEIPT_LOGO_BYTES ? buffer : null;
   }
 
+  if (value.startsWith("/") && /\.(png|jpe?g)$/i.test(value)) {
+    try {
+      const buffer = await readFile(path.join(process.cwd(), "public", value));
+      return buffer.length <= MAX_RECEIPT_LOGO_BYTES ? buffer : null;
+    } catch {
+      return null;
+    }
+  }
   if (!/^https?:\/\//i.test(value)) return null;
   try {
     const response = await fetch(value);
@@ -198,3 +208,7 @@ export async function createShippingLabelPdfBuffer(order: Order) {
   doc.end();
   return done;
 }
+
+
+
+

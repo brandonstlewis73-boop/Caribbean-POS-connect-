@@ -88,7 +88,7 @@ export function OrderTrackingClient() {
         <div className="rounded-card border border-white/10 bg-white/[0.06] p-5 shadow-soft backdrop-blur-xl">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="min-w-0">
-              <p className="text-xs font-black uppercase tracking-[0.2em] text-cyan-100/60">Caribbean Connect POS</p>
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-cyan-100/60">Caribbean POS Connect</p>
               <h1 className="mt-1 text-2xl font-black sm:text-4xl">Track your order</h1>
               <p className="mt-2 max-w-2xl text-sm font-semibold text-teal-50/65">Enter your order number and phone number to see the latest status, items, and pickup or delivery details.</p>
             </div>
@@ -178,3 +178,4 @@ export function OrderTrackingClient() {
     </main>
   );
 }
+

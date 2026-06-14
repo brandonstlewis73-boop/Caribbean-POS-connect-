@@ -63,8 +63,8 @@ export function LoginForm() {
   return (
     <form onSubmit={submit} className="grid w-full max-w-md gap-4 rounded-card border border-white/10 bg-white/[0.06] p-6 shadow-soft backdrop-blur-xl">
       <div>
-        <Image src="/logo.svg" alt="" width={56} height={56} className="mb-4 h-14 w-14 rounded-2xl object-contain" priority />
-        <h1 className="text-2xl font-black">Caribbean Connect POS</h1>
+        <Image src="/caribbean-pos-connect-icon.png" alt="" width={56} height={56} className="mb-4 h-14 w-14 rounded-2xl object-contain" priority />
+        <h1 className="text-2xl font-black">Caribbean POS Connect</h1>
         <p className="mt-2 text-sm font-semibold text-teal-50/65">
           Sign in to manage sales, customers, inventory, orders, delivery, reports, and subscriptions.
         </p>
@@ -83,3 +83,4 @@ export function LoginForm() {
     </form>
   );
 }
+

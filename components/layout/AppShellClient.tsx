@@ -227,7 +227,7 @@ function SidebarContent({
         className="mb-5 flex min-w-0 items-center gap-3 rounded-card border border-white/10 bg-white/[0.06] px-3 py-3 shadow-soft transition hover:border-cyan-200/30"
       >
         <Image
-          src="/logo.svg"
+          src="/caribbean-pos-connect-icon.png"
           alt=""
           width={48}
           height={48}
@@ -283,7 +283,7 @@ function SecondaryMenu({ active, onNavigate }: { active: string; onNavigate: () 
     <div className="grid gap-5">
       <div className="flex min-w-0 items-center gap-3 rounded-card border border-white/10 bg-white/[0.06] px-3 py-3 shadow-soft">
         <Image
-          src="/logo.svg"
+          src="/caribbean-pos-connect-icon.png"
           alt=""
           width={44}
           height={44}
@@ -374,5 +374,6 @@ function BottomNavigation({ active, hidden }: { active: string; hidden?: boolean
     </nav>
   );
 }
+
 
 

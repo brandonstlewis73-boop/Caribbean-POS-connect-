@@ -1,6 +1,6 @@
 {
-  "name": "Caribbean Connect POS",
-  "short_name": "Connect POS",
+  "name": "Caribbean POS Connect",
+  "short_name": "Caribbean POS",
   "description": "POS, storefront, inventory, receipts, delivery, and WhatsApp workflows for Caribbean businesses.",
   "start_url": "/dashboard",
   "scope": "/",
@@ -10,6 +10,12 @@
   "theme_color": "#03100f",
   "categories": ["business", "productivity", "shopping"],
   "icons": [
+    {
+      "src": "/caribbean-pos-connect-icon.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
     {
       "src": "/apple-touch-icon.png",
       "sizes": "180x180",
@@ -50,3 +56,5 @@
     }
   ]
 }
+
+

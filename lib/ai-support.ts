@@ -78,9 +78,9 @@ function articleContext(articles: HelpArticle[]) {
 
 function supportInstructions(role: Role, currentPage?: string | null) {
   return `
-You are the Caribbean Connect POS support assistant.
+You are the Caribbean POS Connect support assistant.
 Answer in short, friendly, professional steps.
-Use Caribbean Connect POS terms and the supplied help articles.
+Use Caribbean POS Connect terms and the supplied help articles.
 Current user role: ${role}.
 Current page: ${currentPage || "Unknown"}.
 
@@ -277,3 +277,4 @@ Message: ${ticket.message || ""}`
     return fallback;
   }
 }
+

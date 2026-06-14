@@ -490,7 +490,7 @@ async function seedSettings() {
   await insertSetting("business_phone", "");
   await insertSetting("business_email", "owner@yourbusiness.com");
   await insertSetting("business_address", "");
-  await insertSetting("logo_url", "/logo.svg");
+  await insertSetting("logo_url", "/caribbean-pos-connect-icon.png");
   await insertSetting("business_type", "retail");
   await insertSetting("business_color", "#14b8a6");
   await insertSetting("storefront_banner_url", "");
@@ -595,7 +595,7 @@ async function seedHelpArticles() {
 async function seedInitialData() {
   await rawQuery(
     `INSERT INTO businesses (id, name, legal_name, slug, phone, email, street_address, city, region, country, currency, logo_url)
-     SELECT $1, $2, $2, $3, $4, $5, $6, $7, $8, 'Trinidad and Tobago', 'TTD', '/logo.svg'
+     SELECT $1, $2, $2, $3, $4, $5, $6, $7, $8, 'Trinidad and Tobago', 'TTD', '/caribbean-pos-connect-icon.png'
      WHERE NOT EXISTS (SELECT 1 FROM businesses WHERE id = $1)`,
     [
       "biz_savannah_sea",
@@ -641,3 +641,4 @@ export function createId(prefix: string) {
 }
 
 export type { PoolClient };
+

@@ -96,7 +96,7 @@ export function SubscriptionClient({
       <Panel>
         <PanelHeader
           title="Subscription"
-          description="Manage your Caribbean Connect POS plan, trial status, and payment provider readiness"
+          description="Manage your Caribbean POS Connect plan, trial status, and payment provider readiness"
           action={current ? <Badge tone={current.status === "active" ? "green" : "amber"}>{current.status}</Badge> : null}
         />
         <div className="grid gap-4 p-4 md:grid-cols-3">
@@ -189,3 +189,4 @@ export function SubscriptionClient({
     </div>
   );
 }
+

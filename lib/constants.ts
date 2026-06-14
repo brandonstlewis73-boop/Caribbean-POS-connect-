@@ -1,4 +1,4 @@
-export const APP_NAME = "Caribbean Connect POS";
+export const APP_NAME = "Caribbean POS Connect";
 export const CURRENCY_CODE = "TTD";
 export const CURRENCY_SYMBOL = "TT$";
 
@@ -347,3 +347,4 @@ export function money(value: number | string | null | undefined, currency = CURR
   const numeric = Number(value ?? 0);
   return `${getCurrencyMeta(currency).symbol}${numeric.toFixed(2)}`;
 }
+

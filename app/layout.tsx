@@ -21,13 +21,16 @@ const appUrl = getAppUrl();
 const appUrlString = appUrl.toString();
 
 export const metadata: Metadata = {
-  title: "Caribbean Connect POS",
+  title: "Caribbean POS Connect",
   description:
     "Premium POS, orders, inventory, delivery, receipts, subscriptions, and customer management for Caribbean businesses.",
   metadataBase: appUrl,
   icons: {
     icon: [
-      { url: "/logo.svg", type: "image/svg+xml" },
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/favicon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/favicon-16.png", sizes: "16x16", type: "image/png" },
+      { url: "/caribbean-pos-connect-icon.png", sizes: "1024x1024", type: "image/png" },
       { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
       { url: "/icon-512.png", sizes: "512x512", type: "image/png" }
     ],
@@ -36,22 +39,30 @@ export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
-    title: "Caribbean Connect POS",
+    title: "Caribbean POS Connect",
     statusBarStyle: "black-translucent"
   },
-  applicationName: "Caribbean Connect POS",
+  applicationName: "Caribbean POS Connect",
   formatDetection: {
     telephone: true,
     address: true,
     email: true
   },
   openGraph: {
-    title: "Caribbean Connect POS",
+    title: "Caribbean POS Connect",
     description:
       "Premium POS, storefront, delivery, Waze, WhatsApp, inventory, and reporting for Caribbean businesses.",
     url: appUrlString,
-    siteName: "Caribbean Connect POS",
-    type: "website"
+    siteName: "Caribbean POS Connect",
+    type: "website",
+    images: [
+      {
+        url: "/caribbean-pos-connect-icon.png",
+        width: 1024,
+        height: 1024,
+        alt: "Caribbean POS Connect app icon"
+      }
+    ]
   }
 };
 
@@ -72,3 +83,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     </html>
   );
 }
+
+
+

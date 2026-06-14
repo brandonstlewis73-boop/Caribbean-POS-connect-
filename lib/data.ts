@@ -84,7 +84,7 @@ export const defaultSettings: Settings = {
   business_postal_code: "",
   business_latitude: null,
   business_longitude: null,
-  logo_url: "/logo.svg",
+  logo_url: "/caribbean-pos-connect-icon.png",
   business_type: "retail",
   business_color: "#14b8a6",
   storefront_banner_url: "",
@@ -313,7 +313,7 @@ function setupChecklistForBusiness(business: Business | null | undefined, settin
   const stored = business?.setup_checklist || {};
   return SETUP_CHECKLIST_ITEMS.map((item) => {
     let complete = Boolean(stored[item.key]);
-    if (item.key === "logo") complete = Boolean(settings.logo_url && settings.logo_url !== "/logo.svg");
+    if (item.key === "logo") complete = Boolean(settings.logo_url && settings.logo_url !== "/caribbean-pos-connect-icon.png");
     if (item.key === "whatsapp") complete = Boolean(settings.whatsapp_business_number || business?.business_whatsapp_number);
     if (item.key === "products") complete = products.length > 0;
     if (item.key === "product_images") complete = products.some((product) => product.image_url);
@@ -667,7 +667,7 @@ export async function getBusinessSettings(businessId?: string | null): Promise<S
     settings.business_postal_code = business.postal_code || "";
     settings.business_latitude = business.latitude ?? null;
     settings.business_longitude = business.longitude ?? null;
-    settings.logo_url = business.logo_url || base.logo_url || "/logo.svg";
+    settings.logo_url = business.logo_url || base.logo_url || "/caribbean-pos-connect-icon.png";
     settings.currency = business.currency || base.currency;
     settings.whatsapp_business_number =
       business.business_whatsapp_number || (settings.whatsapp_business_number as string) || business.phone || "";
@@ -968,7 +968,7 @@ export async function createBusinessOwnerAccount(input: {
         id, name, legal_name, slug, storefront_slug, owner_name, owner_email, owner_phone,
         business_whatsapp_number, phone, email, country, currency, logo_url,
         subscription_plan, subscription_status, trial_ends_at, setup_checklist, active
-      ) VALUES ($1, $2, $2, $3, $3, $4, $5, $6, $6, $6, $5, $7, $8, '/logo.svg',
+      ) VALUES ($1, $2, $2, $3, $3, $4, $5, $6, $6, $6, $5, $7, $8, '/caribbean-pos-connect-icon.png',
         'starter', 'trial', NOW() + INTERVAL '14 days', '{}'::jsonb, TRUE)`,
       [businessId, input.business_name.trim(), slug, ownerName, email, input.whatsapp_number, country, currency],
       client
@@ -985,7 +985,7 @@ export async function createBusinessOwnerAccount(input: {
       business_phone: input.whatsapp_number,
       business_email: email,
       business_address: country,
-      logo_url: "/logo.svg",
+      logo_url: "/caribbean-pos-connect-icon.png",
       currency,
       whatsapp_enabled: true,
       whatsapp_provider: "twilio",
@@ -3225,3 +3225,4 @@ export async function getReceiptNumber(orderId: string) {
 export async function getAuditLogs(limit = 100) {
   return listAuditLogs(limit);
 }
+

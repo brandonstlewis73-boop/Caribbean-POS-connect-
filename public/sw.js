@@ -1,7 +1,10 @@
-const CACHE_NAME = "caribbean-connect-pos-shell-v2";
+const CACHE_NAME = "caribbean-pos-connect-shell-v3";
 const STATIC_ASSETS = [
   "/",
-  "/logo.svg",
+  "/caribbean-pos-connect-icon.png",
+  "/favicon.ico",
+  "/favicon-32.png",
+  "/favicon-16.png",
   "/manifest.webmanifest",
   "/apple-touch-icon.png",
   "/icon-192.png",
@@ -36,4 +39,6 @@ self.addEventListener("fetch", (event) => {
     fetch(request).catch(() => caches.match(request).then((cached) => cached || caches.match("/")))
   );
 });
+
+
 

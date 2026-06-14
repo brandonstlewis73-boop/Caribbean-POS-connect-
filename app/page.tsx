@@ -121,7 +121,7 @@ export default function LandingPage() {
         <div className="mx-auto flex min-h-20 w-full max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
           <Link href="/" className="flex min-w-0 items-center gap-3" aria-label={`${APP_NAME} homepage`}>
             <Image
-              src="/logo.svg"
+              src="/caribbean-pos-connect-icon.png"
               alt={`${APP_NAME} logo`}
               width={48}
               height={48}
@@ -129,7 +129,7 @@ export default function LandingPage() {
               priority
             />
             <span className="min-w-0">
-              <span className="block text-sm font-black leading-tight text-white sm:text-base">Caribbean Connect POS</span>
+              <span className="block text-sm font-black leading-tight text-white sm:text-base">Caribbean POS Connect</span>
               <span className="block text-xs font-bold text-cyan-100/68">POS for Caribbean businesses</span>
             </span>
           </Link>
@@ -160,7 +160,7 @@ export default function LandingPage() {
           </div>
 
           <h1 className="mt-6 max-w-4xl text-5xl font-black leading-[0.96] tracking-tight text-white sm:text-6xl lg:text-7xl">
-            Caribbean Connect POS
+            Caribbean POS Connect
           </h1>
           <p className="mt-5 max-w-2xl text-xl font-black leading-8 text-cyan-50 sm:text-2xl">
             Run your store, orders, inventory, deliveries, and receipts from one simple POS.
@@ -393,3 +393,4 @@ export default function LandingPage() {
     </main>
   );
 }
+

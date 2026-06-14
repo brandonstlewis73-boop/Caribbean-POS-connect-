@@ -64,7 +64,7 @@ export const FAQS = [
 ];
 
 export const SUPPORT_KNOWLEDGE_CONTEXT = `
-Caribbean Connect POS is a SaaS-style point-of-sale app for Caribbean businesses.
+Caribbean POS Connect is a SaaS-style point-of-sale app for Caribbean businesses.
 Main dashboard areas: POS checkout, Orders, Receipts, Deliveries, Customers, Inventory, Reports, Staff, Subscription, Settings, Printer, and Help & Support.
 Products can include name, SKU, barcode, category, price, stock quantity, supplier info, and image.
 POS checkout supports tapping products, searching, manual barcode entry, scanner-enter input, delivery/pickup/in-store orders, customers, and order completion.
@@ -215,3 +215,4 @@ export const DEFAULT_HELP_ARTICLES: HelpArticle[] = [
     last_updated_at: "2026-05-11"
   }
 ];
+

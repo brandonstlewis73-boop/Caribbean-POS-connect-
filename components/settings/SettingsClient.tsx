@@ -736,7 +736,7 @@ export function SettingsClient({
           </Button>
         </SettingsCard>
 
-        <SettingsCard icon={CreditCard} title="Subscription / Billing" description="Plan controls for selling Caribbean Connect POS as a SaaS product.">
+        <SettingsCard icon={CreditCard} title="Subscription / Billing" description="Plan controls for selling Caribbean POS Connect as a SaaS product.">
           <div className="grid gap-3">
             <div className="rounded-card border border-white/10 bg-black/20 p-4">
               <p className="text-sm font-bold text-teal-50/60">Current plan</p>
@@ -783,7 +783,7 @@ export function SettingsClient({
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="rounded-card border border-white/10 bg-black/20 p-4">
               <Image
-                src={draft.logo_url || "/logo.svg"}
+                src={draft.logo_url || "/caribbean-pos-connect-icon.png"}
                 alt=""
                 width={64}
                 height={64}
@@ -827,3 +827,4 @@ export function SettingsClient({
     </div>
   );
 }
+

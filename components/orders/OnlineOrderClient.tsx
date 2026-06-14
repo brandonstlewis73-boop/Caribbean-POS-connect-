@@ -312,7 +312,7 @@ export function OnlineOrderClient({
       <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/95 px-4 py-4 shadow-sm backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            <img src={settings.logo_url || "/logo.svg"} alt="" className="h-12 w-12 shrink-0 rounded-2xl border border-slate-200 bg-white object-contain p-1 shadow-sm" />
+            <img src={settings.logo_url || "/caribbean-pos-connect-icon.png"} alt="" className="h-12 w-12 shrink-0 rounded-2xl border border-slate-200 bg-white object-contain p-1 shadow-sm" />
             <div className="min-w-0">
               <h1 className="truncate text-xl font-black leading-tight tracking-tight text-slate-950">{settings.business_name}</h1>
               <p className="text-sm font-semibold text-slate-500">Online ordering - {marketCountry} / {settings.currency}</p>
@@ -585,3 +585,4 @@ export function OnlineOrderClient({
     </main>
   );
 }
+
