@@ -113,7 +113,7 @@ export function AppShellClient({
   }, [menuOpen]);
 
   return (
-    <div className="min-h-screen overflow-x-hidden text-caribbean-ink">
+    <div className="min-h-dvh overflow-x-hidden text-caribbean-ink">
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-sidebar overflow-y-auto border-r border-white/10 bg-[#041211]/95 px-3 py-4 shadow-soft backdrop-blur-xl md:block">
         <SidebarContent active={active} currency={currency} includeSecondary />
       </aside>
@@ -129,7 +129,7 @@ export function AppShellClient({
 
       <aside
         className={cn(
-          "glass-panel-strong fixed inset-y-0 left-0 z-50 w-[86vw] max-w-[260px] overflow-y-auto px-4 py-5 transition-transform duration-300 ease-out md:hidden",
+          "glass-panel-strong app-mobile-drawer fixed inset-y-0 left-0 z-50 w-[86vw] max-w-[280px] overflow-y-auto px-4 transition-transform duration-300 ease-out md:hidden",
           menuOpen ? "translate-x-0" : "-translate-x-full"
         )}
         aria-hidden={!menuOpen}
@@ -151,7 +151,7 @@ export function AppShellClient({
       </aside>
 
       <div className="min-w-0 md:pl-sidebar">
-        <header className="sticky top-0 z-30 border-b border-white/10 bg-[#03100f]/88 px-3 py-3 shadow-soft backdrop-blur-xl sm:px-5 lg:px-6">
+        <header className="app-safe-top sticky top-0 z-30 border-b border-white/10 bg-[#03100f]/92 px-3 pb-3 shadow-soft backdrop-blur-xl sm:px-5 lg:px-6">
           <div className="mx-auto grid min-h-[52px] w-full max-w-[1240px] min-w-0 gap-3 sm:flex sm:items-center sm:justify-between">
             <div className="flex min-w-0 items-center gap-3">
               <button
@@ -185,12 +185,12 @@ export function AppShellClient({
           </div>
         </header>
 
-        <main className="animate-fade-in min-w-0 max-w-full overflow-x-hidden px-3 pb-[calc(var(--bottom-nav-height)+2rem)] pt-4 xs:px-4 sm:px-5 md:pb-8 lg:px-6">
+        <main className="animate-fade-in app-safe-bottom-space min-w-0 max-w-full overflow-x-hidden px-3 pt-4 xs:px-4 sm:px-5 md:pb-8 lg:px-6">
           <div className="mx-auto w-full max-w-[1240px] min-w-0">{children}</div>
         </main>
       </div>
 
-      <BottomNavigation active={active} />
+      <BottomNavigation active={active} hidden={menuOpen} />
 
       <Link
         href="/help"
@@ -349,9 +349,9 @@ function SignOutButton() {
   );
 }
 
-function BottomNavigation({ active }: { active: string }) {
+function BottomNavigation({ active, hidden }: { active: string; hidden?: boolean }) {
   return (
-    <nav className="safe-bottom fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-black/[0.78] px-2 pt-2 shadow-medium backdrop-blur-2xl md:hidden">
+    <nav className={cn("safe-bottom fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#03100f]/95 px-2 pt-2 shadow-medium backdrop-blur-2xl transition-transform duration-200 md:hidden", hidden ? "translate-y-full" : "translate-y-0")}>
       <div className="grid grid-cols-5 gap-1">
         {bottomNavItems.map((item) => {
           const Icon = item.icon;
@@ -374,3 +374,5 @@ function BottomNavigation({ active }: { active: string }) {
     </nav>
   );
 }
+
+

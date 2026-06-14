@@ -21,6 +21,8 @@
   --sidebar-width: 244px;
   --header-height: 72px;
   --bottom-nav-height: 76px;
+  --safe-area-top: env(safe-area-inset-top);
+  --safe-area-bottom: env(safe-area-inset-bottom);
   --glass-bg: rgba(8, 24, 22, 0.84);
   --glass-border: rgba(255, 255, 255, 0.1);
   --shadow-soft: 0 14px 44px rgba(0, 0, 0, 0.26);
@@ -59,6 +61,7 @@ html {
 
 body {
   min-height: 100%;
+  min-height: 100dvh;
   width: 100%;
   overflow-x: hidden;
   margin: 0;
@@ -244,7 +247,25 @@ th {
   }
 
   .safe-bottom {
-    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+    padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+  }
+
+  .app-safe-top {
+    padding-top: calc(0.75rem + env(safe-area-inset-top));
+  }
+
+  .app-safe-bottom-space {
+    padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom) + 1.5rem);
+  }
+
+  .app-mobile-drawer {
+    padding-top: calc(1.25rem + env(safe-area-inset-top));
+    padding-bottom: calc(1.25rem + env(safe-area-inset-bottom));
+  }
+
+  .pwa-standalone body {
+    min-height: 100dvh;
+    overscroll-behavior-y: contain;
   }
 
   .touch-target {
@@ -278,3 +299,5 @@ th {
     max-width: none !important;
   }
 }
+
+
