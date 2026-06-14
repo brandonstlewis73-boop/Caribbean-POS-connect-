@@ -1,4 +1,4 @@
-const CACHE_NAME = "caribbean-connect-pos-shell-v1";
+const CACHE_NAME = "caribbean-connect-pos-shell-v2";
 const STATIC_ASSETS = [
   "/",
   "/logo.svg",
@@ -36,3 +36,4 @@ self.addEventListener("fetch", (event) => {
     fetch(request).catch(() => caches.match(request).then((cached) => cached || caches.match("/")))
   );
 });
+
