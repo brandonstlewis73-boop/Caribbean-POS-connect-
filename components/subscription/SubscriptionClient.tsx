@@ -99,18 +99,18 @@ export function SubscriptionClient({
           description="Manage your Caribbean POS Connect plan, trial status, and payment provider readiness"
           action={current ? <Badge tone={current.status === "active" ? "green" : "amber"}>{current.status}</Badge> : null}
         />
-        <div className="grid gap-4 p-4 md:grid-cols-3">
-          <div className="rounded-card border border-white/10 bg-black/25 p-4">
+        <div className="grid gap-5 p-5 md:grid-cols-3 sm:p-6">
+          <div className="rounded-3xl border border-cyan-200/12 bg-slate-950/35 p-5 shadow-[0_16px_45px_rgba(0,0,0,0.20)]">
             <p className="text-sm font-bold text-teal-50/60">Current plan</p>
             <p className="mt-2 text-2xl font-black">{current?.plan_name || "No plan selected"}</p>
           </div>
-          <div className="rounded-card border border-white/10 bg-black/25 p-4">
+          <div className="rounded-3xl border border-cyan-200/12 bg-slate-950/35 p-5 shadow-[0_16px_45px_rgba(0,0,0,0.20)]">
             <p className="text-sm font-bold text-teal-50/60">Trial status</p>
             <p className="mt-2 text-sm font-black">
               {current?.trial_ends_at ? `Trial ends ${new Date(current.trial_ends_at).toLocaleDateString()}` : "Trial available"}
             </p>
           </div>
-          <div className="rounded-card border border-white/10 bg-black/25 p-4">
+          <div className="rounded-3xl border border-cyan-200/12 bg-slate-950/35 p-5 shadow-[0_16px_45px_rgba(0,0,0,0.20)]">
             <p className="text-sm font-bold text-teal-50/60">Payment checkout</p>
             <p className="mt-2 text-sm font-black">{hasPaymentProvider ? "Stripe checkout available" : "Ready for Stripe, PayPal, or WiPay setup"}</p>
             {stripeStatus && stripeStatus.missing.length ? (
@@ -131,9 +131,9 @@ export function SubscriptionClient({
           title="Usage this month"
           description="Plan limits are enforced in the dashboard and API so locked features show upgrade options instead of breaking."
         />
-        <div className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-5 p-5 sm:grid-cols-2 xl:grid-cols-3 sm:p-6">
           {usageSummary.meters.map((meter) => (
-            <div key={meter.key} className="rounded-card border border-white/10 bg-black/25 p-3">
+            <div key={meter.key} className="rounded-3xl border border-cyan-200/12 bg-slate-950/35 p-5 shadow-[0_16px_45px_rgba(0,0,0,0.18)]">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-sm font-black text-white">{meter.label}</p>
@@ -151,12 +151,12 @@ export function SubscriptionClient({
         </div>
       </Panel>
 
-      <div className="grid gap-4 lg:grid-cols-3 xl:grid-cols-5">
+      <div className="grid items-stretch gap-6 md:grid-cols-2 xl:grid-cols-3">
         {plans.map((plan) => {
           const active = currentPlanId === plan.id;
           return (
-            <Panel key={plan.id} className={active ? "border-cyan-300/60" : ""}>
-              <div className="grid h-full gap-4 p-5">
+            <Panel key={plan.id} className={active ? "border-cyan-300/70 shadow-[0_22px_80px_rgba(18,214,223,0.16)]" : ""}>
+              <div className="flex h-full min-h-[440px] flex-col gap-6 p-6 sm:p-7">
                 <div>
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -165,12 +165,12 @@ export function SubscriptionClient({
                     </div>
                     {active ? <Badge tone="teal">Current</Badge> : null}
                   </div>
-                  <p className="mt-4 text-3xl font-black">{money(plan.monthly_price, plan.currency)}<span className="text-sm text-teal-50/55"> / month</span></p>
+                  <p className="mt-5 flex flex-wrap items-end gap-x-2 gap-y-1 text-4xl font-black leading-none text-white"><span>{money(plan.monthly_price, plan.currency)}</span><span className="pb-1 text-sm font-bold leading-5 text-slate-300">/ month</span></p>
                 </div>
-                <div className="grid gap-2">
+                <div className="grid flex-1 content-start gap-3">
                   {plan.features.map((feature) => (
-                    <p key={feature} className="flex gap-2 text-sm font-bold text-teal-50/75">
-                      <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-300" />
+                    <p key={feature} className="flex items-start gap-3 text-sm font-semibold leading-6 text-slate-200">
+                      <CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-cyan-300" />
                       {feature}
                     </p>
                   ))}
@@ -189,4 +189,3 @@ export function SubscriptionClient({
     </div>
   );
 }
-

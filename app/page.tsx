@@ -193,7 +193,7 @@ export default function LandingPage() {
               </Link>
             </div>
 
-            <div className="landing-proof mt-9 grid gap-3 text-sm font-bold text-[#A7B4C7] sm:grid-cols-3">
+            <div className="landing-proof mt-9 grid gap-4 text-sm font-bold text-[#A7B4C7] sm:grid-cols-3">
               {[
                 "Fast checkout",
                 "Online storefront",
@@ -222,9 +222,9 @@ export default function LandingPage() {
                 </span>
               </div>
 
-              <div className="relative mt-5 grid gap-3 sm:grid-cols-3">
+              <div className="relative mt-6 grid gap-4 sm:grid-cols-3">
                 {controlStats.map((stat, index) => (
-                  <div key={stat.label} className="stat-card reveal-up rounded-2xl border border-white/10 bg-black/28 p-4" style={{ animationDelay: `${420 + index * 120}ms` }}>
+                  <div key={stat.label} className="stat-card reveal-up rounded-3xl border border-[#48F3F8]/14 bg-[#0B1D2E]/82 p-5 shadow-[0_16px_45px_rgba(0,0,0,0.24)]" style={{ animationDelay: `${420 + index * 120}ms` }}>
                     <p className="text-xs font-bold text-[#A7B4C7]">{stat.label}</p>
                     <p className="mt-2 text-xl font-black text-white">
                       <AnimatedCounter value={stat.value} prefix={stat.prefix} suffix={stat.suffix} duration={1300 + index * 120} />
@@ -233,11 +233,11 @@ export default function LandingPage() {
                 ))}
               </div>
 
-              <div className="relative mt-5 grid gap-3">
+              <div className="relative mt-6 grid gap-4">
                 {controlTasks.map((task, index) => {
                   const Icon = task.icon;
                   return (
-                    <div key={task.label} className="action-row reveal-up flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-slate-950/42 px-4 py-3" style={{ animationDelay: `${650 + index * 90}ms` }}>
+                    <div key={task.label} className="action-row reveal-up flex items-center justify-between gap-4 rounded-3xl border border-[#48F3F8]/12 bg-slate-950/55 px-5 py-4" style={{ animationDelay: `${650 + index * 90}ms` }}>
                       <span className="flex min-w-0 items-center gap-3 text-sm font-black text-[#F8FAFC]">
                         <Icon className={`h-5 w-5 ${task.tone}`} />
                         {task.label}
@@ -291,11 +291,11 @@ export default function LandingPage() {
           </p>
         </div>
 
-        <div className="mt-10 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-12 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {features.map((feature, index) => {
             const Icon = feature.icon;
             return (
-              <article key={feature.title} className="reveal-on-scroll premium-card group rounded-[26px] border border-[#48F3F8]/14 bg-[rgba(11,29,46,0.72)] p-5 shadow-[0_22px_70px_rgba(0,0,0,0.26)] backdrop-blur-xl" style={{ animationDelay: `${index * 80}ms` }}>
+              <article key={feature.title} className="reveal-on-scroll premium-card group h-full rounded-3xl border border-[#48F3F8]/16 bg-[#0B1D2E]/88 p-6 shadow-[0_22px_70px_rgba(0,0,0,0.28)]" style={{ animationDelay: `${index * 80}ms` }}>
                 <span className="grid h-12 w-12 place-items-center rounded-2xl border border-[#48F3F8]/18 bg-slate-950/44 text-[#48F3F8] transition group-hover:scale-105 group-hover:text-white">
                   <Icon className="h-6 w-6" />
                 </span>
@@ -317,9 +317,9 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-2">
             {businesses.map((business, index) => (
-              <div key={business} className="reveal-on-scroll premium-row flex items-center gap-3 rounded-2xl border border-white/10 bg-[rgba(11,29,46,0.72)] px-4 py-4 text-sm font-black text-[#F8FAFC]" style={{ animationDelay: `${index * 70}ms` }}>
+              <div key={business} className="reveal-on-scroll premium-row flex items-center gap-4 rounded-3xl border border-[#48F3F8]/14 bg-[#0B1D2E]/84 px-5 py-4 text-sm font-black text-[#F8FAFC]" style={{ animationDelay: `${index * 70}ms` }}>
                 <Store className="h-5 w-5 text-[#F5C451]" />
                 {business}
               </div>
@@ -337,9 +337,9 @@ export default function LandingPage() {
           </p>
         </div>
 
-        <div className="mt-10 grid gap-4 lg:grid-cols-3">
+        <div className="mt-12 grid items-stretch gap-6 lg:grid-cols-3 lg:gap-8">
           {plans.map((plan, index) => (
-            <article key={plan.name} className="reveal-on-scroll premium-card rounded-[28px] border border-[#48F3F8]/14 bg-[rgba(11,29,46,0.72)] p-6 shadow-[0_22px_70px_rgba(0,0,0,0.26)] backdrop-blur-xl" style={{ animationDelay: `${index * 100}ms` }}>
+            <article key={plan.name} className="reveal-on-scroll premium-card flex h-full min-h-[260px] flex-col rounded-3xl border border-[#48F3F8]/16 bg-[#0B1D2E]/88 p-7 shadow-[0_24px_80px_rgba(0,0,0,0.30)]" style={{ animationDelay: `${index * 100}ms` }}>
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-sm font-black text-[#48F3F8]">{plan.badge}</p>

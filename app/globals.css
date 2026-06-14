@@ -195,14 +195,14 @@ th {
     border: 1px solid var(--glass-border);
     background: var(--glass-bg);
     box-shadow: var(--shadow-soft);
-    backdrop-filter: blur(18px) saturate(125%);
+    backdrop-filter: blur(10px) saturate(115%);
   }
 
   .glass-panel-strong {
     border: 1px solid var(--glass-border);
     background: var(--surface-strong);
     box-shadow: var(--shadow-soft);
-    backdrop-filter: blur(20px) saturate(125%);
+    backdrop-filter: blur(12px) saturate(115%);
   }
 
   .glass-hover:hover {
@@ -670,3 +670,28 @@ th {
 
 
 
+
+  .cookie-banner,
+  .accessibility-popup,
+  [data-cookie-banner],
+  [data-accessibility-popup] {
+    z-index: 70;
+    max-width: min(calc(100vw - 2rem), 28rem);
+    border-radius: 1.5rem;
+    border: 1px solid rgba(72, 243, 248, 0.18);
+    background: rgba(7, 20, 33, 0.96);
+    color: #f8fafc;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.34);
+  }
+
+  @media (max-width: 640px) {
+    .cookie-banner,
+    .accessibility-popup,
+    [data-cookie-banner],
+    [data-accessibility-popup] {
+      right: 1rem;
+      bottom: calc(env(safe-area-inset-bottom) + 5.25rem);
+      left: 1rem;
+      max-width: none;
+    }
+  }

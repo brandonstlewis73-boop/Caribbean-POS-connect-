@@ -13,7 +13,7 @@ export function Panel({
     <section
       id={id}
       className={cn(
-        "min-w-0 overflow-hidden rounded-card border border-white/10 bg-[rgba(8,24,22,0.74)] shadow-soft backdrop-blur-md dark:border-white/10",
+        "min-w-0 overflow-hidden rounded-3xl border border-cyan-200/12 bg-[#0B1D2E]/88 shadow-[0_20px_70px_rgba(0,0,0,0.30)] dark:border-cyan-200/12",
         className
       )}
     >
@@ -32,10 +32,10 @@ export function PanelHeader({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="flex min-w-0 flex-wrap items-start justify-between gap-3 border-b border-white/10 px-4 py-4 sm:px-5">
+    <div className="flex min-w-0 flex-wrap items-start justify-between gap-4 border-b border-cyan-200/10 px-5 py-5 sm:px-6">
       <div className="min-w-0">
         <h2 className="min-w-0 text-base font-black leading-tight text-white sm:text-lg">{title}</h2>
-        {description ? <p className="mt-1 max-w-2xl text-sm font-semibold leading-5 text-teal-100/62">{description}</p> : null}
+        {description ? <p className="mt-1 max-w-2xl text-sm font-semibold leading-5 text-slate-300">{description}</p> : null}
       </div>
       {action}
     </div>

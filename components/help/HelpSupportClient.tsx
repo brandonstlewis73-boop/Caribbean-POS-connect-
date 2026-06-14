@@ -382,8 +382,8 @@ export function HelpSupportClient({
   }
 
   return (
-    <div className="grid min-w-0 gap-4 pb-20 lg:pb-4">
-      <section className="grid gap-3 rounded-card border border-white/10 bg-slate-950/50 p-4 sm:p-5">
+    <div className="grid min-w-0 gap-6 pb-24 lg:pb-6">
+      <section className="grid gap-4 rounded-3xl border border-cyan-200/12 bg-[#0B1D2E]/88 p-5 shadow-[0_20px_70px_rgba(0,0,0,0.26)] sm:p-6">
         <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div className="min-w-0">
             <p className="text-sm font-black uppercase tracking-wide text-cyan-100/70">Help & Support</p>
@@ -399,12 +399,12 @@ export function HelpSupportClient({
         </div>
       </section>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
-        <div className="grid min-w-0 gap-4">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+        <div className="grid min-w-0 gap-6">
           <Panel>
             <PanelHeader title="Search Help Articles" description="Find setup guides and troubleshooting steps for real POS workflows." />
-            <div className="grid gap-3 p-4 sm:p-5">
-              <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_260px]">
+            <div className="grid gap-4 p-5 sm:p-6">
+              <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
                 <label htmlFor="help-search" className="relative block min-w-0">
                   <span className="sr-only">Search help articles</span>
                   <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-cyan-100/55" />
@@ -447,10 +447,10 @@ export function HelpSupportClient({
             </div>
           </Panel>
 
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
             <Panel>
               <PanelHeader title="Useful Guides" description="Practical help cards for common setup and daily operations." action={<Badge tone="teal">{filteredGuideCards.length}</Badge>} />
-              <div className="grid gap-3 p-4 sm:p-5 md:grid-cols-2">
+              <div className="grid gap-5 p-5 sm:p-6 md:grid-cols-2">
                 {filteredGuideCards.map((card) => {
                   const Icon = card.icon;
                   return (
@@ -476,7 +476,7 @@ export function HelpSupportClient({
 
             <Panel>
               <PanelHeader title={activeGuide.title} description={activeGuide.category} />
-              <div className="grid gap-3 p-4 sm:p-5">
+              <div className="grid gap-4 p-5 sm:p-6">
                 {activeGuide.steps.map((step, index) => (
                   <p key={step} className="flex gap-3 rounded-card bg-white/[0.055] p-3 text-sm font-semibold leading-6 text-teal-50/78">
                     <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-cyan-300 text-xs font-black text-slate-950">{index + 1}</span>
@@ -493,12 +493,12 @@ export function HelpSupportClient({
 
           <Panel>
             <PanelHeader title="Knowledge Base" description="Saved help articles available to your role." action={<Badge tone="teal">{filteredArticles.length}</Badge>} />
-            <div className="grid gap-3 p-4 sm:p-5 md:grid-cols-2">
+            <div className="grid gap-5 p-5 sm:p-6 md:grid-cols-2">
               {filteredArticles.length === 0 ? (
                 <p className="rounded-card bg-black/20 p-3 text-sm font-bold text-teal-50/72 md:col-span-2">No articles match that search.</p>
               ) : null}
               {filteredArticles.map((article) => (
-                <article key={article.id} className="grid gap-2 rounded-card border border-white/10 bg-black/20 p-4">
+                <article key={article.id} className="grid gap-3 rounded-3xl border border-cyan-200/12 bg-slate-950/35 p-5 shadow-[0_16px_45px_rgba(0,0,0,0.18)]">
                   <div className="flex min-w-0 items-start justify-between gap-3">
                     <div className="min-w-0">
                       <h2 className="text-sm font-black leading-tight text-white">{article.title}</h2>
@@ -517,7 +517,7 @@ export function HelpSupportClient({
             </div>
           </Panel>
 
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid gap-6 lg:grid-cols-2">
             <Panel>
               <PanelHeader title="Setup Checklist" description="Use these steps when setting up a business account." />
               <div className="grid gap-2 p-4 sm:p-5">
@@ -532,7 +532,7 @@ export function HelpSupportClient({
 
             <Panel>
               <PanelHeader title="Troubleshooting" description="Quick fixes for common production issues." />
-              <div className="grid gap-3 p-4 sm:p-5">
+              <div className="grid gap-4 p-5 sm:p-6">
                 <div className="grid gap-2">
                   {troubleshootingCards.map((card) => (
                     <button
@@ -557,16 +557,16 @@ export function HelpSupportClient({
           </div>
         </div>
 
-        <aside className="grid min-w-0 gap-4 self-start xl:sticky xl:top-24">
+        <aside className="grid min-w-0 gap-6 self-start xl:sticky xl:top-24">
           <Panel>
             <PanelHeader title="Ask AI Support" description="Optional assistant for POS setup and troubleshooting." action={<Badge tone={aiStatus.enabled ? "green" : "amber"}>{aiStatus.enabled ? aiStatus.model : "Not configured"}</Badge>} />
-            <div className="grid gap-3 p-4 sm:p-5">
+            <div className="grid gap-4 p-5 sm:p-6">
               {!aiStatus.enabled ? (
                 <p className="rounded-card border border-amber-200/20 bg-amber-300/10 p-3 text-sm font-bold leading-6 text-amber-50">
                   AI Support is not configured yet. Add OPENAI_API_KEY to enable this feature.
                 </p>
               ) : null}
-              <div className="grid max-h-80 gap-3 overflow-y-auto rounded-card border border-white/10 bg-black/25 p-3">
+              <div className="grid max-h-80 gap-3 overflow-y-auto rounded-3xl border border-cyan-200/12 bg-slate-950/40 p-4">
                 {chatMessages.map((message, index) => (
                   <div
                     key={`${message.role}-${index}`}
@@ -597,7 +597,7 @@ export function HelpSupportClient({
 
           <Panel>
             <PanelHeader title="Contact Support" description="Submit a real support request for this business." action={<LifeBuoy className="h-5 w-5 text-cyan-100" />} />
-            <div className="grid gap-3 p-4 sm:p-5">
+            <div className="grid gap-4 p-5 sm:p-6">
               <Field id="support-name" name="supportName" label="Name" value={ticketDraft.name} onChange={(event) => setTicketDraft({ ...ticketDraft, name: event.target.value })} />
               <Field id="support-email" name="supportEmail" label="Email" type="email" value={ticketDraft.email} onChange={(event) => setTicketDraft({ ...ticketDraft, email: event.target.value })} />
               <Field id="support-business-name" name="supportBusinessName" label="Business name" value={ticketDraft.business_name} onChange={(event) => setTicketDraft({ ...ticketDraft, business_name: event.target.value })} />
@@ -630,12 +630,12 @@ export function HelpSupportClient({
 
           <Panel>
             <PanelHeader title="Support Requests" description={canManage ? "Tickets for this business" : "Your submitted tickets"} action={<Badge tone="teal">{tickets.length}</Badge>} />
-            <div className="grid max-h-[520px] gap-3 overflow-y-auto p-4 sm:p-5">
+            <div className="grid max-h-[520px] gap-4 overflow-y-auto p-5 sm:p-6">
               {tickets.length === 0 ? (
                 <p className="rounded-card bg-black/20 p-3 text-sm font-bold text-teal-50/72">No support requests yet.</p>
               ) : null}
               {tickets.map((ticket) => (
-                <article key={ticket.id} className="grid gap-2 rounded-card border border-white/10 bg-black/20 p-3">
+                <article key={ticket.id} className="grid gap-3 rounded-3xl border border-cyan-200/12 bg-slate-950/35 p-4">
                   <div className="flex min-w-0 items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="font-black leading-tight text-white">{ticket.ticket_number}</p>
@@ -683,5 +683,3 @@ export function HelpSupportClient({
     </div>
   );
 }
-
-

@@ -27,7 +27,7 @@ function SalesBars({ series, currency }: { series: DashboardData["salesSeries"];
   const max = Math.max(...series.map((item) => item.total), 1);
 
   return (
-    <div className="flex h-full min-w-0 items-end gap-2 overflow-x-auto rounded-card border border-white/10 bg-black/20 px-3 pb-7 pt-4">
+    <div className="flex h-full min-w-0 items-end gap-3 overflow-x-auto rounded-3xl border border-cyan-200/12 bg-slate-950/35 px-4 pb-7 pt-5">
       {series.length ? (
         series.map((item) => (
           <div key={item.date} className="flex h-full min-w-8 flex-1 flex-col justify-end gap-2">
@@ -113,9 +113,9 @@ export function DashboardHome({ data }: { data: DashboardData }) {
   }
 
   return (
-    <div className="mx-auto grid w-full max-w-[1180px] gap-5">
-      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
-        <div className="rounded-card border border-white/10 bg-[rgba(8,24,22,0.78)] p-5 shadow-soft sm:p-6">
+    <div className="mx-auto grid w-full max-w-[1200px] gap-6">
+      <section className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
+        <div className="rounded-3xl border border-cyan-200/12 bg-[#0B1D2E]/88 p-6 shadow-[0_20px_70px_rgba(0,0,0,0.28)] sm:p-7">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
               <p className="text-sm font-bold text-teal-50/62">Business storefront</p>
@@ -133,7 +133,7 @@ export function DashboardHome({ data }: { data: DashboardData }) {
             </div>
           </div>
 
-          <div className="mt-5 grid gap-2 sm:grid-cols-3">
+          <div className="mt-6 grid gap-3 sm:grid-cols-3">
             <Link href={storefrontUrl} target="_blank" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-card bg-cyan-300 px-3 text-sm font-black text-slate-950 transition hover:bg-cyan-200">
               <ExternalLink className="h-4 w-4" />
               Open Store
@@ -150,11 +150,11 @@ export function DashboardHome({ data }: { data: DashboardData }) {
           {copyMessage ? <p className="mt-3 text-sm font-bold text-cyan-100/70">{copyMessage}</p> : null}
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-5 sm:grid-cols-2">
           {topStats.map((stat) => {
             const Icon = stat.icon;
             return (
-              <div key={stat.label} className="rounded-card border border-white/10 bg-[rgba(8,24,22,0.7)] p-4 shadow-soft">
+              <div key={stat.label} className="rounded-3xl border border-cyan-200/12 bg-[#0B1D2E]/82 p-5 shadow-[0_16px_45px_rgba(0,0,0,0.22)]">
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-sm font-bold text-teal-50/62">{stat.label}</p>
                   <span className="grid h-9 w-9 place-items-center rounded-card bg-cyan-300/10 text-cyan-200">
@@ -170,11 +170,11 @@ export function DashboardHome({ data }: { data: DashboardData }) {
 
       <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
         <div className="grid min-w-0 gap-5">
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
             {quickStats.map((stat) => {
               const Icon = stat.icon;
               return (
-                <div key={stat.label} className="rounded-card border border-white/10 bg-white/[0.045] p-4">
+                <div key={stat.label} className="rounded-3xl border border-cyan-200/12 bg-white/[0.055] p-5">
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-sm font-bold text-teal-50/58">{stat.label}</p>
                     <Icon className="h-4 w-4 text-cyan-200" />
@@ -256,7 +256,7 @@ export function DashboardHome({ data }: { data: DashboardData }) {
                 {(data.setupChecklist || []).map((item) => {
                   const action = checklistAction(item.key, storefrontUrl);
                   return (
-                    <div key={item.key} className={cn("rounded-card border p-3", item.complete ? "border-emerald-300/20 bg-emerald-300/[0.08]" : "border-amber-200/20 bg-amber-200/[0.08]")}>
+                    <div key={item.key} className={cn("rounded-3xl border p-4", item.complete ? "border-emerald-300/20 bg-emerald-300/[0.08]" : "border-amber-200/20 bg-amber-200/[0.08]")}>
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <p className="text-sm font-black text-white">{item.label}</p>
