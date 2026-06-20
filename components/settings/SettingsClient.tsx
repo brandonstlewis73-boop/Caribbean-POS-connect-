@@ -157,6 +157,7 @@ export function SettingsClient({
   const [staffMessage, setStaffMessage] = useState("");
   const [categoryMessage, setCategoryMessage] = useState("");
   const [whatsappTestMessage, setWhatsappTestMessage] = useState("");
+  const [notificationTestMessage, setNotificationTestMessage] = useState("");
   const [locationMessage, setLocationMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [locating, setLocating] = useState(false);
@@ -296,6 +297,29 @@ export function SettingsClient({
     }
   }
 
+
+  async function testOrderNotification() {
+    setNotificationTestMessage("");
+    if (draft.new_order_browser_notifications_enabled && !("Notification" in window)) {
+      setNotificationTestMessage("Browser notifications are not supported in this browser.");
+      return;
+    }
+    if (draft.new_order_browser_notifications_enabled && Notification.permission === "default") {
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") {
+        setNotificationTestMessage("Browser notification permission was not granted. Visual alerts will still work.");
+        return;
+      }
+    }
+    if (draft.new_order_browser_notifications_enabled && Notification.permission === "denied") {
+      setNotificationTestMessage("Browser notifications are blocked. Enable them in your browser settings to receive desktop alerts.");
+      return;
+    }
+    if (draft.new_order_browser_notifications_enabled && Notification.permission === "granted") {
+      new Notification("New order received", { body: "Test notification from Caribbean POS Connect." });
+    }
+    setNotificationTestMessage("Test notification ready. Live visual alerts will appear when a new order arrives.");
+  }
   async function saveStaff() {
     setStaffMessage("");
     const payload = {
@@ -572,7 +596,19 @@ export function SettingsClient({
         </SettingsCard>
 
         <SettingsCard id="whatsapp" icon={Bell} title="Order Notifications" description="Automatic customer updates connected to order status changes.">
-          <div className="grid gap-3">
+                    <div className="grid gap-3 rounded-card border border-cyan-200/15 bg-cyan-300/[0.06] p-3">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-100/65">Admin new order alerts</p>
+            <Toggle label="Enable new order alerts" checked={draft.new_order_alerts_enabled !== false} onChange={(value) => update("new_order_alerts_enabled", value)} />
+            <Toggle label="Play sound for new orders" checked={draft.new_order_sound_enabled !== false} onChange={(value) => update("new_order_sound_enabled", value)} />
+            <Toggle label="Enable browser notifications" checked={Boolean(draft.new_order_browser_notifications_enabled)} onChange={(value) => update("new_order_browser_notifications_enabled", value)} />
+            <Toggle label="Show order preview in alert" checked={draft.new_order_alert_preview_enabled !== false} onChange={(value) => update("new_order_alert_preview_enabled", value)} />
+            <Button type="button" onClick={testOrderNotification} className="w-full sm:w-auto">
+              Test notification
+            </Button>
+            {notificationTestMessage ? (
+              <p className="rounded-card border border-white/10 bg-black/20 p-3 text-sm font-bold text-teal-50/70">{notificationTestMessage}</p>
+            ) : null}
+          </div><div className="grid gap-3">
             <Toggle label="Send WhatsApp message when order is received" checked={draft.whatsapp_customer_confirmations_enabled} onChange={(value) => update("whatsapp_customer_confirmations_enabled", value)} />
             <Toggle label="Send message when order is accepted" checked={draft.notification_whatsapp_enabled} onChange={(value) => update("notification_whatsapp_enabled", value)} />
             <Toggle label="Send message when order is preparing" checked={draft.notification_whatsapp_enabled} onChange={(value) => update("notification_whatsapp_enabled", value)} />
@@ -867,4 +903,3 @@ export function SettingsClient({
     </div>
   );
 }
-

@@ -18,7 +18,17 @@ export async function AppShell({
   const market = getDefaultCountryForCurrency(currency);
 
   return (
-    <AppShellClient active={active} title={title} actions={actions} currency={currency} market={market}>
+    <AppShellClient
+      active={active}
+      title={title}
+      actions={actions}
+      currency={currency}
+      market={market}
+      orderAlertsEnabled={settings?.new_order_alerts_enabled !== false}
+      orderAlertSoundEnabled={settings?.new_order_sound_enabled !== false}
+      orderBrowserNotificationsEnabled={Boolean(settings?.new_order_browser_notifications_enabled)}
+      orderAlertPreviewEnabled={settings?.new_order_alert_preview_enabled !== false}
+    >
       {children}
     </AppShellClient>
   );

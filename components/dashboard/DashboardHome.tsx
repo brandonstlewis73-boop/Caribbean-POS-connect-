@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   Bike,
@@ -76,7 +76,22 @@ function checklistAction(key: string, storefrontUrl: string) {
 
 export function DashboardHome({ data }: { data: DashboardData }) {
   const [copyMessage, setCopyMessage] = useState("");
+  const [liveNewOrders, setLiveNewOrders] = useState(data.newOrders);
+  const [recentOrders, setRecentOrders] = useState(data.recentOrders);
   const formatMoney = (value: number | string | null | undefined) => money(value, data.currency);
+  useEffect(() => {
+    function handleNewOrder(event: Event) {
+      const order = (event as CustomEvent<Order>).detail;
+      if (!order?.id) return;
+      setLiveNewOrders((current) => current + 1);
+      setRecentOrders((current) => {
+        if (current.some((item) => item.id === order.id)) return current;
+        return [order, ...current].slice(0, 8);
+      });
+    }
+    window.addEventListener("caribbean:new-order", handleNewOrder as EventListener);
+    return () => window.removeEventListener("caribbean:new-order", handleNewOrder as EventListener);
+  }, []);
   const storefrontUrl = data.storefrontUrl || "/online";
   const storefrontSlug = data.business?.storefront_slug || data.business?.slug || "online";
   const completedChecklist = (data.setupChecklist || []).filter((item) => item.complete).length;
@@ -85,7 +100,7 @@ export function DashboardHome({ data }: { data: DashboardData }) {
 
   const topStats = [
     { label: "Today sales", value: formatMoney(data.dailySales), icon: DollarSign },
-    { label: "New orders", value: String(data.newOrders), icon: ReceiptText },
+    { label: "New orders", value: String(liveNewOrders), icon: ReceiptText },
     { label: "Pending", value: String(data.pendingOrders), icon: AlertTriangle },
     { label: "WhatsApp", value: data.whatsappConfigured ? "Ready" : "Setup", icon: MessageCircle }
   ];
@@ -189,8 +204,8 @@ export function DashboardHome({ data }: { data: DashboardData }) {
             <Panel>
               <PanelHeader title="Recent orders" description="Latest storefront and POS orders" action={<Link href="/orders" className="hidden text-sm font-black text-cyan-100 hover:text-white lg:inline">View all</Link>} />
               <div className="divide-y divide-white/10">
-                {data.recentOrders.length ? (
-                  data.recentOrders.map((order) => (
+                {recentOrders.length ? (
+                  recentOrders.map((order) => (
                     <div key={order.id} className="flex items-center justify-between gap-3 px-4 py-3">
                       <div className="min-w-0">
                         <p className="truncate text-sm font-black text-white">#{order.order_number} - {order.customer_snapshot.name || "Walk-in customer"}</p>

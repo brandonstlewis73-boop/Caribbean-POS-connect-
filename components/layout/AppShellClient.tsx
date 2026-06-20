@@ -27,6 +27,7 @@ import {
   type LucideIcon
 } from "lucide-react";
 import { APP_NAME } from "@/lib/constants";
+import { OrderLiveAlerts } from "@/components/orders/OrderLiveAlerts";
 import { cn } from "@/lib/cn";
 
 type NavItem = {
@@ -90,7 +91,11 @@ export function AppShellClient({
   children,
   actions,
   currency,
-  market
+  market,
+  orderAlertsEnabled,
+  orderAlertSoundEnabled,
+  orderBrowserNotificationsEnabled,
+  orderAlertPreviewEnabled
 }: {
   active: string;
   title: string;
@@ -98,8 +103,29 @@ export function AppShellClient({
   actions?: ReactNode;
   currency: string;
   market: string;
+  orderAlertsEnabled: boolean;
+  orderAlertSoundEnabled: boolean;
+  orderBrowserNotificationsEnabled: boolean;
+  orderAlertPreviewEnabled: boolean;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [newOrderCount, setNewOrderCount] = useState(0);
+
+  useEffect(() => {
+    function handleNewOrder() {
+      setNewOrderCount((current) => current + 1);
+    }
+    function clearNewOrders() {
+      setNewOrderCount(0);
+    }
+    window.addEventListener("caribbean:new-order", handleNewOrder as EventListener);
+    window.addEventListener("caribbean:orders-seen", clearNewOrders as EventListener);
+    if (active === "Orders") clearNewOrders();
+    return () => {
+      window.removeEventListener("caribbean:new-order", handleNewOrder as EventListener);
+      window.removeEventListener("caribbean:orders-seen", clearNewOrders as EventListener);
+    };
+  }, [active]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -115,7 +141,7 @@ export function AppShellClient({
   return (
     <div className="min-h-dvh overflow-x-hidden text-caribbean-ink">
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-sidebar overflow-y-auto border-r border-white/10 bg-[#041211]/95 px-3 py-4 shadow-soft backdrop-blur-xl md:block">
-        <SidebarContent active={active} currency={currency} includeSecondary />
+        <SidebarContent active={active} currency={currency} newOrderCount={newOrderCount} includeSecondary />
       </aside>
 
       {menuOpen ? (
@@ -147,7 +173,7 @@ export function AppShellClient({
             <X className="h-5 w-5" />
           </button>
         </div>
-        <SecondaryMenu active={active} onNavigate={() => setMenuOpen(false)} />
+        <SecondaryMenu active={active} newOrderCount={newOrderCount} onNavigate={() => setMenuOpen(false)} />
       </aside>
 
       <div className="min-w-0 md:pl-sidebar">
@@ -190,7 +216,15 @@ export function AppShellClient({
         </main>
       </div>
 
-      <BottomNavigation active={active} hidden={menuOpen} />
+      <BottomNavigation active={active} hidden={menuOpen} newOrderCount={newOrderCount} />
+
+      <OrderLiveAlerts
+        enabled={orderAlertsEnabled}
+        playSound={orderAlertSoundEnabled}
+        browserNotifications={orderBrowserNotificationsEnabled}
+        showPreview={orderAlertPreviewEnabled}
+        currency={currency}
+      />
 
       <Link
         href="/help"
@@ -211,11 +245,13 @@ export function AppShellClient({
 function SidebarContent({
   active,
   currency,
+  newOrderCount = 0,
   onNavigate,
   includeSecondary = false
 }: {
   active: string;
   currency: string;
+  newOrderCount?: number;
   onNavigate?: () => void;
   includeSecondary?: boolean;
 }) {
@@ -267,6 +303,9 @@ function SidebarContent({
                     )}
                   />
                   <span className="min-w-0 truncate">{item.label}</span>
+                  {item.label === "Orders" && newOrderCount > 0 ? (
+                    <span className="ml-auto grid min-h-5 min-w-5 place-items-center rounded-full bg-amber-300 px-1.5 text-[10px] font-black text-slate-950">{newOrderCount}</span>
+                  ) : null}
                 </Link>
               );
             })}
@@ -278,7 +317,7 @@ function SidebarContent({
   );
 }
 
-function SecondaryMenu({ active, onNavigate }: { active: string; onNavigate: () => void }) {
+function SecondaryMenu({ active, newOrderCount, onNavigate }: { active: string; newOrderCount: number; onNavigate: () => void }) {
   return (
     <div className="grid gap-5">
       <div className="flex min-w-0 items-center gap-3 rounded-card border border-white/10 bg-white/[0.06] px-3 py-3 shadow-soft">
@@ -317,6 +356,9 @@ function SecondaryMenu({ active, onNavigate }: { active: string; onNavigate: () 
                 >
                   <Icon className={cn("h-4 w-4 shrink-0 transition", selected ? "text-slate-950" : "text-cyan-100/70 group-hover:text-cyan-100")} />
                   <span className="min-w-0 truncate">{item.label}</span>
+                  {item.label === "Orders" && newOrderCount > 0 ? (
+                    <span className="ml-auto grid min-h-5 min-w-5 place-items-center rounded-full bg-amber-300 px-1.5 text-[10px] font-black text-slate-950">{newOrderCount}</span>
+                  ) : null}
                 </Link>
               );
             })}
@@ -349,7 +391,7 @@ function SignOutButton() {
   );
 }
 
-function BottomNavigation({ active, hidden }: { active: string; hidden?: boolean }) {
+function BottomNavigation({ active, hidden, newOrderCount }: { active: string; hidden?: boolean; newOrderCount: number }) {
   return (
     <nav className={cn("safe-bottom fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#03100f]/95 px-2 pt-2 shadow-medium backdrop-blur-2xl transition-transform duration-200 md:hidden", hidden ? "translate-y-full" : "translate-y-0")}>
       <div className="grid grid-cols-5 gap-1">
@@ -365,7 +407,12 @@ function BottomNavigation({ active, hidden }: { active: string; hidden?: boolean
                 selected ? "bg-cyan-300 text-slate-950 shadow-glow" : "text-teal-50/75 hover:bg-white/[0.08]"
               )}
             >
-              <Icon className="h-4 w-4" />
+              <span className="relative">
+                <Icon className="h-4 w-4" />
+                {item.label === "Orders" && newOrderCount > 0 ? (
+                  <span className="absolute -right-2 -top-2 grid min-h-4 min-w-4 place-items-center rounded-full bg-amber-300 px-1 text-[9px] font-black text-slate-950">{newOrderCount}</span>
+                ) : null}
+              </span>
               <span className="max-w-full truncate">{item.label}</span>
             </Link>
           );
@@ -374,6 +421,3 @@ function BottomNavigation({ active, hidden }: { active: string; hidden?: boolean
     </nav>
   );
 }
-
-
-

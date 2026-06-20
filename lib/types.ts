@@ -378,6 +378,10 @@ export type Settings = {
   notification_whatsapp_enabled: boolean;
   notification_sms_enabled: boolean;
   notification_email_enabled: boolean;
+  new_order_alerts_enabled: boolean;
+  new_order_sound_enabled: boolean;
+  new_order_browser_notifications_enabled: boolean;
+  new_order_alert_preview_enabled: boolean;
   default_prep_time_minutes: number;
 };
 

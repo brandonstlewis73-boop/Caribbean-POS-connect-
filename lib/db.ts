@@ -565,6 +565,10 @@ async function seedSettings() {
   await insertSetting("notification_whatsapp_enabled", true);
   await insertSetting("notification_sms_enabled", false);
   await insertSetting("notification_email_enabled", false);
+  await insertSetting("new_order_alerts_enabled", true);
+  await insertSetting("new_order_sound_enabled", true);
+  await insertSetting("new_order_browser_notifications_enabled", false);
+  await insertSetting("new_order_alert_preview_enabled", true);
   await insertSetting("default_prep_time_minutes", 25);
   await insertSetting("order_counter", 1024);
   await insertSetting("receipt_counter", 4024);
@@ -641,4 +645,3 @@ export function createId(prefix: string) {
 }
 
 export type { PoolClient };
-

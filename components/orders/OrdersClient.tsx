@@ -48,6 +48,7 @@ export function OrdersClient({
   currency: string;
 }) {
   const [items, setItems] = useState(orders);
+  const [highlightedIds, setHighlightedIds] = useState<Set<string>>(() => new Set());
   const [query, setQuery] = useState("");
   const [type, setType] = useState("all");
   const [statusFilter, setStatusFilter] = useState("active");
@@ -62,8 +63,34 @@ export function OrdersClient({
   const formatMoney = (value: number | string | null | undefined) => money(value, currency);
 
   useEffect(() => {
-    setNotesDraft(selected?.notes || "");
-  }, [selected?.id, selected?.notes]);
+    function handleNewOrder(event: Event) {
+      const order = (event as CustomEvent<Order>).detail;
+      if (!order?.id) return;
+      setItems((current) => {
+        if (current.some((item) => item.id === order.id)) return current;
+        return [order, ...current];
+      });
+      setHighlightedIds((current) => new Set(current).add(order.id));
+      setSelectedId((current) => current || order.id);
+      setMessage(`New order received: #${order.order_number}`);
+    }
+    window.addEventListener("caribbean:new-order", handleNewOrder as EventListener);
+    window.dispatchEvent(new CustomEvent("caribbean:orders-seen"));
+    return () => window.removeEventListener("caribbean:new-order", handleNewOrder as EventListener);
+  }, []);
+
+  function viewOrder(orderId: string) {
+    setSelectedId(orderId);
+    setHighlightedIds((current) => {
+      if (!current.has(orderId)) return current;
+      const next = new Set(current);
+      next.delete(orderId);
+      return next;
+    });
+    window.dispatchEvent(new CustomEvent("caribbean:orders-seen"));
+  }
+  useEffect(() => {
+    setNotesDraft(selected?.notes || "");}, [selected?.id, selected?.notes]);
 
   useEffect(() => {
     const requested = new URLSearchParams(window.location.search).get("order");
@@ -287,6 +314,18 @@ export function OrdersClient({
             <option value="week">This week</option>
           </select>
         </div>
+        {highlightedIds.size ? (
+          <button
+            type="button"
+            onClick={() => {
+              const first = Array.from(highlightedIds)[0];
+              if (first) viewOrder(first);
+            }}
+            className="sticky top-0 z-10 mx-4 mt-4 rounded-card border border-amber-300/30 bg-amber-300 px-4 py-3 text-left text-sm font-black text-slate-950 shadow-glow"
+          >
+            {highlightedIds.size} new order{highlightedIds.size === 1 ? "" : "s"} - tap to view
+          </button>
+        ) : null}
         <div className="grid gap-3 border-b border-white/10 p-4 sm:grid-cols-2 xl:grid-cols-4">
           {statusGroups.map((group) => (
             <button
@@ -303,7 +342,7 @@ export function OrdersClient({
           {filtered.map((order) => (
             <button
               key={order.id}
-              onClick={() => setSelectedId(order.id)}
+              onClick={() => viewOrder(order.id)}
               className={`rounded-card border p-3 text-left ${
                 selected?.id === order.id
                   ? "border-cyan-300 bg-teal-50 text-slate-950"
@@ -343,9 +382,9 @@ export function OrdersClient({
               {filtered.map((order) => (
                 <tr
                   key={order.id}
-                  onClick={() => setSelectedId(order.id)}
+                  onClick={() => viewOrder(order.id)}
                   className={`cursor-pointer transition hover:bg-caribbean-cloud dark:hover:bg-slate-950 ${
-                    selected?.id === order.id ? "bg-teal-50 dark:bg-teal-950/30" : ""
+                    selected?.id === order.id ? "bg-teal-50 dark:bg-teal-950/30" : highlightedIds.has(order.id) ? "bg-amber-50 dark:bg-amber-950/25" : ""
                   }`}
                 >
                   <td className="px-4 py-3 font-black">#{order.order_number}</td>

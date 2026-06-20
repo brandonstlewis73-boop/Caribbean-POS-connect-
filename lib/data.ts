@@ -156,6 +156,10 @@ export const defaultSettings: Settings = {
   notification_whatsapp_enabled: true,
   notification_sms_enabled: false,
   notification_email_enabled: false,
+  new_order_alerts_enabled: true,
+  new_order_sound_enabled: true,
+  new_order_browser_notifications_enabled: false,
+  new_order_alert_preview_enabled: true,
   default_prep_time_minutes: 25
 };
 
