@@ -6,6 +6,7 @@ export const CARIBBEAN_CURRENCIES = [
   { code: "AWG", name: "Aruban florin", symbol: "Afl ", territories: "Aruba" },
   { code: "BSD", name: "Bahamian dollar", symbol: "B$", territories: "Bahamas" },
   { code: "BBD", name: "Barbadian dollar", symbol: "Bds$", territories: "Barbados" },
+  { code: "CAD", name: "Canadian dollar", symbol: "CA$", territories: "Canada" },
   { code: "BZD", name: "Belize dollar", symbol: "BZ$", territories: "Belize" },
   { code: "BMD", name: "Bermudian dollar", symbol: "BD$", territories: "Bermuda" },
   { code: "KYD", name: "Cayman Islands dollar", symbol: "CI$", territories: "Cayman Islands" },
@@ -19,7 +20,8 @@ export const CARIBBEAN_CURRENCIES = [
   { code: "SRD", name: "Surinamese dollar", symbol: "Sr$", territories: "Suriname" },
   { code: "TTD", name: "Trinidad and Tobago dollar", symbol: "TT$", territories: "Trinidad and Tobago" },
   { code: "USD", name: "United States dollar", symbol: "US$", territories: "United States, Puerto Rico, USVI, BVI, Turks and Caicos, Caribbean Netherlands" },
-  { code: "EUR", name: "Euro", symbol: "EUR ", territories: "French Caribbean territories" }
+  { code: "EUR", name: "Euro", symbol: "\u20AC", territories: "European Union and French Caribbean territories" },
+  { code: "GBP", name: "British pound", symbol: "\u00A3", territories: "United Kingdom" }
 ] as const;
 
 export type CaribbeanCurrencyCode = (typeof CARIBBEAN_CURRENCIES)[number]["code"];
@@ -154,6 +156,7 @@ export const DELIVERY_REGIONS_BY_CURRENCY = {
   AWG: ["Oranjestad", "Noord", "Paradera", "Santa Cruz", "Savaneta", "San Nicolas"],
   BSD: ["New Providence", "Grand Bahama", "Abaco", "Eleuthera", "Exuma", "Andros", "Bimini", "Long Island", "Cat Island"],
   BBD: ["Bridgetown", "Christ Church", "St. Michael", "St. George", "St. James", "St. Philip", "St. Thomas", "St. John", "St. Joseph", "St. Lucy", "St. Peter", "St. Andrew"],
+  CAD: ["Toronto", "Vancouver", "Montreal", "Calgary", "Ottawa", "Edmonton", "Winnipeg", "Mississauga", "Brampton", "Hamilton"],
   BZD: ["Belize District", "Cayo", "Corozal", "Orange Walk", "Stann Creek", "Toledo"],
   BMD: ["Hamilton", "St. George's", "Sandys", "Southampton", "Warwick", "Paget", "Pembroke", "Devonshire", "Smith's", "Hamilton Parish", "St. George's Parish"],
   KYD: ["Grand Cayman", "Cayman Brac", "Little Cayman"],
@@ -167,13 +170,15 @@ export const DELIVERY_REGIONS_BY_CURRENCY = {
   SRD: ["Paramaribo", "Wanica", "Nickerie", "Commewijne", "Para", "Marowijne", "Saramacca", "Brokopondo", "Coronie", "Sipaliwini"],
   TTD: TT_REGIONS,
   USD: US_REGIONS,
-  EUR: ["Guadeloupe", "Martinique", "Saint Martin", "Saint Barthelemy"]
+  EUR: ["Guadeloupe", "Martinique", "Saint Martin", "Saint Barthelemy", "Paris", "Madrid", "Amsterdam", "Berlin"],
+  GBP: ["London", "Birmingham", "Manchester", "Leeds", "Glasgow", "Liverpool", "Bristol", "Sheffield"]
 } as const satisfies Record<CaribbeanCurrencyCode, readonly string[]>;
 
 export const DEFAULT_COUNTRY_BY_CURRENCY: Record<CaribbeanCurrencyCode, string> = {
   AWG: "Aruba",
   BSD: "Bahamas",
   BBD: "Barbados",
+  CAD: "Canada",
   BZD: "Belize",
   BMD: "Bermuda",
   KYD: "Cayman Islands",
@@ -187,7 +192,8 @@ export const DEFAULT_COUNTRY_BY_CURRENCY: Record<CaribbeanCurrencyCode, string> 
   SRD: "Suriname",
   TTD: "Trinidad and Tobago",
   USD: "United States",
-  EUR: "French Caribbean territories"
+  EUR: "European Union",
+  GBP: "United Kingdom"
 };
 
 export const CARIBBEAN_MARKETS_BY_COUNTRY = {
@@ -345,6 +351,7 @@ export { PLAN_CONFIG, FEATURE_PLANS } from "./plan-gating";
 
 export function money(value: number | string | null | undefined, currency = CURRENCY_CODE) {
   const numeric = Number(value ?? 0);
-  return `${getCurrencyMeta(currency).symbol}${numeric.toFixed(2)}`;
+  const symbol = getCurrencyMeta(currency).symbol;
+  return `${symbol}${numeric.toFixed(2)}`;
 }
 

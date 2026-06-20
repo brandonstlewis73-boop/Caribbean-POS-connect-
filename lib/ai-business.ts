@@ -211,7 +211,7 @@ function fallbackOutput(toolId: AiBusinessToolId, prompt: string, context: Busin
     `${tool?.title || "AI tool"} is not configured for live AI generation yet. Based on saved business data, review your current products, active orders, customer list, and ${settings.currency} pricing before using this workflow.`,
     "",
     "Why this helps",
-    "This keeps the workflow available without exposing API keys or creating fake data.",
+    "This keeps the workflow available without exposing API keys or inventing production data.",
     "",
     "Review before using",
     `Add OPENAI_API_KEY and AI_MODEL in Vercel, redeploy, then run this again. Your request was: ${prompt.slice(0, 300)}`

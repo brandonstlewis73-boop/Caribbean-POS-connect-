@@ -596,3 +596,21 @@ CREATE INDEX IF NOT EXISTS idx_products_business_active ON products(business_id,
 CREATE INDEX IF NOT EXISTS idx_customers_business_lookup ON customers(business_id, phone_normalized, email);
 CREATE INDEX IF NOT EXISTS idx_orders_business_created ON orders(business_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_receipts_business_created ON receipts(business_id, created_at DESC);
+
+-- Currency conversion support (safe additive columns)
+CREATE TABLE IF NOT EXISTS exchange_rates (
+  id TEXT PRIMARY KEY,
+  base_currency TEXT NOT NULL,
+  target_currency TEXT NOT NULL,
+  rate NUMERIC NOT NULL CHECK (rate > 0),
+  provider TEXT NOT NULL DEFAULT 'manual',
+  fetched_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_exchange_rates_pair_fetched ON exchange_rates(base_currency, target_currency, fetched_at DESC);
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS currency TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS base_currency TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS exchange_rate_used NUMERIC;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS original_total NUMERIC;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS converted_total NUMERIC;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS converted_currency TEXT;

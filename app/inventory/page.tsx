@@ -12,7 +12,7 @@ export default async function InventoryPage() {
   ]);
   return (
     <AppShell active="Inventory" title="Inventory">
-      <InventoryClient products={products} categories={categories} currency={settings.currency} />
+      <InventoryClient products={products} categories={categories} currency={settings.currency} businessId={user.business_id || "unassigned"} />
     </AppShell>
   );
 }

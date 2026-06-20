@@ -27,7 +27,7 @@ import { Field, SelectField, TextAreaField } from "@/components/ui/Field";
 import { Panel, PanelHeader } from "@/components/ui/Panel";
 import { readApiPayload } from "@/lib/client-response";
 import { detectCurrentAddress } from "@/lib/location-client";
-import { getDefaultDeliveryRatesForCurrency } from "@/lib/constants";
+import { CARIBBEAN_CURRENCIES, currencyOptionLabel, getDefaultDeliveryRatesForCurrency } from "@/lib/constants";
 import { PLAN_CONFIG, PLAN_ORDER, type PlanUsageSummary } from "@/lib/plan-gating";
 import type { Business, Category, Settings, Subscription, User } from "@/lib/types";
 
@@ -551,7 +551,11 @@ export function SettingsClient({
             <Field label="Country" value={draft.business_country || "Trinidad and Tobago"} onChange={(event) => updateAddress({ business_country: event.target.value })} />
             <Field label="Store address" value={draft.business_street_address || draft.business_address || ""} onChange={(event) => updateAddress({ business_street_address: event.target.value })} className="sm:col-span-2" />
             <Field label="City / region" value={draft.business_city || draft.business_region || ""} onChange={(event) => updateAddress({ business_city: event.target.value, business_region: event.target.value })} />
-            <Field label="Currency" value={draft.currency || "TTD"} readOnly />
+            <SelectField label="Store currency" value={draft.currency || "TTD"} onChange={(event) => update("currency", event.target.value)}>
+              {CARIBBEAN_CURRENCIES.map((currency) => (
+                <option key={currency.code} value={currency.code}>{currencyOptionLabel(currency)}</option>
+              ))}
+            </SelectField>
           </div>
           <div className="grid gap-3 sm:flex sm:flex-wrap">
             <Button type="button" onClick={useCurrentLocation} disabled={locating || saving} className="w-full sm:w-auto">
@@ -759,7 +763,7 @@ export function SettingsClient({
           ) : null}
         </SettingsCard>
 
-        <SettingsCard icon={CreditCard} title="Payments" description="Choose payment methods and customer payment instructions.">
+        <SettingsCard icon={CreditCard} title="Currency & Payments" description="Store currency, customer conversion display, accepted methods, and payment instructions.">
           <div className="grid gap-3 sm:grid-cols-2">
             <Toggle label="Cash" checked={draft.payment_cash_enabled} onChange={(value) => update("payment_cash_enabled", value)} />
             <Toggle label="Card" checked={draft.payment_card_enabled} onChange={(value) => update("payment_card_enabled", value)} />
@@ -767,7 +771,20 @@ export function SettingsClient({
             <Toggle label="WiPay" checked={draft.payment_wipay_enabled} onChange={(value) => update("payment_wipay_enabled", value)} />
             <Toggle label="PayPal" checked={draft.payment_paypal_enabled} onChange={(value) => update("payment_paypal_enabled", value)} />
             <Toggle label="Payment required before fulfillment" checked={!draft.payment_pod_enabled} onChange={(value) => update("payment_pod_enabled", !value)} />
+            <Toggle label="Use live currency conversion" checked={Boolean(draft.use_live_currency_conversion)} onChange={(value) => update("use_live_currency_conversion", value)} />
+            <Toggle label="Display converted customer currency" checked={Boolean(draft.display_converted_customer_currency)} onChange={(value) => update("display_converted_customer_currency", value)} />
+            <SelectField label="Store base currency" value={draft.base_currency || draft.currency || "TTD"} onChange={(event) => update("base_currency", event.target.value)}>
+              {CARIBBEAN_CURRENCIES.map((currency) => (
+                <option key={currency.code} value={currency.code}>{currencyOptionLabel(currency)}</option>
+              ))}
+            </SelectField>
+            <SelectField label="Customer display currency" value={draft.customer_display_currency || "USD"} onChange={(event) => update("customer_display_currency", event.target.value)}>
+              {CARIBBEAN_CURRENCIES.map((currency) => (
+                <option key={currency.code} value={currency.code}>{currencyOptionLabel(currency)}</option>
+              ))}
+            </SelectField>
           </div>
+          <p className="rounded-card border border-white/10 bg-black/20 p-3 text-sm font-semibold text-teal-50/60">Preview: 100 {draft.base_currency || draft.currency || "TTD"} converts through the backend exchange-rate cache when EXCHANGE_RATE_API_KEY is configured.</p>
           <TextAreaField label="Manual payment instructions" value={draft.payment_link_template} onChange={(event) => update("payment_link_template", event.target.value)} />
           <Button type="button" variant="primary" onClick={() => saveSettings("Payment settings saved.")} disabled={saving} className="w-full sm:w-auto">
             <Save className="h-4 w-4" />
@@ -885,9 +902,9 @@ export function SettingsClient({
 
         <SettingsCard icon={ShieldAlert} title="Danger Zone" description="High-risk business data actions. Confirmation is required.">
           <div className="grid gap-3 sm:grid-cols-3">
-            <Button type="button" variant="danger" onClick={() => resetDanger("Delete sample data")} className="w-full">
+            <Button type="button" variant="danger" onClick={() => resetDanger("Delete test data")} className="w-full">
               <Trash2 className="h-4 w-4" />
-              Delete sample data
+              Delete test data
             </Button>
             <Button type="button" variant="danger" onClick={() => resetDanger("Reset business account")} className="w-full">
               <AlertTriangle className="h-4 w-4" />

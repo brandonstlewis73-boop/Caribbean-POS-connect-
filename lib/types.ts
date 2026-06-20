@@ -36,6 +36,10 @@ export type Business = {
   longitude?: number | null;
   country: string;
   currency: string;
+  base_currency?: string | null;
+  use_live_currency_conversion?: boolean;
+  display_converted_customer_currency?: boolean;
+  customer_display_currency?: string | null;
   logo_url?: string | null;
   tax_id?: string | null;
   subscription_plan?: SubscriptionPlanId | string | null;
@@ -230,6 +234,12 @@ export type Order = {
   service_fee: number;
   delivery_fee: number;
   total: number;
+  currency?: string | null;
+  base_currency?: string | null;
+  exchange_rate_used?: number | null;
+  original_total?: number | null;
+  converted_total?: number | null;
+  converted_currency?: string | null;
   loyalty_points_earned: number;
   loyalty_points_redeemed: number;
   notes?: string | null;
@@ -297,6 +307,12 @@ export type Receipt = {
   tax_total: number;
   delivery_fee: number;
   total: number;
+  currency?: string | null;
+  base_currency?: string | null;
+  exchange_rate_used?: number | null;
+  original_total?: number | null;
+  converted_total?: number | null;
+  converted_currency?: string | null;
   payment_method: string;
   payment_status: Order["payment_status"];
   completed_by?: string | null;
@@ -335,6 +351,10 @@ export type Settings = {
   show_empty_categories?: boolean;
   active_business_id?: string | null;
   currency: string;
+  base_currency?: string | null;
+  use_live_currency_conversion?: boolean;
+  display_converted_customer_currency?: boolean;
+  customer_display_currency?: string | null;
   tax_enabled: boolean;
   tax_rate: number;
   service_fee_enabled: boolean;
@@ -419,6 +439,10 @@ export type CheckoutPayload = {
 
 export type DashboardData = {
   currency: string;
+  base_currency?: string | null;
+  use_live_currency_conversion?: boolean;
+  display_converted_customer_currency?: boolean;
+  customer_display_currency?: string | null;
   business?: Business | null;
   storefrontUrl?: string | null;
   whatsappConfigured?: boolean;
@@ -450,6 +474,10 @@ export type SubscriptionPlan = {
   audience: string;
   monthly_price: number;
   currency: string;
+  base_currency?: string | null;
+  use_live_currency_conversion?: boolean;
+  display_converted_customer_currency?: boolean;
+  customer_display_currency?: string | null;
   max_products?: number | null;
   max_staff?: number | null;
   max_locations?: number | null;
@@ -469,6 +497,10 @@ export type Subscription = {
   seats: number;
   monthly_price: number;
   currency: string;
+  base_currency?: string | null;
+  use_live_currency_conversion?: boolean;
+  display_converted_customer_currency?: boolean;
+  customer_display_currency?: string | null;
   provider?: string | null;
   provider_customer_id?: string | null;
   provider_subscription_id?: string | null;

@@ -112,10 +112,17 @@ export function AppShellClient({
   const [newOrderCount, setNewOrderCount] = useState(0);
 
   useEffect(() => {
+    const storedCount = Number(window.localStorage.getItem("caribbean:new-order-count") || 0);
+    if (storedCount > 0 && active !== "Orders") setNewOrderCount(storedCount);
     function handleNewOrder() {
-      setNewOrderCount((current) => current + 1);
+      setNewOrderCount((current) => {
+        const next = current + 1;
+        window.localStorage.setItem("caribbean:new-order-count", String(next));
+        return next;
+      });
     }
     function clearNewOrders() {
+      window.localStorage.removeItem("caribbean:new-order-count");
       setNewOrderCount(0);
     }
     window.addEventListener("caribbean:new-order", handleNewOrder as EventListener);

@@ -2,8 +2,8 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import { useDeferredValue, useMemo, useState } from "react";
-import { Edit3, PackagePlus, Search, SlidersHorizontal, Trash2 } from "lucide-react";
+import { useDeferredValue, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { Camera, Edit3, FolderOpen, Image as ImageIcon, PackagePlus, Search, SlidersHorizontal, Trash2, X } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Field, SelectField } from "@/components/ui/Field";
@@ -11,6 +11,30 @@ import { Panel, PanelHeader } from "@/components/ui/Panel";
 import { money } from "@/lib/constants";
 import { readApiPayload } from "@/lib/client-response";
 import type { Category, Product, ProductOption } from "@/lib/types";
+
+const PRODUCT_IMAGE_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
+const PRODUCT_IMAGE_ACCEPT = "image/png,image/jpeg,image/jpg,image/webp,image/*";
+const MAX_PRODUCT_IMAGE_BYTES = 2 * 1024 * 1024;
+
+function readFileAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("Product image could not be read."));
+    reader.readAsDataURL(file);
+  });
+}
+
+function validateProductImage(file: File) {
+  if (!PRODUCT_IMAGE_TYPES.includes(file.type)) return "Product image must be PNG, JPG, or WebP.";
+  if (file.size > MAX_PRODUCT_IMAGE_BYTES) return "Product image must be 2 MB or smaller.";
+  return null;
+}
+
+function productImageStoragePath(file: File, businessId: string, productId?: string) {
+  const extension = (file.name.split(".").pop() || file.type.split("/").pop() || "png").toLowerCase().replace(/[^a-z0-9]/g, "") || "png";
+  return `product-images/${businessId || "unassigned"}/${productId || Date.now()}/product-${Date.now()}.${extension}`;
+}
 
 function optionText(options?: ProductOption[]) {
   return (options || []).map((option) => option.price_delta ? `${option.name}:${option.price_delta}` : option.name).join(", ");
@@ -55,7 +79,7 @@ function usefulProductError(payloadError?: string, details?: unknown) {
   return "Product could not be saved. Please check the details and try again.";
 }
 
-export function InventoryClient({ products, categories, currency }: { products: Product[]; categories: Category[]; currency: string }) {
+export function InventoryClient({ products, categories, currency, businessId }: { products: Product[]; categories: Category[]; currency: string; businessId: string }) {
   const [items, setItems] = useState(products);
   const [categoryItems, setCategoryItems] = useState(categories);
   const [query, setQuery] = useState("");
@@ -68,6 +92,9 @@ export function InventoryClient({ products, categories, currency }: { products: 
   const [categoryMessage, setCategoryMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [savingCategory, setSavingCategory] = useState(false);
+  const takePhotoInputRef = useRef<HTMLInputElement>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const deferredQuery = useDeferredValue(query);
   const formatMoney = (value: number | string | null | undefined) => money(value, currency);
 
@@ -149,6 +176,29 @@ export function InventoryClient({ products, categories, currency }: { products: 
       active: product.active
     });
     setMessage(`Editing ${product.name}.`);
+  }
+
+  async function uploadProductImage(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    const validationError = validateProductImage(file);
+    if (validationError) {
+      setMessage(validationError);
+      return;
+    }
+    try {
+      const imageUrl = await readFileAsDataUrl(file);
+      setDraft((current) => ({ ...current, image_url: imageUrl }));
+      setMessage(`Product image ready. Storage path: ${productImageStoragePath(file, businessId, editingId || undefined)}`);
+    } catch {
+      setMessage("Product image could not be uploaded.");
+    }
+  }
+
+  function removeProductImage() {
+    setDraft((current) => ({ ...current, image_url: "" }));
+    setMessage("Product image removed. Save the product to apply it.");
   }
 
   async function saveProduct() {
@@ -419,7 +469,35 @@ export function InventoryClient({ products, categories, currency }: { products: 
             <Field label="Stock quantity" type="number" value={draft.stock_quantity} onChange={(event) => setDraft({ ...draft, stock_quantity: Number(event.target.value) })} />
             <Field label="Low stock alert" type="number" value={draft.low_stock_alert} onChange={(event) => setDraft({ ...draft, low_stock_alert: Number(event.target.value) })} />
           </div>
-          <Field label="Product image URL" value={draft.image_url} onChange={(event) => setDraft({ ...draft, image_url: event.target.value })} />
+<div className="grid gap-3 rounded-card border border-white/10 bg-black/20 p-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-black text-white">Product photo</p>
+                <p className="text-xs font-semibold text-teal-50/55">PNG, JPG, or WebP. Camera capture is only used for Take Photo.</p>
+              </div>
+              {draft.image_url ? (
+                <button type="button" onClick={removeProductImage} className="grid h-9 w-9 place-items-center rounded-card border border-red-300/30 bg-red-500/10 text-red-100" aria-label="Remove product image">
+                  <X className="h-4 w-4" />
+                </button>
+              ) : null}
+            </div>
+            {draft.image_url ? (
+              <img src={draft.image_url} alt="Product preview" className="h-40 w-full rounded-card border border-white/10 bg-white object-contain p-2" />
+            ) : (
+              <div className="grid h-40 place-items-center rounded-card border border-dashed border-white/15 bg-white/[0.04] text-center text-sm font-bold text-teal-50/55">
+                <span><ImageIcon className="mx-auto mb-2 h-6 w-6" />No product photo selected.</span>
+              </div>
+            )}
+            <input ref={takePhotoInputRef} type="file" accept={PRODUCT_IMAGE_ACCEPT} capture="environment" className="sr-only" onChange={uploadProductImage} aria-label="Take product photo" />
+            <input ref={photoInputRef} type="file" accept={PRODUCT_IMAGE_ACCEPT} className="sr-only" onChange={uploadProductImage} aria-label="Choose product photo from photos" />
+            <input ref={fileInputRef} type="file" accept={PRODUCT_IMAGE_ACCEPT} className="sr-only" onChange={uploadProductImage} aria-label="Browse files for product photo" />
+            <div className="grid gap-2 sm:grid-cols-3">
+              <Button type="button" onClick={() => takePhotoInputRef.current?.click()}><Camera className="h-4 w-4" />Take Photo</Button>
+              <Button type="button" onClick={() => photoInputRef.current?.click()}><ImageIcon className="h-4 w-4" />Choose Photos</Button>
+              <Button type="button" onClick={() => fileInputRef.current?.click()}><FolderOpen className="h-4 w-4" />Browse Files</Button>
+            </div>
+            <Field label="Or paste product image URL" value={draft.image_url?.startsWith("data:") ? "" : draft.image_url} onChange={(event) => setDraft({ ...draft, image_url: event.target.value })} />
+          </div>
           <Field label="Variations" value={draft.variationsText} onChange={(event) => setDraft({ ...draft, variationsText: event.target.value })} placeholder="Small:0, Medium:8, Large:15" />
           <Field label="Add-ons / extras" value={draft.addOnsText} onChange={(event) => setDraft({ ...draft, addOnsText: event.target.value })} placeholder="Extra sauce:3, Cheese:5" />
           <Field label="Supplier" value={draft.supplier_name} onChange={(event) => setDraft({ ...draft, supplier_name: event.target.value })} />

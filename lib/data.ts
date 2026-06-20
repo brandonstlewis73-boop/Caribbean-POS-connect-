@@ -1,4 +1,4 @@
-function startOfDay(date: Date) {
+﻿function startOfDay(date: Date) {
   const next = new Date(date);
   next.setHours(0, 0, 0, 0);
   return next;
@@ -106,6 +106,10 @@ export const defaultSettings: Settings = {
   show_empty_categories: false,
   active_business_id: null,
   currency: CURRENCY_CODE,
+  base_currency: CURRENCY_CODE,
+  use_live_currency_conversion: false,
+  display_converted_customer_currency: false,
+  customer_display_currency: "USD",
   tax_enabled: true,
   tax_rate: 12.5,
   service_fee_enabled: false,
@@ -472,6 +476,12 @@ function rowToOrder(row: any, items: OrderItem[]): Order {
     service_fee: Number(row.service_fee),
     delivery_fee: Number(row.delivery_fee),
     total: Number(row.total),
+    currency: row.currency || null,
+    base_currency: row.base_currency || null,
+    exchange_rate_used: row.exchange_rate_used === null || row.exchange_rate_used === undefined ? null : Number(row.exchange_rate_used),
+    original_total: row.original_total === null || row.original_total === undefined ? null : Number(row.original_total),
+    converted_total: row.converted_total === null || row.converted_total === undefined ? null : Number(row.converted_total),
+    converted_currency: row.converted_currency || null,
     loyalty_points_earned: Number(row.loyalty_points_earned),
     loyalty_points_redeemed: Number(row.loyalty_points_redeemed),
     delivery_latitude: row.delivery_latitude === null ? null : Number(row.delivery_latitude),
@@ -1392,14 +1402,19 @@ async function ensureCategory(
     ).catch(() => ({ rows: [] as any[] }));
     if (byId.rows[0]) return rowToCategory(byId.rows[0]);
   }
-  const existing = await getCategoryByName(client, resolvedBusinessId, input.name);
+  const name = input.name.trim() || "Uncategorized";
+  const existing = await getCategoryByName(client, resolvedBusinessId, name);
   if (existing) return existing;
+  if (name.toLowerCase() !== "uncategorized") {
+    const fallback = await getCategoryByName(client, resolvedBusinessId, "Uncategorized");
+    if (fallback) return fallback;
+    throw new Error("Choose a saved category or add it in Settings first.");
+  }
   const count = await query<{ count: number }>(
     "SELECT COUNT(*)::int AS count FROM categories WHERE business_id = $1",
     [resolvedBusinessId],
     client
   ).catch(() => ({ rows: [{ count: 0 }] }));
-  const name = input.name.trim() || "Uncategorized";
   const id = createId("cat");
   await query(
     `INSERT INTO categories (id, business_id, name, slug, icon, color, sort_order, active, is_active)
@@ -1510,8 +1525,8 @@ export async function deleteCategory(
     if (!existing) return null;
     if (mode === "delete_category_only") {
       await query(
-        "UPDATE products SET category_id = NULL, updated_at = NOW() WHERE category_id = $1 AND business_id = $2",
-        [id, businessId],
+        "UPDATE products SET category = $1, category_id = NULL, updated_at = NOW() WHERE category_id = $2 AND business_id = $3",
+        ["Uncategorized", id, businessId],
         client
       );
     } else {
@@ -1573,7 +1588,7 @@ export async function getProduct(id: string, businessId?: string | null) {
 export async function createProduct(input: Omit<Product, "id" | "active"> & { active?: boolean }, userId?: string) {
   const id = createId("prd");
   const businessId = await getBusinessIdForUser(userId);
-  const category = await ensureCategory(undefined, businessId, { name: input.category, categoryId: input.category_id });
+  const category = await ensureCategory(undefined, businessId, { name: input.category || "Uncategorized", categoryId: input.category_id });
   await query(
     `INSERT INTO products (
       id, business_id, name, sku, barcode, category, category_id, description, cost_price, selling_price,
@@ -1632,7 +1647,7 @@ export async function updateProduct(id: string, input: Partial<Product>, userId?
   const existing = await getProduct(id, businessId);
   if (!existing) return null;
   const next = { ...existing, ...input };
-  const category = await ensureCategory(undefined, businessId, { name: next.category, categoryId: next.category_id });
+  const category = await ensureCategory(undefined, businessId, { name: next.category || "Uncategorized", categoryId: next.category_id });
   await query(
     `UPDATE products SET
       name = $1, sku = $2, barcode = $3, category = $4, category_id = $5, description = $6,
