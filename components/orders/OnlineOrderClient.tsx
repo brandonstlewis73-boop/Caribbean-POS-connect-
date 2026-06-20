@@ -3,7 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useEffect, useMemo, useState, type InputHTMLAttributes, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
-import { CreditCard, ExternalLink, LocateFixed, MessageCircle, Minus, Plus, Send, ShoppingBag, Trash2 } from "lucide-react";
+import { CheckCircle2, ExternalLink, LocateFixed, Minus, Plus, Send, ShoppingBag, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { getDefaultCountryForCurrency, getDeliveryRegionsForCurrency, money, PAYMENT_METHODS } from "@/lib/constants";
@@ -210,6 +210,7 @@ export function OnlineOrderClient({
   }, [fulfillment, settings.delivery_enabled, settings.pickup_enabled]);
 
   function add(product: Product) {
+    if (order) return;
     setCart((current) => {
       const existing = current.find((item) => item.id === product.id);
       return existing
@@ -255,6 +256,7 @@ export function OnlineOrderClient({
   }
 
   async function submitOrder() {
+    if (loading || order) return;
     setError("");
     if (settings.storefront_status === "paused") return setError("This storefront is paused right now. Please contact the business.");
     if (settings.delivery_enabled === false && settings.pickup_enabled === false) {
@@ -331,9 +333,11 @@ export function OnlineOrderClient({
                 Instagram
               </a>
             ) : null}
-            <a href="#checkout" className="rounded-full border border-teal-200 bg-teal-50 px-3 py-2 text-sm font-black text-teal-800 shadow-sm">
-              Cart {cart.length} - {formatMoney(total)}
-            </a>
+            {!order ? (
+              <a href="#checkout" className="rounded-full border border-teal-200 bg-teal-50 px-3 py-2 text-sm font-black text-teal-800 shadow-sm">
+                Cart {cart.length} - {formatMoney(total)}
+              </a>
+            ) : null}
           </div>
         </div>
       </header>
@@ -437,6 +441,8 @@ export function OnlineOrderClient({
         </section>
 
         <aside id="checkout" className="grid min-w-0 gap-4 self-start scroll-mt-24 xl:sticky xl:top-24">
+          {!order ? (
+            <>
           <section className="rounded-[24px] border border-slate-200 bg-white shadow-sm">
             <div className="border-b border-slate-200 px-5 py-4">
               <h2 className="text-lg font-black tracking-tight text-slate-950">Your order</h2>
@@ -524,7 +530,7 @@ export function OnlineOrderClient({
               <StoreSelect label="Payment method" value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)}>
                 {enabledPaymentMethods.map((method) => <option key={method}>{method}</option>)}
               </StoreSelect>
-              <label className="flex items-start gap-2 text-sm font-semibold leading-6 text-slate-600">
+              <label className="flex items-start gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs font-semibold leading-5 text-slate-500">
                 <input
                   type="checkbox"
                   checked={customer.marketing_consent}
@@ -534,42 +540,61 @@ export function OnlineOrderClient({
                 I agree to receive optional marketing messages. My order data will be stored for receipts, delivery, loyalty, and customer service.
               </label>
               {error ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm font-bold text-red-700">{error}</p> : null}
-              <Button variant="primary" size="lg" onClick={submitOrder} disabled={loading} className="rounded-full bg-slate-950 text-white hover:bg-teal-700">
+              <Button variant="primary" size="lg" onClick={submitOrder} disabled={loading || Boolean(order)} className="rounded-full bg-slate-950 text-white hover:bg-teal-700">
                 <Send className="h-4 w-4" />
                 {loading ? "Submitting..." : "Submit order"}
               </Button>
             </div>
           </section>
 
+          </>
+          ) : null}
+
           {order ? (
-            <section className="rounded-[24px] border border-emerald-200 bg-emerald-50 p-5 shadow-sm">
-              <h2 className="text-lg font-black text-emerald-950">Order #{order.order_number} received</h2>
-              <p className="mt-2 text-sm font-semibold text-emerald-800">Total: {formatMoney(order.total)}</p>
-              <div className="mt-4 grid gap-2">
-                {order.whatsapp_business_link ? (
-                  <a href={order.whatsapp_business_link} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-emerald-700 px-3 py-2 text-center text-sm font-black leading-tight text-white">
-                    <MessageCircle className="h-4 w-4" />
-                    Send order to WhatsApp
-                  </a>
-                ) : null}
-                {order.payment_link ? (
-                  <a href={order.payment_link} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-amber-300 px-3 py-2 text-center text-sm font-black leading-tight text-slate-950">
-                    <CreditCard className="h-4 w-4" />
-                    Pay order
-                  </a>
-                ) : null}
-                {order.whatsapp_customer_link ? (
-                  <a href={order.whatsapp_customer_link} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-emerald-200 bg-white px-3 py-2 text-center text-sm font-black leading-tight text-emerald-900">
-                    <MessageCircle className="h-4 w-4" />
-                    WhatsApp confirmation
-                  </a>
-                ) : null}
+            <section className="rounded-[28px] border border-emerald-200 bg-white p-5 shadow-sm sm:p-6">
+              <div className="grid gap-5 text-center sm:text-left">
+                <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-emerald-100 text-emerald-700 sm:mx-0">
+                  <CheckCircle2 className="h-7 w-7" />
+                </div>
+                <div>
+                  <p className="text-sm font-black uppercase tracking-[0.16em] text-emerald-700">Order received</p>
+                  <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">Order received</h2>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+                    Thank you. The business has your order and will update you as it moves forward.
+                  </p>
+                </div>
+                <dl className="grid gap-3 rounded-[22px] border border-slate-200 bg-slate-50 p-4 text-left text-sm">
+                  <div className="flex items-center justify-between gap-4">
+                    <dt className="font-bold text-slate-500">Order number</dt>
+                    <dd className="font-black text-slate-950">#{order.order_number}</dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-4">
+                    <dt className="font-bold text-slate-500">Total</dt>
+                    <dd className="font-black text-slate-950">{formatMoney(order.total)}</dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-4">
+                    <dt className="font-bold text-slate-500">Type</dt>
+                    <dd className="font-black capitalize text-slate-950">{order.order_type === "delivery" ? "Delivery" : order.order_type === "pickup" ? "Pickup" : "Online order"}</dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-4">
+                    <dt className="font-bold text-slate-500">Payment status</dt>
+                    <dd className="font-black capitalize text-slate-950">{order.payment_status}</dd>
+                  </div>
+                </dl>
+                <div className="rounded-[22px] border border-teal-100 bg-teal-50 p-4 text-left">
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-teal-700">Next step</p>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">
+                    {order.order_type === "delivery"
+                      ? "Your order is waiting for the business to accept it. They will prepare it and arrange delivery."
+                      : "Your order is waiting for the business to accept it. They will let you know when it is ready for pickup."}
+                  </p>
+                </div>
               </div>
             </section>
           ) : null}
         </aside>
       </div>
-      {cart.length ? (
+      {!order && cart.length ? (
         <a href="#checkout" className="fixed inset-x-3 bottom-3 z-40 grid rounded-full bg-slate-950 px-5 py-3 text-white shadow-2xl xl:hidden">
           <span className="flex items-center justify-between gap-3 text-sm font-black">
             <span>{cart.length} item{cart.length === 1 ? "" : "s"}</span>
@@ -580,9 +605,7 @@ export function OnlineOrderClient({
       <footer className="mx-auto flex max-w-7xl flex-wrap gap-3 px-4 pb-8 text-sm font-bold text-slate-500">
         <a href="/privacy" className="hover:text-teal-700">Privacy policy</a>
         <a href="/contact" className="hover:text-teal-700">Contact</a>
-        <a href="/login" className="hover:text-teal-700">Staff login</a>
       </footer>
     </main>
   );
 }
-

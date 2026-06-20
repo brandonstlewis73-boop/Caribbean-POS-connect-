@@ -1,4 +1,14 @@
-import { subDays, startOfDay } from "date-fns";
+function startOfDay(date: Date) {
+  const next = new Date(date);
+  next.setHours(0, 0, 0, 0);
+  return next;
+}
+
+function subDays(date: Date, days: number) {
+  const next = new Date(date);
+  next.setDate(next.getDate() - days);
+  return next;
+}
 import bcrypt from "bcryptjs";
 import { query, transaction, createId, type PoolClient } from "./db";
 import {
@@ -3226,4 +3236,3 @@ export async function getReceiptNumber(orderId: string) {
 export async function getAuditLogs(limit = 100) {
   return listAuditLogs(limit);
 }
-
