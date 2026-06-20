@@ -1,5 +1,6 @@
 import { CURRENCY_CODE, getDefaultCountryForCurrency } from "@/lib/constants";
-import { getSettings } from "@/lib/data";
+import { getBusinessSettings } from "@/lib/data";
+import { getSessionUserFromRequest } from "@/lib/auth";
 import { AppShellClient } from "./AppShellClient";
 
 export async function AppShell({
@@ -13,7 +14,8 @@ export async function AppShell({
   children: React.ReactNode;
   actions?: React.ReactNode;
 }) {
-  const settings = await getSettings().catch(() => null);
+  const user = await getSessionUserFromRequest().catch(() => null);
+  const settings = await getBusinessSettings(user?.business_id).catch(() => null);
   const currency = settings?.currency || CURRENCY_CODE;
   const market = getDefaultCountryForCurrency(currency);
 

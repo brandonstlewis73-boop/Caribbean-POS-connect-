@@ -1,11 +1,11 @@
 import { AppShell } from "@/components/layout/AppShell";
 import { PrinterSettingsClient } from "@/components/printer/PrinterSettingsClient";
-import { getSettings } from "@/lib/data";
+import { getBusinessSettings } from "@/lib/data";
 import { requirePagePermission } from "@/lib/page-auth";
 
 export default async function PrinterPage() {
-  await requirePagePermission("orders:read");
-  const settings = await getSettings();
+  const user = await requirePagePermission("orders:read");
+  const settings = await getBusinessSettings(user.business_id);
   return (
     <AppShell active="Printer" title="Printer & Receipts">
       <PrinterSettingsClient settings={settings} />

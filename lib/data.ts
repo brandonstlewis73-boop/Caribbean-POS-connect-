@@ -662,30 +662,53 @@ export async function getBusinessSettings(businessId?: string | null): Promise<S
     ).catch(() => ({ rows: [] as Array<{ key: keyof Settings; value: unknown }> }))
   ]);
 
-  const settings: Record<string, unknown> = { ...base, active_business_id: id, logo_url: null };
+  const settings: Record<string, unknown> = {
+    ...base,
+    business_name: defaultSettings.business_name,
+    business_phone: "",
+    business_email: "",
+    business_address: "",
+    business_street_address: "",
+    business_city: "",
+    business_region: "",
+    business_country: defaultSettings.business_country,
+    business_postal_code: "",
+    business_latitude: null,
+    business_longitude: null,
+    logo_url: null,
+    logo_storage_path: null,
+    receipt_message: defaultSettings.receipt_message,
+    payment_link_template: defaultSettings.payment_link_template,
+    whatsapp_business_number: "",
+    storefront_banner_url: "",
+    facebook_url: "",
+    instagram_url: "",
+    active_business_id: id
+  };
   for (const row of settingRows.rows) {
     settings[row.key] = parseJson(row.value, row.value);
   }
   if (business) {
-    settings.business_name = business.name;
-    settings.business_phone = business.phone || business.owner_phone || base.business_phone;
-    settings.business_email = business.email || business.owner_email || base.business_email;
-    settings.business_address = buildAddress([
+    const businessAddress = buildAddress([
       business.street_address,
       business.city,
       business.region,
       business.postal_code,
       business.country
-    ]) || base.business_address;
-    settings.business_street_address = business.street_address || "";
-    settings.business_city = business.city || "";
-    settings.business_region = business.region || "";
-    settings.business_country = business.country || "";
-    settings.business_postal_code = business.postal_code || "";
-    settings.business_latitude = business.latitude ?? null;
-    settings.business_longitude = business.longitude ?? null;
+    ]);
+    settings.business_name = business.name || settings.business_name;
+    settings.business_phone = business.phone || business.owner_phone || (settings.business_phone as string) || "";
+    settings.business_email = business.email || business.owner_email || (settings.business_email as string) || "";
+    settings.business_address = businessAddress || (settings.business_address as string) || "";
+    settings.business_street_address = business.street_address || (settings.business_street_address as string) || "";
+    settings.business_city = business.city || (settings.business_city as string) || "";
+    settings.business_region = business.region || (settings.business_region as string) || "";
+    settings.business_country = business.country || (settings.business_country as string) || defaultSettings.business_country;
+    settings.business_postal_code = business.postal_code || (settings.business_postal_code as string) || "";
+    settings.business_latitude = business.latitude ?? settings.business_latitude ?? null;
+    settings.business_longitude = business.longitude ?? settings.business_longitude ?? null;
     settings.logo_url = business.logo_url || (settings.logo_url as string) || null;
-    settings.currency = business.currency || base.currency;
+    settings.currency = business.currency || (settings.currency as string) || base.currency;
     settings.whatsapp_business_number =
       business.business_whatsapp_number || (settings.whatsapp_business_number as string) || business.phone || "";
   }

@@ -3,7 +3,7 @@ import path from "path";
 import PDFDocument from "pdfkit";
 import QRCode from "qrcode";
 import { money } from "./constants";
-import { getReceiptNumber, getSettings } from "./data";
+import { getBusinessSettings, getReceiptNumber } from "./data";
 import { buildAddress } from "./waze";
 import type { CustomerInput, Order } from "./types";
 
@@ -89,7 +89,7 @@ function customerAddress(customer: CustomerInput) {
 }
 
 export async function createReceiptPdfBuffer(order: Order) {
-  const [settings, receiptNumber] = await Promise.all([getSettings(), getReceiptNumber(order.id)]);
+  const [settings, receiptNumber] = await Promise.all([getBusinessSettings(order.business_id), getReceiptNumber(order.id)]);
   const doc = new PDFDocument({ size: [240, 720], margin: 18 });
   const done = pdfToBuffer(doc);
   const wazeQr = await createQrBuffer(order.waze_link);
@@ -146,7 +146,7 @@ export async function createReceiptPdfBuffer(order: Order) {
 }
 
 export async function createShippingLabelPdfBuffer(order: Order) {
-  const settings = await getSettings();
+  const settings = await getBusinessSettings(order.business_id);
   const doc = new PDFDocument({ size: [288, 432], margin: 18 });
   const done = pdfToBuffer(doc);
   const wazeQr = await createQrBuffer(order.waze_link, 132);
@@ -208,7 +208,3 @@ export async function createShippingLabelPdfBuffer(order: Order) {
   doc.end();
   return done;
 }
-
-
-
-
