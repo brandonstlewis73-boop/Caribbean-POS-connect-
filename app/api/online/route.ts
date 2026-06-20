@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { defaultSettings, getSettings, listCategories, listProducts } from "@/lib/data";
+import { defaultSettings } from "@/lib/data";
 import { localizeOnlineSettings } from "@/lib/online-market";
 
 export const runtime = "nodejs";
@@ -15,35 +15,17 @@ function countryFromRequest(request: NextRequest) {
   );
 }
 
-function onlineJson(body: unknown) {
-  const response = NextResponse.json(body);
+export async function GET(request: NextRequest) {
+  const localized = localizeOnlineSettings({ ...defaultSettings, logo_url: null, active_business_id: null }, countryFromRequest(request));
+  const response = NextResponse.json({
+    data: {
+      products: [],
+      categories: [],
+      settings: localized.settings,
+      market: localized.market,
+      statusMessage: "Your storefront is not set up yet. Add your business profile, logo, categories, and products to publish your store."
+    }
+  });
   response.headers.set("Vary", "x-vercel-ip-country, cf-ipcountry, x-country-code");
   return response;
-}
-
-export async function GET(request: NextRequest) {
-  try {
-    const [products, settings, categories] = await Promise.all([listProducts(), getSettings(), listCategories()]);
-    const localized = localizeOnlineSettings(settings, countryFromRequest(request));
-    return onlineJson({
-      data: {
-        products,
-        categories,
-        settings: localized.settings,
-        market: localized.market,
-        statusMessage: null
-      }
-    });
-  } catch {
-    const localized = localizeOnlineSettings(defaultSettings, countryFromRequest(request));
-    return onlineJson({
-      data: {
-        products: [],
-        categories: [],
-        settings: localized.settings,
-        market: localized.market,
-        statusMessage: "Database status unavailable during build"
-      }
-    });
-  }
 }

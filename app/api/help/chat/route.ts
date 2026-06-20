@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { fail, ok } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
 import { generateSupportAnswer, redactSensitiveText } from "@/lib/ai-support";
-import { PlanGateError, assertFeatureAccess, assertUsageLimit, getBusinessSettings } from "@/lib/data";
+import { PlanGateError, assertFeatureAccess, assertUsageLimit } from "@/lib/data";
 import { createAiSupportLog, listHelpArticles } from "@/lib/support";
 import { aiSupportChatSchema } from "@/lib/validators";
 
@@ -23,10 +23,7 @@ export async function POST(request: NextRequest) {
     return fail("AI support plan access could not be checked.", 500);
   }
 
-  const [articles, settings] = await Promise.all([
-    listHelpArticles({ role: auth.user.role }),
-    getBusinessSettings(auth.user.business_id).catch(() => null)
-  ]);
+  const articles = await listHelpArticles({ role: auth.user.role });
   const answer = await generateSupportAnswer({
     question: parsed.data.question,
     messages: parsed.data.messages,
@@ -37,7 +34,7 @@ export async function POST(request: NextRequest) {
 
   await createAiSupportLog({
     userId: auth.user.id,
-    businessId: settings?.active_business_id || null,
+    businessId: auth.user.business_id || null,
     question: redactSensitiveText(parsed.data.question).slice(0, 1200),
     responseSummary: redactSensitiveText(answer.answer).slice(0, 500)
   });

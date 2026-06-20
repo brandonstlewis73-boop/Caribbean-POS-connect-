@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useMemo, useState, type ChangeEvent } from "react";
+import { useMemo, useRef, useState, type ChangeEvent } from "react";
 import {
   AlertTriangle,
   Bell,
@@ -32,7 +32,8 @@ import { PLAN_CONFIG, PLAN_ORDER, type PlanUsageSummary } from "@/lib/plan-gatin
 import type { Business, Category, Settings, Subscription, User } from "@/lib/types";
 
 const MAX_LOGO_SIZE_BYTES = 750 * 1024;
-const LOGO_IMAGE_TYPES = ["image/png", "image/jpeg"];
+const LOGO_IMAGE_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/svg+xml"];
+const LOGO_FILE_ACCEPT = "image/png,image/jpeg,image/jpg,image/webp,image/svg+xml,image/*";
 
 const notificationTemplates = {
   received: "Hi {customer_name}, your order #{order_id} was received.",
@@ -100,6 +101,23 @@ function readFileAsDataUrl(file: File) {
   });
 }
 
+function logoStoragePath(businessId: string | null | undefined, file: File) {
+  const extension = (file.name.split(".").pop() || file.type.split("/").pop() || "png")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "") || "png";
+  return `business-logos/${businessId || "unassigned"}/logo-${Date.now()}.${extension}`;
+}
+
+async function validateLogoFile(file: File) {
+  if (!LOGO_IMAGE_TYPES.includes(file.type)) return "Logo must be a PNG, JPG, WebP, or safe SVG image.";
+  if (file.size > MAX_LOGO_SIZE_BYTES) return "Logo must be 750 KB or smaller.";
+  if (file.type === "image/svg+xml") {
+    const svg = await file.text();
+    if (/<script|on\w+=|javascript:/i.test(svg)) return "SVG logo contains unsafe script content.";
+  }
+  return null;
+}
+
 function safeSlug(value: string) {
   return value
     .toLowerCase()
@@ -124,6 +142,9 @@ export function SettingsClient({
   planUsage: PlanUsageSummary;
 }) {
   const [draft, setDraft] = useState(settings);
+  const takePhotoInputRef = useRef<HTMLInputElement>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [staffItems, setStaffItems] = useState(staff.filter((member) => member.role !== "kitchen"));
   const [categoryItems, setCategoryItems] = useState(categories);
   const [staffDraft, setStaffDraft] = useState({ name: "", email: "", phone: "", role: "cashier" });
@@ -216,21 +237,28 @@ export function SettingsClient({
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
-    if (!LOGO_IMAGE_TYPES.includes(file.type)) {
-      setMessage("Logo must be a PNG or JPG image.");
-      return;
-    }
-    if (file.size > MAX_LOGO_SIZE_BYTES) {
-      setMessage("Logo must be 750 KB or smaller.");
+    const validationError = await validateLogoFile(file);
+    if (validationError) {
+      setMessage(validationError);
       return;
     }
     try {
       const logoUrl = await readFileAsDataUrl(file);
-      setDraft((current) => ({ ...current, logo_url: logoUrl }));
-      setMessage("Logo ready. Save changes to apply it.");
+      const businessId = draft.active_business_id || activeBusiness?.id || null;
+      setDraft((current) => ({
+        ...current,
+        logo_url: logoUrl,
+        logo_storage_path: logoStoragePath(current.active_business_id || businessId, file)
+      }));
+      setMessage("Logo ready. Save changes to apply it to this business only.");
     } catch {
       setMessage("Logo could not be uploaded.");
     }
+  }
+
+  function removeLogo() {
+    setDraft((current) => ({ ...current, logo_url: null, logo_storage_path: null }));
+    setMessage("Logo removed. Save changes to apply it.");
   }
 
   async function copyStorefrontLink() {
@@ -790,10 +818,22 @@ export function SettingsClient({
                 unoptimized={Boolean(draft.logo_url?.startsWith("data:"))}
                 className="h-16 w-16 rounded-card bg-white object-contain p-2"
               />
-              <label className="mt-4 inline-flex min-h-10 cursor-pointer items-center justify-center rounded-card border border-white/10 bg-white/[0.07] px-4 text-sm font-black text-white">
-                Upload logo
-                <input type="file" accept="image/png,image/jpeg" className="sr-only" onChange={uploadLogo} />
-              </label>
+              <div className="mt-4 grid gap-2">
+                <input ref={takePhotoInputRef} type="file" accept={LOGO_FILE_ACCEPT} capture="environment" className="sr-only" onChange={uploadLogo} aria-label="Take business logo photo" />
+                <input ref={photoInputRef} type="file" accept={LOGO_FILE_ACCEPT} className="sr-only" onChange={uploadLogo} aria-label="Choose business logo from photos" />
+                <input ref={fileInputRef} type="file" accept={LOGO_FILE_ACCEPT} className="sr-only" onChange={uploadLogo} aria-label="Browse files for business logo" />
+                <div className="grid gap-2 sm:grid-cols-3">
+                  <Button type="button" onClick={() => takePhotoInputRef.current?.click()} className="w-full">Take Photo</Button>
+                  <Button type="button" onClick={() => photoInputRef.current?.click()} className="w-full">Choose Photos</Button>
+                  <Button type="button" onClick={() => fileInputRef.current?.click()} className="w-full">Browse Files</Button>
+                </div>
+                {draft.logo_url ? (
+                  <Button type="button" variant="danger" onClick={removeLogo} className="w-full sm:w-auto">
+                    Remove logo
+                  </Button>
+                ) : null}
+                <p className="text-xs font-semibold leading-5 text-teal-50/55">PNG, JPG, WebP, or safe SVG. Maximum 750 KB. Camera capture is only used for Take Photo.</p>
+              </div>
             </div>
             <div className="grid gap-4">
               <Field label="Business color" value={draft.business_color || "#14b8a6"} onChange={(event) => update("business_color", event.target.value)} />

@@ -58,8 +58,6 @@ import {
 import { sendWhatsAppMessage } from "./whatsapp-server";
 
 type DbClient = PoolClient;
-const DEFAULT_BUSINESS_ID = "biz_savannah_sea";
-
 export const SETUP_CHECKLIST_ITEMS = [
   { key: "logo", label: "Add business logo" },
   { key: "whatsapp", label: "Add business WhatsApp number" },
@@ -96,7 +94,7 @@ export const defaultSettings: Settings = {
   waze_enabled: true,
   driver_waze_enabled: true,
   show_empty_categories: false,
-  active_business_id: "biz_savannah_sea",
+  active_business_id: null,
   currency: CURRENCY_CODE,
   tax_enabled: true,
   tax_rate: 12.5,
@@ -279,9 +277,9 @@ function slugify(value: string) {
 async function getGlobalActiveBusinessId(client?: DbClient) {
   try {
     const row = await query<{ value: unknown }>("SELECT value FROM settings WHERE key = 'active_business_id'", [], client);
-    return parseJson<string | null>(row.rows[0]?.value, null) || DEFAULT_BUSINESS_ID;
+    return parseJson<string | null>(row.rows[0]?.value, null);
   } catch {
-    return DEFAULT_BUSINESS_ID;
+    return null;
   }
 }
 
@@ -293,20 +291,22 @@ export async function getBusinessIdForUser(userId?: string | null, client?: DbCl
       [userId],
       client
     );
-    return row.rows[0]?.business_id || getGlobalActiveBusinessId(client);
+    return row.rows[0]?.business_id || null;
   } catch {
-    return getGlobalActiveBusinessId(client);
+    return null;
   }
 }
 
 async function resolveBusinessId(input?: { businessId?: string | null; userId?: string | null; client?: DbClient }) {
-  return input?.businessId || getBusinessIdForUser(input?.userId, input?.client);
+  const businessId = input?.businessId || (await getBusinessIdForUser(input?.userId, input?.client));
+  if (!businessId) throw new Error("Business context is required.");
+  return businessId;
 }
 
 function businessScopedClause(params: unknown[], businessId?: string | null, tableAlias = "") {
   if (!businessId) return "TRUE";
   const column = tableAlias ? `${tableAlias}.business_id` : "business_id";
-  return `(${column} = ${addParam(params, businessId)} OR ${column} IS NULL)`;
+  return `${column} = ${addParam(params, businessId)}`;
 }
 
 function setupChecklistForBusiness(business: Business | null | undefined, settings: Settings, products: Product[]) {
@@ -635,7 +635,10 @@ export async function getBusinessBySlug(slug?: string | null) {
 
 export async function getBusinessSettings(businessId?: string | null): Promise<Settings> {
   const base = await getSettings();
-  const id = businessId || base.active_business_id || DEFAULT_BUSINESS_ID;
+  const id = businessId;
+  if (!id) {
+    return { ...base, active_business_id: null, logo_url: null } as Settings;
+  }
 
   const [business, settingRows] = await Promise.all([
     getBusinessById(id),
@@ -645,7 +648,7 @@ export async function getBusinessSettings(businessId?: string | null): Promise<S
     ).catch(() => ({ rows: [] as Array<{ key: keyof Settings; value: unknown }> }))
   ]);
 
-  const settings: Record<string, unknown> = { ...base, active_business_id: id };
+  const settings: Record<string, unknown> = { ...base, active_business_id: id, logo_url: null };
   for (const row of settingRows.rows) {
     settings[row.key] = parseJson(row.value, row.value);
   }
@@ -667,7 +670,7 @@ export async function getBusinessSettings(businessId?: string | null): Promise<S
     settings.business_postal_code = business.postal_code || "";
     settings.business_latitude = business.latitude ?? null;
     settings.business_longitude = business.longitude ?? null;
-    settings.logo_url = business.logo_url || base.logo_url || "/caribbean-pos-connect-icon.png";
+    settings.logo_url = business.logo_url || (settings.logo_url as string) || null;
     settings.currency = business.currency || base.currency;
     settings.whatsapp_business_number =
       business.business_whatsapp_number || (settings.whatsapp_business_number as string) || business.phone || "";
@@ -677,7 +680,9 @@ export async function getBusinessSettings(businessId?: string | null): Promise<S
 }
 
 export async function updateSettings(input: Partial<Settings>, userId?: string) {
-  const current = await getSettings();
+  const businessId = await getBusinessIdForUser(userId);
+  if (!businessId) throw new Error("Business context is required to update settings.");
+  const current = await getBusinessSettings(businessId);
   const nextCurrency = input.currency || current.currency;
   const nextInput = { ...input };
   if (input.currency || input.delivery_rates) {
@@ -690,53 +695,47 @@ export async function updateSettings(input: Partial<Settings>, userId?: string) 
     );
   }
   await transaction(async (client) => {
-    const businessId = await getBusinessIdForUser(userId, client);
     for (const [key, value] of Object.entries(nextInput)) {
-      await saveSettingValue(key, value, client);
-      if (businessId) {
-        await saveBusinessSettingValue(businessId, key, value, client);
-      }
+      await saveBusinessSettingValue(businessId, key, value, client);
     }
-    if (businessId) {
-      await query(
-        `UPDATE businesses SET
-          name = COALESCE($1, name),
-          phone = COALESCE($2, phone),
-          email = COALESCE($3, email),
-          logo_url = COALESCE($4, logo_url),
-          business_whatsapp_number = COALESCE($5, business_whatsapp_number),
-          currency = COALESCE($6, currency),
-          street_address = COALESCE($7, street_address),
-          city = COALESCE($8, city),
-          region = COALESCE($9, region),
-          country = COALESCE($10, country),
-          postal_code = COALESCE($11, postal_code),
-          latitude = COALESCE($12::numeric, latitude),
-          longitude = COALESCE($13::numeric, longitude),
-          updated_at = NOW()
-         WHERE id = $14`,
-        [
-          nextInput.business_name ?? null,
-          nextInput.business_phone ?? null,
-          nextInput.business_email ?? null,
-          nextInput.logo_url ?? null,
-          nextInput.whatsapp_business_number ?? null,
-          nextInput.currency ?? null,
-          nextInput.business_street_address ?? null,
-          nextInput.business_city ?? null,
-          nextInput.business_region ?? null,
-          nextInput.business_country ?? null,
-          nextInput.business_postal_code ?? null,
-          nextInput.business_latitude ?? null,
-          nextInput.business_longitude ?? null,
-          businessId
-        ],
-        client
-      );
-    }
-    await auditLog("settings:update", "settings", "global", nextInput, userId, client);
+    await query(
+      `UPDATE businesses SET
+        name = COALESCE($1, name),
+        phone = COALESCE($2, phone),
+        email = COALESCE($3, email),
+        logo_url = COALESCE($4, logo_url),
+        business_whatsapp_number = COALESCE($5, business_whatsapp_number),
+        currency = COALESCE($6, currency),
+        street_address = COALESCE($7, street_address),
+        city = COALESCE($8, city),
+        region = COALESCE($9, region),
+        country = COALESCE($10, country),
+        postal_code = COALESCE($11, postal_code),
+        latitude = COALESCE($12::numeric, latitude),
+        longitude = COALESCE($13::numeric, longitude),
+        updated_at = NOW()
+       WHERE id = $14`,
+      [
+        nextInput.business_name ?? null,
+        nextInput.business_phone ?? null,
+        nextInput.business_email ?? null,
+        nextInput.logo_url ?? null,
+        nextInput.whatsapp_business_number ?? null,
+        nextInput.currency ?? null,
+        nextInput.business_street_address ?? null,
+        nextInput.business_city ?? null,
+        nextInput.business_region ?? null,
+        nextInput.business_country ?? null,
+        nextInput.business_postal_code ?? null,
+        nextInput.business_latitude ?? null,
+        nextInput.business_longitude ?? null,
+        businessId
+      ],
+      client
+    );
+    await auditLog("settings:update", "settings", businessId, nextInput, userId, client);
   });
-  return getBusinessSettings(await getBusinessIdForUser(userId));
+  return getBusinessSettings(businessId);
 }
 
 export async function auditLog(
@@ -826,7 +825,7 @@ export async function updateStaffUser(id: string, input: StaffInput, userId?: st
     const existing = await query<any>(
       `SELECT id, business_id, name, email, role, phone, active
        FROM users
-       WHERE id = $1 AND (business_id = $2 OR business_id IS NULL)`,
+       WHERE id = $1 AND business_id = $2`,
       [id, businessId],
       client
     );
@@ -862,7 +861,7 @@ export async function deleteStaffUser(id: string, userId?: string) {
   return transaction(async (client) => {
     const businessId = await getBusinessIdForUser(userId, client);
     const existing = await query<any>(
-      "SELECT id, business_id, name, email, role, phone, active FROM users WHERE id = $1 AND (business_id = $2 OR business_id IS NULL)",
+      "SELECT id, business_id, name, email, role, phone, active FROM users WHERE id = $1 AND business_id = $2",
       [id, businessId],
       client
     );
@@ -985,7 +984,7 @@ export async function createBusinessOwnerAccount(input: {
       business_phone: input.whatsapp_number,
       business_email: email,
       business_address: country,
-      logo_url: "/caribbean-pos-connect-icon.png",
+      logo_url: null,
       currency,
       whatsapp_enabled: true,
       whatsapp_provider: "twilio",
@@ -1093,7 +1092,8 @@ export async function updateSubscriptionPlan(planId: SubscriptionPlanId, userId?
   const businessId = await getBusinessIdForUser(userId);
   const existing = await getCurrentSubscription(businessId);
   const subscriptionId = existing?.id || createId("sub");
-  const resolvedBusinessId = existing?.business_id || businessId || DEFAULT_BUSINESS_ID;
+  const resolvedBusinessId = existing?.business_id || businessId;
+  if (!resolvedBusinessId) throw new Error("Business context is required to update subscription.");
   if (existing) {
     await query(
       `UPDATE subscriptions SET
@@ -1258,7 +1258,7 @@ export async function getSubscriptionPlanId(businessId?: string | null) {
 }
 
 export async function getPlanUsage(businessId?: string | null): Promise<UsageSnapshot> {
-  const resolvedBusinessId = businessId || DEFAULT_BUSINESS_ID;
+  const resolvedBusinessId = businessId || "";
   const start = monthStartIso();
   const [products, staff, locations, aiSupportGenerations, aiBusinessGenerations, whatsappMessages] = await Promise.all([
     countRows("SELECT COUNT(*)::int AS count FROM products WHERE business_id = $1 AND active = TRUE", [resolvedBusinessId]),
@@ -1333,8 +1333,8 @@ function categoryColor(index: number) {
 
 async function getCategoryByName(client: DbClient | undefined, businessId: string | null | undefined, name: string) {
   const rows = await query<any>(
-    "SELECT * FROM categories WHERE LOWER(name) = LOWER($1) AND (business_id = $2 OR business_id IS NULL) LIMIT 1",
-    [name, businessId || DEFAULT_BUSINESS_ID],
+    "SELECT * FROM categories WHERE LOWER(name) = LOWER($1) AND business_id = $2 LIMIT 1",
+    [name, businessId],
     client
   ).catch(() => ({ rows: [] as any[] }));
   return rows.rows[0] ? rowToCategory(rows.rows[0]) : null;
@@ -1345,10 +1345,11 @@ async function ensureCategory(
   businessId: string | null | undefined,
   input: { name: string; categoryId?: string | null }
 ) {
-  const resolvedBusinessId = businessId || DEFAULT_BUSINESS_ID;
+  if (!businessId) throw new Error("Business context is required to manage categories.");
+  const resolvedBusinessId = businessId;
   if (input.categoryId) {
     const byId = await query<any>(
-      "SELECT * FROM categories WHERE id = $1 AND (business_id = $2 OR business_id IS NULL) LIMIT 1",
+      "SELECT * FROM categories WHERE id = $1 AND business_id = $2 LIMIT 1",
       [input.categoryId, resolvedBusinessId],
       client
     ).catch(() => ({ rows: [] as any[] }));
@@ -1423,7 +1424,7 @@ export async function createCategory(input: CategoryInput, userId?: string) {
 export async function updateCategory(id: string, input: CategoryInput, userId?: string) {
   const businessId = await getBusinessIdForUser(userId);
   const existingRows = await query<any>(
-    "SELECT * FROM categories WHERE id = $1 AND (business_id = $2 OR business_id IS NULL)",
+    "SELECT * FROM categories WHERE id = $1 AND business_id = $2",
     [id, businessId]
   );
   const existing = existingRows.rows[0] ? rowToCategory(existingRows.rows[0]) : null;
@@ -1435,7 +1436,7 @@ export async function updateCategory(id: string, input: CategoryInput, userId?: 
     `UPDATE categories SET
       name = $1, slug = $2, description = $3, icon = $4, color = $5,
       sort_order = $6, active = $7, is_active = $7, updated_at = NOW()
-     WHERE id = $8 AND (business_id = $9 OR business_id IS NULL)`,
+     WHERE id = $8 AND business_id = $9`,
     [
       nextName,
       nextSlug,
@@ -1449,7 +1450,7 @@ export async function updateCategory(id: string, input: CategoryInput, userId?: 
     ]
   );
   await query(
-    "UPDATE products SET category = $1, updated_at = NOW() WHERE category_id = $2 AND (business_id = $3 OR business_id IS NULL)",
+    "UPDATE products SET category = $1, updated_at = NOW() WHERE category_id = $2 AND business_id = $3",
     [nextName, id, businessId]
   );
   await auditLog("category:update", "category", id, input, userId);
@@ -1464,7 +1465,7 @@ export async function deleteCategory(
   return transaction(async (client) => {
     const businessId = await getBusinessIdForUser(userId, client);
     const existingRows = await query<any>(
-      "SELECT * FROM categories WHERE id = $1 AND (business_id = $2 OR business_id IS NULL)",
+      "SELECT * FROM categories WHERE id = $1 AND business_id = $2",
       [id, businessId],
       client
     );
@@ -1472,19 +1473,19 @@ export async function deleteCategory(
     if (!existing) return null;
     if (mode === "delete_category_only") {
       await query(
-        "UPDATE products SET category_id = NULL, updated_at = NOW() WHERE category_id = $1 AND (business_id = $2 OR business_id IS NULL)",
+        "UPDATE products SET category_id = NULL, updated_at = NOW() WHERE category_id = $1 AND business_id = $2",
         [id, businessId],
         client
       );
     } else {
       const fallback = await ensureCategory(client, businessId, { name: "Uncategorized" });
       await query(
-        "UPDATE products SET category = $1, category_id = $2, updated_at = NOW() WHERE category_id = $3 AND (business_id = $4 OR business_id IS NULL)",
+        "UPDATE products SET category = $1, category_id = $2, updated_at = NOW() WHERE category_id = $3 AND business_id = $4",
         [fallback.name, fallback.id, id, businessId],
         client
       );
     }
-    await query("DELETE FROM categories WHERE id = $1 AND (business_id = $2 OR business_id IS NULL)", [id, businessId], client);
+    await query("DELETE FROM categories WHERE id = $1 AND business_id = $2", [id, businessId], client);
     await auditLog("category:delete", "category", id, { name: existing.name, mode }, userId, client);
     return existing;
   });
@@ -1495,7 +1496,7 @@ export async function reorderCategories(input: Array<{ id: string; sort_order: n
   await transaction(async (client) => {
     for (const item of input) {
       await query(
-        "UPDATE categories SET sort_order = $1, updated_at = NOW() WHERE id = $2 AND (business_id = $3 OR business_id IS NULL)",
+        "UPDATE categories SET sort_order = $1, updated_at = NOW() WHERE id = $2 AND business_id = $3",
         [item.sort_order, item.id, businessId],
         client
       );
@@ -1571,7 +1572,7 @@ export async function deleteProduct(id: string, userId?: string) {
   return transaction(async (client) => {
     const businessId = await getBusinessIdForUser(userId, client);
     const existing = await query<any>(
-      "SELECT * FROM products WHERE id = $1 AND (business_id = $2 OR business_id IS NULL)",
+      "SELECT * FROM products WHERE id = $1 AND business_id = $2",
       [id, businessId],
       client
     );
@@ -1631,7 +1632,7 @@ export async function adjustStock(productId: string, delta: number, reason: stri
   return transaction(async (client) => {
     const businessId = await getBusinessIdForUser(userId, client);
     const updated = await query(
-      "UPDATE products SET stock_quantity = stock_quantity + $1, updated_at = NOW() WHERE id = $2 AND (business_id = $3 OR business_id IS NULL)",
+      "UPDATE products SET stock_quantity = stock_quantity + $1, updated_at = NOW() WHERE id = $2 AND business_id = $3",
       [delta, productId, businessId],
       client
     );
@@ -1685,7 +1686,7 @@ export async function getCustomerProfile(id: string, businessId?: string | null)
        FROM order_items oi
        JOIN orders o ON o.id = oi.order_id
        WHERE o.customer_id = $1
-       ${businessId ? "AND (o.business_id = $2 OR o.business_id IS NULL)" : ""}
+       ${businessId ? "AND o.business_id = $2" : "AND FALSE"}
        GROUP BY product_name
        ORDER BY quantity DESC
        LIMIT 5`,
@@ -1705,13 +1706,13 @@ async function upsertCustomer(client: DbClient, input?: CustomerInput | null, bu
   const normalized = cleanWhatsAppNumber(input.phone);
   const lookup = normalized
     ? await query<any>(
-        "SELECT * FROM customers WHERE phone_normalized = $1 AND (business_id = $2 OR business_id IS NULL) LIMIT 1",
+        "SELECT * FROM customers WHERE phone_normalized = $1 AND business_id = $2 LIMIT 1",
         [normalized, businessId],
         client
       )
     : input.email
       ? await query<any>(
-          "SELECT * FROM customers WHERE LOWER(email) = LOWER($1) AND (business_id = $2 OR business_id IS NULL) LIMIT 1",
+          "SELECT * FROM customers WHERE LOWER(email) = LOWER($1) AND business_id = $2 LIMIT 1",
           [input.email, businessId],
           client
         )
@@ -1835,7 +1836,7 @@ export async function updateCustomer(id: string, input: CustomerInput, userId?: 
       notification_whatsapp = $17, notification_sms = $18, notification_email = $19,
       marketing_consent = $20,
       updated_at = NOW()
-     WHERE id = $21 AND (business_id = $22 OR business_id IS NULL)`,
+     WHERE id = $21 AND business_id = $22`,
     [
       input.name ?? existing.name,
       input.phone ?? existing.phone,
@@ -1869,7 +1870,7 @@ export async function deleteCustomer(id: string, userId?: string) {
   return transaction(async (client) => {
     const businessId = await getBusinessIdForUser(userId, client);
     const existing = await query<any>(
-      "SELECT * FROM customers WHERE id = $1 AND (business_id = $2 OR business_id IS NULL)",
+      "SELECT * FROM customers WHERE id = $1 AND business_id = $2",
       [id, businessId],
       client
     );
@@ -1896,7 +1897,7 @@ async function applyCompletedOrderEffects(client: DbClient, order: Order, userId
   for (const item of order.items) {
     if (!item.product_id) continue;
     await query(
-      "UPDATE products SET stock_quantity = stock_quantity - $1, updated_at = NOW() WHERE id = $2 AND (business_id = $3 OR business_id IS NULL)",
+      "UPDATE products SET stock_quantity = stock_quantity - $1, updated_at = NOW() WHERE id = $2 AND business_id = $3",
       [item.quantity, item.product_id, order.business_id ?? null],
       client
     );
@@ -1948,7 +1949,7 @@ async function reverseCompletedOrderEffects(client: DbClient, order: Order, user
   for (const item of order.items) {
     if (!item.product_id) continue;
     await query(
-      "UPDATE products SET stock_quantity = stock_quantity + $1, updated_at = NOW() WHERE id = $2 AND (business_id = $3 OR business_id IS NULL)",
+      "UPDATE products SET stock_quantity = stock_quantity + $1, updated_at = NOW() WHERE id = $2 AND business_id = $3",
       [item.quantity, item.product_id, order.business_id ?? null],
       client
     );
@@ -2365,7 +2366,7 @@ export async function createOrder(payload: CheckoutPayload, userId?: string) {
     const lineItems = [];
     for (const item of payload.items) {
       const productRow = await query<any>(
-        "SELECT * FROM products WHERE id = $1 AND active = TRUE AND (business_id = $2 OR business_id IS NULL)",
+        "SELECT * FROM products WHERE id = $1 AND active = TRUE AND business_id = $2",
         [item.product_id, businessId],
         client
       );
@@ -2507,7 +2508,7 @@ export async function createOrder(payload: CheckoutPayload, userId?: string) {
 
       if (shouldCompleteNow) {
         await query(
-          "UPDATE products SET stock_quantity = stock_quantity - $1, updated_at = NOW() WHERE id = $2 AND (business_id = $3 OR business_id IS NULL)",
+          "UPDATE products SET stock_quantity = stock_quantity - $1, updated_at = NOW() WHERE id = $2 AND business_id = $3",
           [item.quantity, item.product.id, businessId],
           client
         );
@@ -2961,9 +2962,9 @@ export async function getDashboardData(businessId?: string | null): Promise<Dash
   const today = startOfDay(new Date());
   const week = subDays(new Date(), 7);
   const month = subDays(new Date(), 30);
-  const orderScope = businessId ? "AND (business_id = $2 OR business_id IS NULL)" : "";
-  const orderScopeAlias = businessId ? "AND (o.business_id = $2 OR o.business_id IS NULL)" : "";
-  const oneParamScope = businessId ? "AND (business_id = $1 OR business_id IS NULL)" : "";
+  const orderScope = businessId ? "AND business_id = $2" : "AND FALSE";
+  const orderScopeAlias = businessId ? "AND o.business_id = $2" : "AND FALSE";
+  const oneParamScope = businessId ? "AND business_id = $1" : "AND FALSE";
   const businessParam = businessId ? [businessId] : [];
 
   const totalSince = async (date: Date) => {
@@ -3045,7 +3046,7 @@ export async function getDashboardData(businessId?: string | null): Promise<Dash
        FROM order_items oi
        JOIN orders o ON o.id = oi.order_id
        WHERE o.status != 'cancelled'
-       ${businessId ? "AND (o.business_id = $1 OR o.business_id IS NULL)" : ""}
+       ${businessId ? "AND o.business_id = $1" : "AND FALSE"}
        GROUP BY product_name
        ORDER BY quantity DESC
        LIMIT 8`,
@@ -3067,7 +3068,7 @@ export async function getDashboardData(businessId?: string | null): Promise<Dash
       `SELECT COALESCE(u.name, 'Online / unassigned') AS name, SUM(o.total) AS total, COUNT(*) AS count
        FROM orders o
        LEFT JOIN users u ON u.id = o.created_by
-       WHERE o.status != 'cancelled' ${businessId ? "AND (o.business_id = $1 OR o.business_id IS NULL)" : ""}
+       WHERE o.status != 'cancelled' ${businessId ? "AND o.business_id = $1" : "AND FALSE"}
        GROUP BY COALESCE(u.name, 'Online / unassigned')
        ORDER BY total DESC`,
       businessParam
@@ -3086,7 +3087,7 @@ export async function getDashboardData(businessId?: string | null): Promise<Dash
   return {
     currency: settings.currency,
     business,
-    storefrontUrl: business?.storefront_slug || business?.slug ? `/store/${business.storefront_slug || business.slug}` : "/online",
+    storefrontUrl: business?.storefront_slug || business?.slug ? `/store/${business.storefront_slug || business.slug}` : null,
     whatsappConfigured: Boolean(settings.whatsapp_enabled && settings.whatsapp_business_number),
     subscription,
     setupChecklist: setupChecklistForBusiness(business, settings, checklistProductRows.rows.map(rowToProduct)),

@@ -252,7 +252,7 @@ export async function listSupportTickets({
     const businessParam = `$${params.length}`;
     if (userId) {
       params.push(userId);
-      clauses.push(`(t.business_id = ${businessParam} OR (t.business_id IS NULL AND t.submitted_by = $${params.length}))`);
+      clauses.push(`t.business_id = ${businessParam} AND t.submitted_by = $${params.length}`);
     } else {
       clauses.push(`t.business_id = ${businessParam}`);
     }
@@ -281,7 +281,7 @@ export async function listSupportTickets({
 export async function getSupportTicket(id: string, businessId?: string | null) {
   const params: unknown[] = [id];
   const businessClause = businessId
-    ? `AND (t.business_id = $2 OR t.business_id IS NULL)`
+    ? `AND t.business_id = $2`
     : "";
   if (businessId) params.push(businessId);
   const rows = await query<any>(
@@ -306,7 +306,7 @@ export async function updateSupportTicket(id: string, input: SupportTicketUpdate
       ai_summary = $4,
       ai_possible_solution = $5,
       updated_at = NOW()
-     WHERE id = $6 ${businessId ? "AND (business_id = $7 OR business_id IS NULL)" : ""}`,
+     WHERE id = $6 ${businessId ? "AND business_id = $7" : ""}`,
     [
       next.status,
       next.priority,

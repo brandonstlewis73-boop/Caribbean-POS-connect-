@@ -502,7 +502,7 @@ async function seedSettings() {
   await insertSetting("waze_enabled", true);
   await insertSetting("driver_waze_enabled", true);
   await insertSetting("show_empty_categories", false);
-  await insertSetting("active_business_id", "biz_savannah_sea");
+  await insertSetting("active_business_id", null);
   await insertSetting("currency", "TTD");
   await insertSetting("tax_enabled", true);
   await insertSetting("tax_rate", 12.5);

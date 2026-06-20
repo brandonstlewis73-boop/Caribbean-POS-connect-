@@ -321,6 +321,7 @@ export type Settings = {
   business_latitude?: number | null;
   business_longitude?: number | null;
   logo_url?: string | null;
+  logo_storage_path?: string | null;
   business_type?: string | null;
   business_color?: string | null;
   storefront_banner_url?: string | null;
