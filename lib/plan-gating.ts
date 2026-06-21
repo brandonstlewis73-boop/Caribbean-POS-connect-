@@ -11,6 +11,7 @@ export type FeatureKey =
   | "advancedReports"
   | "multiLocation"
   | "customBranding"
+  | "threeDStorefront"
   | "prioritySupport";
 
 export type UsageLimitKey = "aiGenerations" | "whatsappMessages" | "staff" | "products" | "locations";
@@ -58,6 +59,7 @@ export const FEATURE_PLANS: Record<FeatureKey, PlanId> = {
   advancedReports: "pro",
   multiLocation: "premium",
   customBranding: "premium",
+  threeDStorefront: "premium",
   prioritySupport: "enterprise"
 };
 
@@ -99,8 +101,8 @@ export const PLAN_CONFIG: Record<PlanId, PlanConfig> = {
     monthlyPrice: 499,
     currency: "TTD",
     limits: { aiGenerations: 2000, whatsappMessages: 5000, staff: 30, products: 2000, locations: 5 },
-    features: ["pos", "storefront", "inventory", "delivery", "reports", "whatsappMessaging", "aiSupport", "advancedReports", "multiLocation", "customBranding"],
-    featureList: ["Everything in Pro", "Multi-location support", "Custom branding", "Full back office tools"]
+    features: ["pos", "storefront", "inventory", "delivery", "reports", "whatsappMessaging", "aiSupport", "advancedReports", "multiLocation", "customBranding", "threeDStorefront"],
+    featureList: ["Everything in Pro", "3D storefront", "Multi-location support", "Custom branding", "Full back office tools"]
   },
   enterprise: {
     id: "enterprise",
@@ -109,8 +111,8 @@ export const PLAN_CONFIG: Record<PlanId, PlanConfig> = {
     monthlyPrice: 0,
     currency: "TTD",
     limits: { aiGenerations: null, whatsappMessages: null, staff: null, products: null, locations: null },
-    features: ["pos", "storefront", "inventory", "delivery", "reports", "whatsappMessaging", "aiSupport", "advancedReports", "multiLocation", "customBranding", "prioritySupport"],
-    featureList: ["Unlimited usage", "Enterprise support", "Custom onboarding", "Priority support"]
+    features: ["pos", "storefront", "inventory", "delivery", "reports", "whatsappMessaging", "aiSupport", "advancedReports", "multiLocation", "customBranding", "threeDStorefront", "prioritySupport"],
+    featureList: ["Unlimited usage", "3D storefront", "Enterprise support", "Custom onboarding", "Priority support"]
   }
 };
 

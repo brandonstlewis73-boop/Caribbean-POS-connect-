@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getBusinessBySlug, getBusinessSettings, listCategories, listProducts } from "@/lib/data";
+import { getBusinessBySlug, getBusinessSettings, getSubscriptionPlanId, listCategories, listProducts } from "@/lib/data";
+import { canUseFeature } from "@/lib/plan-gating";
 import { localizeOnlineSettings } from "@/lib/online-market";
 
 export const runtime = "nodejs";
@@ -21,12 +22,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!business) {
     return NextResponse.json({ error: "Storefront not found" }, { status: 404 });
   }
-  const [products, settings, categories] = await Promise.all([
+  const [products, settings, categories, planId] = await Promise.all([
     listProducts(undefined, false, business.id),
     getBusinessSettings(business.id),
-    listCategories(undefined, false, business.id)
+    listCategories(undefined, false, business.id),
+    getSubscriptionPlanId(business.id)
   ]);
-  const localized = localizeOnlineSettings(settings, countryFromRequest(request));
+  const threeDGate = canUseFeature(planId, "threeDStorefront");
+  const localized = localizeOnlineSettings({ ...settings, storefront_3d_enabled: Boolean(settings.storefront_3d_enabled && threeDGate.allowed) }, countryFromRequest(request));
   const response = NextResponse.json({
     data: {
       business,

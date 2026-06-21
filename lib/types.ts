@@ -193,6 +193,7 @@ export type OrderItem = {
   product_id?: string | null;
   product_name: string;
   sku?: string | null;
+  image_url?: string | null;
   quantity: number;
   unit_price: number;
   cost_price: number;
@@ -341,6 +342,11 @@ export type Settings = {
   business_type?: string | null;
   business_color?: string | null;
   storefront_banner_url?: string | null;
+  storefront_3d_enabled?: boolean;
+  storefront_3d_theme?: "caribbean" | "modern-retail" | "cafe" | "restaurant" | "grocery" | "beauty" | "clothing" | string;
+  storefront_3d_background?: string | null;
+  storefront_3d_lighting?: "soft" | "bright" | "evening" | "gallery" | string;
+  storefront_3d_layout?: "shelves" | "islands" | "gallery" | "counter" | string;
   storefront_status?: "live" | "paused" | string;
   store_hours?: string | null;
   delivery_enabled?: boolean;

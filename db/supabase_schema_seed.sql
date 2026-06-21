@@ -62,7 +62,7 @@ CREATE TABLE IF NOT EXISTS public.business_settings (
 
 CREATE TABLE IF NOT EXISTS public.staff_users (
   id TEXT PRIMARY KEY,
-  business_id TEXT NOT NULL DEFAULT 'biz_savannah_sea' REFERENCES public.businesses(id) ON DELETE CASCADE,
+  business_id TEXT NOT NULL DEFAULT 'biz_initial_setup' REFERENCES public.businesses(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   email TEXT NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
@@ -76,7 +76,7 @@ CREATE TABLE IF NOT EXISTS public.staff_users (
 
 CREATE TABLE IF NOT EXISTS public.categories (
   id TEXT PRIMARY KEY,
-  business_id TEXT NOT NULL DEFAULT 'biz_savannah_sea' REFERENCES public.businesses(id) ON DELETE CASCADE,
+  business_id TEXT NOT NULL DEFAULT 'biz_initial_setup' REFERENCES public.businesses(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   slug TEXT NOT NULL,
   description TEXT,
@@ -91,7 +91,7 @@ CREATE TABLE IF NOT EXISTS public.categories (
 
 CREATE TABLE IF NOT EXISTS public.products (
   id TEXT PRIMARY KEY,
-  business_id TEXT NOT NULL DEFAULT 'biz_savannah_sea' REFERENCES public.businesses(id) ON DELETE CASCADE,
+  business_id TEXT NOT NULL DEFAULT 'biz_initial_setup' REFERENCES public.businesses(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   sku TEXT NOT NULL UNIQUE,
   barcode TEXT,
@@ -115,7 +115,7 @@ CREATE TABLE IF NOT EXISTS public.products (
 
 CREATE TABLE IF NOT EXISTS public.customers (
   id TEXT PRIMARY KEY,
-  business_id TEXT NOT NULL DEFAULT 'biz_savannah_sea' REFERENCES public.businesses(id) ON DELETE CASCADE,
+  business_id TEXT NOT NULL DEFAULT 'biz_initial_setup' REFERENCES public.businesses(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   phone TEXT,
   phone_normalized TEXT,
@@ -147,7 +147,7 @@ CREATE TABLE IF NOT EXISTS public.customers (
 
 CREATE TABLE IF NOT EXISTS public.orders (
   id TEXT PRIMARY KEY,
-  business_id TEXT NOT NULL DEFAULT 'biz_savannah_sea' REFERENCES public.businesses(id) ON DELETE CASCADE,
+  business_id TEXT NOT NULL DEFAULT 'biz_initial_setup' REFERENCES public.businesses(id) ON DELETE CASCADE,
   order_number TEXT NOT NULL UNIQUE,
   customer_id TEXT REFERENCES public.customers(id) ON DELETE SET NULL,
   customer_snapshot JSONB NOT NULL,
@@ -204,7 +204,7 @@ CREATE TABLE IF NOT EXISTS public.order_items (
 
 CREATE TABLE IF NOT EXISTS public.payments (
   id TEXT PRIMARY KEY,
-  business_id TEXT NOT NULL DEFAULT 'biz_savannah_sea' REFERENCES public.businesses(id) ON DELETE CASCADE,
+  business_id TEXT NOT NULL DEFAULT 'biz_initial_setup' REFERENCES public.businesses(id) ON DELETE CASCADE,
   order_id TEXT NOT NULL REFERENCES public.orders(id) ON DELETE CASCADE,
   method TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'paid', 'unpaid', 'partial', 'failed', 'refunded')),
@@ -221,7 +221,7 @@ CREATE TABLE IF NOT EXISTS public.payments (
 
 CREATE TABLE IF NOT EXISTS public.inventory_logs (
   id TEXT PRIMARY KEY,
-  business_id TEXT NOT NULL DEFAULT 'biz_savannah_sea' REFERENCES public.businesses(id) ON DELETE CASCADE,
+  business_id TEXT NOT NULL DEFAULT 'biz_initial_setup' REFERENCES public.businesses(id) ON DELETE CASCADE,
   product_id TEXT NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
   type TEXT NOT NULL CHECK (type IN ('sale', 'manual_adjustment', 'restock', 'return')),
   quantity_delta INTEGER NOT NULL,
@@ -251,7 +251,7 @@ CREATE TABLE IF NOT EXISTS public.subscriptions (
 
 CREATE TABLE IF NOT EXISTS public.settings (
   key TEXT PRIMARY KEY,
-  business_id TEXT DEFAULT 'biz_savannah_sea' REFERENCES public.businesses(id) ON DELETE CASCADE,
+  business_id TEXT DEFAULT 'biz_initial_setup' REFERENCES public.businesses(id) ON DELETE CASCADE,
   value JSONB NOT NULL,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -489,7 +489,7 @@ INSERT INTO public.businesses (
   business_whatsapp_number, phone, email, street_address, city, region, postal_code, latitude, longitude, country, currency,
   logo_url, subscription_plan, subscription_status, trial_ends_at
 ) VALUES (
-  'biz_savannah_sea',
+  'biz_initial_setup',
   'Your Business',
   'Your Business',
   'your-business',
@@ -519,7 +519,7 @@ INSERT INTO public.staff_users (
 )
 SELECT
   'usr_store_owner',
-  'biz_savannah_sea',
+  'biz_initial_setup',
   'Store Owner',
   'admin@caribbeanpos.test',
   '$2a$12$TBtPQakrJnSP8Y8yJj0lOOiS2auAZ1hrNKyioYJRvkNQvIy4FFeAG',
@@ -531,27 +531,27 @@ WHERE NOT EXISTS (
 );
 
 INSERT INTO public.categories (id, business_id, name, slug, sort_order) VALUES
-  ('cat_food', 'biz_savannah_sea', 'Food', 'food', 10),
-  ('cat_drinks', 'biz_savannah_sea', 'Drinks', 'drinks', 20),
-  ('cat_snacks', 'biz_savannah_sea', 'Snacks', 'snacks', 30),
-  ('cat_services', 'biz_savannah_sea', 'Services', 'services', 40),
-  ('cat_apparel', 'biz_savannah_sea', 'Apparel', 'apparel', 50),
-  ('cat_digital', 'biz_savannah_sea', 'Digital services', 'digital-services', 60),
-  ('cat_custom', 'biz_savannah_sea', 'Custom items', 'custom-items', 70)
+  ('cat_food', 'biz_initial_setup', 'Food', 'food', 10),
+  ('cat_drinks', 'biz_initial_setup', 'Drinks', 'drinks', 20),
+  ('cat_snacks', 'biz_initial_setup', 'Snacks', 'snacks', 30),
+  ('cat_services', 'biz_initial_setup', 'Services', 'services', 40),
+  ('cat_apparel', 'biz_initial_setup', 'Apparel', 'apparel', 50),
+  ('cat_digital', 'biz_initial_setup', 'Digital services', 'digital-services', 60),
+  ('cat_custom', 'biz_initial_setup', 'Custom items', 'custom-items', 70)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.products (
   id, business_id, name, sku, barcode, category, category_id, cost_price, selling_price,
   stock_quantity, low_stock_alert, image_url, supplier_name, supplier_phone, active
 ) VALUES
-  ('prd_jerk', 'biz_savannah_sea', 'Jerk Chicken Meal', 'FOOD-JERK-001', '740001000001', 'Food', 'cat_food', 38.00, 55.00, 40, 8, 'https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?auto=format&fit=crop&w=400', 'Local Supplier', '', TRUE),
-  ('prd_doubles', 'biz_savannah_sea', 'Doubles Pack', 'FOOD-DOUB-002', '740001000002', 'Food', 'cat_food', 6.00, 12.00, 76, 15, 'https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=400', 'Local Supplier', '', TRUE),
-  ('prd_sorrel', 'biz_savannah_sea', 'Sorrel Drink', 'DRINK-SOR-003', '740001000003', 'Drinks', 'cat_drinks', 6.00, 15.00, 29, 10, 'https://images.unsplash.com/photo-1544145945-f90425340c7e?auto=format&fit=crop&w=400', 'Beverage Co', '', TRUE),
-  ('prd_mauby', 'biz_savannah_sea', 'Mauby Bottle', 'DRINK-MAU-004', '740001000004', 'Drinks', 'cat_drinks', 5.00, 14.00, 22, 10, 'https://images.unsplash.com/photo-1523362628745-0c100150b504?auto=format&fit=crop&w=400', 'Beverage Co', '', TRUE),
-  ('prd_plantain', 'biz_savannah_sea', 'Plantain Chips', 'SNACK-PLA-005', '740001000005', 'Snacks', 'cat_snacks', 7.00, 16.00, 11, 12, 'https://images.unsplash.com/photo-1613919113640-25732ec5e618?auto=format&fit=crop&w=400', 'Snack Dist', '', TRUE),
-  ('prd_tee', 'biz_savannah_sea', 'Screen Printed Tee', 'APP-TEE-006', '740001000006', 'Apparel', 'cat_apparel', 48.00, 120.00, 17, 5, 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ad?auto=format&fit=crop&w=400', 'Print Shop', '', TRUE),
-  ('prd_topup', 'biz_savannah_sea', 'Digital Top-Up', 'DIG-TOP-007', '740001000007', 'Digital services', 'cat_digital', 45.00, 50.00, 999, 100, 'https://images.unsplash.com/photo-1516321318423-f06140dbaf00?auto=format&fit=crop&w=400', 'Digital Svcs', '', TRUE),
-  ('prd_repair', 'biz_savannah_sea', 'Custom Repair Service', 'SERV-REP-008', '740001000008', 'Services', 'cat_services', 80.00, 150.00, 999, 100, 'https://images.unsplash.com/photo-1581092607507-f4b06b0b0b0b?auto=format&fit=crop&w=400', 'Service Prov', '', TRUE)
+  ('prd_jerk', 'biz_initial_setup', 'Jerk Chicken Meal', 'FOOD-JERK-001', '740001000001', 'Food', 'cat_food', 38.00, 55.00, 40, 8, 'https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?auto=format&fit=crop&w=400', 'Local Supplier', '', TRUE),
+  ('prd_doubles', 'biz_initial_setup', 'Doubles Pack', 'FOOD-DOUB-002', '740001000002', 'Food', 'cat_food', 6.00, 12.00, 76, 15, 'https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=400', 'Local Supplier', '', TRUE),
+  ('prd_sorrel', 'biz_initial_setup', 'Sorrel Drink', 'DRINK-SOR-003', '740001000003', 'Drinks', 'cat_drinks', 6.00, 15.00, 29, 10, 'https://images.unsplash.com/photo-1544145945-f90425340c7e?auto=format&fit=crop&w=400', 'Beverage Co', '', TRUE),
+  ('prd_mauby', 'biz_initial_setup', 'Mauby Bottle', 'DRINK-MAU-004', '740001000004', 'Drinks', 'cat_drinks', 5.00, 14.00, 22, 10, 'https://images.unsplash.com/photo-1523362628745-0c100150b504?auto=format&fit=crop&w=400', 'Beverage Co', '', TRUE),
+  ('prd_plantain', 'biz_initial_setup', 'Plantain Chips', 'SNACK-PLA-005', '740001000005', 'Snacks', 'cat_snacks', 7.00, 16.00, 11, 12, 'https://images.unsplash.com/photo-1613919113640-25732ec5e618?auto=format&fit=crop&w=400', 'Snack Dist', '', TRUE),
+  ('prd_tee', 'biz_initial_setup', 'Screen Printed Tee', 'APP-TEE-006', '740001000006', 'Apparel', 'cat_apparel', 48.00, 120.00, 17, 5, 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ad?auto=format&fit=crop&w=400', 'Print Shop', '', TRUE),
+  ('prd_topup', 'biz_initial_setup', 'Digital Top-Up', 'DIG-TOP-007', '740001000007', 'Digital services', 'cat_digital', 45.00, 50.00, 999, 100, 'https://images.unsplash.com/photo-1516321318423-f06140dbaf00?auto=format&fit=crop&w=400', 'Digital Svcs', '', TRUE),
+  ('prd_repair', 'biz_initial_setup', 'Custom Repair Service', 'SERV-REP-008', '740001000008', 'Services', 'cat_services', 80.00, 150.00, 999, 100, 'https://images.unsplash.com/photo-1581092607507-f4b06b0b0b0b?auto=format&fit=crop&w=400', 'Service Prov', '', TRUE)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.customers (
@@ -559,9 +559,9 @@ INSERT INTO public.customers (
   country, delivery_notes, preferred_payment_method, notes, marketing_consent, loyalty_points,
   total_spent, orders_count, last_order_at, tags
 ) VALUES
-  ('cus_john', 'biz_savannah_sea', 'John Doe', '868-123-4567', '18681234567', 'john@example.com', '25 Main Road', 'Chaguanas', 'Chaguanas', 'Trinidad and Tobago', 'Call when outside', 'Cash', 'Preferred', FALSE, 50, 500.00, 5, NOW(), '[]'::jsonb),
-  ('cus_priya', 'biz_savannah_sea', 'Priya Singh', '868-222-9988', '18682229988', 'priya@example.com', '7 Coffee Street', 'Tunapuna', 'Tunapuna-Piarco', 'Trinidad and Tobago', 'Leave at reception', 'Card', 'Regular', TRUE, 100, 1000.00, 10, NOW(), '[]'::jsonb),
-  ('cus_maria', 'biz_savannah_sea', 'Maria Joseph', '868-333-4444', '18683334444', 'maria@example.com', '12 High Street', 'San Fernando', 'San Fernando', 'Trinidad and Tobago', 'Ring gate bell', 'Cash', 'VIP', FALSE, 75, 750.00, 7, NOW(), '[]'::jsonb)
+  ('cus_john', 'biz_initial_setup', 'John Doe', '868-123-4567', '18681234567', 'john@example.com', '25 Main Road', 'Chaguanas', 'Chaguanas', 'Trinidad and Tobago', 'Call when outside', 'Cash', 'Preferred', FALSE, 50, 500.00, 5, NOW(), '[]'::jsonb),
+  ('cus_priya', 'biz_initial_setup', 'Priya Singh', '868-222-9988', '18682229988', 'priya@example.com', '7 Coffee Street', 'Tunapuna', 'Tunapuna-Piarco', 'Trinidad and Tobago', 'Leave at reception', 'Card', 'Regular', TRUE, 100, 1000.00, 10, NOW(), '[]'::jsonb),
+  ('cus_maria', 'biz_initial_setup', 'Maria Joseph', '868-333-4444', '18683334444', 'maria@example.com', '12 High Street', 'San Fernando', 'San Fernando', 'Trinidad and Tobago', 'Ring gate bell', 'Cash', 'VIP', FALSE, 75, 750.00, 7, NOW(), '[]'::jsonb)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.orders (
@@ -572,7 +572,7 @@ INSERT INTO public.orders (
   whatsapp_business_link, whatsapp_customer_link, created_by, created_at
 ) VALUES
   (
-    'ord_1025', 'biz_savannah_sea', '1025', 'cus_john',
+    'ord_1025', 'biz_initial_setup', '1025', 'cus_john',
     '{"name":"John Doe","phone":"868-123-4567","email":"john@example.com","street_address":"25 Main Road","city":"Chaguanas","region":"Chaguanas","country":"Trinidad and Tobago","delivery_notes":"Call when outside"}'::jsonb,
     'delivery', 'completed', 'Pay on delivery', 'unpaid', 'assigned', NULL,
     125.00, 0.00, 15.63, 0.00, 25.00, 165.63, 16, 'Customer requested delivery receipt by WhatsApp',
@@ -584,14 +584,14 @@ INSERT INTO public.orders (
     NULL, NOW() - INTERVAL '2 days'
   ),
   (
-    'ord_1026', 'biz_savannah_sea', '1026', 'cus_priya',
+    'ord_1026', 'biz_initial_setup', '1026', 'cus_priya',
     '{"name":"Priya Singh","phone":"868-222-9988","email":"priya@example.com","street_address":"7 Coffee Street","city":"Tunapuna","region":"Tunapuna-Piarco","country":"Trinidad and Tobago","delivery_notes":"Leave at reception"}'::jsonb,
     'in_store', 'completed', 'Cash', 'paid', 'not_required', NULL,
     76.00, 0.00, 9.50, 0.00, 0.00, 85.50, 9, 'In-store lunch sale',
     NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NOW() - INTERVAL '1 day'
   ),
   (
-    'ord_1027', 'biz_savannah_sea', '1027', 'cus_maria',
+    'ord_1027', 'biz_initial_setup', '1027', 'cus_maria',
     '{"name":"Maria Joseph","phone":"868-333-4444","email":"maria@example.com","street_address":"12 High Street","city":"San Fernando","region":"San Fernando","country":"Trinidad and Tobago","delivery_notes":"Ring gate bell"}'::jsonb,
     'pickup', 'completed', 'Card', 'paid', 'not_required', NULL,
     136.00, 10.00, 15.75, 0.00, 0.00, 141.75, 14, 'Pickup apparel order',
@@ -616,20 +616,20 @@ ON CONFLICT (id) DO NOTHING;
 INSERT INTO public.payments (
   id, business_id, order_id, method, status, amount, currency, provider, payment_link, paid_at, metadata
 ) VALUES
-  ('pay_1025', 'biz_savannah_sea', 'ord_1025', 'Pay on delivery', 'unpaid', 165.63, 'TTD', 'manual', 'https://pay.example.com/caribbean-pos-connect?order=1025&amount=165.63&phone=18681234567', NULL, '{}'::jsonb),
-  ('pay_1026', 'biz_savannah_sea', 'ord_1026', 'Cash', 'paid', 85.50, 'TTD', 'cash', NULL, NOW() - INTERVAL '1 day', '{}'::jsonb),
-  ('pay_1027', 'biz_savannah_sea', 'ord_1027', 'Card', 'paid', 141.75, 'TTD', 'card', 'https://pay.example.com/caribbean-pos-connect?order=1027&amount=141.75&phone=18683334444', NOW() - INTERVAL '4 hours', '{}'::jsonb)
+  ('pay_1025', 'biz_initial_setup', 'ord_1025', 'Pay on delivery', 'unpaid', 165.63, 'TTD', 'manual', 'https://pay.example.com/caribbean-pos-connect?order=1025&amount=165.63&phone=18681234567', NULL, '{}'::jsonb),
+  ('pay_1026', 'biz_initial_setup', 'ord_1026', 'Cash', 'paid', 85.50, 'TTD', 'cash', NULL, NOW() - INTERVAL '1 day', '{}'::jsonb),
+  ('pay_1027', 'biz_initial_setup', 'ord_1027', 'Card', 'paid', 141.75, 'TTD', 'card', 'https://pay.example.com/caribbean-pos-connect?order=1027&amount=141.75&phone=18683334444', NOW() - INTERVAL '4 hours', '{}'::jsonb)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.inventory_logs (
   id, business_id, product_id, type, quantity_delta, reason, reference_id, user_id, created_at
 ) VALUES
-  ('mov_1025_jerk', 'biz_savannah_sea', 'prd_jerk', 'sale', -2, 'Sale order #1025', 'ord_1025', NULL, NOW() - INTERVAL '2 days'),
-  ('mov_1025_sorrel', 'biz_savannah_sea', 'prd_sorrel', 'sale', -1, 'Sale order #1025', 'ord_1025', NULL, NOW() - INTERVAL '2 days'),
-  ('mov_1026_doubles', 'biz_savannah_sea', 'prd_doubles', 'sale', -4, 'Sale order #1026', 'ord_1026', NULL, NOW() - INTERVAL '1 day'),
-  ('mov_1026_mauby', 'biz_savannah_sea', 'prd_mauby', 'sale', -2, 'Sale order #1026', 'ord_1026', NULL, NOW() - INTERVAL '1 day'),
-  ('mov_1027_tee', 'biz_savannah_sea', 'prd_tee', 'sale', -1, 'Sale order #1027', 'ord_1027', NULL, NOW() - INTERVAL '4 hours'),
-  ('mov_1027_plantain', 'biz_savannah_sea', 'prd_plantain', 'sale', -1, 'Sale order #1027', 'ord_1027', NULL, NOW() - INTERVAL '4 hours')
+  ('mov_1025_jerk', 'biz_initial_setup', 'prd_jerk', 'sale', -2, 'Sale order #1025', 'ord_1025', NULL, NOW() - INTERVAL '2 days'),
+  ('mov_1025_sorrel', 'biz_initial_setup', 'prd_sorrel', 'sale', -1, 'Sale order #1025', 'ord_1025', NULL, NOW() - INTERVAL '2 days'),
+  ('mov_1026_doubles', 'biz_initial_setup', 'prd_doubles', 'sale', -4, 'Sale order #1026', 'ord_1026', NULL, NOW() - INTERVAL '1 day'),
+  ('mov_1026_mauby', 'biz_initial_setup', 'prd_mauby', 'sale', -2, 'Sale order #1026', 'ord_1026', NULL, NOW() - INTERVAL '1 day'),
+  ('mov_1027_tee', 'biz_initial_setup', 'prd_tee', 'sale', -1, 'Sale order #1027', 'ord_1027', NULL, NOW() - INTERVAL '4 hours'),
+  ('mov_1027_plantain', 'biz_initial_setup', 'prd_plantain', 'sale', -1, 'Sale order #1027', 'ord_1027', NULL, NOW() - INTERVAL '4 hours')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.receipts (id, order_id, receipt_number, channel)
@@ -662,7 +662,7 @@ INSERT INTO public.subscriptions (
   current_period_start, current_period_end, metadata
 ) VALUES (
   'sub_initial_launch',
-  'biz_savannah_sea',
+  'biz_initial_setup',
   'Launch Plan',
   'trialing',
   5,
@@ -675,29 +675,34 @@ INSERT INTO public.subscriptions (
 ) ON CONFLICT (id) DO NOTHING;
 
 WITH seed_settings (key, business_id, value) AS (VALUES
-  ('business_name', 'biz_savannah_sea', to_jsonb('Your Business'::text)),
-  ('business_phone', 'biz_savannah_sea', to_jsonb(''::text)),
-  ('business_email', 'biz_savannah_sea', to_jsonb('owner@yourbusiness.com'::text)),
-  ('business_address', 'biz_savannah_sea', to_jsonb(''::text)),
-  ('business_type', 'biz_savannah_sea', to_jsonb('retail'::text)),
-  ('business_color', 'biz_savannah_sea', to_jsonb('#14b8a6'::text)),
-  ('storefront_banner_url', 'biz_savannah_sea', to_jsonb(''::text)),
-  ('storefront_status', 'biz_savannah_sea', to_jsonb('live'::text)),
-  ('store_hours', 'biz_savannah_sea', to_jsonb('Open during business hours'::text)),
-  ('delivery_enabled', 'biz_savannah_sea', 'true'::jsonb),
-  ('pickup_enabled', 'biz_savannah_sea', 'true'::jsonb),
-  ('free_delivery_minimum', 'biz_savannah_sea', '0'::jsonb),
-  ('waze_enabled', 'biz_savannah_sea', 'true'::jsonb),
-  ('driver_waze_enabled', 'biz_savannah_sea', 'true'::jsonb),
-  ('show_empty_categories', 'biz_savannah_sea', 'false'::jsonb),
-  ('currency', 'biz_savannah_sea', to_jsonb('TTD'::text)),
-  ('tax_enabled', 'biz_savannah_sea', 'true'::jsonb),
-  ('tax_rate', 'biz_savannah_sea', '12.5'::jsonb),
-  ('service_fee_enabled', 'biz_savannah_sea', 'false'::jsonb),
-  ('service_fee_rate', 'biz_savannah_sea', '0'::jsonb),
-  ('delivery_fee', 'biz_savannah_sea', '25'::jsonb),
-  ('receipt_message', 'biz_savannah_sea', to_jsonb('Thank you for shopping with us.'::text)),
-  ('logo_url', 'biz_savannah_sea', to_jsonb('/logo.svg'::text))
+  ('business_name', 'biz_initial_setup', to_jsonb('Your Business'::text)),
+  ('business_phone', 'biz_initial_setup', to_jsonb(''::text)),
+  ('business_email', 'biz_initial_setup', to_jsonb('owner@yourbusiness.com'::text)),
+  ('business_address', 'biz_initial_setup', to_jsonb(''::text)),
+  ('business_type', 'biz_initial_setup', to_jsonb('retail'::text)),
+  ('business_color', 'biz_initial_setup', to_jsonb('#14b8a6'::text)),
+  ('storefront_banner_url', 'biz_initial_setup', to_jsonb(''::text)),
+  ('storefront_3d_enabled', 'biz_initial_setup', 'false'::jsonb),
+  ('storefront_3d_theme', 'biz_initial_setup', to_jsonb('caribbean'::text)),
+  ('storefront_3d_background', 'biz_initial_setup', to_jsonb('#071421'::text)),
+  ('storefront_3d_lighting', 'biz_initial_setup', to_jsonb('soft'::text)),
+  ('storefront_3d_layout', 'biz_initial_setup', to_jsonb('shelves'::text)),
+  ('storefront_status', 'biz_initial_setup', to_jsonb('live'::text)),
+  ('store_hours', 'biz_initial_setup', to_jsonb('Open during business hours'::text)),
+  ('delivery_enabled', 'biz_initial_setup', 'true'::jsonb),
+  ('pickup_enabled', 'biz_initial_setup', 'true'::jsonb),
+  ('free_delivery_minimum', 'biz_initial_setup', '0'::jsonb),
+  ('waze_enabled', 'biz_initial_setup', 'true'::jsonb),
+  ('driver_waze_enabled', 'biz_initial_setup', 'true'::jsonb),
+  ('show_empty_categories', 'biz_initial_setup', 'false'::jsonb),
+  ('currency', 'biz_initial_setup', to_jsonb('TTD'::text)),
+  ('tax_enabled', 'biz_initial_setup', 'true'::jsonb),
+  ('tax_rate', 'biz_initial_setup', '12.5'::jsonb),
+  ('service_fee_enabled', 'biz_initial_setup', 'false'::jsonb),
+  ('service_fee_rate', 'biz_initial_setup', '0'::jsonb),
+  ('delivery_fee', 'biz_initial_setup', '25'::jsonb),
+  ('receipt_message', 'biz_initial_setup', to_jsonb('Thank you for shopping with us.'::text)),
+  ('logo_url', 'biz_initial_setup', to_jsonb('/logo.svg'::text))
 ),
 updated_settings AS (
   UPDATE public.settings existing
@@ -726,7 +731,7 @@ INSERT INTO public.audit_logs (
   'usr_store_owner',
   'database:seed',
   'business',
-  'biz_savannah_sea',
+  'biz_initial_setup',
   '{"source":"db/supabase_schema_seed.sql"}'::jsonb
 ) ON CONFLICT (id) DO NOTHING;
 

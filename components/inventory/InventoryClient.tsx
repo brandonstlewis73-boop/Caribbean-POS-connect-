@@ -2,7 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import { useDeferredValue, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { Camera, Edit3, FolderOpen, Image as ImageIcon, PackagePlus, Search, SlidersHorizontal, Trash2, X } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -14,26 +14,104 @@ import type { Category, Product, ProductOption } from "@/lib/types";
 
 const PRODUCT_IMAGE_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
 const PRODUCT_IMAGE_ACCEPT = "image/png,image/jpeg,image/jpg,image/webp,image/*";
-const MAX_PRODUCT_IMAGE_BYTES = 2 * 1024 * 1024;
+const MAX_SOURCE_IMAGE_BYTES = 10 * 1024 * 1024;
+const MAX_UPLOAD_IMAGE_BYTES = 5 * 1024 * 1024;
+const MAX_IMAGE_DIMENSION = 1600;
 
-function readFileAsDataUrl(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ""));
-    reader.onerror = () => reject(new Error("Product image could not be read."));
-    reader.readAsDataURL(file);
-  });
+type UploadedImagePayload = { imageUrl: string; path: string };
+
+function productImageExtension(file: File) {
+  return (file.name.split(".").pop() || file.type.split("/").pop() || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function productImageType(file: File) {
+  if (file.type) return file.type;
+  const extension = productImageExtension(file);
+  if (extension === "jpg" || extension === "jpeg") return "image/jpeg";
+  if (extension === "png") return "image/png";
+  if (extension === "webp") return "image/webp";
+  return "";
+}
+
+function safeProductImageName(file: File) {
+  const extension = productImageExtension(file) || productImageType(file).split("/").pop() || "jpg";
+  const base = file.name.replace(/\.[^.]+$/, "").toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "") || "product-photo";
+  const safeExtension = extension === "jpeg" ? "jpg" : extension;
+  return `${base}.${safeExtension}`;
 }
 
 function validateProductImage(file: File) {
-  if (!PRODUCT_IMAGE_TYPES.includes(file.type)) return "Product image must be PNG, JPG, or WebP.";
-  if (file.size > MAX_PRODUCT_IMAGE_BYTES) return "Product image must be 2 MB or smaller.";
+  const type = productImageType(file);
+  if (!PRODUCT_IMAGE_TYPES.includes(type)) return "Product photo must be JPG, PNG, or WebP. Choose a different image format.";
+  if (file.size > MAX_SOURCE_IMAGE_BYTES) return "Product photo is too large. Choose an image under 10 MB.";
   return null;
 }
 
-function productImageStoragePath(file: File, businessId: string, productId?: string) {
-  const extension = (file.name.split(".").pop() || file.type.split("/").pop() || "png").toLowerCase().replace(/[^a-z0-9]/g, "") || "png";
-  return `product-images/${businessId || "unassigned"}/${productId || Date.now()}/product-${Date.now()}.${extension}`;
+function loadImageFromFile(file: File) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const image = new Image();
+    image.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(image);
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Product photo could not be opened. Try a JPG, PNG, or WebP image."));
+    };
+    image.src = url;
+  });
+}
+
+async function compressProductImage(file: File) {
+  const type = productImageType(file);
+  if (file.size <= 900 * 1024) return new File([file], safeProductImageName(file), { type, lastModified: Date.now() });
+  const image = await loadImageFromFile(file);
+  const ratio = Math.min(1, MAX_IMAGE_DIMENSION / Math.max(image.width, image.height));
+  const width = Math.max(1, Math.round(image.width * ratio));
+  const height = Math.max(1, Math.round(image.height * ratio));
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("Product photo could not be compressed on this device.");
+  context.drawImage(image, 0, 0, width, height);
+  const outputType = type === "image/png" ? "image/png" : type === "image/webp" ? "image/webp" : "image/jpeg";
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, outputType, 0.82));
+  if (!blob) throw new Error("Product photo could not be compressed. Try another image.");
+  const compressed = new File([blob], safeProductImageName(file), { type: outputType, lastModified: Date.now() });
+  if (compressed.size > MAX_UPLOAD_IMAGE_BYTES) throw new Error("Product photo is still too large after compression. Choose a smaller image under 5 MB.");
+  return compressed;
+}
+
+function uploadProductImageFile(file: File, productId: string, oldImageUrl: string, onProgress: (progress: number) => void) {
+  return new Promise<UploadedImagePayload>((resolve, reject) => {
+    const form = new FormData();
+    form.append("file", file, safeProductImageName(file));
+    form.append("productId", productId);
+    if (oldImageUrl) form.append("oldImageUrl", oldImageUrl);
+    const request = new XMLHttpRequest();
+    request.open("POST", "/api/inventory/images");
+    request.upload.onprogress = (event) => {
+      if (event.lengthComputable) onProgress(Math.max(1, Math.round((event.loaded / event.total) * 100)));
+    };
+    request.onload = () => {
+      let payload: { data?: UploadedImagePayload; error?: string } = {};
+      try {
+        payload = JSON.parse(request.responseText || "{}");
+      } catch {
+        payload = {};
+      }
+      if (request.status >= 200 && request.status < 300 && payload.data?.imageUrl) {
+        onProgress(100);
+        resolve(payload.data);
+      } else {
+        reject(new Error(payload.error || "Product photo could not be uploaded."));
+      }
+    };
+    request.onerror = () => reject(new Error("Product photo upload failed. Check your connection and try again."));
+    request.send(form);
+  });
 }
 
 function optionText(options?: ProductOption[]) {
@@ -79,7 +157,7 @@ function usefulProductError(payloadError?: string, details?: unknown) {
   return "Product could not be saved. Please check the details and try again.";
 }
 
-export function InventoryClient({ products, categories, currency, businessId }: { products: Product[]; categories: Category[]; currency: string; businessId: string }) {
+export function InventoryClient({ products, categories, currency }: { products: Product[]; categories: Category[]; currency: string }) {
   const [items, setItems] = useState(products);
   const [categoryItems, setCategoryItems] = useState(categories);
   const [query, setQuery] = useState("");
@@ -92,11 +170,38 @@ export function InventoryClient({ products, categories, currency, businessId }: 
   const [categoryMessage, setCategoryMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [savingCategory, setSavingCategory] = useState(false);
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState("");
+  const [imageMarkedForRemoval, setImageMarkedForRemoval] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [uploadStatus, setUploadStatus] = useState("");
   const takePhotoInputRef = useRef<HTMLInputElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const deferredQuery = useDeferredValue(query);
   const formatMoney = (value: number | string | null | undefined) => money(value, currency);
+  const previewImageUrl = imagePreviewUrl || draft.image_url || "";
+
+  useEffect(() => {
+    return () => {
+      if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
+    };
+  }, [imagePreviewUrl]);
+
+  function setPreviewFile(file: File | null) {
+    if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
+    setSelectedImageFile(file);
+    setImagePreviewUrl(file ? URL.createObjectURL(file) : "");
+  }
+
+  function resetProductForm(nextCategories = categoryItems) {
+    setEditingId("");
+    setDraft(emptyProduct(nextCategories));
+    setPreviewFile(null);
+    setImageMarkedForRemoval(false);
+    setUploadProgress(null);
+    setUploadStatus("");
+  }
 
   const filtered = useMemo(() => {
     const q = deferredQuery.toLowerCase().trim();
@@ -175,6 +280,10 @@ export function InventoryClient({ products, categories, currency, businessId }: 
       addOnsText: optionText(product.add_ons),
       active: product.active
     });
+    setPreviewFile(null);
+    setImageMarkedForRemoval(false);
+    setUploadProgress(null);
+    setUploadStatus("");
     setMessage(`Editing ${product.name}.`);
   }
 
@@ -182,39 +291,66 @@ export function InventoryClient({ products, categories, currency, businessId }: 
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
+    setMessage("");
+    setUploadStatus("");
+    setUploadProgress(null);
     const validationError = validateProductImage(file);
     if (validationError) {
       setMessage(validationError);
       return;
     }
     try {
-      const imageUrl = await readFileAsDataUrl(file);
-      setDraft((current) => ({ ...current, image_url: imageUrl }));
-      setMessage(`Product image ready. Storage path: ${productImageStoragePath(file, businessId, editingId || undefined)}`);
-    } catch {
-      setMessage("Product image could not be uploaded.");
+      setUploadStatus("Compressing product photo...");
+      const compressed = await compressProductImage(file);
+      setPreviewFile(compressed);
+      setImageMarkedForRemoval(false);
+      setUploadStatus("Photo ready to upload when you save.");
+      setMessage(`Product photo ready. Original ${(file.size / 1024 / 1024).toFixed(1)} MB, upload ${(compressed.size / 1024 / 1024).toFixed(1)} MB.`);
+    } catch (error) {
+      setPreviewFile(null);
+      setUploadStatus("");
+      setMessage(error instanceof Error ? error.message : "Product photo could not be prepared.");
     }
   }
 
   function removeProductImage() {
+    setPreviewFile(null);
     setDraft((current) => ({ ...current, image_url: "" }));
-    setMessage("Product image removed. Save the product to apply it.");
+    setImageMarkedForRemoval(true);
+    setUploadProgress(null);
+    setUploadStatus("Photo will be removed when you save.");
+    setMessage("Product photo removed. Save the product to apply it.");
+  }
+
+  async function removeStoredProductImage(productId: string, imageUrl: string) {
+    const response = await fetch("/api/inventory/images", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ productId, imageUrl })
+    });
+    const payload = await readApiPayload<{ deleted: boolean }>(response);
+    if (!response.ok) throw new Error(payload.error || "Product photo could not be removed from storage.");
   }
 
   async function saveProduct() {
     setMessage("");
+    setUploadStatus("");
     if (!draft.name.trim()) {
       setMessage("Add a product name before saving.");
       return;
     }
+    const oldImageUrl = editingId ? items.find((product) => product.id === editingId)?.image_url || "" : "";
     const body = {
       ...draft,
+      image_url: selectedImageFile ? (editingId ? oldImageUrl || null : null) : imageMarkedForRemoval ? null : draft.image_url || null,
       discount_price: draft.discount_price === "" ? null : Number(draft.discount_price),
       variations: parseOptionText(draft.variationsText),
       add_ons: parseOptionText(draft.addOnsText)
     };
     setSaving(true);
+    setUploadProgress(null);
     try {
+      setUploadStatus(editingId ? "Saving product changes..." : "Creating product...");
       const response = await fetch(editingId ? `/api/inventory/${editingId}` : "/api/inventory", {
         method: editingId ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
@@ -223,22 +359,38 @@ export function InventoryClient({ products, categories, currency, businessId }: 
       const payload = await readApiPayload<{ product: Product }>(response);
       if (!response.ok) {
         setMessage(usefulProductError(payload.error, payload.details));
+        setUploadStatus("");
         return;
       }
-      const product = payload.data?.product;
-      if (!product) return setMessage("Product saved, but no product details were returned.");
+      let product = payload.data?.product;
+      if (!product) {
+        setUploadStatus("");
+        return setMessage("Product saved, but no product details were returned.");
+      }
+
+      if (selectedImageFile) {
+        setUploadStatus("Uploading product photo...");
+        const uploaded = await uploadProductImageFile(selectedImageFile, product.id, oldImageUrl, setUploadProgress);
+        product = { ...product, image_url: uploaded.imageUrl };
+        setUploadStatus("Product photo uploaded.");
+      } else if (imageMarkedForRemoval && oldImageUrl && editingId) {
+        setUploadStatus("Removing product photo...");
+        await removeStoredProductImage(editingId, oldImageUrl);
+        product = { ...product, image_url: null };
+        setUploadStatus("Product photo removed.");
+      }
+
       await refreshProducts();
       setQuery("");
-      setEditingId("");
-      setDraft(emptyProduct(categoryItems));
+      resetProductForm(categoryItems);
       setMessage(editingId ? "Product updated successfully." : "Product saved successfully.");
-    } catch {
-      setMessage("Product could not be saved. Check your connection and try again.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Product could not be saved. Check your connection and try again.");
+      setUploadStatus("");
     } finally {
       setSaving(false);
     }
   }
-
   async function adjust(productId: string) {
     const delta = Number(adjustments[productId] || 0);
     if (!delta) return;
@@ -469,20 +621,20 @@ export function InventoryClient({ products, categories, currency, businessId }: 
             <Field label="Stock quantity" type="number" value={draft.stock_quantity} onChange={(event) => setDraft({ ...draft, stock_quantity: Number(event.target.value) })} />
             <Field label="Low stock alert" type="number" value={draft.low_stock_alert} onChange={(event) => setDraft({ ...draft, low_stock_alert: Number(event.target.value) })} />
           </div>
-<div className="grid gap-3 rounded-card border border-white/10 bg-black/20 p-3">
+          <div className="grid gap-3 rounded-card border border-white/10 bg-black/20 p-3">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-black text-white">Product photo</p>
-                <p className="text-xs font-semibold text-teal-50/55">PNG, JPG, or WebP. Camera capture is only used for Take Photo.</p>
+                <p className="text-xs font-semibold text-teal-50/55">JPG, PNG, or WebP. Large images are compressed before upload.</p>
               </div>
-              {draft.image_url ? (
-                <button type="button" onClick={removeProductImage} className="grid h-9 w-9 place-items-center rounded-card border border-red-300/30 bg-red-500/10 text-red-100" aria-label="Remove product image">
+              {previewImageUrl ? (
+                <button type="button" onClick={removeProductImage} disabled={saving} className="grid h-9 w-9 place-items-center rounded-card border border-red-300/30 bg-red-500/10 text-red-100 disabled:opacity-50" aria-label="Remove product image">
                   <X className="h-4 w-4" />
                 </button>
               ) : null}
             </div>
-            {draft.image_url ? (
-              <img src={draft.image_url} alt="Product preview" className="h-40 w-full rounded-card border border-white/10 bg-white object-contain p-2" />
+            {previewImageUrl ? (
+              <img src={previewImageUrl} alt="Product preview" className="h-40 w-full rounded-card border border-white/10 bg-white object-contain p-2" />
             ) : (
               <div className="grid h-40 place-items-center rounded-card border border-dashed border-white/15 bg-white/[0.04] text-center text-sm font-bold text-teal-50/55">
                 <span><ImageIcon className="mx-auto mb-2 h-6 w-6" />No product photo selected.</span>
@@ -492,11 +644,27 @@ export function InventoryClient({ products, categories, currency, businessId }: 
             <input ref={photoInputRef} type="file" accept={PRODUCT_IMAGE_ACCEPT} className="sr-only" onChange={uploadProductImage} aria-label="Choose product photo from photos" />
             <input ref={fileInputRef} type="file" accept={PRODUCT_IMAGE_ACCEPT} className="sr-only" onChange={uploadProductImage} aria-label="Browse files for product photo" />
             <div className="grid gap-2 sm:grid-cols-3">
-              <Button type="button" onClick={() => takePhotoInputRef.current?.click()}><Camera className="h-4 w-4" />Take Photo</Button>
-              <Button type="button" onClick={() => photoInputRef.current?.click()}><ImageIcon className="h-4 w-4" />Choose Photos</Button>
-              <Button type="button" onClick={() => fileInputRef.current?.click()}><FolderOpen className="h-4 w-4" />Browse Files</Button>
+              <Button type="button" onClick={() => takePhotoInputRef.current?.click()} disabled={saving}><Camera className="h-4 w-4" />Take Photo</Button>
+              <Button type="button" onClick={() => photoInputRef.current?.click()} disabled={saving}><ImageIcon className="h-4 w-4" />Choose Photos</Button>
+              <Button type="button" onClick={() => fileInputRef.current?.click()} disabled={saving}><FolderOpen className="h-4 w-4" />Browse Files</Button>
             </div>
-            <Field label="Or paste product image URL" value={draft.image_url?.startsWith("data:") ? "" : draft.image_url} onChange={(event) => setDraft({ ...draft, image_url: event.target.value })} />
+            {uploadStatus ? <p className="text-xs font-bold text-teal-50/70">{uploadStatus}</p> : null}
+            {uploadProgress !== null ? (
+              <div className="overflow-hidden rounded-full bg-white/10" aria-label={`Product photo upload ${uploadProgress}% complete`}>
+                <div className="h-2 rounded-full bg-caribbean-teal transition-all" style={{ width: `${uploadProgress}%` }} />
+              </div>
+            ) : null}
+            <Field
+              label="Or paste product image URL"
+              value={selectedImageFile ? "" : draft.image_url || ""}
+              onChange={(event) => {
+                setPreviewFile(null);
+                setImageMarkedForRemoval(false);
+                setUploadProgress(null);
+                setUploadStatus("");
+                setDraft({ ...draft, image_url: event.target.value });
+              }}
+            />
           </div>
           <Field label="Variations" value={draft.variationsText} onChange={(event) => setDraft({ ...draft, variationsText: event.target.value })} placeholder="Small:0, Medium:8, Large:15" />
           <Field label="Add-ons / extras" value={draft.addOnsText} onChange={(event) => setDraft({ ...draft, addOnsText: event.target.value })} placeholder="Extra sauce:3, Cheese:5" />
@@ -512,7 +680,7 @@ export function InventoryClient({ products, categories, currency, businessId }: 
             {saving ? "Saving..." : editingId ? "Save product changes" : "Save product"}
           </Button>
           {editingId ? (
-            <Button variant="secondary" onClick={() => { setEditingId(""); setDraft(emptyProduct(categoryItems)); setMessage(""); }}>
+            <Button variant="secondary" onClick={() => { resetProductForm(categoryItems); setMessage(""); }}>
               Add a new product instead
             </Button>
           ) : null}

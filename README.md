@@ -15,6 +15,7 @@ The app now runs as a Supabase/Postgres-backed production app with no in-memory 
 - PDF receipts and shipping labels with `pdfkit`
 - Waze QR codes with `qrcode`
 - Charts with `recharts`
+- Optional 3D storefront with `three` and `@react-three/fiber`
 
 ## Run Locally
 
@@ -75,6 +76,8 @@ SESSION_SECRET=<long-random-secret>
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<supabase-publishable-or-anon-key>
+SUPABASE_URL=https://<project-ref>.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=<server-only-service-role-key>
 ADMIN_EMAIL=owner@yourbusiness.com
 OPENAI_API_KEY=
 AI_MODEL=gpt-5
@@ -105,6 +108,8 @@ Notes:
 - Use the Supabase transaction pooler URI on port `6543` for Vercel and for local LAN testing.
 - Do not use the direct Supabase Postgres URI on port `5432` for production.
 - `SESSION_SECRET` should be a long random value before production use.
+- Product photo uploads require `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and the `product-images` storage bucket. Never expose the service role key in frontend code.
+- 3D Storefront is a Premium/Enterprise feature. It is off by default, lazy-loaded on the public storefront, and falls back to normal shopping when WebGL is unavailable.
 - Leave WhatsApp provider variables blank to keep orders working with safe "WhatsApp is not configured" logs.
 - Stripe billing uses Checkout Sessions and the Customer Portal. Add `STRIPE_SECRET_KEY`, one Stripe Price ID per paid plan, and `STRIPE_WEBHOOK_SECRET` after creating a webhook endpoint for `/api/stripe/webhook`.
 - Never commit `.env.local`.
@@ -140,6 +145,14 @@ That file creates:
 ```text
 NEXT_PUBLIC_SUPABASE_URL
 NEXT_PUBLIC_SUPABASE_ANON_KEY
+SUPABASE_URL
+SUPABASE_SERVICE_ROLE_KEY
+```
+
+6. For product photo uploads, run this storage setup SQL in Supabase SQL Editor:
+
+```text
+db/product_images_storage.sql
 ```
 
 ## Initial Login Credentials

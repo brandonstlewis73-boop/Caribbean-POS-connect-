@@ -2,6 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 
+import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState, type InputHTMLAttributes, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
 import { CheckCircle2, ExternalLink, LocateFixed, Minus, Plus, Send, ShoppingBag, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -13,6 +14,18 @@ import type { OnlineMarket } from "@/lib/online-market";
 import type { Category, Order, Product, Settings } from "@/lib/types";
 
 type CartItem = Product & { quantity: number };
+const VirtualStorefront = dynamic(() => import("@/components/storefront/VirtualStorefrontClient"), {
+  ssr: false,
+  loading: () => (
+    <section className="grid min-h-[420px] place-items-center rounded-[30px] border border-slate-200 bg-slate-950 p-6 text-center text-white shadow-2xl">
+      <div>
+        <div className="mx-auto h-14 w-14 animate-pulse rounded-3xl bg-cyan-300/20" />
+        <p className="mt-4 text-lg font-black">Loading 3D storefront...</p>
+        <p className="mt-2 text-sm font-semibold text-cyan-50/60">The normal storefront and checkout remain available.</p>
+      </div>
+    </section>
+  )
+});
 
 function emptyCustomer(currency: string) {
   const regions = getDeliveryRegionsForCurrency(currency);
@@ -120,6 +133,7 @@ export function OnlineOrderClient({
   const [error, setError] = useState("");
   const [statusMessage, setStatusMessage] = useState(initialStatusMessage);
   const [loading, setLoading] = useState(false);
+  const [showVirtualStore, setShowVirtualStore] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -154,6 +168,12 @@ export function OnlineOrderClient({
     };
   }, [initialSettings, menuEndpoint]);
 
+  const threeDStorefrontEnabled = Boolean(settings.storefront_3d_enabled);
+  useEffect(() => {
+    if (!threeDStorefrontEnabled || typeof window === "undefined") return;
+    const view = new URLSearchParams(window.location.search).get("view");
+    if (view === "3d" || view === "3d-preview") setShowVirtualStore(true);
+  }, [threeDStorefrontEnabled]);
   const storefrontCategories = useMemo(() => {
     if (settings.show_empty_categories) return categories;
     return categories.filter((item) =>
@@ -365,6 +385,31 @@ export function OnlineOrderClient({
               ) : null}
             </div>
           </div>
+          {threeDStorefrontEnabled ? (
+            <div className="grid gap-3 rounded-[26px] border border-slate-200 bg-white p-4 shadow-sm sm:flex sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-sm font-black text-slate-950">Premium 3D Storefront</p>
+                <p className="mt-1 text-sm font-semibold text-slate-500">Walk through a lightweight virtual shop, tap products, then checkout normally.</p>
+              </div>
+              <div className="grid gap-2 sm:flex sm:shrink-0 sm:flex-wrap">
+                <Button type="button" variant="primary" onClick={() => setShowVirtualStore(true)} className="rounded-full bg-slate-950 text-white hover:bg-teal-700">
+                  Enter 3D Store
+                </Button>
+                <Button type="button" onClick={() => setShowVirtualStore(false)} className="rounded-full border-slate-200 bg-white text-slate-800 hover:border-teal-300 hover:bg-teal-50">
+                  Shop Normally
+                </Button>
+              </div>
+            </div>
+          ) : null}
+          {threeDStorefrontEnabled && showVirtualStore ? (
+            <VirtualStorefront
+              products={products}
+              categories={storefrontCategories}
+              settings={settings}
+              onAddToCart={add}
+              onExit={() => setShowVirtualStore(false)}
+            />
+          ) : null}
           {settings.storefront_status === "paused" ? (
             <p className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-black text-amber-800">
               This storefront is paused right now. You can view products, but ordering is temporarily unavailable.
@@ -451,8 +496,15 @@ export function OnlineOrderClient({
             <div className="max-h-64 overflow-auto">
               {cart.map((item) => (
                 <div key={item.id} className="grid gap-3 border-b border-slate-100 p-4">
-                  <div className="flex min-w-0 justify-between gap-3">
-                    <p className="min-w-0 text-sm font-black leading-tight text-slate-950">{item.name}</p>
+                  <div className="flex min-w-0 items-center justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      {item.image_url ? (
+                        <img src={item.image_url} alt={item.name} loading="lazy" className="h-12 w-12 shrink-0 rounded-2xl object-cover" />
+                      ) : (
+                        <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-slate-100 text-xs font-black text-teal-700">{item.name.slice(0, 2).toUpperCase()}</span>
+                      )}
+                      <p className="min-w-0 text-sm font-black leading-tight text-slate-950">{item.name}</p>
+                    </div>
                     <button className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-slate-400 transition hover:bg-red-50 hover:text-red-600" onClick={() => setCart((current) => current.filter((entry) => entry.id !== item.id))} aria-label={`Remove ${item.name}`}>
                       <Trash2 className="h-4 w-4" />
                     </button>

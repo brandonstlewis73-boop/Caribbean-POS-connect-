@@ -1,8 +1,9 @@
-import { NextRequest } from "next/server";
+﻿import { NextRequest } from "next/server";
 import { fail, ok } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
 import { adjustStock, deleteProduct, getProduct, updateProduct } from "@/lib/data";
 import { productSchema } from "@/lib/validators";
+import { deleteProductImageFromStorage } from "@/lib/supabase-storage";
 
 export const runtime = "nodejs";
 
@@ -60,6 +61,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   const { id } = await params;
   try {
     const product = await deleteProduct(id, auth.user.id);
+    if (product?.image_url) await deleteProductImageFromStorage(product.image_url).catch(() => null);
     return product ? ok({ product }) : fail("Product not found", 404);
   } catch (error) {
     return fail(error instanceof Error ? error.message : "Product could not be deleted.", 500);

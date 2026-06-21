@@ -1,4 +1,4 @@
-import { CURRENCY_CODE, getDefaultCountryForCurrency } from "@/lib/constants";
+import { getDefaultCountryForCurrency } from "@/lib/constants";
 import { getBusinessSettings } from "@/lib/data";
 import { getSessionUserFromRequest } from "@/lib/auth";
 import { AppShellClient } from "./AppShellClient";
@@ -16,15 +16,15 @@ export async function AppShell({
 }) {
   const user = await getSessionUserFromRequest().catch(() => null);
   const settings = await getBusinessSettings(user?.business_id).catch(() => null);
-  const currency = settings?.currency || CURRENCY_CODE;
-  const market = getDefaultCountryForCurrency(currency);
+  const currency = settings?.currency || "";
+  const market = settings?.business_country || (currency ? getDefaultCountryForCurrency(currency) : "Set country/currency");
 
   return (
     <AppShellClient
       active={active}
       title={title}
       actions={actions}
-      currency={currency}
+      currency={currency || "Set currency"}
       market={market}
       orderAlertsEnabled={settings?.new_order_alerts_enabled !== false}
       orderAlertSoundEnabled={settings?.new_order_sound_enabled !== false}

@@ -99,7 +99,7 @@ INSERT INTO public.staff_users (
 )
 SELECT
   'usr_setup_admin',
-  'biz_savannah_sea',
+  'biz_initial_setup',
   'Asha Maharaj',
   'admin@caribbeanpos.test',
   '$2a$12$TBtPQakrJnSP8Y8yJj0lOOiS2auAZ1hrNKyioYJRvkNQvIy4FFeAG',
@@ -116,13 +116,13 @@ ALTER TABLE public.subscriptions ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAM
 
 -- Ensure product categories exist, without inserting fake products/customers/orders.
 INSERT INTO public.categories (id, business_id, name, slug, sort_order, active) VALUES
-  ('cat_meals', 'biz_savannah_sea', 'Meals', 'meals', 10, TRUE),
-  ('cat_drinks', 'biz_savannah_sea', 'Drinks', 'drinks', 20, TRUE),
-  ('cat_snacks', 'biz_savannah_sea', 'Snacks', 'snacks', 30, TRUE),
-  ('cat_retail', 'biz_savannah_sea', 'Retail', 'retail', 40, TRUE),
-  ('cat_services', 'biz_savannah_sea', 'Services', 'services', 50, TRUE),
-  ('cat_digital', 'biz_savannah_sea', 'Digital services', 'digital-services', 60, TRUE),
-  ('cat_custom', 'biz_savannah_sea', 'Custom items', 'custom-items', 70, TRUE)
+  ('cat_meals', 'biz_initial_setup', 'Meals', 'meals', 10, TRUE),
+  ('cat_drinks', 'biz_initial_setup', 'Drinks', 'drinks', 20, TRUE),
+  ('cat_snacks', 'biz_initial_setup', 'Snacks', 'snacks', 30, TRUE),
+  ('cat_retail', 'biz_initial_setup', 'Retail', 'retail', 40, TRUE),
+  ('cat_services', 'biz_initial_setup', 'Services', 'services', 50, TRUE),
+  ('cat_digital', 'biz_initial_setup', 'Digital services', 'digital-services', 60, TRUE),
+  ('cat_custom', 'biz_initial_setup', 'Custom items', 'custom-items', 70, TRUE)
 ON CONFLICT DO NOTHING;
 
 -- Replace launch subscription text with a real plan record if needed.

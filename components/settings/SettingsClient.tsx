@@ -28,12 +28,35 @@ import { Panel, PanelHeader } from "@/components/ui/Panel";
 import { readApiPayload } from "@/lib/client-response";
 import { detectCurrentAddress } from "@/lib/location-client";
 import { CARIBBEAN_CURRENCIES, currencyOptionLabel, getDefaultDeliveryRatesForCurrency } from "@/lib/constants";
-import { PLAN_CONFIG, PLAN_ORDER, type PlanUsageSummary } from "@/lib/plan-gating";
+import { PLAN_CONFIG, PLAN_ORDER, canUseFeature, type PlanUsageSummary } from "@/lib/plan-gating";
 import type { Business, Category, Settings, Subscription, User } from "@/lib/types";
 
 const MAX_LOGO_SIZE_BYTES = 750 * 1024;
 const LOGO_IMAGE_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/svg+xml"];
 const LOGO_FILE_ACCEPT = "image/png,image/jpeg,image/jpg,image/webp,image/svg+xml,image/*";
+const THREE_D_THEMES = [
+  { value: "caribbean", label: "Caribbean" },
+  { value: "modern-retail", label: "Modern Retail" },
+  { value: "cafe", label: "Cafe" },
+  { value: "restaurant", label: "Restaurant" },
+  { value: "grocery", label: "Grocery" },
+  { value: "beauty", label: "Beauty" },
+  { value: "clothing", label: "Clothing" }
+];
+
+const THREE_D_LIGHTING = [
+  { value: "soft", label: "Soft premium" },
+  { value: "bright", label: "Bright retail" },
+  { value: "evening", label: "Evening glow" },
+  { value: "gallery", label: "Gallery spotlight" }
+];
+
+const THREE_D_LAYOUTS = [
+  { value: "shelves", label: "Product shelves" },
+  { value: "islands", label: "Island displays" },
+  { value: "gallery", label: "Gallery wall" },
+  { value: "counter", label: "Counter service" }
+];
 
 const notificationTemplates = {
   received: "Hi {customer_name}, your order #{order_id} was received.",
@@ -162,13 +185,17 @@ export function SettingsClient({
   const [saving, setSaving] = useState(false);
   const [locating, setLocating] = useState(false);
   const [busyId, setBusyId] = useState("");
-  const activeBusiness = businesses.find((business) => business.id === draft.active_business_id) || businesses[0] || null;
-  const storefrontSlug = activeBusiness?.storefront_slug || activeBusiness?.slug || safeSlug(draft.business_name) || "storefront";
-  const storefrontUrl = `/store/${storefrontSlug}`;
+  const activeBusiness = businesses.find((business) => business.id === draft.active_business_id) || null;
+  const storefrontSlug = activeBusiness?.storefront_slug || activeBusiness?.slug || "";
+  const suggestedStorefrontSlug = storefrontSlug || safeSlug(draft.business_name);
+  const storefrontUrl = storefrontSlug ? `/store/${storefrontSlug}` : "/settings";
+  const threeDGate = canUseFeature(planUsage.planId, "threeDStorefront");
+  const threeDPreviewUrl = storefrontSlug ? `${storefrontUrl}?view=3d-preview` : "/settings";
   const absoluteStorefrontUrl = useMemo(() => {
+    if (!storefrontSlug) return "";
     if (typeof window === "undefined") return storefrontUrl;
     return new URL(storefrontUrl, window.location.origin).toString();
-  }, [storefrontUrl]);
+  }, [storefrontSlug, storefrontUrl]);
 
   function update<K extends keyof Settings>(key: K, value: Settings[K]) {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -245,7 +272,7 @@ export function SettingsClient({
     }
     try {
       const logoUrl = await readFileAsDataUrl(file);
-      const businessId = draft.active_business_id || activeBusiness?.id || null;
+      const businessId = draft.active_business_id || null;
       setDraft((current) => ({
         ...current,
         logo_url: logoUrl,
@@ -264,6 +291,10 @@ export function SettingsClient({
 
   async function copyStorefrontLink() {
     try {
+      if (!absoluteStorefrontUrl) {
+        setMessage("Complete your business profile to publish your storefront.");
+        return;
+      }
       await navigator.clipboard.writeText(absoluteStorefrontUrl);
       setMessage("Storefront link copied.");
     } catch {
@@ -573,7 +604,7 @@ export function SettingsClient({
         <SettingsCard icon={Store} title="Storefront Settings" description="Public storefront identity, order channels, and customer-facing controls.">
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Storefront name" value={draft.business_name} onChange={(event) => update("business_name", event.target.value)} />
-            <Field label="Storefront slug/link" value={storefrontSlug} readOnly />
+            <Field label="Storefront slug/link" value={storefrontSlug || suggestedStorefrontSlug || "Complete business profile first"} readOnly />
             <SelectField label="Storefront status" value={draft.storefront_status || "live"} onChange={(event) => update("storefront_status", event.target.value)}>
               <option value="live">Live</option>
               <option value="paused">Paused</option>
@@ -584,7 +615,7 @@ export function SettingsClient({
             <Toggle label="Show empty categories" checked={Boolean(draft.show_empty_categories)} onChange={(value) => update("show_empty_categories", value)} />
           </div>
           <div className="grid gap-3 sm:grid-cols-3">
-            <a href={storefrontUrl} target="_blank" className="inline-flex min-h-10 items-center justify-center gap-2 rounded-card border border-white/10 bg-white/[0.07] px-4 text-sm font-black text-white transition hover:bg-white/[0.12]">
+            <a href={storefrontUrl} target={storefrontSlug ? "_blank" : undefined} aria-disabled={!storefrontSlug} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-card border border-white/10 bg-white/[0.07] px-4 text-sm font-black text-white transition hover:bg-white/[0.12] aria-disabled:pointer-events-none aria-disabled:opacity-50">
               <ExternalLink className="h-4 w-4" />
               Open storefront
             </a>
@@ -599,6 +630,55 @@ export function SettingsClient({
           </div>
         </SettingsCard>
 
+        <SettingsCard icon={Store} title="3D Storefront" description="Premium virtual storefront mode for customers who want an immersive product view.">
+          <div className="grid gap-4">
+            <div className="rounded-card border border-cyan-200/15 bg-cyan-300/[0.06] p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-black text-white">Optional premium 3D shopping experience</p>
+                  <p className="mt-1 text-sm font-semibold leading-6 text-teal-50/60">
+                    Customers still keep the normal storefront and checkout. The 3D store loads only when they choose Enter 3D Store.
+                  </p>
+                </div>
+                <Badge tone={threeDGate.allowed ? "green" : "amber"}>{threeDGate.allowed ? "Unlocked" : "Premium"}</Badge>
+              </div>
+              {!threeDGate.allowed ? (
+                <p className="mt-3 rounded-card border border-amber-300/20 bg-amber-300/10 p-3 text-sm font-bold text-amber-100">
+                  Upgrade to Premium to publish 3D storefront mode. You can still preview the setup and keep the normal storefront live.
+                </p>
+              ) : null}
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Toggle
+                label="Enable 3D Storefront"
+                checked={Boolean(draft.storefront_3d_enabled) && threeDGate.allowed}
+                onChange={(value) => update("storefront_3d_enabled", threeDGate.allowed ? value : false)}
+              />
+              <SelectField label="Store theme style" value={draft.storefront_3d_theme || "caribbean"} onChange={(event) => update("storefront_3d_theme", event.target.value)}>
+                {THREE_D_THEMES.map((theme) => <option key={theme.value} value={theme.value}>{theme.label}</option>)}
+              </SelectField>
+              <SelectField label="Lighting option" value={draft.storefront_3d_lighting || "soft"} onChange={(event) => update("storefront_3d_lighting", event.target.value)}>
+                {THREE_D_LIGHTING.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+              </SelectField>
+              <SelectField label="Product display layout" value={draft.storefront_3d_layout || "shelves"} onChange={(event) => update("storefront_3d_layout", event.target.value)}>
+                {THREE_D_LAYOUTS.map((layout) => <option key={layout.value} value={layout.value}>{layout.label}</option>)}
+              </SelectField>
+              <Field label="Background color" value={draft.storefront_3d_background || "#071421"} onChange={(event) => update("storefront_3d_background", event.target.value)} />
+              <Field label="Hero/banner image" value={draft.storefront_banner_url || ""} onChange={(event) => update("storefront_banner_url", event.target.value)} />
+            </div>
+            <div className="grid gap-3 sm:flex sm:flex-wrap">
+              <a href={threeDPreviewUrl} target={storefrontSlug ? "_blank" : undefined} aria-disabled={!storefrontSlug} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-card border border-cyan-200/20 bg-white/[0.07] px-4 text-sm font-black text-white transition hover:bg-white/[0.12] aria-disabled:pointer-events-none aria-disabled:opacity-50">
+                <ExternalLink className="h-4 w-4" />
+                Preview 3D storefront
+              </a>
+              <Button type="button" variant="primary" onClick={() => saveSettings("3D storefront settings saved.")} disabled={saving} className="w-full sm:w-auto">
+                <Save className="h-4 w-4" />
+                Save 3D settings
+              </Button>
+              {!threeDGate.allowed ? <a href="/subscription" className="inline-flex min-h-10 items-center justify-center rounded-card bg-amber-300 px-4 text-sm font-black text-slate-950">Upgrade plan</a> : null}
+            </div>
+          </div>
+        </SettingsCard>
         <SettingsCard id="whatsapp" icon={Bell} title="Order Notifications" description="Automatic customer updates connected to order status changes.">
                     <div className="grid gap-3 rounded-card border border-cyan-200/15 bg-cyan-300/[0.06] p-3">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-100/65">Admin new order alerts</p>
@@ -708,7 +788,7 @@ export function SettingsClient({
               <div key={category.id} className="grid gap-3 rounded-card border border-white/10 bg-black/20 p-3 sm:flex sm:items-center sm:justify-between">
                 <div className="flex min-w-0 items-center gap-3">
                   <GripVertical className="h-4 w-4 text-teal-50/35" />
-                  <span className="grid h-9 w-9 place-items-center rounded-card border border-white/10" style={{ backgroundColor: category.color || "#14b8a6" }}>{category.icon || "•"}</span>
+                  <span className="grid h-9 w-9 place-items-center rounded-card border border-white/10" style={{ backgroundColor: category.color || "#14b8a6" }}>{category.icon || "â€¢"}</span>
                   <div className="min-w-0">
                     <p className="font-black text-white">{category.name}</p>
                     <div className="mt-1 flex flex-wrap gap-2">

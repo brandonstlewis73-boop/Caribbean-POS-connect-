@@ -602,9 +602,9 @@ async function seedInitialData() {
      SELECT $1, $2, $2, $3, $4, $5, $6, $7, $8, 'Trinidad and Tobago', 'TTD', '/caribbean-pos-connect-icon.png'
      WHERE NOT EXISTS (SELECT 1 FROM businesses WHERE id = $1)`,
     [
-      "biz_savannah_sea",
+      "biz_initial_setup",
       "Your Business",
-      "your-business",
+      "initial-setup",
       "",
       "owner@yourbusiness.com",
       "",
@@ -620,7 +620,7 @@ async function seedInitialData() {
     for (const [name, email, role, phone] of users) {
       await rawQuery(
         "INSERT INTO users (id, business_id, name, email, password_hash, role, phone) VALUES ($1, $2, $3, $4, $5, $6, $7)",
-        [createId("usr"), "biz_savannah_sea", name, email, passwordHash, role, phone]
+        [createId("usr"), "biz_initial_setup", name, email, passwordHash, role, phone]
       );
     }
   }

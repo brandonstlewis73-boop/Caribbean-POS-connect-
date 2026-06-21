@@ -1,4 +1,4 @@
-﻿function startOfDay(date: Date) {
+function startOfDay(date: Date) {
   const next = new Date(date);
   next.setHours(0, 0, 0, 0);
   return next;
@@ -96,6 +96,11 @@ export const defaultSettings: Settings = {
   business_type: "retail",
   business_color: "#14b8a6",
   storefront_banner_url: "",
+  storefront_3d_enabled: false,
+  storefront_3d_theme: "caribbean",
+  storefront_3d_background: "#071421",
+  storefront_3d_lighting: "soft",
+  storefront_3d_layout: "shelves",
   storefront_status: "live",
   store_hours: "Open during business hours",
   delivery_enabled: true,
@@ -292,17 +297,8 @@ function slugify(value: string) {
     .slice(0, 80);
 }
 
-async function getGlobalActiveBusinessId(client?: DbClient) {
-  try {
-    const row = await query<{ value: unknown }>("SELECT value FROM settings WHERE key = 'active_business_id'", [], client);
-    return parseJson<string | null>(row.rows[0]?.value, null);
-  } catch {
-    return null;
-  }
-}
-
 export async function getBusinessIdForUser(userId?: string | null, client?: DbClient) {
-  if (!userId) return getGlobalActiveBusinessId(client);
+  if (!userId) return null;
   try {
     const row = await query<{ business_id: string | null }>(
       "SELECT business_id FROM users WHERE id = $1 LIMIT 1",
@@ -566,7 +562,11 @@ async function hydrateOrders(rows: any[], client?: DbClient) {
   const orderIds = rows.map((row) => row.id);
   const [itemRows, historyRows, notificationRows] = await Promise.all([
     query<any>(
-      "SELECT * FROM order_items WHERE order_id = ANY($1::text[]) ORDER BY created_at ASC",
+      `SELECT oi.*, p.image_url AS image_url
+       FROM order_items oi
+       LEFT JOIN products p ON p.id = oi.product_id AND p.business_id = (SELECT business_id FROM orders WHERE id = oi.order_id)
+       WHERE oi.order_id = ANY($1::text[])
+       ORDER BY oi.created_at ASC`,
       [orderIds],
       client
     ),
@@ -638,7 +638,7 @@ export async function getSettings(): Promise<Settings> {
   for (const row of rows.rows) {
     settings[row.key] = parseJson(row.value, row.value);
   }
-  settings.delivery_rates = normalizeDeliveryRates(settings.delivery_rates as Record<string, number>, settings.currency as string);
+  settings.delivery_rates = normalizeDeliveryRates(settings.delivery_rates as Record<string, number>, (settings.currency as string) || CURRENCY_CODE);
   return settings as Settings;
 }
 
@@ -661,7 +661,7 @@ export async function getBusinessSettings(businessId?: string | null): Promise<S
   const base = await getSettings();
   const id = businessId;
   if (!id) {
-    return { ...base, active_business_id: null, logo_url: null } as Settings;
+    return { ...defaultSettings, active_business_id: null, business_name: "", business_country: "", currency: "", logo_url: null } as Settings;
   }
 
   const [business, settingRows] = await Promise.all([
@@ -681,7 +681,7 @@ export async function getBusinessSettings(businessId?: string | null): Promise<S
     business_street_address: "",
     business_city: "",
     business_region: "",
-    business_country: defaultSettings.business_country,
+    business_country: "",
     business_postal_code: "",
     business_latitude: null,
     business_longitude: null,
@@ -691,9 +691,15 @@ export async function getBusinessSettings(businessId?: string | null): Promise<S
     payment_link_template: defaultSettings.payment_link_template,
     whatsapp_business_number: "",
     storefront_banner_url: "",
+    storefront_3d_enabled: false,
+    storefront_3d_theme: "caribbean",
+    storefront_3d_background: "#071421",
+    storefront_3d_lighting: "soft",
+    storefront_3d_layout: "shelves",
     facebook_url: "",
     instagram_url: "",
-    active_business_id: id
+    active_business_id: id,
+    currency: ""
   };
   for (const row of settingRows.rows) {
     settings[row.key] = parseJson(row.value, row.value);
@@ -713,16 +719,16 @@ export async function getBusinessSettings(businessId?: string | null): Promise<S
     settings.business_street_address = business.street_address || (settings.business_street_address as string) || "";
     settings.business_city = business.city || (settings.business_city as string) || "";
     settings.business_region = business.region || (settings.business_region as string) || "";
-    settings.business_country = business.country || (settings.business_country as string) || defaultSettings.business_country;
+    settings.business_country = business.country || (settings.business_country as string) || "";
     settings.business_postal_code = business.postal_code || (settings.business_postal_code as string) || "";
     settings.business_latitude = business.latitude ?? settings.business_latitude ?? null;
     settings.business_longitude = business.longitude ?? settings.business_longitude ?? null;
     settings.logo_url = business.logo_url || (settings.logo_url as string) || null;
-    settings.currency = business.currency || (settings.currency as string) || base.currency;
+    settings.currency = business.currency || (settings.currency as string) || "";
     settings.whatsapp_business_number =
       business.business_whatsapp_number || (settings.whatsapp_business_number as string) || business.phone || "";
   }
-  settings.delivery_rates = normalizeDeliveryRates(settings.delivery_rates as Record<string, number>, settings.currency as string);
+  settings.delivery_rates = normalizeDeliveryRates(settings.delivery_rates as Record<string, number>, (settings.currency as string) || CURRENCY_CODE);
   return settings as Settings;
 }
 
@@ -1083,11 +1089,6 @@ export async function deleteBusiness(id: string, userId?: string) {
     const rows = await query<any>("SELECT * FROM businesses WHERE id = $1", [id], client);
     const existing = rows.rows[0];
     if (!existing) return null;
-    const activeRows = await query<{ value: unknown }>("SELECT value FROM settings WHERE key = 'active_business_id'", [], client);
-    const activeBusinessId = parseJson<string | null>(activeRows.rows[0]?.value, null);
-    if (activeBusinessId === id) {
-      throw new Error("Switch to another business before deleting the live business profile.");
-    }
     const countRows = await query<{ count: number }>("SELECT COUNT(*)::int AS count FROM businesses", [], client);
     if (Number(countRows.rows[0]?.count || 0) <= 1) {
       throw new Error("Keep at least one business profile in the store.");
@@ -3137,7 +3138,7 @@ export async function getDashboardData(businessId?: string | null): Promise<Dash
   ]);
 
   return {
-    currency: settings.currency,
+    currency: settings.currency || CURRENCY_CODE,
     business,
     storefrontUrl: business?.storefront_slug || business?.slug ? `/store/${business.storefront_slug || business.slug}` : null,
     whatsappConfigured: Boolean(settings.whatsapp_enabled && settings.whatsapp_business_number),

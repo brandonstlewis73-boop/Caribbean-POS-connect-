@@ -4,7 +4,8 @@ export const revalidate = 0;
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { OnlineOrderClient } from "@/components/orders/OnlineOrderClient";
-import { getBusinessBySlug, getBusinessSettings, listCategories, listProducts } from "@/lib/data";
+import { getBusinessBySlug, getBusinessSettings, getSubscriptionPlanId, listCategories, listProducts } from "@/lib/data";
+import { canUseFeature } from "@/lib/plan-gating";
 import { localizeOnlineSettings } from "@/lib/online-market";
 
 function firstParam(value?: string | string[]) {
@@ -31,12 +32,14 @@ export default async function StorefrontPage({
     requestHeaders.get("x-vercel-ip-country") ||
     requestHeaders.get("cf-ipcountry") ||
     requestHeaders.get("x-country-code");
-  const [products, settings, categories] = await Promise.all([
+  const [products, settings, categories, planId] = await Promise.all([
     listProducts(undefined, false, business.id),
     getBusinessSettings(business.id),
-    listCategories(undefined, false, business.id)
+    listCategories(undefined, false, business.id),
+    getSubscriptionPlanId(business.id)
   ]);
-  const localized = localizeOnlineSettings(settings, country);
+  const threeDGate = canUseFeature(planId, "threeDStorefront");
+  const localized = localizeOnlineSettings({ ...settings, storefront_3d_enabled: Boolean(settings.storefront_3d_enabled && threeDGate.allowed) }, country);
 
   return (
     <OnlineOrderClient

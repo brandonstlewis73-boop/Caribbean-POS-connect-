@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -59,7 +59,7 @@ function orderStatusLabel(status: string) {
   return status.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-function checklistAction(key: string, storefrontUrl: string) {
+function checklistAction(key: string, storefrontUrl: string | null) {
   const actions: Record<string, { href: string; label: string }> = {
     logo: { href: "/settings", label: "Add logo" },
     whatsapp: { href: "/settings#whatsapp", label: "Set WhatsApp" },
@@ -68,7 +68,7 @@ function checklistAction(key: string, storefrontUrl: string) {
     barcodes: { href: "/inventory", label: "Add SKU" },
     delivery: { href: "/settings", label: "Set delivery" },
     receipt: { href: "/settings", label: "Edit receipt" },
-    test_order: { href: storefrontUrl, label: "Open store" },
+    test_order: { href: storefrontUrl || "/settings", label: storefrontUrl ? "Open store" : "Set up store" },
     test_whatsapp: { href: "/settings#whatsapp", label: "Test" }
   };
   return actions[key] || { href: "/settings", label: "Open" };
@@ -92,8 +92,16 @@ export function DashboardHome({ data }: { data: DashboardData }) {
     window.addEventListener("caribbean:new-order", handleNewOrder as EventListener);
     return () => window.removeEventListener("caribbean:new-order", handleNewOrder as EventListener);
   }, []);
-  const storefrontUrl = data.storefrontUrl || "/online";
-  const storefrontSlug = data.business?.storefront_slug || data.business?.slug || "online";
+  const storefrontUrl = data.storefrontUrl || null;
+  const storefrontSlug = data.business?.storefront_slug || data.business?.slug || "";
+  const hasStorefront = Boolean(data.business && storefrontUrl && storefrontSlug);
+  const setupActions = [
+    { href: "/settings", label: "Complete Business Profile" },
+    { href: "/settings#branding", label: "Upload Logo" },
+    { href: "/settings#categories", label: "Add Categories" },
+    { href: "/inventory", label: "Add Products" },
+    { href: "/settings", label: "Publish Storefront" }
+  ];
   const completedChecklist = (data.setupChecklist || []).filter((item) => item.complete).length;
   const totalChecklist = Math.max((data.setupChecklist || []).length, 1);
   const setupProgress = Math.round((completedChecklist / totalChecklist) * 100);
@@ -113,6 +121,7 @@ export function DashboardHome({ data }: { data: DashboardData }) {
   ];
 
   const absoluteStoreUrl = useMemo(() => {
+    if (!storefrontUrl) return "";
     if (typeof window === "undefined") return storefrontUrl;
     return new URL(storefrontUrl, window.location.origin).toString();
   }, [storefrontUrl]);
@@ -120,6 +129,10 @@ export function DashboardHome({ data }: { data: DashboardData }) {
   async function copyStoreLink() {
     setCopyMessage("");
     try {
+      if (!absoluteStoreUrl) {
+        setCopyMessage("Complete your business profile to publish your storefront.");
+        return;
+      }
       await navigator.clipboard.writeText(absoluteStoreUrl);
       setCopyMessage("Store link copied.");
     } catch {
@@ -134,12 +147,12 @@ export function DashboardHome({ data }: { data: DashboardData }) {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
               <p className="text-sm font-bold text-teal-50/62">Business storefront</p>
-              <h2 className="mt-1 truncate text-2xl font-black text-white">{data.business?.name || "Your business"}</h2>
-              <p className="mt-2 break-all text-sm font-semibold text-cyan-100/80">/{storefrontSlug}</p>
+              <h2 className="mt-1 truncate text-2xl font-black text-white">{hasStorefront ? data.business?.name : "Storefront not set up yet"}</h2>
+              <p className="mt-2 break-all text-sm font-semibold text-cyan-100/80">{hasStorefront ? `/${storefrontSlug}` : "Complete your business profile to publish your storefront."}</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Badge tone={data.business?.active === false ? "red" : "green"}>
-                {data.business?.active === false ? "Offline" : "Live"}
+              <Badge tone={!hasStorefront || data.business?.active === false ? "amber" : "green"}>
+                {!hasStorefront ? "Setup needed" : data.business?.active === false ? "Offline" : "Live"}
               </Badge>
               <Badge tone={data.whatsappConfigured ? "green" : "amber"}>
                 {data.whatsappConfigured ? "WhatsApp ready" : "WhatsApp setup"}
@@ -148,20 +161,30 @@ export function DashboardHome({ data }: { data: DashboardData }) {
             </div>
           </div>
 
-          <div className="mt-6 grid gap-3 sm:grid-cols-3">
-            <Link href={storefrontUrl} target="_blank" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-card bg-cyan-300 px-3 text-sm font-black text-slate-950 transition hover:bg-cyan-200">
-              <ExternalLink className="h-4 w-4" />
-              Open Store
-            </Link>
-            <button type="button" onClick={copyStoreLink} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-card border border-white/10 bg-white/[0.07] px-3 text-sm font-black text-white transition hover:bg-white/[0.12]">
-              <Copy className="h-4 w-4" />
-              Copy Link
-            </button>
-            <Link href="/settings" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-card border border-white/10 bg-white/[0.07] px-3 text-sm font-black text-white transition hover:bg-white/[0.12]">
-              <Settings className="h-4 w-4" />
-              Edit Storefront
-            </Link>
-          </div>
+          {hasStorefront ? (
+            <div className="mt-6 grid gap-3 sm:grid-cols-3">
+              <Link href={storefrontUrl || "/settings"} target="_blank" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-card bg-cyan-300 px-3 text-sm font-black text-slate-950 transition hover:bg-cyan-200">
+                <ExternalLink className="h-4 w-4" />
+                Open Store
+              </Link>
+              <button type="button" onClick={copyStoreLink} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-card border border-white/10 bg-white/[0.07] px-3 text-sm font-black text-white transition hover:bg-white/[0.12]">
+                <Copy className="h-4 w-4" />
+                Copy Link
+              </button>
+              <Link href="/settings" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-card border border-white/10 bg-white/[0.07] px-3 text-sm font-black text-white transition hover:bg-white/[0.12]">
+                <Settings className="h-4 w-4" />
+                Edit Storefront
+              </Link>
+            </div>
+          ) : (
+            <div className="mt-6 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {setupActions.map((action) => (
+                <Link key={action.label} href={action.href} className="inline-flex min-h-11 items-center justify-center rounded-card border border-white/10 bg-white/[0.07] px-3 text-center text-sm font-black text-white transition hover:bg-white/[0.12]">
+                  {action.label}
+                </Link>
+              ))}
+            </div>
+          )}
           {copyMessage ? <p className="mt-3 text-sm font-bold text-cyan-100/70">{copyMessage}</p> : null}
         </div>
 
@@ -302,10 +325,12 @@ export function DashboardHome({ data }: { data: DashboardData }) {
                 <MessageCircle className="h-4 w-4" />
                 Configure WhatsApp
               </Link>
-              <Link href={storefrontUrl} target="_blank" className="inline-flex min-h-11 items-center gap-2 rounded-card border border-white/10 bg-white/[0.07] px-3 text-sm font-black text-white hover:bg-white/[0.12]">
-                <Store className="h-4 w-4" />
-                Preview storefront
-              </Link>
+              {hasStorefront ? (
+                <Link href={storefrontUrl || "/settings"} target="_blank" className="inline-flex min-h-11 items-center gap-2 rounded-card border border-white/10 bg-white/[0.07] px-3 text-sm font-black text-white hover:bg-white/[0.12]">
+                  <Store className="h-4 w-4" />
+                  Preview storefront
+                </Link>
+              ) : null}
             </div>
           </Panel>
         </aside>

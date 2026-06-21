@@ -538,7 +538,7 @@ BEGIN
     WHERE n.nspname = 'public' AND c.relname = 'users' AND c.relkind IN ('r', 'p')
   ) THEN
     ALTER TABLE users ADD COLUMN IF NOT EXISTS business_id TEXT REFERENCES businesses(id) ON DELETE SET NULL;
-    UPDATE users SET business_id = 'biz_savannah_sea' WHERE business_id IS NULL;
+    -- Do not assign users without a tenant to any seed/demo business.
     CREATE INDEX IF NOT EXISTS idx_users_business_role ON users(business_id, role, active);
   END IF;
 END $$;
@@ -565,7 +565,7 @@ BEGIN
     WHERE n.nspname = 'public' AND c.relname = 'stock_movements' AND c.relkind IN ('r', 'p')
   ) THEN
     ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS business_id TEXT REFERENCES businesses(id) ON DELETE CASCADE;
-    UPDATE stock_movements SET business_id = 'biz_savannah_sea' WHERE business_id IS NULL;
+    -- Do not assign stock movements without a tenant to any seed/demo business.
   END IF;
 END $$;
 
@@ -584,11 +584,11 @@ BEGIN
   END IF;
 END $$;
 
-UPDATE products SET business_id = 'biz_savannah_sea' WHERE business_id IS NULL;
-UPDATE customers SET business_id = 'biz_savannah_sea' WHERE business_id IS NULL;
-UPDATE orders SET business_id = 'biz_savannah_sea' WHERE business_id IS NULL;
-UPDATE receipts SET business_id = 'biz_savannah_sea' WHERE business_id IS NULL;
-UPDATE audit_logs SET business_id = 'biz_savannah_sea' WHERE business_id IS NULL;
+-- Do not assign products without a tenant to any seed/demo business.
+-- Do not assign customers without a tenant to any seed/demo business.
+-- Do not assign orders without a tenant to any seed/demo business.
+-- Do not assign receipts without a tenant to any seed/demo business.
+-- Do not assign audit logs without a tenant to any seed/demo business.
 
 ALTER TABLE products DROP CONSTRAINT IF EXISTS products_sku_key;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_products_business_sku ON products(business_id, sku);

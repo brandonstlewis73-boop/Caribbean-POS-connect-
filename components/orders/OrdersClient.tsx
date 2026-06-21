@@ -1,4 +1,6 @@
-"use client";
+﻿"use client";
+
+/* eslint-disable @next/next/no-img-element */
 
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { Bike, CheckCircle2, CreditCard, ExternalLink, MessageCircle, PackageCheck, Search, Trash2, XCircle } from "lucide-react";
@@ -457,7 +459,7 @@ export function OrdersClient({
                   <span className="mt-1.5 h-3 w-3 rounded-full bg-cyan-300" />
                   <span>
                     <span className="block font-black text-white">{String(history.status).replaceAll("_", " ")}</span>
-                    <span className="block text-xs font-semibold text-teal-50/55">{history.note || "Status updated"} · {new Date(history.created_at).toLocaleString()}</span>
+                    <span className="block text-xs font-semibold text-teal-50/55">{history.note || "Status updated"} Â· {new Date(history.created_at).toLocaleString()}</span>
                   </span>
                 </div>
               ))}
@@ -478,9 +480,16 @@ export function OrdersClient({
             ) : null}
             <div className="grid min-w-0 gap-2">
               {selected.items.map((item) => (
-                <div key={item.id} className="flex min-w-0 justify-between gap-3 text-sm">
-                  <span className="min-w-0 font-bold">{item.quantity} x {item.product_name}</span>
-                  <span className="font-black">{formatMoney(item.line_total)}</span>
+                <div key={item.id} className="flex min-w-0 items-center justify-between gap-3 text-sm">
+                  <div className="flex min-w-0 items-center gap-3">
+                    {item.image_url ? (
+                      <img src={item.image_url} alt={item.product_name} loading="lazy" className="h-10 w-10 shrink-0 rounded-card object-cover" />
+                    ) : (
+                      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-card bg-white/10 text-xs font-black text-cyan-100">{item.product_name.slice(0, 2).toUpperCase()}</span>
+                    )}
+                    <span className="min-w-0 font-bold">{item.quantity} x {item.product_name}</span>
+                  </div>
+                  <span className="shrink-0 font-black">{formatMoney(item.line_total)}</span>
                 </div>
               ))}
             </div>

@@ -18,11 +18,14 @@ assert.equal(PLAN_CONFIG.trial.limits.products, 25);
 assert.equal(PLAN_CONFIG.enterprise.limits.products, null);
 assert.equal(FEATURE_PLANS.aiSupport, "pro");
 assert.equal(FEATURE_PLANS.multiLocation, "premium");
+assert.equal(FEATURE_PLANS.threeDStorefront, "premium");
 
 assert.equal(canUseFeature("starter", "whatsappMessaging").allowed, true);
 assert.equal(canUseFeature("starter", "aiSupport").allowed, false);
 assert.equal(canUseFeature("pro", "aiSupport").allowed, true);
 assert.equal(canUseFeature("premium", "multiLocation").allowed, true);
+assert.equal(canUseFeature("pro", "threeDStorefront").allowed, false);
+assert.equal(canUseFeature("premium", "threeDStorefront").allowed, true);
 assert.equal(canUseFeature("trial", "advancedReports").allowed, false);
 
 assert.equal(isWithinLimit("starter", "products", 100).allowed, true);

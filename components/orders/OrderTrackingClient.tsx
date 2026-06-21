@@ -1,4 +1,6 @@
-"use client";
+﻿"use client";
+
+/* eslint-disable @next/next/no-img-element */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ClipboardList, Loader2, Phone, Search } from "lucide-react";
@@ -142,9 +144,16 @@ export function OrderTrackingClient() {
                 <h3 className="font-black">Order details</h3>
                 <div className="mt-3 grid gap-2 text-sm">
                   {tracking.order.items.map((item) => (
-                    <div key={item.id} className="flex justify-between gap-3">
-                      <span className="font-semibold">{item.quantity} x {item.product_name}</span>
-                      <strong>{money(item.line_total)}</strong>
+                    <div key={item.id} className="flex items-center justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-3">
+                        {item.image_url ? (
+                          <img src={item.image_url} alt={item.product_name} loading="lazy" className="h-10 w-10 shrink-0 rounded-card object-cover" />
+                        ) : (
+                          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-card bg-white/10 text-xs font-black text-cyan-100">{item.product_name.slice(0, 2).toUpperCase()}</span>
+                        )}
+                        <span className="min-w-0 font-semibold">{item.quantity} x {item.product_name}</span>
+                      </div>
+                      <strong className="shrink-0">{money(item.line_total)}</strong>
                     </div>
                   ))}
                   <div className="mt-2 border-t border-white/10 pt-3 text-base font-black">
