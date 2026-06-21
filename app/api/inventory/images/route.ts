@@ -1,4 +1,4 @@
-﻿import { NextRequest } from "next/server";
+import { NextRequest } from "next/server";
 import { fail, ok } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
 import { getProduct, updateProduct } from "@/lib/data";
@@ -8,8 +8,18 @@ export const runtime = "nodejs";
 
 function safeUploadError(error: unknown) {
   const message = error instanceof Error ? error.message : "Product photo could not be uploaded.";
-  if (message.toLowerCase().includes("service_role")) return "Supabase Storage is not configured. Add the server storage key in Vercel and redeploy.";
-  return message;
+  const normalized = message.toLowerCase();
+  if (normalized.includes("not configured") || normalized.includes("supabase_service_role_key") || normalized.includes("supabase_storage_bucket")) {
+    return "Product photo storage is not configured yet. Add SUPABASE_SERVICE_ROLE_KEY and SUPABASE_STORAGE_BUCKET=product-images in Vercel, run db/product_images_storage.sql in Supabase, then redeploy.";
+  }
+  if (normalized.includes("bucket") && normalized.includes("not found")) {
+    return "Product photo storage bucket was not found. Run db/product_images_storage.sql in Supabase SQL Editor, then try again.";
+  }
+  if (normalized.includes("rejected") || normalized.includes("401") || normalized.includes("403")) {
+    return "Product photo storage rejected the server credentials. Check SUPABASE_SERVICE_ROLE_KEY and storage bucket policies.";
+  }
+  if (normalized.includes("jpg") || normalized.includes("png") || normalized.includes("webp") || normalized.includes("5 mb")) return message;
+  return "Product photo could not be uploaded. Check storage setup and try again.";
 }
 
 export async function POST(request: NextRequest) {

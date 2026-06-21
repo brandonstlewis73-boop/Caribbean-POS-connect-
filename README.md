@@ -78,6 +78,7 @@ NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<supabase-publishable-or-anon-key>
 SUPABASE_URL=https://<project-ref>.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=<server-only-service-role-key>
+SUPABASE_STORAGE_BUCKET=product-images
 ADMIN_EMAIL=owner@yourbusiness.com
 OPENAI_API_KEY=
 AI_MODEL=gpt-5
@@ -108,7 +109,7 @@ Notes:
 - Use the Supabase transaction pooler URI on port `6543` for Vercel and for local LAN testing.
 - Do not use the direct Supabase Postgres URI on port `5432` for production.
 - `SESSION_SECRET` should be a long random value before production use.
-- Product photo uploads require `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and the `product-images` storage bucket. Never expose the service role key in frontend code.
+- Product photo uploads require `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_STORAGE_BUCKET=product-images`, and the `product-images` storage bucket. Never expose the service role key in frontend code.
 - 3D Storefront is a Premium/Enterprise feature. It is off by default, lazy-loaded on the public storefront, and falls back to normal shopping when WebGL is unavailable.
 - Leave WhatsApp provider variables blank to keep orders working with safe "WhatsApp is not configured" logs.
 - Stripe billing uses Checkout Sessions and the Customer Portal. Add `STRIPE_SECRET_KEY`, one Stripe Price ID per paid plan, and `STRIPE_WEBHOOK_SECRET` after creating a webhook endpoint for `/api/stripe/webhook`.
@@ -147,6 +148,7 @@ NEXT_PUBLIC_SUPABASE_URL
 NEXT_PUBLIC_SUPABASE_ANON_KEY
 SUPABASE_URL
 SUPABASE_SERVICE_ROLE_KEY
+SUPABASE_STORAGE_BUCKET=product-images
 ```
 
 6. For product photo uploads, run this storage setup SQL in Supabase SQL Editor:
@@ -154,6 +156,19 @@ SUPABASE_SERVICE_ROLE_KEY
 ```text
 db/product_images_storage.sql
 ```
+
+This creates a public `product-images` bucket for direct storefront image display. Uploads, replacements, and deletes still happen only through the server API using `SUPABASE_SERVICE_ROLE_KEY`, and object paths are scoped as `businesses/{businessId}/products/{productId}/...`.
+
+7. In Vercel, open Project -> Settings -> Environment Variables and add these to Production (and Preview if you test preview deployments):
+
+```text
+NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<publishable-or-anon-key>
+SUPABASE_SERVICE_ROLE_KEY=<service-role-key-from-supabase-api-settings>
+SUPABASE_STORAGE_BUCKET=product-images
+```
+
+Redeploy after saving the Vercel environment variables. Old deployments will not see new values.
 
 ## Initial Login Credentials
 

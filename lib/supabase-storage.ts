@@ -1,6 +1,10 @@
-const PRODUCT_IMAGE_BUCKET = "product-images";
+const DEFAULT_PRODUCT_IMAGE_BUCKET = "product-images";
 const MAX_PRODUCT_IMAGE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_PRODUCT_IMAGE_TYPES = new Set(["image/jpeg", "image/jpg", "image/png", "image/webp"]);
+
+export function productImageBucket() {
+  return (process.env.SUPABASE_STORAGE_BUCKET || DEFAULT_PRODUCT_IMAGE_BUCKET).trim() || DEFAULT_PRODUCT_IMAGE_BUCKET;
+}
 
 type UploadProductImageInput = {
   businessId: string;
@@ -18,11 +22,19 @@ export type UploadedProductImage = {
 
 function storageConfig() {
   const supabaseUrl = (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "").replace(/\/$/, "");
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_STORAGE_SERVICE_ROLE_KEY || "";
-  if (!supabaseUrl || !serviceKey) {
-    throw new Error("Supabase Storage is not configured. Add SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in Vercel, create the product-images bucket, then redeploy.");
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+  const bucket = (process.env.SUPABASE_STORAGE_BUCKET || "").trim();
+  const missing = [
+    supabaseUrl ? null : "NEXT_PUBLIC_SUPABASE_URL",
+    serviceKey ? null : "SUPABASE_SERVICE_ROLE_KEY",
+    bucket ? null : "SUPABASE_STORAGE_BUCKET"
+  ].filter(Boolean) as string[];
+
+  if (missing.length) {
+    throw new Error(`Product photo storage is not configured. Missing: ${missing.join(", ")}. Add the missing Vercel environment variables, run db/product_images_storage.sql, then redeploy.`);
   }
-  return { supabaseUrl, serviceKey };
+
+  return { supabaseUrl, serviceKey, bucket };
 }
 
 function safeSegment(value: string, fallback: string) {
@@ -58,34 +70,34 @@ export function validateProductImageUpload(fileName: string, contentType: string
 export function productImageObjectPath({ businessId, productId, fileName, contentType }: Omit<UploadProductImageInput, "bytes">) {
   const extension = extensionFromFile(fileName, contentType);
   const original = safeSegment(fileName.replace(/\.[^.]+$/, ""), "product");
-  return `${safeSegment(businessId, "business")}/${safeSegment(productId, "product")}/${Date.now()}-${original}.${extension}`;
+  return `businesses/${safeSegment(businessId, "business")}/products/${safeSegment(productId, "product")}/${Date.now()}-${original}.${extension}`;
 }
 
 export function productImagePublicUrl(path: string) {
-  const { supabaseUrl } = storageConfig();
-  return `${supabaseUrl}/storage/v1/object/public/${PRODUCT_IMAGE_BUCKET}/${path}`;
+  const { supabaseUrl, bucket } = storageConfig();
+  return `${supabaseUrl}/storage/v1/object/public/${bucket}/${path}`;
 }
 
 export function productImagePathFromUrl(imageUrl?: string | null) {
   if (!imageUrl) return null;
   try {
-    const { supabaseUrl } = storageConfig();
-    const publicPrefix = `${supabaseUrl}/storage/v1/object/public/${PRODUCT_IMAGE_BUCKET}/`;
+    const { supabaseUrl, bucket } = storageConfig();
+    const publicPrefix = `${supabaseUrl}/storage/v1/object/public/${bucket}/`;
     if (imageUrl.startsWith(publicPrefix)) return decodeURIComponent(imageUrl.slice(publicPrefix.length));
+    const directPrefix = `${bucket}/`;
+    if (imageUrl.startsWith(directPrefix)) return imageUrl.slice(directPrefix.length);
   } catch {
     return null;
   }
-  const directPrefix = `${PRODUCT_IMAGE_BUCKET}/`;
-  if (imageUrl.startsWith(directPrefix)) return imageUrl.slice(directPrefix.length);
   return null;
 }
 
 export async function uploadProductImageToStorage(input: UploadProductImageInput): Promise<UploadedProductImage> {
   const validation = validateProductImageUpload(input.fileName, input.contentType, input.bytes.byteLength);
   if (validation) throw new Error(validation);
-  const { supabaseUrl, serviceKey } = storageConfig();
+  const { supabaseUrl, serviceKey, bucket } = storageConfig();
   const path = productImageObjectPath(input);
-  const response = await fetch(`${supabaseUrl}/storage/v1/object/${PRODUCT_IMAGE_BUCKET}/${encodeURI(path)}`, {
+  const response = await fetch(`${supabaseUrl}/storage/v1/object/${bucket}/${encodeURI(path)}`, {
     method: "POST",
     headers: {
       authorization: `Bearer ${serviceKey}`,
@@ -99,19 +111,19 @@ export async function uploadProductImageToStorage(input: UploadProductImageInput
 
   if (!response.ok) {
     const text = await response.text().catch(() => "");
-    if (response.status === 404) throw new Error("Supabase Storage bucket product-images was not found. Create the bucket and policies, then try again.");
-    if (response.status === 401 || response.status === 403) throw new Error("Supabase Storage rejected the upload. Check SUPABASE_SERVICE_ROLE_KEY and product-images bucket permissions.");
+    if (response.status === 404) throw new Error(`Supabase Storage bucket ${bucket} was not found. Run db/product_images_storage.sql in Supabase SQL Editor, then try again.`);
+    if (response.status === 401 || response.status === 403) throw new Error("Supabase Storage rejected the upload. Check SUPABASE_SERVICE_ROLE_KEY and product image bucket permissions.");
     throw new Error(text || "Product photo could not be uploaded to Supabase Storage.");
   }
 
-  return { bucket: PRODUCT_IMAGE_BUCKET, path, publicUrl: productImagePublicUrl(path) };
+  return { bucket, path, publicUrl: productImagePublicUrl(path) };
 }
 
 export async function deleteProductImageFromStorage(imageUrl?: string | null) {
   const path = productImagePathFromUrl(imageUrl);
   if (!path) return { deleted: false, reason: "Image is not in the product-images bucket." };
-  const { supabaseUrl, serviceKey } = storageConfig();
-  const response = await fetch(`${supabaseUrl}/storage/v1/object/${PRODUCT_IMAGE_BUCKET}`, {
+  const { supabaseUrl, serviceKey, bucket } = storageConfig();
+  const response = await fetch(`${supabaseUrl}/storage/v1/object/${bucket}`, {
     method: "DELETE",
     headers: {
       authorization: `Bearer ${serviceKey}`,
@@ -126,28 +138,32 @@ export async function deleteProductImageFromStorage(imageUrl?: string | null) {
   }
   return { deleted: true, path };
 }
+
 export async function supabaseProductImageStorageStatus() {
   const supabaseUrl = (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "").replace(/\/$/, "");
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_STORAGE_SERVICE_ROLE_KEY || "";
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+  const bucket = (process.env.SUPABASE_STORAGE_BUCKET || "").trim();
   const missing = [
-    supabaseUrl ? null : "SUPABASE_URL",
-    serviceKey ? null : "SUPABASE_SERVICE_ROLE_KEY"
+    supabaseUrl ? null : "NEXT_PUBLIC_SUPABASE_URL",
+    serviceKey ? null : "SUPABASE_SERVICE_ROLE_KEY",
+    bucket ? null : "SUPABASE_STORAGE_BUCKET"
   ].filter(Boolean) as string[];
 
   const status = {
     configured: missing.length === 0,
-    bucket: PRODUCT_IMAGE_BUCKET,
+    bucket: bucket || productImageBucket(),
     bucketReachable: false,
     missing,
     hasSupabaseUrl: Boolean(supabaseUrl),
     hasServiceRoleKey: Boolean(serviceKey),
-    message: "Supabase Storage is not configured. Add SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in Vercel, run db/product_images_storage.sql, then redeploy."
+    hasStorageBucket: Boolean(bucket),
+    message: "Product photo storage is not configured. Add SUPABASE_SERVICE_ROLE_KEY and SUPABASE_STORAGE_BUCKET=product-images in Vercel, run db/product_images_storage.sql, then redeploy."
   };
 
   if (missing.length) return status;
 
   try {
-    const response = await fetch(`${supabaseUrl}/storage/v1/bucket/${PRODUCT_IMAGE_BUCKET}`, {
+    const response = await fetch(`${supabaseUrl}/storage/v1/bucket/${bucket}`, {
       method: "GET",
       headers: {
         authorization: `Bearer ${serviceKey}`,
@@ -159,13 +175,13 @@ export async function supabaseProductImageStorageStatus() {
       return {
         ...status,
         bucketReachable: true,
-        message: "Supabase Storage product-images bucket is reachable."
+        message: `Supabase Storage ${bucket} bucket is reachable.`
       };
     }
     if (response.status === 404) {
       return {
         ...status,
-        message: "Supabase Storage bucket product-images was not found. Run db/product_images_storage.sql in Supabase SQL Editor."
+        message: `Supabase Storage bucket ${bucket} was not found. Run db/product_images_storage.sql in Supabase SQL Editor.`
       };
     }
     if (response.status === 401 || response.status === 403) {
@@ -181,7 +197,7 @@ export async function supabaseProductImageStorageStatus() {
   } catch {
     return {
       ...status,
-      message: "Supabase Storage bucket check failed. Verify SUPABASE_URL and network access from Vercel."
+      message: "Supabase Storage bucket check failed. Verify NEXT_PUBLIC_SUPABASE_URL and network access from Vercel."
     };
   }
 }

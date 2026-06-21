@@ -3,6 +3,20 @@ import { CARIBBEAN_CURRENCIES, ORDER_TYPES, PAYMENT_METHODS, PRODUCT_CATEGORIES,
 import { HELP_CATEGORIES, QUICK_HELP_PROMPTS } from "./support-context";
 
 const optionalText = z.string().trim().optional().nullable();
+const optionalImageUrl = z
+  .string()
+  .trim()
+  .optional()
+  .nullable()
+  .refine((value) => {
+    if (!value) return true;
+    try {
+      const url = new URL(value);
+      return url.protocol === "http:" || url.protocol === "https:";
+    } catch {
+      return false;
+    }
+  }, "Product image URL must start with http:// or https://.");
 const caribbeanCurrencyCodes = CARIBBEAN_CURRENCIES.map((currency) => currency.code) as [string, ...string[]];
 const currencySchema = z.enum(caribbeanCurrencyCodes);
 const orderStatusSchema = z.enum([
@@ -55,7 +69,7 @@ export const productSchema = z.object({
   discount_price: z.coerce.number().min(0).optional().nullable(),
   stock_quantity: z.coerce.number().int().min(0),
   low_stock_alert: z.coerce.number().int().min(0).default(5),
-  image_url: optionalText,
+  image_url: optionalImageUrl,
   supplier_name: optionalText,
   supplier_phone: optionalText,
   active: z.boolean().optional(),

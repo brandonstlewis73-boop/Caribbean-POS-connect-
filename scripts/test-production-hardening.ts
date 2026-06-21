@@ -42,18 +42,22 @@ assert.match(inventory, /Browse Files/, "Product image upload should expose file
 assert.match(inventory, /compressProductImage/, "Product image uploads should compress large images before upload.");
 assert.match(inventory, /XMLHttpRequest/, "Product image upload should expose progress events.");
 assert.match(inventory, /capture="environment"/, "Only Take Photo should request camera capture.");
+assert.match(inventory, /const PRODUCT_IMAGE_ACCEPT = "image\/\*"/, "Mobile image pickers should use image/* accept for Android and iPhone support.");
+assert.match(inventory, /validateProductImageUrl/, "Pasted product image URLs should be validated before save.");
 
 const storage = read("lib/supabase-storage.ts");
 const healthRoute = read("app/api/health/route.ts");
 assert.match(storage, /product-images/, "Product image uploads should use the product-images bucket.");
 assert.match(storage, /SUPABASE_SERVICE_ROLE_KEY/, "Product image uploads should use a server-only Supabase key.");
-assert.ok(storage.includes("businessId") && storage.includes("productId"), "Product image object paths should include business and product ids.");
+assert.match(storage, /SUPABASE_STORAGE_BUCKET/, "Product image uploads should require an explicit storage bucket env var.");
+assert.ok(storage.includes("businesses/${safeSegment(businessId") && storage.includes("products/${safeSegment(productId"), "Product image object paths should include business and product ids.");
 const imageRoute = read("app/api/inventory/images/route.ts");
 assert.match(imageRoute, /requireUser\(request, "inventory:write"\)/, "Product image upload route should require inventory write access.");
 assert.match(imageRoute, /updateProduct\(productId, \{ image_url/, "Product image upload route should save image_url to the product.");
 const storageSql = read("db/product_images_storage.sql");
 assert.match(storageSql, /storage\.buckets/, "Product image storage setup should create the bucket.");
-assert.match(storageSql, /Public read product images/, "Product image storage setup should include a public read policy.");
+assert.match(storageSql, /DROP POLICY IF EXISTS "Public read product images"/, "Product image storage setup should remove broad public object listing policies.");
+assert.doesNotMatch(storageSql, /CREATE POLICY "Public read product images"/, "Product image storage setup should not create a broad public storage.objects read policy.");
 assert.match(storage, /supabaseProductImageStorageStatus/, "Product image storage helper should expose safe readiness diagnostics.");
 assert.match(healthRoute, /supabaseProductImageStorageStatus/, "Health endpoint should report Supabase Storage readiness.");
 

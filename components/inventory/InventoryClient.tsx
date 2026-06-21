@@ -13,7 +13,7 @@ import { readApiPayload } from "@/lib/client-response";
 import type { Category, Product, ProductOption } from "@/lib/types";
 
 const PRODUCT_IMAGE_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
-const PRODUCT_IMAGE_ACCEPT = "image/png,image/jpeg,image/jpg,image/webp,image/*";
+const PRODUCT_IMAGE_ACCEPT = "image/*";
 const MAX_SOURCE_IMAGE_BYTES = 10 * 1024 * 1024;
 const MAX_UPLOAD_IMAGE_BYTES = 5 * 1024 * 1024;
 const MAX_IMAGE_DIMENSION = 1600;
@@ -45,6 +45,18 @@ function validateProductImage(file: File) {
   if (!PRODUCT_IMAGE_TYPES.includes(type)) return "Product photo must be JPG, PNG, or WebP. Choose a different image format.";
   if (file.size > MAX_SOURCE_IMAGE_BYTES) return "Product photo is too large. Choose an image under 10 MB.";
   return null;
+}
+
+function validateProductImageUrl(value?: string | null) {
+  const imageUrl = (value || "").trim();
+  if (!imageUrl) return null;
+  try {
+    const url = new URL(imageUrl);
+    if (url.protocol === "http:" || url.protocol === "https:") return null;
+  } catch {
+    // Fall through to the friendly message below.
+  }
+  return "Enter a valid product image URL starting with http:// or https://.";
 }
 
 function loadImageFromFile(file: File) {
@@ -339,10 +351,16 @@ export function InventoryClient({ products, categories, currency }: { products: 
       setMessage("Add a product name before saving.");
       return;
     }
+    const pastedImageUrl = (draft.image_url || "").trim();
+    const pastedUrlError = selectedImageFile || imageMarkedForRemoval ? null : validateProductImageUrl(pastedImageUrl);
+    if (pastedUrlError) {
+      setMessage(pastedUrlError);
+      return;
+    }
     const oldImageUrl = editingId ? items.find((product) => product.id === editingId)?.image_url || "" : "";
     const body = {
       ...draft,
-      image_url: selectedImageFile ? (editingId ? oldImageUrl || null : null) : imageMarkedForRemoval ? null : draft.image_url || null,
+      image_url: selectedImageFile ? (editingId ? oldImageUrl || null : null) : imageMarkedForRemoval ? null : pastedImageUrl || null,
       discount_price: draft.discount_price === "" ? null : Number(draft.discount_price),
       variations: parseOptionText(draft.variationsText),
       add_ons: parseOptionText(draft.addOnsText)
@@ -661,8 +679,9 @@ export function InventoryClient({ products, categories, currency }: { products: 
                 setPreviewFile(null);
                 setImageMarkedForRemoval(false);
                 setUploadProgress(null);
-                setUploadStatus("");
-                setDraft({ ...draft, image_url: event.target.value });
+                const nextUrl = event.target.value;
+                setUploadStatus(nextUrl.trim() ? "Image URL ready. Save product changes to apply it." : "");
+                setDraft({ ...draft, image_url: nextUrl });
               }}
             />
           </div>
