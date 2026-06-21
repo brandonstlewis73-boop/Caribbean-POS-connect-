@@ -1,4 +1,4 @@
-﻿const PRODUCT_IMAGE_BUCKET = "product-images";
+const PRODUCT_IMAGE_BUCKET = "product-images";
 const MAX_PRODUCT_IMAGE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_PRODUCT_IMAGE_TYPES = new Set(["image/jpeg", "image/jpg", "image/png", "image/webp"]);
 
@@ -125,4 +125,63 @@ export async function deleteProductImageFromStorage(imageUrl?: string | null) {
     throw new Error(text || "Product photo could not be removed from Supabase Storage.");
   }
   return { deleted: true, path };
+}
+export async function supabaseProductImageStorageStatus() {
+  const supabaseUrl = (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "").replace(/\/$/, "");
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_STORAGE_SERVICE_ROLE_KEY || "";
+  const missing = [
+    supabaseUrl ? null : "SUPABASE_URL",
+    serviceKey ? null : "SUPABASE_SERVICE_ROLE_KEY"
+  ].filter(Boolean) as string[];
+
+  const status = {
+    configured: missing.length === 0,
+    bucket: PRODUCT_IMAGE_BUCKET,
+    bucketReachable: false,
+    missing,
+    hasSupabaseUrl: Boolean(supabaseUrl),
+    hasServiceRoleKey: Boolean(serviceKey),
+    message: "Supabase Storage is not configured. Add SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in Vercel, run db/product_images_storage.sql, then redeploy."
+  };
+
+  if (missing.length) return status;
+
+  try {
+    const response = await fetch(`${supabaseUrl}/storage/v1/bucket/${PRODUCT_IMAGE_BUCKET}`, {
+      method: "GET",
+      headers: {
+        authorization: `Bearer ${serviceKey}`,
+        apikey: serviceKey
+      },
+      cache: "no-store"
+    });
+    if (response.ok) {
+      return {
+        ...status,
+        bucketReachable: true,
+        message: "Supabase Storage product-images bucket is reachable."
+      };
+    }
+    if (response.status === 404) {
+      return {
+        ...status,
+        message: "Supabase Storage bucket product-images was not found. Run db/product_images_storage.sql in Supabase SQL Editor."
+      };
+    }
+    if (response.status === 401 || response.status === 403) {
+      return {
+        ...status,
+        message: "Supabase Storage rejected the service role key. Check SUPABASE_SERVICE_ROLE_KEY in Vercel."
+      };
+    }
+    return {
+      ...status,
+      message: `Supabase Storage bucket check failed with HTTP ${response.status}.`
+    };
+  } catch {
+    return {
+      ...status,
+      message: "Supabase Storage bucket check failed. Verify SUPABASE_URL and network access from Vercel."
+    };
+  }
 }

@@ -8,6 +8,7 @@ import {
 import { aiSupportStatus } from "@/lib/ai-support";
 import { whatsappConfigStatus } from "@/lib/whatsapp-server";
 import { stripeConfigStatus } from "@/lib/stripe";
+import { supabaseProductImageStorageStatus } from "@/lib/supabase-storage";
 
 export const runtime = "nodejs";
 
@@ -178,6 +179,7 @@ export async function GET() {
   const whatsapp = whatsappConfigStatus();
   const ai = aiSupportStatus();
   const billing = billingReadiness();
+  const storage = await supabaseProductImageStorageStatus();
   const startedAt = Date.now();
 
   try {
@@ -199,7 +201,8 @@ export async function GET() {
       deployment,
       whatsapp,
       ai,
-      billing
+      billing,
+      storage
     });
   } catch (error) {
     return NextResponse.json(
@@ -216,7 +219,8 @@ export async function GET() {
         deployment,
         whatsapp,
         ai,
-        billing
+        billing,
+        storage
       },
       { status: 500 }
     );

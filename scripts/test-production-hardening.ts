@@ -44,6 +44,7 @@ assert.match(inventory, /XMLHttpRequest/, "Product image upload should expose pr
 assert.match(inventory, /capture="environment"/, "Only Take Photo should request camera capture.");
 
 const storage = read("lib/supabase-storage.ts");
+const healthRoute = read("app/api/health/route.ts");
 assert.match(storage, /product-images/, "Product image uploads should use the product-images bucket.");
 assert.match(storage, /SUPABASE_SERVICE_ROLE_KEY/, "Product image uploads should use a server-only Supabase key.");
 assert.ok(storage.includes("businessId") && storage.includes("productId"), "Product image object paths should include business and product ids.");
@@ -53,6 +54,8 @@ assert.match(imageRoute, /updateProduct\(productId, \{ image_url/, "Product imag
 const storageSql = read("db/product_images_storage.sql");
 assert.match(storageSql, /storage\.buckets/, "Product image storage setup should create the bucket.");
 assert.match(storageSql, /Public read product images/, "Product image storage setup should include a public read policy.");
+assert.match(storage, /supabaseProductImageStorageStatus/, "Product image storage helper should expose safe readiness diagnostics.");
+assert.match(healthRoute, /supabaseProductImageStorageStatus/, "Health endpoint should report Supabase Storage readiness.");
 
 const onlineStore = read("components/orders/OnlineOrderClient.tsx");
 const virtualStore = read("components/storefront/VirtualStorefrontClient.tsx");
