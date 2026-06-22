@@ -43,6 +43,29 @@ function emptyCustomer(currency: string) {
   };
 }
 
+
+function titleFromSlug(slug?: string | null) {
+  return (slug || "")
+    .split("-")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function storeNameMatchesSlug(name?: string | null, slug?: string | null) {
+  const nameTokens = new Set((name || "").toLowerCase().split(/[^a-z0-9]+/).filter((part) => part.length > 2));
+  const slugTokens = (slug || "").toLowerCase().split(/[^a-z0-9]+/).filter((part) => part.length > 2);
+  if (!slugTokens.length || !nameTokens.size) return true;
+  return slugTokens.some((part) => nameTokens.has(part));
+}
+
+function publicStoreName(name?: string | null, slug?: string | null) {
+  const cleanName = (name || "").trim();
+  if (!slug) return cleanName || "Storefront";
+  if (cleanName && storeNameMatchesSlug(cleanName, slug)) return cleanName;
+  return titleFromSlug(slug) || cleanName || "Storefront";
+}
 function paymentMethodEnabled(method: string, settings: Settings) {
   if (method === "Cash") return settings.payment_cash_enabled;
   if (method === "Card") return settings.payment_card_enabled;
@@ -134,6 +157,7 @@ export function OnlineOrderClient({
   const [statusMessage, setStatusMessage] = useState(initialStatusMessage);
   const [loading, setLoading] = useState(false);
   const [showVirtualStore, setShowVirtualStore] = useState(false);
+  const displaySettings = useMemo(() => ({ ...settings, business_name: publicStoreName(settings.business_name, storefrontSlug) }), [settings, storefrontSlug]);
 
   useEffect(() => {
     let cancelled = false;
@@ -334,9 +358,9 @@ export function OnlineOrderClient({
       <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/95 px-4 py-4 shadow-sm backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            <img src={settings.logo_url || "/caribbean-pos-connect-icon.png"} alt="" className="h-12 w-12 shrink-0 rounded-2xl border border-slate-200 bg-white object-contain p-1 shadow-sm" />
+            <img src={displaySettings.logo_url || "/caribbean-pos-connect-icon.png"} alt="" className="h-12 w-12 shrink-0 rounded-2xl border border-slate-200 bg-white object-contain p-1 shadow-sm" />
             <div className="min-w-0">
-              <h1 className="truncate text-xl font-black leading-tight tracking-tight text-slate-950">{settings.business_name}</h1>
+              <h1 className="truncate text-xl font-black leading-tight tracking-tight text-slate-950">{displaySettings.business_name}</h1>
               <p className="text-sm font-semibold text-slate-500">Online ordering - {marketCountry} / {settings.currency}</p>
             </div>
           </div>
@@ -373,7 +397,7 @@ export function OnlineOrderClient({
             <div className="grid gap-4 p-5 sm:flex sm:items-end sm:justify-between sm:p-6">
               <div className="min-w-0">
                 <p className="text-sm font-black uppercase tracking-[0.16em] text-teal-700">Order online</p>
-                <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">{settings.business_name}</h2>
+                <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">{displaySettings.business_name}</h2>
                 <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-600">
                   Choose your items, select pickup or delivery, and submit your order securely.
                 </p>
@@ -405,7 +429,7 @@ export function OnlineOrderClient({
             <VirtualStorefront
               products={products}
               categories={storefrontCategories}
-              settings={settings}
+              settings={displaySettings}
               onAddToCart={add}
               onExit={() => setShowVirtualStore(false)}
             />

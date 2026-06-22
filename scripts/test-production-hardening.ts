@@ -76,8 +76,11 @@ assert.match(settings, /3D Storefront/, "Settings should expose 3D storefront co
 assert.match(onlineStore, /dynamic\(\(\) => import\("@\/components\/storefront\/VirtualStorefrontClient"\)/, "3D storefront should be lazy loaded only on demand.");
 assert.match(onlineStore, /Enter 3D Store/, "Public storefront should offer an Enter 3D Store action when enabled.");
 assert.match(onlineStore, /Shop Normally/, "Public storefront should keep the normal shopping fallback.");
+assert.match(onlineStore, /publicStoreName/, "Public storefront should guard against stale mismatched business names for slug views.");
 assert.match(virtualStore, /supportsWebGL/, "3D storefront should detect WebGL support.");
-assert.match(virtualStore, /onAddToCart\(selectedProduct\)/, "3D storefront product modal should use the existing cart callback.");
+assert.match(virtualStore, /function ProductModal/, "3D storefront should use a reusable product modal.");
+assert.match(virtualStore, /onAddToCart\(product\)/, "3D storefront product modal should use the existing cart callback.");
+assert.match(virtualStore, /function StoreScene|function StoreLighting|function ProductDisplay|function Hotspot|function StoreHUD|function StoreControls/, "3D storefront should be split into reusable scene components.");
 assert.match(virtualStore, /Canvas/, "3D storefront should use React Three Fiber Canvas.");
 assert.match(storePage, /canUseFeature\(planId, "threeDStorefront"\)/, "Store page should enforce Premium 3D access server-side.");
 assert.match(storeApi, /canUseFeature\(planId, "threeDStorefront"\)/, "Store API should enforce Premium 3D access on refresh.");
