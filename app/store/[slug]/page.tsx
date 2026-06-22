@@ -7,6 +7,7 @@ import { OnlineOrderClient } from "@/components/orders/OnlineOrderClient";
 import { getBusinessBySlug, getBusinessSettings, getSubscriptionPlanId, listCategories, listProducts } from "@/lib/data";
 import { canUseFeature } from "@/lib/plan-gating";
 import { localizeOnlineSettings } from "@/lib/online-market";
+import { withPublicStoreIdentity } from "@/lib/storefront-identity";
 
 function firstParam(value?: string | string[]) {
   return Array.isArray(value) ? value[0] : value;
@@ -40,12 +41,13 @@ export default async function StorefrontPage({
   ]);
   const threeDGate = canUseFeature(planId, "threeDStorefront");
   const localized = localizeOnlineSettings({ ...settings, storefront_3d_enabled: Boolean(settings.storefront_3d_enabled && threeDGate.allowed) }, country);
+  const publicSettings = withPublicStoreIdentity(localized.settings, slug);
 
   return (
     <OnlineOrderClient
       products={products}
       categories={categories}
-      settings={localized.settings}
+      settings={publicSettings}
       market={localized.market}
       menuEndpoint={`/api/store/${encodeURIComponent(slug)}`}
       orderEndpoint={`/api/store/${encodeURIComponent(slug)}/orders`}
@@ -54,3 +56,4 @@ export default async function StorefrontPage({
     />
   );
 }
+

@@ -62,6 +62,9 @@ assert.match(storage, /supabaseProductImageStorageStatus/, "Product image storag
 assert.match(healthRoute, /supabaseProductImageStorageStatus/, "Health endpoint should report Supabase Storage readiness.");
 
 const onlineStore = read("components/orders/OnlineOrderClient.tsx");
+const storefrontIdentity = read("lib/storefront-identity.ts");
+const publicStorePage = read("app/store/[slug]/page.tsx");
+const publicStoreApi = read("app/api/store/[slug]/route.ts");
 const virtualStore = read("components/storefront/VirtualStorefrontClient.tsx");
 const storePage = read("app/store/[slug]/page.tsx");
 const storeApi = read("app/api/store/[slug]/route.ts");
@@ -77,6 +80,9 @@ assert.match(onlineStore, /dynamic\(\(\) => import\("@\/components\/storefront\/
 assert.match(onlineStore, /Enter 3D Store/, "Public storefront should offer an Enter 3D Store action when enabled.");
 assert.match(onlineStore, /Shop Normally/, "Public storefront should keep the normal shopping fallback.");
 assert.match(onlineStore, /publicStoreName/, "Public storefront should guard against stale mismatched business names for slug views.");
+assert.match(storefrontIdentity, /withPublicStoreIdentity/, "Public storefront identity helper should sanitize stale business settings by slug.");
+assert.match(publicStorePage, /withPublicStoreIdentity/, "Server-rendered storefront should sanitize public settings before hydration.");
+assert.match(publicStoreApi, /withPublicStoreIdentity/, "Public store API should sanitize public settings before returning JSON.");
 assert.match(virtualStore, /supportsWebGL/, "3D storefront should detect WebGL support.");
 assert.match(virtualStore, /function ProductModal/, "3D storefront should use a reusable product modal.");
 assert.match(virtualStore, /onAddToCart\(product\)/, "3D storefront product modal should use the existing cart callback.");
@@ -89,3 +95,4 @@ assert.match(exchange, /EXCHANGE_RATE_API_KEY/, "Exchange rates should be backen
 assert.match(exchange, /exchange_rates/, "Exchange rates should use the cache table when available.");
 
 console.log("Production hardening checks passed.");
+

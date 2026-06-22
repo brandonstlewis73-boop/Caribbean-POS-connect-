@@ -8,6 +8,7 @@ import { CheckCircle2, ExternalLink, LocateFixed, Minus, Plus, Send, ShoppingBag
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { getDefaultCountryForCurrency, getDeliveryRegionsForCurrency, money, PAYMENT_METHODS } from "@/lib/constants";
+import { publicStoreName } from "@/lib/storefront-identity";
 import { readApiPayload } from "@/lib/client-response";
 import { detectCurrentAddress } from "@/lib/location-client";
 import type { OnlineMarket } from "@/lib/online-market";
@@ -44,28 +45,6 @@ function emptyCustomer(currency: string) {
 }
 
 
-function titleFromSlug(slug?: string | null) {
-  return (slug || "")
-    .split("-")
-    .map((part) => part.trim())
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
-}
-
-function storeNameMatchesSlug(name?: string | null, slug?: string | null) {
-  const nameTokens = new Set((name || "").toLowerCase().split(/[^a-z0-9]+/).filter((part) => part.length > 2));
-  const slugTokens = (slug || "").toLowerCase().split(/[^a-z0-9]+/).filter((part) => part.length > 2);
-  if (!slugTokens.length || !nameTokens.size) return true;
-  return slugTokens.some((part) => nameTokens.has(part));
-}
-
-function publicStoreName(name?: string | null, slug?: string | null) {
-  const cleanName = (name || "").trim();
-  if (!slug) return cleanName || "Storefront";
-  if (cleanName && storeNameMatchesSlug(cleanName, slug)) return cleanName;
-  return titleFromSlug(slug) || cleanName || "Storefront";
-}
 function paymentMethodEnabled(method: string, settings: Settings) {
   if (method === "Cash") return settings.payment_cash_enabled;
   if (method === "Card") return settings.payment_card_enabled;
@@ -685,3 +664,5 @@ export function OnlineOrderClient({
     </main>
   );
 }
+
+

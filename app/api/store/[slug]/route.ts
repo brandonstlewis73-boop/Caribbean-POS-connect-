@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getBusinessBySlug, getBusinessSettings, getSubscriptionPlanId, listCategories, listProducts } from "@/lib/data";
 import { canUseFeature } from "@/lib/plan-gating";
 import { localizeOnlineSettings } from "@/lib/online-market";
+import { publicStoreName, withPublicStoreIdentity } from "@/lib/storefront-identity";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,12 +31,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   ]);
   const threeDGate = canUseFeature(planId, "threeDStorefront");
   const localized = localizeOnlineSettings({ ...settings, storefront_3d_enabled: Boolean(settings.storefront_3d_enabled && threeDGate.allowed) }, countryFromRequest(request));
+  const publicSettings = withPublicStoreIdentity(localized.settings, slug);
+  const publicBusinessName = publicSettings.business_name || publicStoreName(business.name, slug);
   const response = NextResponse.json({
     data: {
-      business,
+      business: { ...business, name: publicBusinessName, legal_name: publicBusinessName },
       products,
       categories,
-      settings: localized.settings,
+      settings: publicSettings,
       market: localized.market,
       statusMessage: null
     }
@@ -43,3 +46,5 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   response.headers.set("Vary", "x-vercel-ip-country, cf-ipcountry, x-country-code");
   return response;
 }
+
+
