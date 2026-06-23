@@ -31,7 +31,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   ]);
   const threeDGate = canUseFeature(planId, "threeDStorefront");
   const localized = localizeOnlineSettings({ ...settings, storefront_3d_enabled: Boolean(settings.storefront_3d_enabled && threeDGate.allowed) }, countryFromRequest(request));
-  const publicSettings = withPublicStoreIdentity(localized.settings, slug);
+  const publicSettings = withPublicStoreIdentity({ ...localized.settings, business_name: business.name || localized.settings.business_name }, slug);
   const publicBusinessName = publicSettings.business_name || publicStoreName(business.name, slug);
   const response = NextResponse.json({
     data: {
@@ -46,5 +46,3 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   response.headers.set("Vary", "x-vercel-ip-country, cf-ipcountry, x-country-code");
   return response;
 }
-
-

@@ -41,7 +41,7 @@ export default async function StorefrontPage({
   ]);
   const threeDGate = canUseFeature(planId, "threeDStorefront");
   const localized = localizeOnlineSettings({ ...settings, storefront_3d_enabled: Boolean(settings.storefront_3d_enabled && threeDGate.allowed) }, country);
-  const publicSettings = withPublicStoreIdentity(localized.settings, slug);
+  const publicSettings = withPublicStoreIdentity({ ...localized.settings, business_name: business.name || localized.settings.business_name }, slug);
 
   return (
     <OnlineOrderClient
@@ -56,4 +56,3 @@ export default async function StorefrontPage({
     />
   );
 }
-

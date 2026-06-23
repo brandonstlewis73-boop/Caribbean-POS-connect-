@@ -603,7 +603,7 @@ async function seedInitialData() {
      WHERE NOT EXISTS (SELECT 1 FROM businesses WHERE id = $1)`,
     [
       "biz_initial_setup",
-      "Your Business",
+      "Business setup",
       "initial-setup",
       "",
       "",

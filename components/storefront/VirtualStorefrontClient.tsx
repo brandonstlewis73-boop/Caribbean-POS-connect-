@@ -59,7 +59,7 @@ function supportsWebGL() {
 }
 
 function safeBusinessName(settings: Settings) {
-  return (settings.business_name || "Your Store").trim() || "Your Store";
+  return (settings.business_name || "Storefront").trim() || "Storefront";
 }
 
 function themeFor(settings: Settings) {
@@ -420,15 +420,15 @@ function StoreScene({ products, categories, settings, viewpoint, yaw, onSelect, 
 function StoreHUD({ settings, productCount, onExit }: { settings: Settings; productCount: number; onExit: () => void }) {
   const businessName = safeBusinessName(settings);
   return (
-    <div className="absolute inset-x-2 top-[max(0.5rem,env(safe-area-inset-top))] z-30 grid gap-2 rounded-[22px] border border-white/40 bg-white/90 p-2.5 text-slate-950 shadow-xl shadow-slate-950/10 backdrop-blur-xl sm:inset-x-5 sm:top-5 sm:flex sm:items-center sm:justify-between sm:gap-3 sm:p-3">
+    <div className="grid gap-3 rounded-[24px] border border-slate-200 bg-white p-3 text-slate-950 shadow-sm sm:flex sm:items-center sm:justify-between sm:gap-4 sm:p-4">
       <div className="flex min-w-0 items-center gap-3">
-        <img src={settings.logo_url || "/caribbean-pos-connect-icon.png"} alt="" className="h-10 w-10 shrink-0 rounded-2xl border border-slate-200 bg-white object-contain p-1 shadow-sm sm:h-11 sm:w-11" />
+        <img src={settings.logo_url || "/caribbean-pos-connect-icon.png"} alt="" className="h-11 w-11 shrink-0 rounded-2xl border border-slate-200 bg-white object-contain p-1 shadow-sm sm:h-12 sm:w-12" />
         <div className="min-w-0">
-          <p className="truncate text-sm font-black sm:text-base">{businessName}</p>
-          <p className="truncate text-[11px] font-bold text-slate-500 sm:text-xs">3D Storefront - drag to look around</p>
+          <p className="truncate text-base font-black sm:text-lg">{businessName}</p>
+          <p className="truncate text-xs font-bold text-slate-500">3D Storefront - drag to browse shelves</p>
         </div>
       </div>
-      <div className="flex items-center gap-2 overflow-x-auto">
+      <div className="grid grid-cols-[1fr_auto] items-center gap-2 sm:flex sm:shrink-0">
         <Badge tone="green">{productCount} live products</Badge>
         <Button type="button" size="sm" onClick={onExit} className="min-w-max rounded-full border-slate-200 bg-white px-4 text-slate-800 hover:border-teal-300 hover:bg-teal-50">Shop Normally</Button>
       </div>
@@ -439,8 +439,8 @@ function StoreHUD({ settings, productCount, onExit }: { settings: Settings; prod
 function StoreControls({ viewpoint, onViewpoint, yaw, onYaw, onReset }: { viewpoint: Viewpoint; onViewpoint: (viewpoint: Viewpoint) => void; yaw: number; onYaw: (next: number) => void; onReset: () => void }) {
   const buttonClass = "grid h-10 w-10 place-items-center rounded-full border border-white/35 bg-white/90 text-slate-800 shadow-lg transition hover:-translate-y-0.5 hover:bg-cyan-50 sm:h-11 sm:w-11";
   return (
-    <div className="pointer-events-none absolute inset-x-2 bottom-2 z-20 grid gap-2 sm:inset-x-5 sm:bottom-5 sm:gap-3">
-      <div className="pointer-events-auto mx-auto grid w-full max-w-[calc(100vw-1rem)] grid-cols-4 gap-1 rounded-[22px] border border-white/35 bg-slate-950/72 p-1.5 text-white shadow-2xl backdrop-blur-xl sm:flex sm:w-auto sm:max-w-full sm:gap-2 sm:rounded-full sm:p-2">
+    <div className="pointer-events-none absolute inset-x-3 bottom-3 z-20 grid gap-2 sm:inset-x-5 sm:bottom-5 sm:gap-3">
+      <div className="pointer-events-auto mx-auto grid w-full max-w-[calc(100vw-1.5rem)] grid-cols-4 gap-1 rounded-2xl border border-white/35 bg-slate-950/78 p-1.5 text-white shadow-2xl backdrop-blur-xl sm:flex sm:w-auto sm:max-w-full sm:gap-2 sm:rounded-full sm:p-2">
         {(["entrance", "featured", "categories", "checkout"] as Viewpoint[]).map((target) => (
           <button key={target} type="button" onClick={() => onViewpoint(target)} className={`min-h-9 min-w-0 truncate rounded-full px-2 text-[11px] font-black capitalize transition sm:min-h-10 sm:whitespace-nowrap sm:px-4 sm:text-xs ${viewpoint === target ? "bg-cyan-300 text-slate-950" : "bg-white/10 text-white hover:bg-white/18"}`}>
             {target === "entrance" ? "Home" : target === "categories" ? "Aisles" : target}
@@ -452,7 +452,7 @@ function StoreControls({ viewpoint, onViewpoint, yaw, onYaw, onReset }: { viewpo
         <button type="button" className={buttonClass} onClick={onReset} aria-label="Reset view"><RotateCcw className="h-4 w-4" /></button>
         <button type="button" className={buttonClass} onClick={() => onYaw(Math.min(0.75, yaw + 0.18))} aria-label="Look right"><ArrowRight className="h-4 w-4" /></button>
       </div>
-      <p className="mx-auto max-w-[calc(100vw-2rem)] rounded-full bg-white/85 px-3 py-1 text-center text-[11px] font-bold text-slate-600 shadow-sm sm:text-xs">Drag to look around. Tap markers to move.</p>
+      <p className="mx-auto max-w-[calc(100vw-2rem)] rounded-full bg-white/85 px-3 py-1 text-center text-[11px] font-bold text-slate-600 shadow-sm sm:text-xs">Drag to look around. Tap products on the shelves.</p>
     </div>
   );
 }
@@ -541,9 +541,10 @@ export default function VirtualStorefrontClient({ products, categories, settings
   }
 
   return (
-    <section className="overflow-hidden rounded-[34px] border border-slate-200 bg-white shadow-2xl shadow-slate-950/10">
+    <section className="grid gap-3 overflow-hidden rounded-[28px] border border-slate-200 bg-white p-3 shadow-xl shadow-slate-950/10 sm:rounded-[34px] sm:p-4">
+      <StoreHUD settings={settings} productCount={visibleProducts.length} onExit={onExit} />
       <div
-        className="relative h-[640px] min-h-[76vh] touch-pan-y overflow-hidden bg-gradient-to-br from-cyan-50 via-white to-amber-50 sm:min-h-0"
+        className="relative h-[540px] touch-pan-y overflow-hidden rounded-[24px] border border-slate-200 bg-gradient-to-br from-cyan-50 via-white to-amber-50 sm:h-[640px] sm:rounded-[28px]"
         onPointerDown={(event) => { drag.current = { x: event.clientX, yaw }; }}
         onPointerMove={(event) => {
           if (!drag.current) return;
@@ -562,7 +563,6 @@ export default function VirtualStorefrontClient({ products, categories, settings
             </div>
           </div>
         ) : null}
-        <StoreHUD settings={settings} productCount={visibleProducts.length} onExit={onExit} />
         <Canvas shadows camera={{ position: viewpointTargets.entrance.position, fov: 47 }} dpr={[1, 1.6]} performance={{ min: 0.55 }} gl={{ antialias: true, powerPreference: "high-performance" }}>
           <StoreScene products={visibleProducts} categories={categories} settings={settings} viewpoint={viewpoint} yaw={yaw} onSelect={setSelectedProduct} onViewpoint={setViewpoint} />
         </Canvas>
@@ -575,10 +575,10 @@ export default function VirtualStorefrontClient({ products, categories, settings
         ) : null}
         <StoreControls viewpoint={viewpoint} onViewpoint={setViewpoint} yaw={yaw} onYaw={setYaw} onReset={resetView} />
       </div>
-      <div className="grid gap-3 border-t border-slate-200 bg-white p-4 text-slate-700 sm:grid-cols-3">
-        <p className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm font-semibold">Tap products to see details, choose quantity, and add to cart.</p>
-        <p className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm font-semibold">Use drag, arrow keys, or the view chips to explore the store.</p>
-        <p className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm font-semibold">Normal checkout remains available at all times.</p>
+      <div className="grid gap-2 text-slate-700 sm:grid-cols-3">
+        <p className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs font-bold leading-5 sm:text-sm">Tap a shelf product for details and quantity.</p>
+        <p className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs font-bold leading-5 sm:text-sm">Drag the store or use the view buttons.</p>
+        <p className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs font-bold leading-5 sm:text-sm">Checkout stays in the normal store flow.</p>
       </div>
       {selectedProduct ? (
         <ProductModal
