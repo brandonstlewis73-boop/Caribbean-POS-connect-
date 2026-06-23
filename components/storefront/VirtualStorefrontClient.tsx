@@ -388,17 +388,17 @@ function StoreScene({ products, categories, settings, viewpoint, yaw, onSelect, 
 function StoreHUD({ settings, productCount, onExit }: { settings: Settings; productCount: number; onExit: () => void }) {
   const businessName = safeBusinessName(settings);
   return (
-    <div className="absolute inset-x-3 top-3 z-20 flex flex-wrap items-center justify-between gap-3 rounded-[24px] border border-white/40 bg-white/88 p-3 text-slate-950 shadow-xl shadow-slate-950/10 backdrop-blur-xl sm:inset-x-5 sm:top-5">
+    <div className="absolute inset-x-2 top-[max(0.5rem,env(safe-area-inset-top))] z-30 grid gap-2 rounded-[22px] border border-white/40 bg-white/90 p-2.5 text-slate-950 shadow-xl shadow-slate-950/10 backdrop-blur-xl sm:inset-x-5 sm:top-5 sm:flex sm:items-center sm:justify-between sm:gap-3 sm:p-3">
       <div className="flex min-w-0 items-center gap-3">
-        <img src={settings.logo_url || "/caribbean-pos-connect-icon.png"} alt="" className="h-11 w-11 shrink-0 rounded-2xl border border-slate-200 bg-white object-contain p-1 shadow-sm" />
+        <img src={settings.logo_url || "/caribbean-pos-connect-icon.png"} alt="" className="h-10 w-10 shrink-0 rounded-2xl border border-slate-200 bg-white object-contain p-1 shadow-sm sm:h-11 sm:w-11" />
         <div className="min-w-0">
           <p className="truncate text-sm font-black sm:text-base">{businessName}</p>
-          <p className="text-xs font-bold text-slate-500">3D Storefront - drag to look around</p>
+          <p className="truncate text-[11px] font-bold text-slate-500 sm:text-xs">3D Storefront - drag to look around</p>
         </div>
       </div>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex items-center gap-2 overflow-x-auto">
         <Badge tone="green">{productCount} live products</Badge>
-        <Button type="button" size="sm" onClick={onExit} className="rounded-full border-slate-200 bg-white text-slate-800 hover:border-teal-300 hover:bg-teal-50">Shop Normally</Button>
+        <Button type="button" size="sm" onClick={onExit} className="min-w-max rounded-full border-slate-200 bg-white px-4 text-slate-800 hover:border-teal-300 hover:bg-teal-50">Shop Normally</Button>
       </div>
     </div>
   );
@@ -407,27 +407,27 @@ function StoreHUD({ settings, productCount, onExit }: { settings: Settings; prod
 function PremiumProductRail({ products, settings, onSelect }: { products: Product[]; settings: Settings; onSelect: (product: Product) => void }) {
   if (!products.length) return null;
   return (
-    <div className="pointer-events-none absolute inset-x-3 top-[150px] z-20 sm:inset-x-5 sm:top-[104px]">
-      <div className="pointer-events-auto overflow-x-auto rounded-[26px] border border-white/45 bg-white/90 p-2 shadow-2xl shadow-slate-950/12 backdrop-blur-xl">
+    <div className="pointer-events-none absolute inset-x-2 top-[132px] z-20 sm:inset-x-5 sm:top-[104px]">
+      <div className="pointer-events-auto overflow-x-auto rounded-[24px] border border-white/45 bg-white/92 p-1.5 shadow-2xl shadow-slate-950/12 backdrop-blur-xl">
         <div className="flex min-w-max gap-2 pr-1">
           {products.slice(0, 8).map((product) => (
             <button
               key={product.id}
               type="button"
               onClick={() => onSelect(product)}
-              className="group grid w-[138px] shrink-0 gap-2 rounded-[22px] border border-slate-200 bg-white p-2 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-cyan-300 hover:shadow-md sm:w-[170px]"
+              className="group grid w-[116px] shrink-0 gap-1.5 rounded-[20px] border border-slate-200 bg-white p-1.5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-cyan-300 hover:shadow-md sm:w-[170px] sm:gap-2 sm:p-2"
             >
-              <span className="relative block h-20 overflow-hidden rounded-[18px] bg-gradient-to-br from-cyan-50 via-white to-amber-50 sm:h-24">
+              <span className="relative block h-16 overflow-hidden rounded-[16px] bg-gradient-to-br from-cyan-50 via-white to-amber-50 sm:h-24 sm:rounded-[18px]">
                 {product.image_url ? (
                   <img src={product.image_url} alt={product.name} loading="lazy" className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
                 ) : (
                   <span className="grid h-full place-items-center text-teal-700"><ShoppingBag className="h-8 w-8" /></span>
                 )}
-                <span className="absolute left-2 top-2 rounded-full bg-slate-950/75 px-2 py-1 text-[10px] font-black text-white backdrop-blur">Tap</span>
+                <span className="absolute left-1.5 top-1.5 rounded-full bg-slate-950/75 px-1.5 py-0.5 text-[9px] font-black text-white backdrop-blur sm:left-2 sm:top-2 sm:px-2 sm:py-1 sm:text-[10px]">Tap</span>
               </span>
               <span className="min-w-0">
                 <span className="block truncate text-xs font-black text-slate-950 sm:text-sm">{product.name}</span>
-                <span className="mt-0.5 block text-xs font-black text-teal-700">{money(product.selling_price, settings.currency)}</span>
+                <span className="mt-0.5 block text-[11px] font-black text-teal-700 sm:text-xs">{money(product.selling_price, settings.currency)}</span>
               </span>
             </button>
           ))}
@@ -437,13 +437,13 @@ function PremiumProductRail({ products, settings, onSelect }: { products: Produc
   );
 }
 function StoreControls({ viewpoint, onViewpoint, yaw, onYaw, onReset }: { viewpoint: Viewpoint; onViewpoint: (viewpoint: Viewpoint) => void; yaw: number; onYaw: (next: number) => void; onReset: () => void }) {
-  const buttonClass = "grid h-11 w-11 place-items-center rounded-full border border-white/35 bg-white/90 text-slate-800 shadow-lg transition hover:-translate-y-0.5 hover:bg-cyan-50";
+  const buttonClass = "grid h-10 w-10 place-items-center rounded-full border border-white/35 bg-white/90 text-slate-800 shadow-lg transition hover:-translate-y-0.5 hover:bg-cyan-50 sm:h-11 sm:w-11";
   return (
-    <div className="pointer-events-none absolute inset-x-3 bottom-3 z-20 grid gap-3 sm:inset-x-5 sm:bottom-5">
-      <div className="pointer-events-auto mx-auto flex max-w-full items-center gap-2 overflow-x-auto rounded-full border border-white/35 bg-slate-950/72 p-2 text-white shadow-2xl backdrop-blur-xl">
+    <div className="pointer-events-none absolute inset-x-2 bottom-2 z-20 grid gap-2 sm:inset-x-5 sm:bottom-5 sm:gap-3">
+      <div className="pointer-events-auto mx-auto grid w-full max-w-[calc(100vw-1rem)] grid-cols-4 gap-1 rounded-[22px] border border-white/35 bg-slate-950/72 p-1.5 text-white shadow-2xl backdrop-blur-xl sm:flex sm:w-auto sm:max-w-full sm:gap-2 sm:rounded-full sm:p-2">
         {(["entrance", "featured", "categories", "checkout"] as Viewpoint[]).map((target) => (
-          <button key={target} type="button" onClick={() => onViewpoint(target)} className={`min-h-10 whitespace-nowrap rounded-full px-4 text-xs font-black capitalize transition ${viewpoint === target ? "bg-cyan-300 text-slate-950" : "bg-white/10 text-white hover:bg-white/18"}`}>
-            {target === "entrance" ? "Overview" : target}
+          <button key={target} type="button" onClick={() => onViewpoint(target)} className={`min-h-9 min-w-0 truncate rounded-full px-2 text-[11px] font-black capitalize transition sm:min-h-10 sm:whitespace-nowrap sm:px-4 sm:text-xs ${viewpoint === target ? "bg-cyan-300 text-slate-950" : "bg-white/10 text-white hover:bg-white/18"}`}>
+            {target === "entrance" ? "Home" : target === "categories" ? "Aisles" : target}
           </button>
         ))}
       </div>
@@ -452,7 +452,7 @@ function StoreControls({ viewpoint, onViewpoint, yaw, onYaw, onReset }: { viewpo
         <button type="button" className={buttonClass} onClick={onReset} aria-label="Reset view"><RotateCcw className="h-4 w-4" /></button>
         <button type="button" className={buttonClass} onClick={() => onYaw(Math.min(0.75, yaw + 0.18))} aria-label="Look right"><ArrowRight className="h-4 w-4" /></button>
       </div>
-      <p className="mx-auto rounded-full bg-white/85 px-3 py-1 text-xs font-bold text-slate-600 shadow-sm">Drag to look around. Tap glowing markers to move.</p>
+      <p className="mx-auto max-w-[calc(100vw-2rem)] rounded-full bg-white/85 px-3 py-1 text-center text-[11px] font-bold text-slate-600 shadow-sm sm:text-xs">Drag to look around. Tap markers to move.</p>
     </div>
   );
 }
