@@ -165,6 +165,7 @@ export function SettingsClient({
   planUsage: PlanUsageSummary;
 }) {
   const [draft, setDraft] = useState(settings);
+  const [businessItems, setBusinessItems] = useState(businesses);
   const takePhotoInputRef = useRef<HTMLInputElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -185,7 +186,7 @@ export function SettingsClient({
   const [saving, setSaving] = useState(false);
   const [locating, setLocating] = useState(false);
   const [busyId, setBusyId] = useState("");
-  const activeBusiness = businesses.find((business) => business.id === draft.active_business_id) || null;
+  const activeBusiness = businessItems.find((business) => business.id === draft.active_business_id) || null;
   const storefrontSlug = activeBusiness?.storefront_slug || activeBusiness?.slug || "";
   const suggestedStorefrontSlug = storefrontSlug || safeSlug(draft.business_name);
   const storefrontUrl = storefrontSlug ? `/store/${storefrontSlug}` : "/settings";
@@ -223,12 +224,13 @@ export function SettingsClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(draft)
       });
-      const payload = await readApiPayload<{ settings: Settings }>(response);
+      const payload = await readApiPayload<{ settings: Settings; businesses?: Business[] }>(response);
       if (!response.ok || !payload.data?.settings) {
         setMessage(payload.error || "Settings could not be saved.");
         return false;
       }
       setDraft(payload.data.settings);
+      if (payload.data.businesses) setBusinessItems(payload.data.businesses);
       setMessage(successMessage);
       return true;
     } catch {

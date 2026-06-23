@@ -296,6 +296,25 @@ function slugify(value: string) {
     .slice(0, 80);
 }
 
+async function uniqueBusinessSlug(baseValue: string, businessId: string, client?: DbClient) {
+  const base = slugify(baseValue) || `store-${businessId.slice(-6).toLowerCase()}`;
+  for (let attempt = 0; attempt < 25; attempt += 1) {
+    const candidate = attempt === 0 ? base : `${base}-${attempt + 1}`;
+    const rows = await query<{ id: string }>(
+      `SELECT id
+       FROM businesses
+       WHERE id <> $1
+         AND active = TRUE
+         AND (LOWER(COALESCE(slug, '')) = LOWER($2) OR LOWER(COALESCE(storefront_slug, '')) = LOWER($2))
+       LIMIT 1`,
+      [businessId, candidate],
+      client
+    );
+    if (!rows.rows[0]) return candidate;
+  }
+  return `${base}-${businessId.slice(-8).toLowerCase()}`;
+}
+
 export async function getBusinessIdForUser(userId?: string | null, client?: DbClient) {
   if (!userId) return null;
   try {
@@ -750,6 +769,20 @@ export async function updateSettings(input: Partial<Settings>, userId?: string) 
     for (const [key, value] of Object.entries(nextInput)) {
       await saveBusinessSettingValue(businessId, key, value, client);
     }
+    const businessRows = await query<{ name: string | null; slug: string | null; storefront_slug: string | null }>(
+      "SELECT name, slug, storefront_slug FROM businesses WHERE id = $1 LIMIT 1",
+      [businessId],
+      client
+    );
+    const existingBusiness = businessRows.rows[0] || null;
+    const nextBusinessName =
+      typeof nextInput.business_name === "string" && nextInput.business_name.trim()
+        ? nextInput.business_name.trim()
+        : existingBusiness?.name || current.business_name || "";
+    const generatedStorefrontSlug =
+      existingBusiness && !existingBusiness.slug && !existingBusiness.storefront_slug && nextBusinessName
+        ? await uniqueBusinessSlug(nextBusinessName, businessId, client)
+        : null;
     await query(
       `UPDATE businesses SET
         name = COALESCE($1, name),
@@ -765,8 +798,10 @@ export async function updateSettings(input: Partial<Settings>, userId?: string) 
         postal_code = COALESCE($11, postal_code),
         latitude = COALESCE($12::numeric, latitude),
         longitude = COALESCE($13::numeric, longitude),
+        slug = COALESCE(slug, $14),
+        storefront_slug = COALESCE(storefront_slug, $14),
         updated_at = NOW()
-       WHERE id = $14`,
+       WHERE id = $15`,
       [
         nextInput.business_name ?? null,
         nextInput.business_phone ?? null,
@@ -781,11 +816,12 @@ export async function updateSettings(input: Partial<Settings>, userId?: string) 
         nextInput.business_postal_code ?? null,
         nextInput.business_latitude ?? null,
         nextInput.business_longitude ?? null,
+        generatedStorefrontSlug,
         businessId
       ],
       client
     );
-    await auditLog("settings:update", "settings", businessId, nextInput, userId, client);
+    await auditLog("settings:update", "settings", businessId, { ...nextInput, generatedStorefrontSlug }, userId, client);
   });
   return getBusinessSettings(businessId);
 }
