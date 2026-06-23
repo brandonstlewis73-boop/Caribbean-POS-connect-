@@ -281,15 +281,15 @@ function ProductDisplay({ product, index, currency, theme, onSelect, featured = 
         <boxGeometry args={[cardWidth, cardHeight, 0.09]} />
         <meshStandardMaterial color="#f8fafc" roughness={0.4} metalness={0.04} />
       </mesh>
-      <mesh position={[0, 0.18, -0.13]}>
+      <mesh position={[0, 0.18, 0.025]}>
         <planeGeometry args={[imageWidth, imageHeight]} />
         <meshStandardMaterial map={imageTexture || label} roughness={0.36} metalness={0.02} side={THREE.DoubleSide} />
       </mesh>
-      <mesh position={[0, featured ? -0.52 : -0.38, -0.14]}>
+      <mesh position={[0, featured ? -0.52 : -0.38, 0.03]}>
         <planeGeometry args={[labelWidth, labelHeight]} />
         <meshStandardMaterial map={label} roughness={0.38} side={THREE.DoubleSide} />
       </mesh>
-      <mesh position={[0, featured ? 0.96 : 0.8, -0.12]}>
+      <mesh position={[0, featured ? 0.96 : 0.8, 0.045]}>
         <boxGeometry args={[accentWidth, 0.035, 0.04]} />
         <meshStandardMaterial color={theme.accent} emissive={theme.accent} emissiveIntensity={0.16} />
       </mesh>
