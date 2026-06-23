@@ -21,7 +21,6 @@ import {
   UsersRound,
   Zap
 } from "lucide-react";
-import { AnimatedCounter } from "@/components/landing/AnimatedCounter";
 import { APP_NAME } from "@/lib/constants";
 
 const navItems = [
@@ -31,9 +30,9 @@ const navItems = [
 ];
 
 const controlStats = [
-  { label: "Total Sales", value: 12540, prefix: "$", suffix: ".75" },
-  { label: "Orders", value: 256 },
-  { label: "Items Sold", value: 1534 }
+  { label: "Sales", value: "Track revenue" },
+  { label: "Orders", value: "Manage fulfillment" },
+  { label: "Stock", value: "Monitor inventory" }
 ];
 
 const controlTasks = [
@@ -189,7 +188,7 @@ export default function LandingPage() {
                 View Plans
               </a>
               <Link href="/login" className="landing-button-gold inline-flex min-h-12 items-center justify-center rounded-full px-6 text-sm font-black text-white">
-                Open Demo
+                Sign In
               </Link>
             </div>
 
@@ -227,7 +226,7 @@ export default function LandingPage() {
                   <div key={stat.label} className="stat-card reveal-up rounded-3xl border border-[#48F3F8]/14 bg-[#0B1D2E]/82 p-5 shadow-[0_16px_45px_rgba(0,0,0,0.24)]" style={{ animationDelay: `${420 + index * 120}ms` }}>
                     <p className="text-xs font-bold text-[#A7B4C7]">{stat.label}</p>
                     <p className="mt-2 text-xl font-black text-white">
-                      <AnimatedCounter value={stat.value} prefix={stat.prefix} suffix={stat.suffix} duration={1300 + index * 120} />
+                      {stat.value}
                     </p>
                   </div>
                 ))}
@@ -373,7 +372,7 @@ export default function LandingPage() {
                   <ArrowRight className="h-4 w-4" />
                 </Link>
                 <Link href="/login" className="landing-button-gold inline-flex min-h-12 items-center justify-center rounded-full px-6 text-sm font-black text-white">
-                  Open Demo
+                  Sign In
                 </Link>
               </div>
             </div>

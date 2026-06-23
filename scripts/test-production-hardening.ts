@@ -81,6 +81,8 @@ assert.match(onlineStore, /Enter 3D Store/, "Public storefront should offer an E
 assert.match(onlineStore, /Shop Normally/, "Public storefront should keep the normal shopping fallback.");
 assert.match(onlineStore, /publicStoreName/, "Public storefront should guard against stale mismatched business names for slug views.");
 assert.match(storefrontIdentity, /withPublicStoreIdentity/, "Public storefront identity helper should sanitize stale business settings by slug.");
+assert.match(storefrontIdentity, /pay\\.example\\.com/, "Public storefront identity helper should disable example payment link templates.");
+assert.match(storefrontIdentity, /payment_links_enabled/, "Public storefront identity helper should hide payment links when the template is not production-safe.");
 assert.match(publicStorePage, /withPublicStoreIdentity/, "Server-rendered storefront should sanitize public settings before hydration.");
 assert.match(publicStoreApi, /withPublicStoreIdentity/, "Public store API should sanitize public settings before returning JSON.");
 assert.match(virtualStore, /supportsWebGL/, "3D storefront should detect WebGL support.");

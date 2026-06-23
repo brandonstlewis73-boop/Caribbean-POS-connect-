@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import bcrypt from "bcryptjs";
 import { Pool, type PoolClient, type PoolConfig, type QueryResult, type QueryResultRow } from "pg";
-import { DEFAULT_DELIVERY_RATES, PRODUCT_CATEGORIES } from "./constants";
+import { DEFAULT_DELIVERY_RATES } from "./constants";
 import { DEFAULT_HELP_ARTICLES } from "./support-context";
 
 try {
@@ -486,11 +486,11 @@ async function insertSetting(key: string, value: unknown) {
 }
 
 async function seedSettings() {
-  await insertSetting("business_name", "Your Business");
+  await insertSetting("business_name", "");
   await insertSetting("business_phone", "");
-  await insertSetting("business_email", "owner@yourbusiness.com");
+  await insertSetting("business_email", "");
   await insertSetting("business_address", "");
-  await insertSetting("logo_url", "/caribbean-pos-connect-icon.png");
+  await insertSetting("logo_url", null);
   await insertSetting("business_type", "retail");
   await insertSetting("business_color", "#14b8a6");
   await insertSetting("storefront_banner_url", "");
@@ -503,7 +503,7 @@ async function seedSettings() {
   await insertSetting("driver_waze_enabled", true);
   await insertSetting("show_empty_categories", false);
   await insertSetting("active_business_id", null);
-  await insertSetting("currency", "TTD");
+  await insertSetting("currency", "");
   await insertSetting("tax_enabled", true);
   await insertSetting("tax_rate", 12.5);
   await insertSetting("service_fee_enabled", false);
@@ -514,9 +514,9 @@ async function seedSettings() {
   await insertSetting("loyalty_enabled", true);
   await insertSetting("loyalty_points_per_ttd", 0.1);
   await insertSetting("loyalty_redeem_ttd_per_point", 0.1);
-  await insertSetting("payment_links_enabled", true);
+  await insertSetting("payment_links_enabled", false);
   await insertSetting("payment_link_template", "");
-  await insertSetting("whatsapp_enabled", true);
+  await insertSetting("whatsapp_enabled", false);
   await insertSetting("whatsapp_provider", "twilio");
   await insertSetting("whatsapp_business_number", "");
   await insertSetting("whatsapp_country_code", "+1868");
@@ -553,16 +553,16 @@ async function seedSettings() {
   await insertSetting("facebook_url", "");
   await insertSetting("instagram_url", "");
   await insertSetting("payment_cash_enabled", true);
-  await insertSetting("payment_card_enabled", true);
+  await insertSetting("payment_card_enabled", false);
   await insertSetting("payment_bank_enabled", true);
-  await insertSetting("payment_paypal_enabled", true);
-  await insertSetting("payment_wipay_enabled", true);
+  await insertSetting("payment_paypal_enabled", false);
+  await insertSetting("payment_wipay_enabled", false);
   await insertSetting("payment_pod_enabled", true);
   await insertSetting("receipt_print_customer_enabled", true);
   await insertSetting("receipt_print_kitchen_enabled", false);
   await insertSetting("receipt_email_enabled", true);
   await insertSetting("receipt_whatsapp_enabled", false);
-  await insertSetting("notification_whatsapp_enabled", true);
+  await insertSetting("notification_whatsapp_enabled", false);
   await insertSetting("notification_sms_enabled", false);
   await insertSetting("notification_email_enabled", false);
   await insertSetting("new_order_alerts_enabled", true);
@@ -599,14 +599,14 @@ async function seedHelpArticles() {
 async function seedInitialData() {
   await rawQuery(
     `INSERT INTO businesses (id, name, legal_name, slug, phone, email, street_address, city, region, country, currency, logo_url)
-     SELECT $1, $2, $2, $3, $4, $5, $6, $7, $8, 'Trinidad and Tobago', 'TTD', '/caribbean-pos-connect-icon.png'
+     SELECT $1, $2, $2, $3, $4, $5, $6, $7, $8, 'Trinidad and Tobago', 'TTD', NULL
      WHERE NOT EXISTS (SELECT 1 FROM businesses WHERE id = $1)`,
     [
       "biz_initial_setup",
       "Your Business",
       "initial-setup",
       "",
-      "owner@yourbusiness.com",
+      "",
       "",
       "",
       ""
@@ -623,20 +623,6 @@ async function seedInitialData() {
         [createId("usr"), "biz_initial_setup", name, email, passwordHash, role, phone]
       );
     }
-  }
-
-  for (const [index, category] of PRODUCT_CATEGORIES.entries()) {
-    await rawQuery(
-      `INSERT INTO categories (id, name, slug, sort_order, active)
-       SELECT $1, $2, $3, $4, TRUE
-       WHERE NOT EXISTS (SELECT 1 FROM categories WHERE slug = $3)`,
-      [
-        `cat_${category.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "")}`,
-        category,
-        category.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""),
-        (index + 1) * 10
-      ]
-    );
   }
 }
 
