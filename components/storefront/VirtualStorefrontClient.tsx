@@ -219,16 +219,25 @@ function ShelfUnit({ position, rotation = [0, 0, 0], theme }: { position: THREE.
   );
 }
 
-function ProductDisplay({ product, index, currency, theme, onSelect }: { product: Product; index: number; currency: string; theme: ThemeTokens; onSelect: (product: Product) => void }) {
+function ProductDisplay({ product, index, currency, theme, onSelect, featured = false }: { product: Product; index: number; currency: string; theme: ThemeTokens; onSelect: (product: Product) => void; featured?: boolean }) {
   const label = useMemo(() => createProductLabel(product, currency, theme.accent), [product, currency, theme.accent]);
   const imageTexture = useImageTexture(product.image_url);
   const row = Math.floor(index / 4);
   const column = index % 4;
+  const featuredColumn = index % 3;
+  const featuredRow = Math.floor(index / 3);
   const side = column < 2 ? -1 : 1;
-  const x = side * (1.65 + (column % 2) * 1.35);
-  const z = 2.25 - row * 1.05;
-  const y = 1.2 + (index % 2) * 0.16;
-  const rotationY = side < 0 ? Math.PI / 8 : -Math.PI / 8;
+  const x = featured ? -1.85 + featuredColumn * 1.85 : side * (1.65 + (column % 2) * 1.35);
+  const z = featured ? 2.55 - featuredRow * 1.25 : 2.25 - row * 1.05;
+  const y = featured ? 1.22 : 1.2 + (index % 2) * 0.16;
+  const rotationY = featured ? 0 : side < 0 ? Math.PI / 8 : -Math.PI / 8;
+  const cardWidth = featured ? 1.58 : 1.34;
+  const cardHeight = featured ? 1.42 : 1.14;
+  const imageWidth = featured ? 1.42 : 1.22;
+  const imageHeight = featured ? 0.96 : 0.8;
+  const labelWidth = featured ? 1.42 : 1.18;
+  const labelHeight = featured ? 0.38 : 0.34;
+  const accentWidth = featured ? 1.48 : 1.3;
   const groupRef = useRef<THREE.Group>(null);
 
   useFrame(({ clock }) => {
@@ -245,23 +254,23 @@ function ProductDisplay({ product, index, currency, theme, onSelect }: { product
       onPointerOut={() => { document.body.style.cursor = ""; }}
     >
       <mesh position={[0, -0.62, -0.04]} castShadow receiveShadow>
-        <boxGeometry args={[1.42, 0.12, 0.56]} />
+        <boxGeometry args={[featured ? 1.72 : 1.42, 0.12, featured ? 0.7 : 0.56]} />
         <meshStandardMaterial color="#d9eef0" roughness={0.5} metalness={0.05} />
       </mesh>
       <mesh position={[0, 0.1, -0.075]} castShadow>
-        <boxGeometry args={[1.34, 1.14, 0.09]} />
+        <boxGeometry args={[cardWidth, cardHeight, 0.09]} />
         <meshStandardMaterial color="#f8fafc" roughness={0.4} metalness={0.04} />
       </mesh>
       <mesh position={[0, 0.18, -0.13]}>
-        <planeGeometry args={[1.22, 0.8]} />
+        <planeGeometry args={[imageWidth, imageHeight]} />
         <meshStandardMaterial map={imageTexture || label} roughness={0.36} metalness={0.02} side={THREE.DoubleSide} />
       </mesh>
-      <mesh position={[0, -0.38, -0.14]}>
-        <planeGeometry args={[1.18, 0.34]} />
+      <mesh position={[0, featured ? -0.52 : -0.38, -0.14]}>
+        <planeGeometry args={[labelWidth, labelHeight]} />
         <meshStandardMaterial map={label} roughness={0.38} side={THREE.DoubleSide} />
       </mesh>
-      <mesh position={[0, 0.8, -0.12]}>
-        <boxGeometry args={[1.3, 0.035, 0.04]} />
+      <mesh position={[0, featured ? 0.96 : 0.8, -0.12]}>
+        <boxGeometry args={[accentWidth, 0.035, 0.04]} />
         <meshStandardMaterial color={theme.accent} emissive={theme.accent} emissiveIntensity={0.16} />
       </mesh>
     </group>
@@ -347,7 +356,27 @@ function StoreScene({ products, categories, settings, viewpoint, yaw, onSelect, 
         </mesh>
       ))}
 
-      {products.map((product, index) => <ProductDisplay key={product.id} product={product} index={index} currency={settings.currency} theme={theme} onSelect={onSelect} />)}
+            <group position={[0, 0, 1.55]}>
+        <mesh castShadow receiveShadow position={[0, 0.34, 0]}>
+          <boxGeometry args={[6.2, 0.28, 2.1]} />
+          <meshStandardMaterial color="#ffffff" roughness={0.32} metalness={0.08} />
+        </mesh>
+        <mesh position={[0, 0.53, 0]}>
+          <boxGeometry args={[5.92, 0.04, 1.82]} />
+          <meshStandardMaterial color={theme.accent} emissive={theme.accent} emissiveIntensity={0.1} roughness={0.28} />
+        </mesh>
+        <mesh castShadow receiveShadow position={[-2.45, 0.09, 0]}>
+          <boxGeometry args={[0.18, 0.54, 1.78]} />
+          <meshStandardMaterial color={theme.counter} roughness={0.38} metalness={0.1} />
+        </mesh>
+        <mesh castShadow receiveShadow position={[2.45, 0.09, 0]}>
+          <boxGeometry args={[0.18, 0.54, 1.78]} />
+          <meshStandardMaterial color={theme.counter} roughness={0.38} metalness={0.1} />
+        </mesh>
+      </group>
+
+      {products.slice(0, 6).map((product, index) => <ProductDisplay key={product.id} product={product} index={index} currency={settings.currency} theme={theme} onSelect={onSelect} featured />)}
+      {products.slice(6).map((product, index) => <ProductDisplay key={product.id} product={product} index={index + 6} currency={settings.currency} theme={theme} onSelect={onSelect} />)}
 
       <Hotspot label="Featured" position={[-2.9, 0.2, 3.1]} theme={theme} onClick={() => onViewpoint("featured")} />
       <Hotspot label="Categories" position={[2.8, 0.2, 2.8]} theme={theme} onClick={() => onViewpoint("categories")} />
@@ -375,6 +404,38 @@ function StoreHUD({ settings, productCount, onExit }: { settings: Settings; prod
   );
 }
 
+function PremiumProductRail({ products, settings, onSelect }: { products: Product[]; settings: Settings; onSelect: (product: Product) => void }) {
+  if (!products.length) return null;
+  return (
+    <div className="pointer-events-none absolute inset-x-3 top-[150px] z-20 sm:inset-x-5 sm:top-[104px]">
+      <div className="pointer-events-auto overflow-x-auto rounded-[26px] border border-white/45 bg-white/90 p-2 shadow-2xl shadow-slate-950/12 backdrop-blur-xl">
+        <div className="flex min-w-max gap-2 pr-1">
+          {products.slice(0, 8).map((product) => (
+            <button
+              key={product.id}
+              type="button"
+              onClick={() => onSelect(product)}
+              className="group grid w-[138px] shrink-0 gap-2 rounded-[22px] border border-slate-200 bg-white p-2 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-cyan-300 hover:shadow-md sm:w-[170px]"
+            >
+              <span className="relative block h-20 overflow-hidden rounded-[18px] bg-gradient-to-br from-cyan-50 via-white to-amber-50 sm:h-24">
+                {product.image_url ? (
+                  <img src={product.image_url} alt={product.name} loading="lazy" className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
+                ) : (
+                  <span className="grid h-full place-items-center text-teal-700"><ShoppingBag className="h-8 w-8" /></span>
+                )}
+                <span className="absolute left-2 top-2 rounded-full bg-slate-950/75 px-2 py-1 text-[10px] font-black text-white backdrop-blur">Tap</span>
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-xs font-black text-slate-950 sm:text-sm">{product.name}</span>
+                <span className="mt-0.5 block text-xs font-black text-teal-700">{money(product.selling_price, settings.currency)}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 function StoreControls({ viewpoint, onViewpoint, yaw, onYaw, onReset }: { viewpoint: Viewpoint; onViewpoint: (viewpoint: Viewpoint) => void; yaw: number; onYaw: (next: number) => void; onReset: () => void }) {
   const buttonClass = "grid h-11 w-11 place-items-center rounded-full border border-white/35 bg-white/90 text-slate-800 shadow-lg transition hover:-translate-y-0.5 hover:bg-cyan-50";
   return (
@@ -502,6 +563,7 @@ export default function VirtualStorefrontClient({ products, categories, settings
           </div>
         ) : null}
         <StoreHUD settings={settings} productCount={visibleProducts.length} onExit={onExit} />
+        <PremiumProductRail products={visibleProducts} settings={settings} onSelect={setSelectedProduct} />
         <Canvas shadows camera={{ position: viewpointTargets.entrance.position, fov: 47 }} dpr={[1, 1.6]} performance={{ min: 0.55 }} gl={{ antialias: true, powerPreference: "high-performance" }}>
           <StoreScene products={visibleProducts} categories={categories} settings={settings} viewpoint={viewpoint} yaw={yaw} onSelect={setSelectedProduct} onViewpoint={setViewpoint} />
         </Canvas>
