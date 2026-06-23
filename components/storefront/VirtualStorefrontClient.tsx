@@ -42,8 +42,8 @@ const themeAccents: Record<string, ThemeTokens> = {
 };
 
 const viewpointTargets: Record<Viewpoint, { position: THREE.Vector3Tuple; lookAt: THREE.Vector3Tuple }> = {
-  entrance: { position: [0, 1.85, 5.55], lookAt: [0, 1.18, 1.35] },
-  featured: { position: [0, 1.9, 4.25], lookAt: [0, 1.15, 1.4] },
+  entrance: { position: [0, 1.85, 6.15], lookAt: [0, 1.14, 1.28] },
+  featured: { position: [0, 1.9, 4.95], lookAt: [0, 1.12, 1.32] },
   categories: { position: [2.65, 1.95, 3.8], lookAt: [2.35, 1.1, -0.2] },
   checkout: { position: [0, 2.05, 2.1], lookAt: [0, 1.2, -4.15] }
 };
@@ -247,17 +247,17 @@ function ProductDisplay({ product, index, currency, theme, onSelect, featured = 
   const featuredColumn = index % 3;
   const featuredRow = Math.floor(index / 3);
   const side = column < 2 ? -1 : 1;
-  const x = featured ? -1.95 + featuredColumn * 1.95 : side * (1.65 + (column % 2) * 1.35);
-  const z = featured ? 1.55 - featuredRow * 1.18 : 2.25 - row * 1.05;
+  const x = featured ? -1.35 + featuredColumn * 1.35 : side * (1.65 + (column % 2) * 1.35);
+  const z = featured ? 1.48 - featuredRow * 1.05 : 2.25 - row * 1.05;
   const y = featured ? 1.04 : 1.2 + (index % 2) * 0.16;
   const rotationY = featured ? 0 : side < 0 ? Math.PI / 8 : -Math.PI / 8;
-  const cardWidth = featured ? 1.68 : 1.34;
-  const cardHeight = featured ? 1.5 : 1.14;
-  const imageWidth = featured ? 1.5 : 1.22;
-  const imageHeight = featured ? 1.02 : 0.8;
-  const labelWidth = featured ? 1.5 : 1.18;
+  const cardWidth = featured ? 1.22 : 1.34;
+  const cardHeight = featured ? 1.18 : 1.14;
+  const imageWidth = featured ? 1.08 : 1.22;
+  const imageHeight = featured ? 0.74 : 0.8;
+  const labelWidth = featured ? 1.08 : 1.18;
   const labelHeight = featured ? 0.38 : 0.34;
-  const accentWidth = featured ? 1.56 : 1.3;
+  const accentWidth = featured ? 1.12 : 1.3;
   const groupRef = useRef<THREE.Group>(null);
 
   useFrame(({ clock }) => {
@@ -274,7 +274,7 @@ function ProductDisplay({ product, index, currency, theme, onSelect, featured = 
       onPointerOut={() => { document.body.style.cursor = ""; }}
     >
       <mesh position={[0, -0.62, -0.04]} castShadow receiveShadow>
-        <boxGeometry args={[featured ? 1.72 : 1.42, 0.12, featured ? 0.7 : 0.56]} />
+        <boxGeometry args={[featured ? 1.28 : 1.42, 0.12, featured ? 0.58 : 0.56]} />
         <meshStandardMaterial color="#d9eef0" roughness={0.5} metalness={0.05} />
       </mesh>
       <mesh position={[0, 0.1, -0.075]} castShadow>
@@ -563,7 +563,7 @@ export default function VirtualStorefrontClient({ products, categories, settings
             </div>
           </div>
         ) : null}
-        <Canvas shadows camera={{ position: viewpointTargets.entrance.position, fov: 47 }} dpr={[1, 1.6]} performance={{ min: 0.55 }} gl={{ antialias: true, powerPreference: "high-performance" }}>
+        <Canvas shadows camera={{ position: viewpointTargets.entrance.position, fov: 54 }} dpr={[1, 1.6]} performance={{ min: 0.55 }} gl={{ antialias: true, powerPreference: "high-performance" }}>
           <StoreScene products={visibleProducts} categories={categories} settings={settings} viewpoint={viewpoint} yaw={yaw} onSelect={setSelectedProduct} onViewpoint={setViewpoint} />
         </Canvas>
         {!visibleProducts.length ? (
