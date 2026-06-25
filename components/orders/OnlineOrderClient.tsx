@@ -6,7 +6,6 @@ import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState, type InputHTMLAttributes, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
 import { CheckCircle2, ExternalLink, LocateFixed, Minus, Plus, Send, ShoppingBag, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { Badge } from "@/components/ui/Badge";
 import { getDefaultCountryForCurrency, getDeliveryRegionsForCurrency, money, PAYMENT_METHODS } from "@/lib/constants";
 import { publicStoreName } from "@/lib/storefront-identity";
 import { readApiPayload } from "@/lib/client-response";
@@ -333,8 +332,8 @@ export function OnlineOrderClient({
   }
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[#f7faf8] pb-24 text-slate-950 xl:pb-0">
-      <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/95 px-4 py-4 shadow-sm backdrop-blur-xl">
+    <main className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top_left,rgba(18,214,223,0.14),transparent_34%),linear-gradient(180deg,#f8fffe_0%,#eef7f5_44%,#f7faf8_100%)] pb-24 text-slate-950 xl:pb-0">
+      <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/92 px-4 py-3 shadow-sm backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <img src={displaySettings.logo_url || "/caribbean-pos-connect-icon.png"} alt="" className="h-12 w-12 shrink-0 rounded-2xl border border-slate-200 bg-white object-contain p-1 shadow-sm" />
@@ -367,32 +366,42 @@ export function OnlineOrderClient({
 
       <div className="mx-auto grid max-w-7xl min-w-0 gap-6 px-4 py-6 xl:grid-cols-[minmax(0,1fr)_minmax(380px,420px)]">
         <section className="grid min-w-0 gap-4">
-          <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
+          <div className="relative overflow-hidden rounded-[32px] border border-teal-100 bg-slate-950 text-white shadow-2xl shadow-teal-950/10">
             {settings.storefront_banner_url ? (
-              <img src={settings.storefront_banner_url} alt="" className="h-44 w-full object-cover sm:h-56" />
-            ) : (
-              <div className="h-32 bg-gradient-to-br from-teal-50 via-white to-amber-50 sm:h-44" />
-            )}
-            <div className="grid gap-4 p-5 sm:flex sm:items-end sm:justify-between sm:p-6">
+              <img src={settings.storefront_banner_url} alt="" className="absolute inset-0 h-full w-full object-cover opacity-38" />
+            ) : null}
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_22%,rgba(72,243,248,0.28),transparent_30%),radial-gradient(circle_at_92%_10%,rgba(245,196,81,0.2),transparent_24%),linear-gradient(135deg,rgba(7,20,33,0.96),rgba(9,52,61,0.9)_58%,rgba(7,20,33,0.98))]" />
+            <div className="relative grid gap-6 p-5 sm:p-7 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
               <div className="min-w-0">
-                <p className="text-sm font-black uppercase tracking-[0.16em] text-teal-700">Order online</p>
-                <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">{displaySettings.business_name}</h2>
-                <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-600">
-                  Choose your items, select pickup or delivery, and submit your order securely.
-                </p>
-              </div>
-              {settings.store_hours ? (
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-600">
-                  Hours: {settings.store_hours}
+                <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-cyan-100">
+                  Order online
                 </div>
-              ) : null}
+                <h2 className="mt-5 text-4xl font-black tracking-tight text-white sm:text-5xl">{displaySettings.business_name}</h2>
+                <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-cyan-50/78 sm:text-base">
+                  Browse the menu, choose pickup or delivery, and place your order from any device.
+                </p>
+                <div className="mt-5 flex flex-wrap gap-2">
+                  {settings.delivery_enabled !== false ? <span className="rounded-full bg-cyan-300 px-3 py-1.5 text-xs font-black text-slate-950">Delivery available</span> : null}
+                  {settings.pickup_enabled !== false ? <span className="rounded-full border border-white/18 bg-white/10 px-3 py-1.5 text-xs font-black text-white">Pickup available</span> : null}
+                  {settings.storefront_status === "live" ? <span className="rounded-full border border-emerald-300/40 bg-emerald-400/14 px-3 py-1.5 text-xs font-black text-emerald-100">Store live</span> : null}
+                </div>
+              </div>
+              <div className="grid gap-3 rounded-[26px] border border-white/14 bg-white/10 p-4 backdrop-blur-md sm:min-w-64">
+                <div className="flex items-center gap-3">
+                  <img src={displaySettings.logo_url || "/caribbean-pos-connect-icon.png"} alt="" className="h-14 w-14 rounded-2xl border border-white/20 bg-white object-contain p-1" />
+                  <div>
+                    <p className="text-sm font-black text-white">{displaySettings.business_name}</p>
+                    <p className="text-xs font-bold text-cyan-50/65">{marketCountry} / {settings.currency}</p>
+                  </div>
+                </div>
+                {settings.store_hours ? <p className="rounded-2xl bg-white/10 px-3 py-2 text-sm font-bold text-cyan-50">Hours: {settings.store_hours}</p> : null}
+              </div>
             </div>
-          </div>
-          {threeDStorefrontEnabled ? (
-            <div className="grid gap-3 rounded-[26px] border border-slate-200 bg-white p-4 shadow-sm sm:flex sm:items-center sm:justify-between">
+          </div>          {threeDStorefrontEnabled ? (
+            <div className="grid gap-3 rounded-[28px] border border-cyan-100 bg-white/92 p-4 shadow-xl shadow-teal-950/5 backdrop-blur sm:flex sm:items-center sm:justify-between">
               <div className="min-w-0">
-                <p className="text-sm font-black text-slate-950">Premium 3D Storefront</p>
-                <p className="mt-1 text-sm font-semibold text-slate-500">Walk through a lightweight virtual shop, tap products, then checkout normally.</p>
+                <p className="text-sm font-black text-slate-950">Explore the 3D Store</p>
+                <p className="mt-1 text-sm font-semibold text-slate-500">Browse products on virtual shelves, then checkout normally when you are ready.</p>
               </div>
               <div className="grid gap-2 sm:flex sm:shrink-0 sm:flex-wrap">
                 <Button type="button" variant="primary" onClick={() => setShowVirtualStore(true)} className="rounded-full bg-slate-950 text-white hover:bg-teal-700">
@@ -418,7 +427,7 @@ export function OnlineOrderClient({
               This storefront is paused right now. You can view products, but ordering is temporarily unavailable.
             </p>
           ) : null}
-          <div className="flex gap-2 overflow-x-auto scroll-smooth rounded-[24px] border border-slate-200 bg-white p-2 shadow-sm">
+          <div className="flex gap-2 overflow-x-auto scroll-smooth rounded-[26px] border border-slate-200 bg-white/95 p-2 shadow-lg shadow-slate-950/5">
             <button
               onClick={() => setCategory("all")}
               className={`min-h-11 whitespace-nowrap rounded-full px-4 py-2 text-sm font-black transition ${
@@ -455,8 +464,8 @@ export function OnlineOrderClient({
               </div>
             ) : null}
             {visibleProducts.map((product) => (
-              <button key={product.id} onClick={() => add(product)} className="group min-h-[248px] min-w-0 overflow-hidden rounded-[24px] border border-slate-200 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:border-teal-300 hover:shadow-md">
-                <div className="relative h-36 bg-slate-100">
+              <button key={product.id} onClick={() => add(product)} className="group min-h-[304px] min-w-0 overflow-hidden rounded-[30px] border border-slate-200 bg-white p-2 text-left shadow-lg shadow-slate-950/5 transition hover:-translate-y-1 hover:border-teal-300 hover:shadow-2xl hover:shadow-teal-950/10">
+                <div className="relative h-44 overflow-hidden rounded-[24px] bg-slate-100 sm:h-48">
                   {product.image_url ? (
                     <img src={product.image_url} alt={product.name} loading="lazy" className="h-full w-full object-cover" />
                   ) : (
@@ -464,15 +473,13 @@ export function OnlineOrderClient({
                       <ShoppingBag className="h-7 w-7 text-teal-600" />
                     </div>
                   )}
-                  <div className="absolute right-2 top-2">
-                    <Badge tone={product.stock_quantity <= product.low_stock_alert ? "red" : "green"}>{product.stock_quantity}</Badge>
-                  </div>
                 </div>
-                <div className="grid gap-3 p-4">
+                <div className="grid gap-3 p-3 sm:p-4">
                   <p className="line-clamp-2 min-h-10 text-base font-black leading-tight text-slate-950">{product.name}</p>
+                  {product.description ? <p className="line-clamp-2 min-h-10 text-xs font-semibold leading-5 text-slate-500">{product.description}</p> : <p className="min-h-10 text-xs font-semibold leading-5 text-slate-500">Tap to add this item to your order.</p>}
                   <div className="flex items-center justify-between gap-3">
-                    <p className="text-lg font-black text-teal-700">{formatMoney(product.selling_price)}</p>
-                    <span className="rounded-full bg-slate-950 px-3 py-1.5 text-xs font-black text-white transition group-hover:bg-teal-700">Add</span>
+                    <p className="text-xl font-black text-teal-700">{formatMoney(product.selling_price)}</p>
+                    <span className="rounded-full bg-slate-950 px-4 py-2 text-xs font-black text-white transition group-hover:bg-teal-700">Add</span>
                   </div>
                 </div>
               </button>
@@ -491,7 +498,7 @@ export function OnlineOrderClient({
         <aside id="checkout" className="grid min-w-0 gap-4 self-start scroll-mt-24 xl:sticky xl:top-24">
           {!order ? (
             <>
-          <section className="rounded-[24px] border border-slate-200 bg-white shadow-sm">
+          <section className="rounded-[30px] border border-slate-200 bg-white shadow-xl shadow-slate-950/5">
             <div className="border-b border-slate-200 px-5 py-4">
               <h2 className="text-lg font-black tracking-tight text-slate-950">Your order</h2>
               <p className="mt-1 text-sm font-semibold text-slate-500">{cart.length ? `${cart.length} item${cart.length === 1 ? "" : "s"} selected` : "Build your cart from the menu"}</p>
@@ -529,15 +536,15 @@ export function OnlineOrderClient({
                 </div>
               ) : null}
             </div>
-            <div className="grid gap-2 border-t border-slate-200 bg-slate-50/80 p-5 text-sm text-slate-600">
+            <div className="grid gap-2 border-t border-slate-200 bg-gradient-to-br from-slate-50 to-teal-50/45 p-5 text-sm text-slate-600">
               <div className="flex justify-between"><span>Subtotal</span><strong className="text-slate-950">{formatMoney(subtotal)}</strong></div>
               <div className="flex justify-between"><span>Tax/Fee</span><strong className="text-slate-950">{formatMoney(tax)}</strong></div>
               <div className="flex justify-between"><span>Delivery</span><strong className="text-slate-950">{formatMoney(deliveryFee)}</strong></div>
-              <div className="mt-2 flex justify-between border-t border-slate-200 pt-3 text-xl font-black text-slate-950"><span>Total</span><span>{formatMoney(total)}</span></div>
+              <div className="mt-2 flex justify-between rounded-2xl bg-slate-950 px-4 py-3 text-xl font-black text-white"><span>Total</span><span>{formatMoney(total)}</span></div>
             </div>
           </section>
 
-          <section className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
+          <section className="rounded-[30px] border border-slate-200 bg-white p-5 shadow-xl shadow-slate-950/5">
             <div className="mb-4">
               <h2 className="text-lg font-black tracking-tight text-slate-950">Checkout</h2>
               <p className="mt-1 text-sm font-semibold text-slate-500">Confirm your contact, address, and payment preference.</p>
@@ -664,5 +671,4 @@ export function OnlineOrderClient({
     </main>
   );
 }
-
 

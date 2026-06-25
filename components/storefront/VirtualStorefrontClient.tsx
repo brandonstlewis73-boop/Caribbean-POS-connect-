@@ -42,10 +42,10 @@ const themeAccents: Record<string, ThemeTokens> = {
 };
 
 const viewpointTargets: Record<Viewpoint, { position: THREE.Vector3Tuple; lookAt: THREE.Vector3Tuple }> = {
-  entrance: { position: [0, 1.85, 6.15], lookAt: [0, 1.14, 1.28] },
-  featured: { position: [0, 1.9, 4.95], lookAt: [0, 1.12, 1.32] },
-  categories: { position: [2.65, 1.95, 3.8], lookAt: [2.35, 1.1, -0.2] },
-  checkout: { position: [0, 2.05, 2.1], lookAt: [0, 1.2, -4.15] }
+  entrance: { position: [0, 1.72, 6.35], lookAt: [0, 1.05, 0.9] },
+  featured: { position: [0, 1.8, 5.15], lookAt: [0, 1.04, 1.08] },
+  categories: { position: [2.85, 1.92, 4.25], lookAt: [2.35, 1.08, -0.1] },
+  checkout: { position: [0, 2.05, 2.35], lookAt: [0, 1.08, -4.1] }
 };
 
 function supportsWebGL() {
@@ -115,41 +115,27 @@ function createProductLabel(product: Product, currency: string, accent: string) 
   });
 }
 
-function createShelfHeaderTexture(accent: string) {
-  return createCanvasTexture(900, 220, (ctx) => {
-    const gradient = ctx.createLinearGradient(0, 0, 900, 220);
-    gradient.addColorStop(0, "#071421");
-    gradient.addColorStop(1, "#0B1D2E");
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, 900, 220);
-    ctx.fillStyle = accent;
-    ctx.fillRect(0, 0, 900, 10);
-    ctx.fillStyle = "#F5C451";
-    ctx.fillRect(0, 210, 900, 10);
-    ctx.fillStyle = "#F8FAFC";
-    ctx.font = "900 48px Arial";
-    ctx.textAlign = "center";
-    ctx.fillText("Featured products", 450, 92);
-    ctx.fillStyle = "rgba(248, 250, 252, 0.72)";
-    ctx.font = "800 26px Arial";
-    ctx.fillText("Tap any shelf item to view details", 450, 146);
-  });
-}
 function createSignTexture(name: string, accent: string, logoUrl?: string | null) {
   return createCanvasTexture(1024, 360, (ctx) => {
-    ctx.fillStyle = "#071421";
+    const gradient = ctx.createLinearGradient(0, 0, 1024, 360);
+    gradient.addColorStop(0, "#071421");
+    gradient.addColorStop(0.72, "#0B1D2E");
+    gradient.addColorStop(1, "#123047");
+    ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, 1024, 360);
     ctx.fillStyle = accent;
-    ctx.fillRect(0, 0, 1024, 12);
-    ctx.fillStyle = "rgba(245, 196, 81, 0.95)";
-    ctx.fillRect(0, 348, 1024, 12);
+    ctx.fillRect(0, 0, 1024, 16);
+    ctx.fillStyle = "rgba(245, 196, 81, 0.9)";
+    ctx.fillRect(0, 344, 1024, 16);
+    ctx.fillStyle = "rgba(255,255,255,0.08)";
+    ctx.fillRect(42, 48, 940, 244);
     ctx.fillStyle = "#F8FAFC";
-    ctx.font = "900 72px Arial";
+    ctx.font = "900 66px Arial";
     ctx.textAlign = "center";
-    ctx.fillText(name.slice(0, 24), 512, 170);
-    ctx.fillStyle = "rgba(248, 250, 252, 0.72)";
-    ctx.font = "800 30px Arial";
-    ctx.fillText(logoUrl ? "Premium 3D Storefront" : "Shop online with confidence", 512, 230);
+    ctx.fillText(name.slice(0, 24), 512, 156);
+    ctx.fillStyle = accent;
+    ctx.font = "900 28px Arial";
+    ctx.fillText(logoUrl ? "Virtual storefront" : "Browse. Tap. Checkout.", 512, 218);
   });
 }
 
@@ -239,6 +225,24 @@ function ShelfUnit({ position, rotation = [0, 0, 0], theme }: { position: THREE.
   );
 }
 
+function ProductPedestal({ x, z, theme }: { x: number; z: number; theme: ThemeTokens }) {
+  return (
+    <group position={[x, 0, z]}>
+      <mesh castShadow receiveShadow position={[0, 0.47, 0]}>
+        <boxGeometry args={[1.34, 0.28, 0.72]} />
+        <meshStandardMaterial color="#f8fafc" roughness={0.32} metalness={0.06} />
+      </mesh>
+      <mesh castShadow receiveShadow position={[0, 0.66, -0.03]}>
+        <boxGeometry args={[1.16, 0.08, 0.56]} />
+        <meshStandardMaterial color={theme.shelf} roughness={0.38} metalness={0.12} />
+      </mesh>
+      <mesh position={[0, 0.7, 0.28]}>
+        <boxGeometry args={[1.1, 0.045, 0.07]} />
+        <meshStandardMaterial color={theme.accent} emissive={theme.accent} emissiveIntensity={0.18} roughness={0.28} />
+      </mesh>
+    </group>
+  );
+}
 function ProductDisplay({ product, index, currency, theme, onSelect, featured = false }: { product: Product; index: number; currency: string; theme: ThemeTokens; onSelect: (product: Product) => void; featured?: boolean }) {
   const label = useMemo(() => createProductLabel(product, currency, theme.accent), [product, currency, theme.accent]);
   const imageTexture = useImageTexture(product.image_url);
@@ -247,9 +251,9 @@ function ProductDisplay({ product, index, currency, theme, onSelect, featured = 
   const featuredColumn = index % 3;
   const featuredRow = Math.floor(index / 3);
   const side = column < 2 ? -1 : 1;
-  const x = featured ? -1.35 + featuredColumn * 1.35 : side * (1.65 + (column % 2) * 1.35);
-  const z = featured ? 1.48 - featuredRow * 1.05 : 2.25 - row * 1.05;
-  const y = featured ? 1.04 : 1.2 + (index % 2) * 0.16;
+  const x = featured ? -1.45 + featuredColumn * 1.45 : side * (1.65 + (column % 2) * 1.35);
+  const z = featured ? 1.35 - featuredRow * 0.94 : 2.25 - row * 1.05;
+  const y = featured ? 0.98 : 1.2 + (index % 2) * 0.16;
   const rotationY = featured ? 0 : side < 0 ? Math.PI / 8 : -Math.PI / 8;
   const cardWidth = featured ? 1.22 : 1.34;
   const cardHeight = featured ? 1.18 : 1.14;
@@ -326,13 +330,12 @@ function StoreScene({ products, categories, settings, viewpoint, yaw, onSelect, 
   const theme = useMemo(() => themeFor(settings), [settings]);
   const businessName = safeBusinessName(settings);
   const sign = useMemo(() => createSignTexture(businessName, theme.accent, settings.logo_url), [businessName, theme.accent, settings.logo_url]);
-  const shelfHeader = useMemo(() => createShelfHeaderTexture(theme.accent), [theme.accent]);
   const categoryCount = Math.max(1, categories.length);
 
   return (
     <>
-      <color attach="background" args={["#dff7f8"]} />
-      <fog attach="fog" args={["#eefafa", 14, 28]} />
+      <color attach="background" args={["#edfafa"]} />
+      <fog attach="fog" args={["#f8ffff", 16, 32]} />
       <StoreLighting theme={theme} mode={settings.storefront_3d_lighting} />
       <CameraRig viewpoint={viewpoint} yaw={yaw} />
 
@@ -340,14 +343,34 @@ function StoreScene({ products, categories, settings, viewpoint, yaw, onSelect, 
         <planeGeometry args={[10, 13]} />
         <meshStandardMaterial color={theme.floor} roughness={0.58} metalness={0.03} />
       </mesh>
+      {[-3, -1.5, 0, 1.5, 3].map((x) => (
+        <mesh key={`floor-x-${x}`} rotation={[-Math.PI / 2, 0, 0]} position={[x, -0.012, 0]}>
+          <planeGeometry args={[0.018, 11.2]} />
+          <meshBasicMaterial color="#b7d8dc" transparent opacity={0.34} />
+        </mesh>
+      ))}
+      {[-4, -2, 0, 2, 4].map((z) => (
+        <mesh key={`floor-z-${z}`} rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.011, z]}>
+          <planeGeometry args={[8.2, 0.018]} />
+          <meshBasicMaterial color="#b7d8dc" transparent opacity={0.28} />
+        </mesh>
+      ))}
       <WallPanel position={[0, 2.5, -5.4]} size={[10, 5, 0.18]} color={theme.wall} />
       <WallPanel position={[-5, 2.5, 0]} rotation={[0, Math.PI / 2, 0]} size={[10.8, 5, 0.18]} color="#eff8f8" />
       <WallPanel position={[5, 2.5, 0]} rotation={[0, Math.PI / 2, 0]} size={[10.8, 5, 0.18]} color="#f8fbff" />
       <WallPanel position={[0, 5.04, 0]} size={[10.1, 0.16, 11]} color={theme.ceiling} />
 
-      <mesh position={[0, 2.95, -5.25]}>
-        <planeGeometry args={[5.6, 1.95]} />
+      <mesh position={[0, 2.92, -5.25]} castShadow>
+        <planeGeometry args={[4.65, 1.34]} />
         <meshStandardMaterial map={sign} roughness={0.4} metalness={0.05} side={THREE.DoubleSide} />
+      </mesh>
+      <mesh position={[0, 2.12, -5.15]}>
+        <boxGeometry args={[6.35, 0.075, 0.07]} />
+        <meshStandardMaterial color={theme.accent} emissive={theme.accent} emissiveIntensity={0.2} roughness={0.3} />
+      </mesh>
+      <mesh position={[0, 0.82, -5.08]} receiveShadow>
+        <boxGeometry args={[7.6, 1.35, 0.12]} />
+        <meshStandardMaterial color="#eaf7f7" roughness={0.5} metalness={0.02} />
       </mesh>
 
       <ShelfUnit position={[-3.3, 0, 1.8]} rotation={[0, Math.PI / 2, 0]} theme={theme} />
@@ -377,12 +400,7 @@ function StoreScene({ products, categories, settings, viewpoint, yaw, onSelect, 
         </mesh>
       ))}
 
-      <mesh position={[0, 2.05, 0.48]} rotation={[-0.1, 0, 0]}>
-        <planeGeometry args={[4.8, 1.16]} />
-        <meshStandardMaterial map={shelfHeader} roughness={0.38} metalness={0.06} side={THREE.DoubleSide} />
-      </mesh>
-
-      <group position={[0, 0, 1.18]}>
+      <group position={[0, 0, 1.16]}>
         <mesh castShadow receiveShadow position={[0, 0.28, 0]}>
           <boxGeometry args={[6.45, 0.22, 1.95]} />
           <meshStandardMaterial color="#ffffff" roughness={0.3} metalness={0.08} />
@@ -391,9 +409,9 @@ function StoreScene({ products, categories, settings, viewpoint, yaw, onSelect, 
           <boxGeometry args={[6.1, 0.18, 0.28]} />
           <meshStandardMaterial color={theme.shelf} roughness={0.38} metalness={0.16} />
         </mesh>
-        <mesh castShadow receiveShadow position={[0, 0.84, 0.24]}>
-          <boxGeometry args={[6.0, 0.16, 0.24]} />
-          <meshStandardMaterial color={theme.accent} emissive={theme.accent} emissiveIntensity={0.08} roughness={0.32} />
+        <mesh castShadow receiveShadow position={[0, 0.52, 0.78]}>
+          <boxGeometry args={[6.0, 0.09, 0.16]} />
+          <meshStandardMaterial color={theme.accent} emissive={theme.accent} emissiveIntensity={0.12} roughness={0.32} />
         </mesh>
         <mesh position={[0, 0.44, 0.88]}>
           <boxGeometry args={[5.95, 0.045, 0.12]} />
@@ -407,6 +425,7 @@ function StoreScene({ products, categories, settings, viewpoint, yaw, onSelect, 
         ))}
       </group>
 
+      {products.slice(0, 3).map((product, index) => <ProductPedestal key={`pedestal-${product.id}`} x={-1.45 + index * 1.45} z={1.35} theme={theme} />)}
       {products.slice(0, 6).map((product, index) => <ProductDisplay key={product.id} product={product} index={index} currency={settings.currency} theme={theme} onSelect={onSelect} featured />)}
       {products.slice(6).map((product, index) => <ProductDisplay key={product.id} product={product} index={index + 6} currency={settings.currency} theme={theme} onSelect={onSelect} />)}
 
@@ -425,7 +444,7 @@ function StoreHUD({ settings, productCount, onExit }: { settings: Settings; prod
         <img src={settings.logo_url || "/caribbean-pos-connect-icon.png"} alt="" className="h-11 w-11 shrink-0 rounded-2xl border border-slate-200 bg-white object-contain p-1 shadow-sm sm:h-12 sm:w-12" />
         <div className="min-w-0">
           <p className="truncate text-base font-black sm:text-lg">{businessName}</p>
-          <p className="truncate text-xs font-bold text-slate-500">3D Storefront - drag to browse shelves</p>
+          <p className="truncate text-xs font-bold text-slate-500">Virtual storefront - tap shelf products</p>
         </div>
       </div>
       <div className="grid grid-cols-[1fr_auto] items-center gap-2 sm:flex sm:shrink-0">
@@ -452,7 +471,7 @@ function StoreControls({ viewpoint, onViewpoint, yaw, onYaw, onReset }: { viewpo
         <button type="button" className={buttonClass} onClick={onReset} aria-label="Reset view"><RotateCcw className="h-4 w-4" /></button>
         <button type="button" className={buttonClass} onClick={() => onYaw(Math.min(0.75, yaw + 0.18))} aria-label="Look right"><ArrowRight className="h-4 w-4" /></button>
       </div>
-      <p className="mx-auto max-w-[calc(100vw-2rem)] rounded-full bg-white/85 px-3 py-1 text-center text-[11px] font-bold text-slate-600 shadow-sm sm:text-xs">Drag to look around. Tap products on the shelves.</p>
+      <p className="mx-auto max-w-[calc(100vw-2rem)] rounded-full bg-white/85 px-3 py-1 text-center text-[11px] font-bold text-slate-600 shadow-sm sm:text-xs">Drag to look around. Tap shelf products.</p>
     </div>
   );
 }
@@ -576,7 +595,7 @@ export default function VirtualStorefrontClient({ products, categories, settings
         <StoreControls viewpoint={viewpoint} onViewpoint={setViewpoint} yaw={yaw} onYaw={setYaw} onReset={resetView} />
       </div>
       <div className="grid gap-2 text-slate-700 sm:grid-cols-3">
-        <p className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs font-bold leading-5 sm:text-sm">Tap a shelf product for details and quantity.</p>
+        <p className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs font-bold leading-5 sm:text-sm">Tap a product display for details and quantity.</p>
         <p className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs font-bold leading-5 sm:text-sm">Drag the store or use the view buttons.</p>
         <p className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs font-bold leading-5 sm:text-sm">Checkout stays in the normal store flow.</p>
       </div>
