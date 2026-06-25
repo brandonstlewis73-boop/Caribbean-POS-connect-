@@ -45,6 +45,11 @@ assert.match(inventory, /capture="environment"/, "Only Take Photo should request
 assert.match(inventory, /const PRODUCT_IMAGE_ACCEPT = "image\/\*"/, "Mobile image pickers should use image/* accept for Android and iPhone support.");
 assert.match(inventory, /validateProductImageUrl/, "Pasted product image URLs should be validated before save.");
 
+const db = read("lib/db.ts");
+assert.match(db, /function shouldAutoInitializeDatabase/, "Database bootstrap should be controlled by an explicit runtime guard.");
+assert.match(db, /CPC_AUTO_MIGRATE === "true"/, "Production schema migrations should require CPC_AUTO_MIGRATE=true.");
+assert.match(db, /process\.env\.NODE_ENV !== "production" && process\.env\.VERCEL_ENV !== "production"/, "Production requests should not auto-run schema DDL.");
+
 const storage = read("lib/supabase-storage.ts");
 const healthRoute = read("app/api/health/route.ts");
 assert.match(storage, /product-images/, "Product image uploads should use the product-images bucket.");
@@ -97,4 +102,3 @@ assert.match(exchange, /EXCHANGE_RATE_API_KEY/, "Exchange rates should be backen
 assert.match(exchange, /exchange_rates/, "Exchange rates should use the cache table when available.");
 
 console.log("Production hardening checks passed.");
-

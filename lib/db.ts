@@ -423,7 +423,14 @@ export function getDb() {
   return globalThis.__cpcPool;
 }
 
+function shouldAutoInitializeDatabase() {
+  if (process.env.CPC_AUTO_MIGRATE === "true") return true;
+  if (process.env.CPC_AUTO_MIGRATE === "false") return false;
+  return process.env.NODE_ENV !== "production" && process.env.VERCEL_ENV !== "production";
+}
+
 export async function ensureDatabase() {
+  if (!shouldAutoInitializeDatabase()) return;
   if (!globalThis.__cpcDbInit) {
     globalThis.__cpcDbInit = initializeDatabase();
   }
