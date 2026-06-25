@@ -42,8 +42,8 @@ const themeAccents: Record<string, ThemeTokens> = {
 };
 
 const viewpointTargets: Record<Viewpoint, { position: THREE.Vector3Tuple; lookAt: THREE.Vector3Tuple }> = {
-  entrance: { position: [0, 1.72, 6.35], lookAt: [0, 1.05, 0.9] },
-  featured: { position: [0, 1.8, 5.15], lookAt: [0, 1.04, 1.08] },
+  entrance: { position: [0, 1.88, 6.65], lookAt: [0, 1.18, 0.75] },
+  featured: { position: [0, 1.86, 5.35], lookAt: [0, 1.08, 1.02] },
   categories: { position: [2.85, 1.92, 4.25], lookAt: [2.35, 1.08, -0.1] },
   checkout: { position: [0, 2.05, 2.35], lookAt: [0, 1.08, -4.1] }
 };
@@ -171,11 +171,11 @@ function StoreLighting({ theme, mode }: { theme: ThemeTokens; mode?: string | nu
   const intensity = mode === "bright" ? 1.22 : mode === "evening" ? 0.82 : mode === "gallery" ? 1.08 : 1;
   return (
     <>
-      <ambientLight intensity={0.85 * intensity} color="#ffffff" />
+      <ambientLight intensity={0.92 * intensity} color="#ffffff" />
       <directionalLight castShadow position={[2.5, 6, 5]} intensity={1.4 * intensity} color="#fff7e8" shadow-mapSize-width={1024} shadow-mapSize-height={1024} />
       <pointLight position={[-3.2, 3.2, 2.3]} intensity={0.9 * intensity} color={theme.accent} distance={8} />
       <pointLight position={[3.2, 3.1, -1.8]} intensity={0.72 * intensity} color={theme.warm} distance={7} />
-      <spotLight position={[0, 5.5, 1.5]} angle={0.45} penumbra={0.65} intensity={1.05 * intensity} color="#ffffff" castShadow />
+      <spotLight position={[0, 5.5, 1.5]} angle={0.48} penumbra={0.68} intensity={1.25 * intensity} color="#ffffff" castShadow />
     </>
   );
 }
@@ -225,6 +225,92 @@ function ShelfUnit({ position, rotation = [0, 0, 0], theme }: { position: THREE.
   );
 }
 
+function StorePlant({ position, scale = 1 }: { position: THREE.Vector3Tuple; scale?: number }) {
+  return (
+    <group position={position} scale={scale}>
+      <mesh castShadow position={[0, 0.22, 0]}>
+        <cylinderGeometry args={[0.18, 0.24, 0.42, 18]} />
+        <meshStandardMaterial color="#334155" roughness={0.58} metalness={0.12} />
+      </mesh>
+      {[0, 0.8, 1.6, 2.4, 3.2].map((angle) => (
+        <mesh key={angle} castShadow position={[Math.cos(angle) * 0.12, 0.72, Math.sin(angle) * 0.12]} rotation={[0.7, angle, 0.2]}>
+          <coneGeometry args={[0.08, 0.7, 12]} />
+          <meshStandardMaterial color="#0f766e" roughness={0.5} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+function CeilingLight({ x, z, theme }: { x: number; z: number; theme: ThemeTokens }) {
+  return (
+    <group position={[x, 4.76, z]}>
+      <mesh castShadow>
+        <cylinderGeometry args={[0.24, 0.18, 0.12, 24]} />
+        <meshStandardMaterial color="#0f172a" roughness={0.34} metalness={0.28} />
+      </mesh>
+      <pointLight position={[0, -0.18, 0]} intensity={0.42} color={theme.warm} distance={4.5} />
+      <mesh position={[0, -0.1, 0]}>
+        <sphereGeometry args={[0.12, 18, 12]} />
+        <meshBasicMaterial color={theme.warm} transparent opacity={0.62} />
+      </mesh>
+    </group>
+  );
+}
+
+function CustomerFigure({ position, color = "#2563eb", offset = 0 }: { position: THREE.Vector3Tuple; color?: string; offset?: number }) {
+  const ref = useRef<THREE.Group>(null);
+  useFrame(({ clock }) => {
+    if (!ref.current) return;
+    ref.current.position.x = position[0] + Math.sin(clock.elapsedTime * 0.55 + offset) * 0.28;
+    ref.current.rotation.y = Math.sin(clock.elapsedTime * 0.5 + offset) * 0.18;
+  });
+  return (
+    <group ref={ref} position={position}>
+      <mesh castShadow position={[0, 1.45, 0]}>
+        <sphereGeometry args={[0.13, 18, 12]} />
+        <meshStandardMaterial color="#8b5e3c" roughness={0.58} />
+      </mesh>
+      <mesh castShadow position={[0, 1.06, 0]}>
+        <capsuleGeometry args={[0.14, 0.42, 6, 12]} />
+        <meshStandardMaterial color={color} roughness={0.48} />
+      </mesh>
+      {[-0.08, 0.08].map((x) => (
+        <mesh key={x} castShadow position={[x, 0.48, 0]}>
+          <capsuleGeometry args={[0.045, 0.46, 4, 8]} />
+          <meshStandardMaterial color="#1f2937" roughness={0.55} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+function PosterPanel({ position, text, theme }: { position: THREE.Vector3Tuple; text: string; theme: ThemeTokens }) {
+  const texture = useMemo(() => createCanvasTexture(420, 520, (ctx) => {
+    const gradient = ctx.createLinearGradient(0, 0, 420, 520);
+    gradient.addColorStop(0, "#ffffff");
+    gradient.addColorStop(1, "#e8fbfb");
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, 420, 520);
+    ctx.fillStyle = theme.accent;
+    ctx.fillRect(0, 0, 420, 16);
+    ctx.fillStyle = "#071421";
+    ctx.font = "900 42px Arial";
+    ctx.textAlign = "center";
+    const words = text.split(" ");
+    words.forEach((word, index) => ctx.fillText(word, 210, 190 + index * 54));
+    ctx.fillStyle = "rgba(245,196,81,0.28)";
+    ctx.beginPath();
+    ctx.arc(330, 410, 70, 0, Math.PI * 2);
+    ctx.fill();
+  }), [text, theme.accent]);
+  return (
+    <mesh position={position}>
+      <planeGeometry args={[0.78, 0.98]} />
+      <meshStandardMaterial map={texture} roughness={0.4} metalness={0.02} side={THREE.DoubleSide} />
+    </mesh>
+  );
+}
 function ProductPedestal({ x, z, theme }: { x: number; z: number; theme: ThemeTokens }) {
   return (
     <group position={[x, 0, z]}>
@@ -338,6 +424,8 @@ function StoreScene({ products, categories, settings, viewpoint, yaw, onSelect, 
       <fog attach="fog" args={["#f8ffff", 16, 32]} />
       <StoreLighting theme={theme} mode={settings.storefront_3d_lighting} />
       <CameraRig viewpoint={viewpoint} yaw={yaw} />
+      {[-2.8, 0, 2.8].map((x) => <CeilingLight key={`light-${x}`} x={x} z={-1.4} theme={theme} />)}
+      {[-1.7, 1.7].map((x) => <CeilingLight key={`front-light-${x}`} x={x} z={2.35} theme={theme} />)}
 
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]} receiveShadow>
         <planeGeometry args={[10, 13]} />
@@ -356,11 +444,21 @@ function StoreScene({ products, categories, settings, viewpoint, yaw, onSelect, 
         </mesh>
       ))}
       <WallPanel position={[0, 2.5, -5.4]} size={[10, 5, 0.18]} color={theme.wall} />
+      <mesh position={[0, 2.5, -5.29]} receiveShadow>
+        <boxGeometry args={[4.9, 3.35, 0.05]} />
+        <meshStandardMaterial color="#8b5a2b" roughness={0.52} metalness={0.03} />
+      </mesh>
+      {[-2, -1.2, -0.4, 0.4, 1.2, 2].map((x) => (
+        <mesh key={`wood-slat-${x}`} position={[x, 2.5, -5.23]}>
+          <boxGeometry args={[0.07, 3.15, 0.05]} />
+          <meshStandardMaterial color="#c0843e" roughness={0.5} />
+        </mesh>
+      ))}
       <WallPanel position={[-5, 2.5, 0]} rotation={[0, Math.PI / 2, 0]} size={[10.8, 5, 0.18]} color="#eff8f8" />
       <WallPanel position={[5, 2.5, 0]} rotation={[0, Math.PI / 2, 0]} size={[10.8, 5, 0.18]} color="#f8fbff" />
       <WallPanel position={[0, 5.04, 0]} size={[10.1, 0.16, 11]} color={theme.ceiling} />
 
-      <mesh position={[0, 2.92, -5.25]} castShadow>
+      <mesh position={[0, 3.02, -5.17]} castShadow>
         <planeGeometry args={[4.65, 1.34]} />
         <meshStandardMaterial map={sign} roughness={0.4} metalness={0.05} side={THREE.DoubleSide} />
       </mesh>
@@ -377,6 +475,16 @@ function StoreScene({ products, categories, settings, viewpoint, yaw, onSelect, 
       <ShelfUnit position={[3.3, 0, 1.65]} rotation={[0, -Math.PI / 2, 0]} theme={theme} />
       <ShelfUnit position={[-3.3, 0, -1.55]} rotation={[0, Math.PI / 2, 0]} theme={theme} />
       <ShelfUnit position={[3.3, 0, -1.7]} rotation={[0, -Math.PI / 2, 0]} theme={theme} />
+      <StorePlant position={[-4.25, 0, 3.35]} scale={1.1} />
+      <StorePlant position={[4.25, 0, 3.15]} scale={1.05} />
+      <StorePlant position={[-4.18, 0, -4.15]} scale={0.9} />
+      <StorePlant position={[4.18, 0, -4.0]} scale={0.9} />
+      <PosterPanel position={[-2.95, 2.35, -5.08]} text="Handcrafted with love" theme={theme} />
+      <PosterPanel position={[2.95, 2.35, -5.08]} text="Fresh local treats" theme={theme} />
+      <CustomerFigure position={[-1.9, 0, 3.2]} color="#2563eb" offset={0.2} />
+      <CustomerFigure position={[2.1, 0, 2.65]} color="#f97316" offset={1.7} />
+      <CustomerFigure position={[-0.85, 0, -0.4]} color="#14b8a6" offset={2.8} />
+      <CustomerFigure position={[0.86, 0, -3.36]} color="#111827" offset={0.9} />
 
       <group position={[0, 0, -3.85]}>
         <mesh castShadow receiveShadow position={[0, 0.58, 0]}>
@@ -563,7 +671,7 @@ export default function VirtualStorefrontClient({ products, categories, settings
     <section className="grid gap-3 overflow-hidden rounded-[28px] border border-slate-200 bg-white p-3 shadow-xl shadow-slate-950/10 sm:rounded-[34px] sm:p-4">
       <StoreHUD settings={settings} productCount={visibleProducts.length} onExit={onExit} />
       <div
-        className="relative h-[540px] touch-pan-y overflow-hidden rounded-[24px] border border-slate-200 bg-gradient-to-br from-cyan-50 via-white to-amber-50 sm:h-[640px] sm:rounded-[28px]"
+        className="relative h-[560px] touch-pan-y overflow-hidden rounded-[28px] border border-slate-200 bg-gradient-to-br from-cyan-50 via-white to-amber-50 shadow-inner sm:h-[680px] sm:rounded-[32px]"
         onPointerDown={(event) => { drag.current = { x: event.clientX, yaw }; }}
         onPointerMove={(event) => {
           if (!drag.current) return;

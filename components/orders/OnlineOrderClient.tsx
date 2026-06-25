@@ -3,8 +3,8 @@
 /* eslint-disable @next/next/no-img-element */
 
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useState, type InputHTMLAttributes, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
-import { CheckCircle2, ExternalLink, LocateFixed, Minus, Plus, Send, ShoppingBag, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState, type InputHTMLAttributes, type SelectHTMLAttributes } from "react";
+import { Bell, CheckCircle2, Headphones, Home, LocateFixed, Lock, Minus, Package, Plus, Search, ShieldCheck, ShoppingBag, Store, Trash2, Truck } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { getDefaultCountryForCurrency, getDeliveryRegionsForCurrency, money, PAYMENT_METHODS } from "@/lib/constants";
 import { publicStoreName } from "@/lib/storefront-identity";
@@ -82,18 +82,6 @@ function StoreSelect({ label, children, className, ...props }: SelectHTMLAttribu
   );
 }
 
-function StoreTextArea({ label, className, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement> & { label: string }) {
-  return (
-    <label className="grid min-w-0 gap-2 text-sm font-bold text-slate-700">
-      <span>{label}</span>
-      <textarea
-        className={`min-h-24 w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm font-semibold text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-teal-500 focus:ring-4 focus:ring-teal-100 ${className || ""}`}
-        {...props}
-      />
-    </label>
-  );
-}
-
 export function OnlineOrderClient({
   products: initialProducts,
   categories: initialCategories = [],
@@ -134,7 +122,7 @@ export function OnlineOrderClient({
   const [error, setError] = useState("");
   const [statusMessage, setStatusMessage] = useState(initialStatusMessage);
   const [loading, setLoading] = useState(false);
-  const [showVirtualStore, setShowVirtualStore] = useState(false);
+  const [showVirtualStore, setShowVirtualStore] = useState(Boolean(initialSettings.storefront_3d_enabled));
   const displaySettings = useMemo(() => ({ ...settings, business_name: publicStoreName(settings.business_name, storefrontSlug) }), [settings, storefrontSlug]);
 
   useEffect(() => {
@@ -332,29 +320,40 @@ export function OnlineOrderClient({
   }
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top_left,rgba(18,214,223,0.14),transparent_34%),linear-gradient(180deg,#f8fffe_0%,#eef7f5_44%,#f7faf8_100%)] pb-24 text-slate-950 xl:pb-0">
-      <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/92 px-4 py-3 shadow-sm backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">
+    <main className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top_left,rgba(18,214,223,0.12),transparent_32%),linear-gradient(180deg,#f8fffe_0%,#eef7f5_44%,#f7faf8_100%)] pb-24 text-slate-950 xl:pb-0">
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-24 flex-col items-center justify-between bg-[#06172a] px-3 py-6 text-white shadow-2xl xl:flex">
+        <div className="grid gap-8">
+          <img src="/caribbean-pos-connect-icon.png" alt="Caribbean POS Connect" className="mx-auto h-14 w-14 rounded-2xl object-contain shadow-lg" />
+          <nav className="grid gap-3" aria-label="Storefront sections">
+            <a href="#storefront" className="grid h-12 w-12 place-items-center rounded-2xl bg-cyan-400/18 text-cyan-100 shadow-lg shadow-cyan-950/30" aria-label="Storefront"><Home className="h-5 w-5" /></a>
+            <a href="#products" className="grid h-12 w-12 place-items-center rounded-2xl text-slate-300 transition hover:bg-white/10 hover:text-white" aria-label="Products"><Package className="h-5 w-5" /></a>
+            <a href="#checkout" className="grid h-12 w-12 place-items-center rounded-2xl text-slate-300 transition hover:bg-white/10 hover:text-white" aria-label="Cart"><ShoppingBag className="h-5 w-5" /></a>
+            <a href="/contact" className="grid h-12 w-12 place-items-center rounded-2xl text-slate-300 transition hover:bg-white/10 hover:text-white" aria-label="Support"><Headphones className="h-5 w-5" /></a>
+          </nav>
+        </div>
+        <div className="grid gap-3 rounded-3xl border border-white/10 bg-white/8 p-3 text-center">
+          <img src={displaySettings.logo_url || "/caribbean-pos-connect-icon.png"} alt="" className="h-10 w-10 rounded-2xl bg-white object-contain p-1" />
+          <span className="h-2 w-2 place-self-center rounded-full bg-emerald-400" />
+        </div>
+      </aside>
+      <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/94 px-4 py-3 shadow-sm backdrop-blur-xl xl:pl-28">
+        <div className="mx-auto flex max-w-[1620px] flex-wrap items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            <img src={displaySettings.logo_url || "/caribbean-pos-connect-icon.png"} alt="" className="h-12 w-12 shrink-0 rounded-2xl border border-slate-200 bg-white object-contain p-1 shadow-sm" />
+            <span className="hidden text-base font-black tracking-tight text-blue-700 sm:inline">Caribbean <span className="text-slate-900">POS Connect</span></span>
+            <div className="h-6 w-px bg-slate-200 max-sm:hidden" />
+            <img src={displaySettings.logo_url || "/caribbean-pos-connect-icon.png"} alt="" className="h-11 w-11 shrink-0 rounded-2xl border border-slate-200 bg-white object-contain p-1 shadow-sm" />
             <div className="min-w-0">
-              <h1 className="truncate text-xl font-black leading-tight tracking-tight text-slate-950">{displaySettings.business_name}</h1>
-              <p className="text-sm font-semibold text-slate-500">Online ordering - {marketCountry} / {settings.currency}</p>
+              <h1 className="truncate text-lg font-black leading-tight tracking-tight text-slate-950 sm:text-xl">{displaySettings.business_name}</h1>
+              <p className="truncate text-xs font-semibold text-slate-500 sm:text-sm">Online ordering - {marketCountry} / {settings.currency}</p>
             </div>
           </div>
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
-            {settings.facebook_url ? (
-              <a href={settings.facebook_url} target="_blank" rel="noreferrer" className="inline-flex min-h-10 items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-bold leading-tight text-slate-700 shadow-sm hover:border-teal-300 hover:text-teal-700">
-                <ExternalLink className="h-4 w-4" />
-                Facebook
-              </a>
-            ) : null}
-            {settings.instagram_url ? (
-              <a href={settings.instagram_url} target="_blank" rel="noreferrer" className="inline-flex min-h-10 items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-bold leading-tight text-slate-700 shadow-sm hover:border-teal-300 hover:text-teal-700">
-                <ExternalLink className="h-4 w-4" />
-                Instagram
-              </a>
-            ) : null}
+          <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
+            <label className="relative hidden min-w-64 max-w-xs flex-1 lg:block">
+              <span className="sr-only">Search products</span>
+              <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 pr-10 text-sm font-semibold text-slate-700 outline-none transition focus:border-cyan-300 focus:ring-4 focus:ring-cyan-100" placeholder="Search products..." readOnly />
+            </label>
+            <button type="button" className="hidden h-11 w-11 place-items-center rounded-2xl border border-slate-200 bg-white text-slate-600 shadow-sm sm:grid" aria-label="Notifications"><Bell className="h-4 w-4" /></button>
             {!order ? (
               <a href="#checkout" className="rounded-full border border-teal-200 bg-teal-50 px-3 py-2 text-sm font-black text-teal-800 shadow-sm">
                 Cart {cart.length} - {formatMoney(total)}
@@ -364,9 +363,9 @@ export function OnlineOrderClient({
         </div>
       </header>
 
-      <div className="mx-auto grid max-w-7xl min-w-0 gap-6 px-4 py-6 xl:grid-cols-[minmax(0,1fr)_minmax(380px,420px)]">
+      <div id="storefront" className="mx-auto grid max-w-[1620px] min-w-0 gap-6 px-4 py-6 xl:grid-cols-[minmax(0,1fr)_minmax(380px,420px)] xl:pl-28 xl:pr-6">
         <section className="grid min-w-0 gap-4">
-          <div className="relative overflow-hidden rounded-[32px] border border-teal-100 bg-slate-950 text-white shadow-2xl shadow-teal-950/10">
+          <div className="relative overflow-hidden rounded-[34px] border border-teal-100 bg-slate-950 text-white shadow-2xl shadow-teal-950/10">
             {settings.storefront_banner_url ? (
               <img src={settings.storefront_banner_url} alt="" className="absolute inset-0 h-full w-full object-cover opacity-38" />
             ) : null}
@@ -397,7 +396,8 @@ export function OnlineOrderClient({
                 {settings.store_hours ? <p className="rounded-2xl bg-white/10 px-3 py-2 text-sm font-bold text-cyan-50">Hours: {settings.store_hours}</p> : null}
               </div>
             </div>
-          </div>          {threeDStorefrontEnabled ? (
+          </div>
+          {threeDStorefrontEnabled ? (
             <div className="grid gap-3 rounded-[28px] border border-cyan-100 bg-white/92 p-4 shadow-xl shadow-teal-950/5 backdrop-blur sm:flex sm:items-center sm:justify-between">
               <div className="min-w-0">
                 <p className="text-sm font-black text-slate-950">Explore the 3D Store</p>
@@ -457,7 +457,14 @@ export function OnlineOrderClient({
               No categories yet. Add one in Settings.
             </p>
           ) : null}
-          <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
+          <div id="products" className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 2xl:grid-cols-4">
+            <div className="mb-1 flex flex-wrap items-end justify-between gap-3 sm:col-span-2 md:col-span-3 2xl:col-span-4">
+              <div>
+                <h2 className="text-2xl font-black tracking-tight text-slate-950">Featured products</h2>
+                <p className="mt-1 text-sm font-semibold text-slate-500">Fresh picks from {displaySettings.business_name}</p>
+              </div>
+              <a href="#checkout" className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-700 shadow-sm hover:border-cyan-300 hover:text-cyan-700">View cart</a>
+            </div>
             {statusMessage ? (
               <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm font-bold text-slate-600 shadow-sm sm:col-span-2 md:col-span-3 xl:col-span-4">
                 {statusMessage}
@@ -566,21 +573,21 @@ export function OnlineOrderClient({
                   Pickup
                 </button>
               </div>
-              <StoreField label="Name" value={customer.name} onChange={(event) => setCustomer({ ...customer, name: event.target.value })} />
-              <StoreField label="Phone" value={customer.phone} onChange={(event) => setCustomer({ ...customer, phone: event.target.value })} />
-              <StoreField label="Email optional" type="email" value={customer.email} onChange={(event) => setCustomer({ ...customer, email: event.target.value })} />
+              <StoreField label="Full name" value={customer.name} onChange={(event) => setCustomer({ ...customer, name: event.target.value })} />
+              <StoreField label="Phone" placeholder="(246) 000-0000" value={customer.phone} onChange={(event) => setCustomer({ ...customer, phone: event.target.value })} />
+              <StoreField label="Email optional" placeholder="you@example.com" type="email" value={customer.email} onChange={(event) => setCustomer({ ...customer, email: event.target.value })} />
               {fulfillment === "delivery" ? (
                 <div className="grid gap-3">
-                  <StoreField label="Street address" value={customer.street_address} onChange={(event) => setCustomer({ ...customer, street_address: event.target.value })} />
-                  <StoreField label="City/town" value={customer.city} onChange={(event) => setCustomer({ ...customer, city: event.target.value })} />
+                  <StoreField label="Street address" placeholder="Street address" value={customer.street_address} onChange={(event) => setCustomer({ ...customer, street_address: event.target.value })} />
+                  <StoreField label="City" placeholder="City" value={customer.city} onChange={(event) => setCustomer({ ...customer, city: event.target.value })} />
                   <div className="grid gap-3 sm:grid-cols-2">
                     <StoreField label="Country" value={customer.country} onChange={(event) => setCustomer({ ...customer, country: event.target.value })} />
-                    <StoreField label="Postal code optional" value={customer.postal_code} onChange={(event) => setCustomer({ ...customer, postal_code: event.target.value })} />
+                    <StoreField label="Postal code optional" placeholder="00000" value={customer.postal_code} onChange={(event) => setCustomer({ ...customer, postal_code: event.target.value })} />
                   </div>
                   <StoreSelect label={deliveryRegionLabel} value={customer.region} onChange={(event) => setCustomer({ ...customer, region: event.target.value })}>
                     {deliveryRegions.map((region) => <option key={region}>{region}</option>)}
                   </StoreSelect>
-                  <StoreTextArea label="Delivery instructions" value={customer.delivery_notes} onChange={(event) => setCustomer({ ...customer, delivery_notes: event.target.value })} />
+                  <StoreField label="Apt/Suite optional" value={customer.delivery_notes} onChange={(event) => setCustomer({ ...customer, delivery_notes: event.target.value })} placeholder="Apt, suite, landmark" />
                   <Button type="button" variant="secondary" onClick={captureLocation} disabled={locating} className="border-slate-200 bg-white text-slate-800 hover:border-teal-300 hover:bg-teal-50">
                     <LocateFixed className="h-4 w-4" />
                     {locating ? "Finding your location..." : "Use My Current Location"}
@@ -603,8 +610,8 @@ export function OnlineOrderClient({
               </label>
               {error ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm font-bold text-red-700">{error}</p> : null}
               <Button variant="primary" size="lg" onClick={submitOrder} disabled={loading || Boolean(order)} className="rounded-full bg-slate-950 text-white hover:bg-teal-700">
-                <Send className="h-4 w-4" />
-                {loading ? "Submitting..." : "Submit order"}
+                <Lock className="h-4 w-4" />
+                {loading ? "Submitting..." : "Proceed to payment"}
               </Button>
             </div>
           </section>
@@ -664,7 +671,18 @@ export function OnlineOrderClient({
           </span>
         </a>
       ) : null}
-      <footer className="mx-auto flex max-w-7xl flex-wrap gap-3 px-4 pb-8 text-sm font-bold text-slate-500">
+      <section className="mx-auto grid max-w-[1620px] gap-3 px-4 pb-6 xl:pl-28 xl:pr-6 sm:grid-cols-2 lg:grid-cols-4">
+        {[{ icon: ShieldCheck, title: "Secure checkout", copy: "Protected order details" }, { icon: Truck, title: "Fast delivery", copy: "Delivery or pickup" }, { icon: Store, title: "Local storefront", copy: "Powered by Caribbean POS Connect" }, { icon: Headphones, title: "Support", copy: "Help when you need it" }].map((item) => {
+          const Icon = item.icon;
+          return (
+            <div key={item.title} className="flex items-center gap-3 rounded-[24px] border border-slate-200 bg-white/90 p-4 shadow-lg shadow-slate-950/5">
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-cyan-50 text-cyan-700"><Icon className="h-5 w-5" /></span>
+              <span><strong className="block text-sm font-black text-slate-950">{item.title}</strong><span className="text-xs font-semibold text-slate-500">{item.copy}</span></span>
+            </div>
+          );
+        })}
+      </section>
+      <footer className="mx-auto flex max-w-[1620px] flex-wrap gap-3 px-4 pb-8 text-sm font-bold text-slate-500 xl:pl-28 xl:pr-6">
         <a href="/privacy" className="hover:text-teal-700">Privacy policy</a>
         <a href="/contact" className="hover:text-teal-700">Contact</a>
       </footer>
