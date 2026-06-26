@@ -43,8 +43,8 @@ const themeAccents: Record<string, ThemeTokens> = {
 };
 
 const viewpointTargets: Record<Viewpoint, { position: THREE.Vector3Tuple; lookAt: THREE.Vector3Tuple }> = {
-  entrance: { position: [0, 1.88, 6.65], lookAt: [0, 1.18, 0.75] },
-  featured: { position: [0, 1.86, 5.35], lookAt: [0, 1.08, 1.02] },
+  entrance: { position: [0, 1.95, 6.15], lookAt: [0, 1.22, 0.55] },
+  featured: { position: [0, 1.86, 4.95], lookAt: [0, 1.08, 1.02] },
   categories: { position: [2.85, 1.92, 4.25], lookAt: [2.35, 1.08, -0.1] },
   checkout: { position: [0, 2.05, 2.35], lookAt: [0, 1.08, -4.1] }
 };
@@ -294,7 +294,7 @@ function WallPanel({ position, rotation = [0, 0, 0], size, color }: { position: 
   );
 }
 
-function ShelfUnit({ position, rotation = [0, 0, 0], theme }: { position: THREE.Vector3Tuple; rotation?: THREE.Vector3Tuple; theme: ThemeTokens }) {
+function StoreShelf({ position, rotation = [0, 0, 0], theme }: { position: THREE.Vector3Tuple; rotation?: THREE.Vector3Tuple; theme: ThemeTokens }) {
   return (
     <group position={position} rotation={rotation}>
       {[0.35, 1.05, 1.75].map((height) => (
@@ -308,12 +308,19 @@ function ShelfUnit({ position, rotation = [0, 0, 0], theme }: { position: THREE.
         </RoundedBox>
       ))}
       <RoundedBox args={[2.95, 0.16, 0.68]} radius={0.04} smoothness={8} position={[0, 0.16, 0]} receiveShadow>
-        <meshStandardMaterial color="#dbeafe" roughness={0.55} />
+        <meshStandardMaterial color="#f6ead8" roughness={0.55} />
       </RoundedBox>
+      <mesh position={[0, 1.55, 0.31]}>
+        <boxGeometry args={[2.48, 0.035, 0.035]} />
+        <meshStandardMaterial color={theme.warm} emissive={theme.warm} emissiveIntensity={0.18} roughness={0.24} />
+      </mesh>
       <mesh position={[0, 0.96, 0.31]}>
         <boxGeometry args={[2.48, 0.035, 0.035]} />
         <meshStandardMaterial color={theme.accent} emissive={theme.accent} emissiveIntensity={0.24} roughness={0.24} />
       </mesh>
+      <Text position={[0, 2.08, 0.31]} fontSize={0.11} maxWidth={2.25} textAlign="center" anchorX="center" anchorY="middle" color="#f8fafc">
+        Browse shelf
+      </Text>
     </group>
   );
 }
@@ -362,13 +369,13 @@ function CustomerFigure({ position, color = "#2563eb", offset = 0 }: { position:
   });
   return (
     <group ref={ref} position={position}>
-      <mesh position={[0, 0.03, 0]} rotation={[-Math.PI / 2, 0, 0]} scale={[1.7, 0.66, 1]}>
+      <mesh position={[0, 0.03, 0]} rotation={[-Math.PI / 2, 0, 0]} scale={[1.38, 0.54, 1]}>
         <circleGeometry args={[0.27, 36]} />
         <meshBasicMaterial color="#071421" transparent opacity={0.18} />
       </mesh>
-      <Billboard position={[0, 1.02, 0]}>
+      <Billboard position={[0, 0.9, 0]}>
         <mesh castShadow>
-          <planeGeometry args={[0.82, 1.7]} />
+          <planeGeometry args={[0.66, 1.4]} />
           <meshBasicMaterial map={texture} transparent depthWrite={false} side={THREE.DoubleSide} />
         </mesh>
       </Billboard>
@@ -385,13 +392,13 @@ function StoreCashier({ position, color = "#071421" }: { position: THREE.Vector3
   });
   return (
     <group ref={ref} position={position}>
-      <mesh position={[0, 0.03, 0]} rotation={[-Math.PI / 2, 0, 0]} scale={[1.65, 0.64, 1]}>
+      <mesh position={[0, 0.03, 0]} rotation={[-Math.PI / 2, 0, 0]} scale={[1.32, 0.52, 1]}>
         <circleGeometry args={[0.25, 36]} />
         <meshBasicMaterial color="#071421" transparent opacity={0.18} />
       </mesh>
-      <Billboard position={[0, 1.03, 0]}>
+      <Billboard position={[0, 0.88, 0]}>
         <mesh castShadow>
-          <planeGeometry args={[0.76, 1.66]} />
+          <planeGeometry args={[0.62, 1.36]} />
           <meshBasicMaterial map={texture} transparent depthWrite={false} side={THREE.DoubleSide} />
         </mesh>
       </Billboard>
@@ -510,7 +517,7 @@ function ShelfProduct({
 }
 
 function ProductDisplayTable({ products, currency, theme, onSelect }: { products: Product[]; currency: string; theme: ThemeTokens; onSelect: (product: Product) => void }) {
-  const tableProducts = products.slice(0, 5);
+  const tableProducts = products.length ? Array.from({ length: Math.min(8, Math.max(6, products.length * 2)) }, (_, index) => products[index % products.length]) : [];
   return (
     <group position={[0, 0, 1.16]}>
       <RoundedBox args={[6.45, 0.22, 1.95]} radius={0.09} smoothness={10} castShadow receiveShadow position={[0, 0.28, 0]}>
@@ -535,7 +542,7 @@ function ProductDisplayTable({ products, currency, theme, onSelect }: { products
         <ShelfProduct
           key={`table-product-${product.id}-${index}`}
           product={product}
-          position={[-2.4 + index * 1.2, 0.78, index % 2 ? -0.1 : 0.32]}
+          position={[-2.72 + (index % 4) * 1.82, 0.78 + Math.floor(index / 4) * 0.17, index % 2 ? -0.14 : 0.42]}
           scale={1.02}
           currency={currency}
           theme={theme}
@@ -568,13 +575,13 @@ function ShelfProductRun({ products, currency, theme, onSelect }: { products: Pr
   return (
     <>
       {shelfSlots.flatMap((slot, shelfIndex) => (
-        [-0.82, 0, 0.82].map((localX, index) => {
-          const product = products[(shelfIndex * 3 + index) % products.length];
+        [-1.12, -0.72, -0.32, 0.12, 0.56, 0.98].map((localX, index) => {
+          const product = products[(shelfIndex * 6 + index) % products.length];
           return (
             <ShelfProduct
               key={`shelf-product-${shelfIndex}-${index}-${product.id}`}
               product={product}
-              position={[slot.base[0] + (slot.rot[1] > 0 ? 0.02 : -0.02), 0.62 + (index % 3) * 0.54, slot.base[2] + localX]}
+              position={[slot.base[0] + (slot.rot[1] > 0 ? 0.02 : -0.02), 0.55 + (index % 3) * 0.55, slot.base[2] + localX]}
               rotation={slot.rot}
               scale={0.72}
               currency={currency}
@@ -647,10 +654,10 @@ function StoreScene({ products, categories, settings, viewpoint, yaw, onSelect, 
           <meshBasicMaterial color="#b7d8dc" transparent opacity={0.28} />
         </mesh>
       ))}
-      <WallPanel position={[0, 2.5, -5.4]} size={[10, 5, 0.18]} color="#f7fbfb" />
+      <WallPanel position={[0, 2.5, -5.4]} size={[10, 5, 0.18]} color="#251813" />
       <mesh position={[0, 2.55, -5.29]} receiveShadow>
         <boxGeometry args={[5.55, 3.65, 0.06]} />
-        <meshStandardMaterial color="#6f421f" roughness={0.5} metalness={0.04} />
+        <meshStandardMaterial color="#5a341b" roughness={0.5} metalness={0.04} />
       </mesh>
       {[-2.42, -1.85, -1.28, -0.71, -0.14, 0.43, 1, 1.57, 2.14, 2.71].map((x) => (
         <mesh key={`wood-slat-${x}`} position={[x, 2.5, -5.23]}>
@@ -658,9 +665,23 @@ function StoreScene({ products, categories, settings, viewpoint, yaw, onSelect, 
           <meshStandardMaterial color={x % 1 ? "#a8662d" : "#c0843e"} roughness={0.48} />
         </mesh>
       ))}
-      <WallPanel position={[-5, 2.5, 0]} rotation={[0, Math.PI / 2, 0]} size={[10.8, 5, 0.18]} color="#e9f7f5" />
-      <WallPanel position={[5, 2.5, 0]} rotation={[0, Math.PI / 2, 0]} size={[10.8, 5, 0.18]} color="#eef8fb" />
+      <WallPanel position={[-5, 2.5, 0]} rotation={[0, Math.PI / 2, 0]} size={[10.8, 5, 0.18]} color="#eadcc7" />
+      <WallPanel position={[5, 2.5, 0]} rotation={[0, Math.PI / 2, 0]} size={[10.8, 5, 0.18]} color="#f0e2cf" />
       <WallPanel position={[0, 5.04, 0]} size={[10.1, 0.16, 11]} color={theme.ceiling} />
+      <mesh position={[-4.91, 1.05, 0]} rotation={[0, Math.PI / 2, 0]} receiveShadow>
+        <boxGeometry args={[10.4, 1.9, 0.08]} />
+        <meshStandardMaterial color="#2b211b" roughness={0.52} metalness={0.02} />
+      </mesh>
+      <mesh position={[4.91, 1.05, 0]} rotation={[0, Math.PI / 2, 0]} receiveShadow>
+        <boxGeometry args={[10.4, 1.9, 0.08]} />
+        <meshStandardMaterial color="#2b211b" roughness={0.52} metalness={0.02} />
+      </mesh>
+      {[-4.82, 4.82].map((x) => (
+        <mesh key={`side-led-${x}`} position={[x, 1.98, 0]} rotation={[0, Math.PI / 2, 0]}>
+          <boxGeometry args={[10.0, 0.045, 0.045]} />
+          <meshStandardMaterial color={theme.accent} emissive={theme.accent} emissiveIntensity={0.2} roughness={0.24} />
+        </mesh>
+      ))}
 
       <mesh position={[0, 3.02, -5.17]} castShadow>
         <planeGeometry args={[4.65, 1.34]} />
@@ -699,19 +720,19 @@ function StoreScene({ products, categories, settings, viewpoint, yaw, onSelect, 
         <meshStandardMaterial color="#eaf7f7" roughness={0.5} metalness={0.02} />
       </mesh>
 
-      <ShelfUnit position={[-3.3, 0, 1.8]} rotation={[0, Math.PI / 2, 0]} theme={theme} />
-      <ShelfUnit position={[3.3, 0, 1.65]} rotation={[0, -Math.PI / 2, 0]} theme={theme} />
-      <ShelfUnit position={[-3.3, 0, -1.55]} rotation={[0, Math.PI / 2, 0]} theme={theme} />
-      <ShelfUnit position={[3.3, 0, -1.7]} rotation={[0, -Math.PI / 2, 0]} theme={theme} />
+      <StoreShelf position={[-3.3, 0, 1.8]} rotation={[0, Math.PI / 2, 0]} theme={theme} />
+      <StoreShelf position={[3.3, 0, 1.65]} rotation={[0, -Math.PI / 2, 0]} theme={theme} />
+      <StoreShelf position={[-3.3, 0, -1.55]} rotation={[0, Math.PI / 2, 0]} theme={theme} />
+      <StoreShelf position={[3.3, 0, -1.7]} rotation={[0, -Math.PI / 2, 0]} theme={theme} />
       <StorePlant position={[-4.25, 0, 3.35]} scale={1.1} />
       <StorePlant position={[4.25, 0, 3.15]} scale={1.05} />
       <StorePlant position={[-4.18, 0, -4.15]} scale={0.9} />
       <StorePlant position={[4.18, 0, -4.0]} scale={0.9} />
       <PosterPanel position={[-2.95, 2.35, -5.08]} text="Handcrafted with love" theme={theme} />
       <PosterPanel position={[2.95, 2.35, -5.08]} text="Fresh local treats" theme={theme} />
-      <CustomerFigure position={[-1.95, 0, 3.05]} color="#2563eb" offset={0.2} />
-      <CustomerFigure position={[1.95, 0, 2.55]} color="#f97316" offset={1.7} />
-      <CustomerFigure position={[-2.55, 0, 0.25]} color="#14b8a6" offset={2.8} />
+      <CustomerFigure position={[-2.1, 0, 3.1]} color="#2563eb" offset={0.2} />
+      <CustomerFigure position={[2.15, 0, 2.55]} color="#f97316" offset={1.7} />
+      <CustomerFigure position={[-2.75, 0, 0.1]} color="#14b8a6" offset={2.8} />
       <StoreCashier position={[0.92, 0, -4.02]} color="#111827" />
 
       <group position={[0, 0, -3.85]}>
@@ -758,24 +779,24 @@ function StoreScene({ products, categories, settings, viewpoint, yaw, onSelect, 
 function StoreHUD({ settings, productCount, onExit }: { settings: Settings; productCount: number; onExit: () => void }) {
   const businessName = safeBusinessName(settings);
   return (
-    <div className="grid gap-3 rounded-[24px] border border-slate-200 bg-white p-3 text-slate-950 shadow-sm sm:flex sm:items-center sm:justify-between sm:gap-4 sm:p-4">
-      <div className="flex min-w-0 items-center gap-3">
-        <img src={settings.logo_url || "/caribbean-pos-connect-icon.png"} alt="" className="h-11 w-11 shrink-0 rounded-2xl border border-slate-200 bg-white object-contain p-1 shadow-sm sm:h-12 sm:w-12" />
+    <div className="grid gap-2 rounded-[20px] border border-slate-200 bg-white p-2.5 text-slate-950 shadow-sm sm:flex sm:items-center sm:justify-between sm:gap-4 sm:rounded-[24px] sm:p-4">
+      <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
+        <img src={settings.logo_url || "/caribbean-pos-connect-icon.png"} alt="" className="h-10 w-10 shrink-0 rounded-2xl border border-slate-200 bg-white object-contain p-1 shadow-sm sm:h-12 sm:w-12" />
         <div className="min-w-0">
-          <p className="truncate text-base font-black sm:text-lg">{businessName}</p>
-          <p className="truncate text-xs font-bold text-slate-500">Virtual storefront - tap shelf products</p>
+          <p className="truncate text-sm font-black sm:text-lg">{businessName}</p>
+          <p className="truncate text-[11px] font-bold text-slate-500 sm:text-xs">3D storefront - tap shelf products</p>
         </div>
       </div>
       <div className="grid grid-cols-[1fr_auto] items-center gap-2 sm:flex sm:shrink-0">
         <Badge tone="green">{productCount} live products</Badge>
-        <Button type="button" size="sm" onClick={onExit} className="min-w-max rounded-full border-slate-200 bg-white px-4 text-slate-800 hover:border-teal-300 hover:bg-teal-50">Shop Normally</Button>
+        <Button type="button" size="sm" onClick={onExit} className="min-w-max rounded-full border-slate-200 bg-white px-3 text-xs text-slate-800 hover:border-teal-300 hover:bg-teal-50 sm:px-4 sm:text-sm">Shop Normally</Button>
       </div>
     </div>
   );
 }
 
 function StoreControls({ viewpoint, onViewpoint, yaw, onYaw, onReset }: { viewpoint: Viewpoint; onViewpoint: (viewpoint: Viewpoint) => void; yaw: number; onYaw: (next: number) => void; onReset: () => void }) {
-  const buttonClass = "grid h-10 w-10 place-items-center rounded-full border border-white/35 bg-white/90 text-slate-800 shadow-lg transition hover:-translate-y-0.5 hover:bg-cyan-50 sm:h-11 sm:w-11";
+  const buttonClass = "grid h-8 w-8 place-items-center rounded-full border border-white/35 bg-white/90 text-slate-800 shadow-lg transition hover:-translate-y-0.5 hover:bg-cyan-50 sm:h-10 sm:w-10";
   const navItems: Array<{ target: Viewpoint; label: string; icon: typeof Home }> = [
     { target: "entrance", label: "Home", icon: Home },
     { target: "featured", label: "Featured", icon: Sparkles },
@@ -783,21 +804,21 @@ function StoreControls({ viewpoint, onViewpoint, yaw, onYaw, onReset }: { viewpo
     { target: "checkout", label: "Checkout", icon: Store }
   ];
   return (
-    <div className="pointer-events-none absolute inset-x-3 bottom-3 z-20 grid gap-2 sm:inset-x-5 sm:bottom-5 sm:gap-3">
-      <div className="pointer-events-auto mx-auto grid w-full max-w-[calc(100vw-1.5rem)] grid-cols-4 gap-1 rounded-[22px] border border-white/45 bg-slate-950/86 p-1.5 text-white shadow-2xl shadow-slate-950/25 backdrop-blur-xl sm:flex sm:w-auto sm:max-w-full sm:gap-2 sm:rounded-full sm:p-2">
+    <div className="pointer-events-none absolute inset-x-2 bottom-2 z-20 grid gap-1.5 sm:inset-x-5 sm:bottom-5 sm:gap-3">
+      <div className="pointer-events-auto mx-auto grid w-full max-w-[calc(100vw-1rem)] grid-cols-4 gap-1 rounded-[18px] border border-white/45 bg-slate-950/86 p-1 text-white shadow-2xl shadow-slate-950/25 backdrop-blur-xl sm:flex sm:w-auto sm:max-w-full sm:gap-2 sm:rounded-full sm:p-2">
         {navItems.map(({ target, label, icon: Icon }) => (
-          <button key={target} type="button" onClick={() => onViewpoint(target)} className={`inline-flex min-h-10 min-w-0 items-center justify-center gap-1.5 truncate rounded-full px-2 text-[11px] font-black transition sm:min-h-11 sm:whitespace-nowrap sm:px-4 sm:text-xs ${viewpoint === target ? "bg-cyan-300 text-slate-950 shadow-lg shadow-cyan-900/25" : "bg-white/10 text-white hover:bg-white/18"}`}>
-            <Icon className="h-3.5 w-3.5 shrink-0" />
-            <span className="truncate">{label}</span>
+          <button key={target} type="button" onClick={() => onViewpoint(target)} className={`flex min-h-10 min-w-0 flex-col items-center justify-center gap-0.5 rounded-[14px] px-1 text-[10px] font-black leading-none transition sm:min-h-10 sm:flex-row sm:gap-1.5 sm:whitespace-nowrap sm:rounded-full sm:px-4 sm:text-xs ${viewpoint === target ? "bg-cyan-300 text-slate-950 shadow-lg shadow-cyan-900/25" : "bg-white/10 text-white hover:bg-white/18"}`}>
+            <Icon className="h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5" />
+            <span className="whitespace-nowrap">{label}</span>
           </button>
         ))}
       </div>
-      <div className="pointer-events-auto mx-auto flex items-center gap-2">
-        <button type="button" className={buttonClass} onClick={() => onYaw(Math.max(-0.75, yaw - 0.18))} aria-label="Look left"><ArrowLeft className="h-4 w-4" /></button>
-        <button type="button" className={buttonClass} onClick={onReset} aria-label="Reset view"><RotateCcw className="h-4 w-4" /></button>
-        <button type="button" className={buttonClass} onClick={() => onYaw(Math.min(0.75, yaw + 0.18))} aria-label="Look right"><ArrowRight className="h-4 w-4" /></button>
+      <div className="pointer-events-auto mx-auto flex items-center gap-1.5 sm:gap-2">
+        <button type="button" className={buttonClass} onClick={() => onYaw(Math.max(-0.75, yaw - 0.18))} aria-label="Look left"><ArrowLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" /></button>
+        <button type="button" className={buttonClass} onClick={onReset} aria-label="Reset view"><RotateCcw className="h-3.5 w-3.5 sm:h-4 sm:w-4" /></button>
+        <button type="button" className={buttonClass} onClick={() => onYaw(Math.min(0.75, yaw + 0.18))} aria-label="Look right"><ArrowRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" /></button>
       </div>
-      <p className="mx-auto max-w-[calc(100vw-2rem)] rounded-full bg-white/85 px-3 py-1 text-center text-[11px] font-bold text-slate-600 shadow-sm sm:text-xs">Drag to look around. Tap shelf products.</p>
+      <p className="mx-auto max-w-[calc(100vw-1.5rem)] rounded-full bg-white/88 px-2.5 py-1 text-center text-[10px] font-bold text-slate-600 shadow-sm sm:px-3 sm:text-xs">Drag to look. Tap products.</p>
     </div>
   );
 }
@@ -886,10 +907,10 @@ export default function VirtualStorefrontClient({ products, categories, settings
   }
 
   return (
-    <section className="grid gap-3 overflow-hidden rounded-[28px] border border-slate-200 bg-white p-3 shadow-xl shadow-slate-950/10 sm:rounded-[34px] sm:p-4">
+    <section className="grid gap-2 overflow-hidden rounded-[24px] border border-slate-200 bg-white p-2 shadow-xl shadow-slate-950/10 sm:gap-3 sm:rounded-[34px] sm:p-4">
       <StoreHUD settings={settings} productCount={visibleProducts.length} onExit={onExit} />
       <div
-        className="relative h-[560px] touch-pan-y overflow-hidden rounded-[28px] border border-slate-200 bg-gradient-to-br from-cyan-50 via-white to-amber-50 shadow-inner sm:h-[680px] sm:rounded-[32px]"
+        className="relative h-[500px] touch-pan-y overflow-hidden rounded-[24px] border border-slate-200 bg-gradient-to-br from-cyan-50 via-white to-amber-50 shadow-inner min-[430px]:h-[540px] sm:h-[680px] sm:rounded-[32px]"
         onPointerDown={(event) => { drag.current = { x: event.clientX, yaw }; }}
         onPointerMove={(event) => {
           if (!drag.current) return;
@@ -920,11 +941,7 @@ export default function VirtualStorefrontClient({ products, categories, settings
         ) : null}
         <StoreControls viewpoint={viewpoint} onViewpoint={setViewpoint} yaw={yaw} onYaw={setYaw} onReset={resetView} />
       </div>
-      <div className="grid gap-2 text-slate-700 sm:grid-cols-3">
-        <p className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs font-bold leading-5 sm:text-sm">Tap a product display for details and quantity.</p>
-        <p className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs font-bold leading-5 sm:text-sm">Drag the store or use the view buttons.</p>
-        <p className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs font-bold leading-5 sm:text-sm">Checkout stays in the normal store flow.</p>
-      </div>
+      <p className="mx-auto max-w-full rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-center text-[11px] font-bold leading-5 text-slate-600 sm:text-xs">Tap a shelf product for details, choose quantity, then add to cart.</p>
       {selectedProduct ? (
         <ProductModal
           product={selectedProduct}

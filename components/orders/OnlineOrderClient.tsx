@@ -4,7 +4,7 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState, type InputHTMLAttributes, type SelectHTMLAttributes } from "react";
-import { Bell, CheckCircle2, Headphones, Home, LocateFixed, Lock, Minus, Package, Plus, Search, ShieldCheck, ShoppingBag, Store, Trash2, Truck } from "lucide-react";
+import { Bell, CheckCircle2, Headphones, Home, LocateFixed, Lock, Minus, Package, Plus, Search, ShieldCheck, ShoppingBag, Store, Trash2, Truck, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { getDefaultCountryForCurrency, getDeliveryRegionsForCurrency, money, PAYMENT_METHODS } from "@/lib/constants";
 import { publicStoreName } from "@/lib/storefront-identity";
@@ -529,7 +529,7 @@ export function OnlineOrderClient({
                 <h2 className="text-xl font-black tracking-tight text-slate-950">Complete your order</h2>
               </div>
               <button type="button" onClick={() => setMobileCheckoutOpen(false)} className="grid h-11 w-11 place-items-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm" aria-label="Close checkout drawer">
-                ×
+                <X className="h-4 w-4" />
               </button>
             </div>
           ) : null}
