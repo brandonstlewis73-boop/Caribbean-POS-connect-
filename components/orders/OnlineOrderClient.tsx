@@ -123,6 +123,7 @@ export function OnlineOrderClient({
   const [statusMessage, setStatusMessage] = useState(initialStatusMessage);
   const [loading, setLoading] = useState(false);
   const [showVirtualStore, setShowVirtualStore] = useState(Boolean(initialSettings.storefront_3d_enabled));
+  const [mobileCheckoutOpen, setMobileCheckoutOpen] = useState(false);
   const displaySettings = useMemo(() => ({ ...settings, business_name: publicStoreName(settings.business_name, storefrontSlug) }), [settings, storefrontSlug]);
 
   useEffect(() => {
@@ -312,6 +313,7 @@ export function OnlineOrderClient({
       if (!payload.data?.order) return setError("Order was submitted, but no order details were returned.");
       setOrder(payload.data.order);
       setCart([]);
+      setMobileCheckoutOpen(false);
     } catch {
       setError("Order could not be submitted. Please check the server and try again.");
     } finally {
@@ -502,7 +504,35 @@ export function OnlineOrderClient({
           </div>
         </section>
 
-        <aside id="checkout" className="grid min-w-0 gap-5 self-start scroll-mt-24 xl:sticky xl:top-24">
+        {mobileCheckoutOpen && !order ? (
+          <button
+            type="button"
+            className="fixed inset-0 z-40 bg-slate-950/45 backdrop-blur-sm xl:hidden"
+            onClick={() => setMobileCheckoutOpen(false)}
+            aria-label="Close checkout drawer"
+          />
+        ) : null}
+        <aside
+          id="checkout"
+          className={`min-w-0 gap-5 self-start scroll-mt-24 xl:sticky xl:top-24 xl:grid ${
+            mobileCheckoutOpen && !order
+              ? "fixed inset-x-0 bottom-0 z-50 grid max-h-[88vh] overflow-auto rounded-t-[34px] bg-slate-50 p-4 shadow-2xl xl:relative xl:max-h-none xl:overflow-visible xl:rounded-none xl:bg-transparent xl:p-0 xl:shadow-none"
+              : order
+                ? "grid"
+                : "hidden"
+          }`}
+        >
+          {!order ? (
+            <div className="flex items-center justify-between xl:hidden">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-teal-700">Checkout drawer</p>
+                <h2 className="text-xl font-black tracking-tight text-slate-950">Complete your order</h2>
+              </div>
+              <button type="button" onClick={() => setMobileCheckoutOpen(false)} className="grid h-11 w-11 place-items-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm" aria-label="Close checkout drawer">
+                ×
+              </button>
+            </div>
+          ) : null}
           {!order ? (
             <>
           <section className="rounded-[32px] border border-slate-200 bg-white shadow-2xl shadow-slate-950/10">
@@ -664,12 +694,12 @@ export function OnlineOrderClient({
         </aside>
       </div>
       {!order && cart.length ? (
-        <a href="#checkout" className="fixed inset-x-3 bottom-3 z-40 grid rounded-full bg-slate-950 px-5 py-3 text-white shadow-2xl xl:hidden">
+        <button type="button" onClick={() => setMobileCheckoutOpen(true)} className="fixed inset-x-3 bottom-3 z-40 grid rounded-full bg-slate-950 px-5 py-3 text-white shadow-2xl xl:hidden">
           <span className="flex items-center justify-between gap-3 text-sm font-black">
             <span>{cart.length} item{cart.length === 1 ? "" : "s"}</span>
             <span>Checkout - {formatMoney(total)}</span>
           </span>
-        </a>
+        </button>
       ) : null}
       <section className="mx-auto grid max-w-[1620px] gap-3 px-4 pb-6 xl:pl-28 xl:pr-6 sm:grid-cols-2 lg:grid-cols-4">
         {[{ icon: ShieldCheck, title: "Secure checkout", copy: "Protected order details" }, { icon: Truck, title: "Fast delivery", copy: "Delivery or pickup" }, { icon: Store, title: "Local storefront", copy: "Powered by Caribbean POS Connect" }, { icon: Headphones, title: "Support", copy: "Help when you need it" }].map((item) => {
