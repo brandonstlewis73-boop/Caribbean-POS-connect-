@@ -363,7 +363,7 @@ export function OnlineOrderClient({
         </div>
       </header>
 
-      <div id="storefront" className="mx-auto grid max-w-[1620px] min-w-0 gap-6 px-4 py-6 xl:grid-cols-[minmax(0,1fr)_minmax(380px,420px)] xl:pl-28 xl:pr-6">
+      <div id="storefront" className="mx-auto grid max-w-[1680px] min-w-0 gap-6 px-4 py-6 lg:gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(410px,440px)] xl:pl-28 xl:pr-8 2xl:gap-10">
         <section className="grid min-w-0 gap-4">
           <div className="relative overflow-hidden rounded-[34px] border border-teal-100 bg-slate-950 text-white shadow-2xl shadow-teal-950/10">
             {settings.storefront_banner_url ? (
@@ -502,10 +502,10 @@ export function OnlineOrderClient({
           </div>
         </section>
 
-        <aside id="checkout" className="grid min-w-0 gap-4 self-start scroll-mt-24 xl:sticky xl:top-24">
+        <aside id="checkout" className="grid min-w-0 gap-5 self-start scroll-mt-24 xl:sticky xl:top-24">
           {!order ? (
             <>
-          <section className="rounded-[30px] border border-slate-200 bg-white shadow-xl shadow-slate-950/5">
+          <section className="rounded-[32px] border border-slate-200 bg-white shadow-2xl shadow-slate-950/10">
             <div className="border-b border-slate-200 px-5 py-4">
               <h2 className="text-lg font-black tracking-tight text-slate-950">Your order</h2>
               <p className="mt-1 text-sm font-semibold text-slate-500">{cart.length ? `${cart.length} item${cart.length === 1 ? "" : "s"} selected` : "Build your cart from the menu"}</p>
@@ -551,7 +551,7 @@ export function OnlineOrderClient({
             </div>
           </section>
 
-          <section className="rounded-[30px] border border-slate-200 bg-white p-5 shadow-xl shadow-slate-950/5">
+          <section className="rounded-[32px] border border-slate-200 bg-white p-5 shadow-2xl shadow-slate-950/10 sm:p-6">
             <div className="mb-4">
               <h2 className="text-lg font-black tracking-tight text-slate-950">Checkout</h2>
               <p className="mt-1 text-sm font-semibold text-slate-500">Confirm your contact, address, and payment preference.</p>

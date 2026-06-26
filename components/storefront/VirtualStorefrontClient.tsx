@@ -3,7 +3,8 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { Canvas, useFrame } from "@react-three/fiber";
-import { ArrowLeft, ArrowRight, Minus, Plus, RotateCcw, ShoppingBag, X } from "lucide-react";
+import { ContactShadows, Environment, RoundedBox, Text } from "@react-three/drei";
+import { ArrowLeft, ArrowRight, Home, Minus, PackageOpen, Plus, RotateCcw, ShoppingBag, Sparkles, Store, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { Badge } from "@/components/ui/Badge";
@@ -83,35 +84,44 @@ function createCanvasTexture(width: number, height: number, draw: (ctx: CanvasRe
   return texture;
 }
 
-function createProductLabel(product: Product, currency: string, accent: string) {
-  return createCanvasTexture(640, 420, (ctx) => {
-    const gradient = ctx.createLinearGradient(0, 0, 640, 420);
-    gradient.addColorStop(0, "#ffffff");
-    gradient.addColorStop(0.62, "#eefafb");
-    gradient.addColorStop(1, "#fff4d6");
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, 640, 420);
+function createShelfLabel(product: Product, currency: string, accent: string) {
+  return createCanvasTexture(560, 170, (ctx) => {
+    ctx.fillStyle = "rgba(248,250,252,0.96)";
+    ctx.fillRect(0, 0, 560, 170);
     ctx.fillStyle = accent;
-    ctx.fillRect(0, 0, 640, 18);
+    ctx.fillRect(0, 0, 560, 10);
     ctx.fillStyle = "#071421";
-    ctx.font = "900 46px Arial";
-    ctx.fillText(product.name.slice(0, 22), 38, 96);
+    ctx.font = "900 31px Arial";
+    ctx.fillText(product.name.slice(0, 24), 26, 62);
     ctx.fillStyle = "#0f766e";
-    ctx.font = "900 38px Arial";
-    ctx.fillText(money(product.selling_price, currency), 38, 154);
-    ctx.fillStyle = "#475569";
-    ctx.font = "700 25px Arial";
-    ctx.fillText((product.category || "Product").slice(0, 34), 38, 205);
-    ctx.strokeStyle = "rgba(7, 20, 33, 0.15)";
-    ctx.lineWidth = 4;
-    ctx.strokeRect(38, 238, 226, 72);
-    ctx.fillStyle = "#071421";
-    ctx.font = "900 25px Arial";
-    ctx.fillText("Tap to view", 72, 284);
-    ctx.fillStyle = "rgba(18, 214, 223, 0.18)";
-    ctx.beginPath();
-    ctx.arc(540, 310, 92, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.font = "900 27px Arial";
+    ctx.fillText(money(product.selling_price, currency), 26, 112);
+    ctx.fillStyle = "rgba(7,20,33,0.58)";
+    ctx.font = "800 18px Arial";
+    ctx.fillText("Tap to add", 26, 146);
+  });
+}
+
+function createFloorTexture(theme: ThemeTokens) {
+  return createCanvasTexture(1024, 1024, (ctx) => {
+    ctx.fillStyle = theme.floor;
+    ctx.fillRect(0, 0, 1024, 1024);
+    for (let y = 0; y < 1024; y += 128) {
+      for (let x = 0; x < 1024; x += 128) {
+        ctx.fillStyle = (x / 128 + y / 128) % 2 === 0 ? "rgba(255,255,255,0.42)" : "rgba(7,20,33,0.035)";
+        ctx.fillRect(x, y, 128, 128);
+      }
+    }
+    ctx.strokeStyle = "rgba(7,20,33,0.12)";
+    ctx.lineWidth = 3;
+    for (let i = 0; i <= 1024; i += 128) {
+      ctx.beginPath();
+      ctx.moveTo(i, 0);
+      ctx.lineTo(i, 1024);
+      ctx.moveTo(0, i);
+      ctx.lineTo(1024, i);
+      ctx.stroke();
+    }
   });
 }
 
@@ -206,20 +216,21 @@ function ShelfUnit({ position, rotation = [0, 0, 0], theme }: { position: THREE.
   return (
     <group position={position} rotation={rotation}>
       {[0.35, 1.05, 1.75].map((height) => (
-        <mesh key={height} position={[0, height, 0]} castShadow receiveShadow>
-          <boxGeometry args={[2.7, 0.12, 0.54]} />
+        <RoundedBox key={height} args={[2.7, 0.12, 0.54]} radius={0.035} smoothness={8} position={[0, height, 0]} castShadow receiveShadow>
           <meshStandardMaterial color={theme.shelf} roughness={0.42} metalness={0.18} />
-        </mesh>
+        </RoundedBox>
       ))}
       {[-1.25, 1.25].map((x) => (
-        <mesh key={x} position={[x, 1.05, 0]} castShadow>
-          <boxGeometry args={[0.12, 1.62, 0.5]} />
+        <RoundedBox key={x} args={[0.12, 1.62, 0.5]} radius={0.025} smoothness={8} position={[x, 1.05, 0]} castShadow>
           <meshStandardMaterial color={theme.shelf} roughness={0.48} metalness={0.14} />
-        </mesh>
+        </RoundedBox>
       ))}
-      <mesh position={[0, 0.16, 0]} receiveShadow>
-        <boxGeometry args={[2.95, 0.16, 0.68]} />
+      <RoundedBox args={[2.95, 0.16, 0.68]} radius={0.04} smoothness={8} position={[0, 0.16, 0]} receiveShadow>
         <meshStandardMaterial color="#dbeafe" roughness={0.55} />
+      </RoundedBox>
+      <mesh position={[0, 0.96, 0.31]}>
+        <boxGeometry args={[2.48, 0.035, 0.035]} />
+        <meshStandardMaterial color={theme.accent} emissive={theme.accent} emissiveIntensity={0.24} roughness={0.24} />
       </mesh>
     </group>
   );
@@ -263,24 +274,71 @@ function CustomerFigure({ position, color = "#2563eb", offset = 0 }: { position:
   useFrame(({ clock }) => {
     if (!ref.current) return;
     ref.current.position.x = position[0] + Math.sin(clock.elapsedTime * 0.55 + offset) * 0.28;
+    ref.current.position.z = position[2] + Math.cos(clock.elapsedTime * 0.42 + offset) * 0.08;
     ref.current.rotation.y = Math.sin(clock.elapsedTime * 0.5 + offset) * 0.18;
   });
   return (
     <group ref={ref} position={position}>
-      <mesh castShadow position={[0, 1.45, 0]}>
-        <sphereGeometry args={[0.13, 18, 12]} />
+      <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[0.28, 32]} />
+        <meshBasicMaterial color="#071421" transparent opacity={0.14} />
+      </mesh>
+      <mesh castShadow position={[0, 1.48, 0]}>
+        <sphereGeometry args={[0.14, 22, 16]} />
         <meshStandardMaterial color="#8b5e3c" roughness={0.58} />
+      </mesh>
+      <mesh castShadow position={[0, 1.57, -0.03]}>
+        <sphereGeometry args={[0.15, 18, 12]} />
+        <meshStandardMaterial color="#111827" roughness={0.65} />
       </mesh>
       <mesh castShadow position={[0, 1.06, 0]}>
         <capsuleGeometry args={[0.14, 0.42, 6, 12]} />
         <meshStandardMaterial color={color} roughness={0.48} />
       </mesh>
+      {[-0.19, 0.19].map((x) => (
+        <mesh key={`arm-${x}`} castShadow position={[x, 1.04, 0]} rotation={[0, 0, x > 0 ? -0.42 : 0.42]}>
+          <capsuleGeometry args={[0.028, 0.34, 4, 8]} />
+          <meshStandardMaterial color="#8b5e3c" roughness={0.56} />
+        </mesh>
+      ))}
       {[-0.08, 0.08].map((x) => (
-        <mesh key={x} castShadow position={[x, 0.48, 0]}>
+        <mesh key={`leg-${x}`} castShadow position={[x, 0.48, 0]} rotation={[0.08, 0, x > 0 ? 0.06 : -0.06]}>
           <capsuleGeometry args={[0.045, 0.46, 4, 8]} />
           <meshStandardMaterial color="#1f2937" roughness={0.55} />
         </mesh>
       ))}
+    </group>
+  );
+}
+
+function StoreCashier({ position, color = "#071421" }: { position: THREE.Vector3Tuple; color?: string }) {
+  const ref = useRef<THREE.Group>(null);
+  useFrame(({ clock }) => {
+    if (!ref.current) return;
+    ref.current.rotation.y = Math.sin(clock.elapsedTime * 0.5) * 0.08;
+  });
+  return (
+    <group ref={ref} position={position}>
+      <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[0.25, 32]} />
+        <meshBasicMaterial color="#071421" transparent opacity={0.16} />
+      </mesh>
+      <mesh castShadow position={[0, 1.46, 0]}>
+        <sphereGeometry args={[0.13, 22, 16]} />
+        <meshStandardMaterial color="#7c4a2d" roughness={0.55} />
+      </mesh>
+      <mesh castShadow position={[0, 1.04, 0]}>
+        <capsuleGeometry args={[0.15, 0.48, 6, 12]} />
+        <meshStandardMaterial color={color} roughness={0.42} metalness={0.04} />
+      </mesh>
+      <mesh castShadow position={[0, 0.92, 0.13]}>
+        <boxGeometry args={[0.35, 0.1, 0.05]} />
+        <meshStandardMaterial color="#f8fafc" roughness={0.35} />
+      </mesh>
+      <mesh castShadow position={[0.33, 1.15, 0]} rotation={[0, 0, -0.7]}>
+        <capsuleGeometry args={[0.028, 0.34, 4, 8]} />
+        <meshStandardMaterial color="#7c4a2d" roughness={0.55} />
+      </mesh>
     </group>
   );
 }
@@ -311,79 +369,167 @@ function PosterPanel({ position, text, theme }: { position: THREE.Vector3Tuple; 
     </mesh>
   );
 }
-function ProductPedestal({ x, z, theme }: { x: number; z: number; theme: ThemeTokens }) {
+function PackageStack({ position, theme, scale = 1 }: { position: THREE.Vector3Tuple; theme: ThemeTokens; scale?: number }) {
   return (
-    <group position={[x, 0, z]}>
-      <mesh castShadow receiveShadow position={[0, 0.47, 0]}>
-        <boxGeometry args={[1.34, 0.28, 0.72]} />
-        <meshStandardMaterial color="#f8fafc" roughness={0.32} metalness={0.06} />
-      </mesh>
-      <mesh castShadow receiveShadow position={[0, 0.66, -0.03]}>
-        <boxGeometry args={[1.16, 0.08, 0.56]} />
-        <meshStandardMaterial color={theme.shelf} roughness={0.38} metalness={0.12} />
-      </mesh>
-      <mesh position={[0, 0.7, 0.28]}>
-        <boxGeometry args={[1.1, 0.045, 0.07]} />
-        <meshStandardMaterial color={theme.accent} emissive={theme.accent} emissiveIntensity={0.18} roughness={0.28} />
-      </mesh>
+    <group position={position} scale={scale}>
+      {[0, 1, 2].map((level) => (
+        <RoundedBox key={level} args={[0.38, 0.12, 0.32]} radius={0.035} smoothness={6} castShadow receiveShadow position={[(level - 1) * 0.18, level * 0.13, 0]}>
+          <meshStandardMaterial color={level % 2 ? theme.accent : theme.warm} roughness={0.42} metalness={0.04} />
+        </RoundedBox>
+      ))}
     </group>
   );
 }
-function ProductDisplay({ product, index, currency, theme, onSelect, featured = false }: { product: Product; index: number; currency: string; theme: ThemeTokens; onSelect: (product: Product) => void; featured?: boolean }) {
-  const label = useMemo(() => createProductLabel(product, currency, theme.accent), [product, currency, theme.accent]);
+
+function ShelfProduct({
+  product,
+  position,
+  rotation = [0, 0, 0],
+  scale = 1,
+  currency,
+  theme,
+  onSelect,
+  variant = "box"
+}: {
+  product: Product;
+  position: THREE.Vector3Tuple;
+  rotation?: THREE.Vector3Tuple;
+  scale?: number;
+  currency: string;
+  theme: ThemeTokens;
+  onSelect: (product: Product) => void;
+  variant?: "box" | "tray";
+}) {
   const imageTexture = useImageTexture(product.image_url);
-  const row = Math.floor(index / 4);
-  const column = index % 4;
-  const featuredColumn = index % 3;
-  const featuredRow = Math.floor(index / 3);
-  const side = column < 2 ? -1 : 1;
-  const x = featured ? -1.45 + featuredColumn * 1.45 : side * (1.65 + (column % 2) * 1.35);
-  const z = featured ? 1.35 - featuredRow * 0.94 : 2.25 - row * 1.05;
-  const y = featured ? 0.98 : 1.2 + (index % 2) * 0.16;
-  const rotationY = featured ? 0 : side < 0 ? Math.PI / 8 : -Math.PI / 8;
-  const cardWidth = featured ? 1.22 : 1.34;
-  const cardHeight = featured ? 1.18 : 1.14;
-  const imageWidth = featured ? 1.08 : 1.22;
-  const imageHeight = featured ? 0.74 : 0.8;
-  const labelWidth = featured ? 1.08 : 1.18;
-  const labelHeight = featured ? 0.38 : 0.34;
-  const accentWidth = featured ? 1.12 : 1.3;
-  const groupRef = useRef<THREE.Group>(null);
+  const label = useMemo(() => createShelfLabel(product, currency, theme.accent), [product, currency, theme.accent]);
+  const [hovered, setHovered] = useState(false);
+  const ref = useRef<THREE.Group>(null);
 
   useFrame(({ clock }) => {
-    if (groupRef.current) groupRef.current.position.y = y + Math.sin(clock.elapsedTime * 0.9 + index) * 0.018;
+    if (!ref.current) return;
+    const lift = hovered ? 0.04 : 0;
+    ref.current.position.y = position[1] + lift + Math.sin(clock.elapsedTime * 0.75 + position[0]) * 0.006;
   });
 
   return (
     <group
-      ref={groupRef}
-      position={[x, y, z]}
-      rotation={[0, rotationY, 0]}
+      ref={ref}
+      position={position}
+      rotation={rotation}
+      scale={scale}
       onClick={(event) => { event.stopPropagation(); onSelect(product); }}
-      onPointerOver={(event) => { event.stopPropagation(); document.body.style.cursor = "pointer"; }}
-      onPointerOut={() => { document.body.style.cursor = ""; }}
+      onPointerOver={(event) => { event.stopPropagation(); setHovered(true); document.body.style.cursor = "pointer"; }}
+      onPointerOut={() => { setHovered(false); document.body.style.cursor = ""; }}
     >
-      <mesh position={[0, -0.62, -0.04]} castShadow receiveShadow>
-        <boxGeometry args={[featured ? 1.28 : 1.42, 0.12, featured ? 0.58 : 0.56]} />
-        <meshStandardMaterial color="#d9eef0" roughness={0.5} metalness={0.05} />
+      <mesh position={[0, -0.04, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[0.42, 36]} />
+        <meshBasicMaterial color={hovered ? theme.accent : "#071421"} transparent opacity={hovered ? 0.22 : 0.1} />
       </mesh>
-      <mesh position={[0, 0.1, -0.075]} castShadow>
-        <boxGeometry args={[cardWidth, cardHeight, 0.09]} />
-        <meshStandardMaterial color="#f8fafc" roughness={0.4} metalness={0.04} />
-      </mesh>
-      <mesh position={[0, 0.18, 0.025]}>
-        <planeGeometry args={[imageWidth, imageHeight]} />
-        <meshStandardMaterial map={imageTexture || label} roughness={0.36} metalness={0.02} side={THREE.DoubleSide} />
-      </mesh>
-      <mesh position={[0, featured ? -0.52 : -0.38, 0.03]}>
-        <planeGeometry args={[labelWidth, labelHeight]} />
+      {variant === "tray" ? (
+        <RoundedBox args={[0.88, 0.13, 0.56]} radius={0.045} smoothness={8} castShadow receiveShadow position={[0, 0.05, 0]}>
+          <meshStandardMaterial color="#24130f" roughness={0.45} metalness={0.03} />
+        </RoundedBox>
+      ) : (
+        <RoundedBox args={[0.78, 0.52, 0.2]} radius={0.05} smoothness={8} castShadow receiveShadow position={[0, 0.16, 0]}>
+          <meshStandardMaterial color={hovered ? "#ffffff" : "#f8fafc"} roughness={0.32} metalness={0.05} />
+        </RoundedBox>
+      )}
+      {imageTexture ? (
+        <mesh position={[0, variant === "tray" ? 0.18 : 0.18, variant === "tray" ? 0.3 : 0.115]} rotation={[variant === "tray" ? -0.22 : 0, 0, 0]}>
+          <planeGeometry args={[variant === "tray" ? 0.74 : 0.68, variant === "tray" ? 0.42 : 0.44]} />
+          <meshStandardMaterial map={imageTexture} roughness={0.34} metalness={0.02} side={THREE.DoubleSide} />
+        </mesh>
+      ) : (
+        <PackageStack position={[0, variant === "tray" ? 0.18 : 0.4, 0.02]} theme={theme} scale={0.8} />
+      )}
+      <mesh position={[0, variant === "tray" ? -0.12 : -0.22, variant === "tray" ? 0.32 : 0.13]}>
+        <planeGeometry args={[0.76, 0.23]} />
         <meshStandardMaterial map={label} roughness={0.38} side={THREE.DoubleSide} />
       </mesh>
-      <mesh position={[0, featured ? 0.96 : 0.8, 0.045]}>
-        <boxGeometry args={[accentWidth, 0.035, 0.04]} />
-        <meshStandardMaterial color={theme.accent} emissive={theme.accent} emissiveIntensity={0.16} />
-      </mesh>
+      {hovered ? (
+        <pointLight position={[0, 0.55, 0.45]} color={theme.accent} intensity={0.45} distance={1.8} />
+      ) : null}
     </group>
+  );
+}
+
+function ProductDisplayTable({ products, currency, theme, onSelect }: { products: Product[]; currency: string; theme: ThemeTokens; onSelect: (product: Product) => void }) {
+  const tableProducts = products.slice(0, 5);
+  return (
+    <group position={[0, 0, 1.16]}>
+      <RoundedBox args={[6.45, 0.22, 1.95]} radius={0.09} smoothness={10} castShadow receiveShadow position={[0, 0.28, 0]}>
+        <meshStandardMaterial color="#ffffff" roughness={0.3} metalness={0.08} />
+      </RoundedBox>
+      <RoundedBox args={[6.1, 0.18, 0.28]} radius={0.055} smoothness={8} castShadow receiveShadow position={[0, 0.62, -0.42]}>
+        <meshStandardMaterial color={theme.shelf} roughness={0.38} metalness={0.16} />
+      </RoundedBox>
+      <RoundedBox args={[6.0, 0.09, 0.16]} radius={0.04} smoothness={8} castShadow receiveShadow position={[0, 0.52, 0.78]}>
+        <meshStandardMaterial color={theme.accent} emissive={theme.accent} emissiveIntensity={0.12} roughness={0.32} />
+      </RoundedBox>
+      <mesh position={[0, 0.44, 0.88]}>
+        <boxGeometry args={[5.95, 0.045, 0.12]} />
+        <meshStandardMaterial color={theme.warm} emissive={theme.warm} emissiveIntensity={0.14} roughness={0.28} />
+      </mesh>
+      {[-2.75, 0, 2.75].map((x) => (
+        <RoundedBox key={x} args={[0.2, 0.5, 1.55]} radius={0.05} smoothness={8} castShadow receiveShadow position={[x, 0.09, 0]}>
+          <meshStandardMaterial color={theme.counter} roughness={0.38} metalness={0.1} />
+        </RoundedBox>
+      ))}
+      {tableProducts.map((product, index) => (
+        <ShelfProduct
+          key={`table-product-${product.id}-${index}`}
+          product={product}
+          position={[-2.4 + index * 1.2, 0.78, index % 2 ? -0.1 : 0.32]}
+          scale={1.02}
+          currency={currency}
+          theme={theme}
+          onSelect={onSelect}
+          variant={index % 2 ? "box" : "tray"}
+        />
+      ))}
+    </group>
+  );
+}
+
+function ShelfProductRun({ products, currency, theme, onSelect }: { products: Product[]; currency: string; theme: ThemeTokens; onSelect: (product: Product) => void }) {
+  if (!products.length) {
+    return (
+      <>
+        {[-3.3, 3.3].map((x, sideIndex) => (
+          <group key={x} position={[x, 0, sideIndex ? 1.65 : 1.8]} rotation={[0, sideIndex ? -Math.PI / 2 : Math.PI / 2, 0]}>
+            {[-0.82, 0, 0.82].map((px, index) => <PackageStack key={px} position={[px, 0.55 + index * 0.44, 0.05]} theme={theme} scale={0.82} />)}
+          </group>
+        ))}
+      </>
+    );
+  }
+  const shelfSlots = [
+    { base: [-3.3, 0, 1.8] as THREE.Vector3Tuple, rot: [0, Math.PI / 2, 0] as THREE.Vector3Tuple },
+    { base: [3.3, 0, 1.65] as THREE.Vector3Tuple, rot: [0, -Math.PI / 2, 0] as THREE.Vector3Tuple },
+    { base: [-3.3, 0, -1.55] as THREE.Vector3Tuple, rot: [0, Math.PI / 2, 0] as THREE.Vector3Tuple },
+    { base: [3.3, 0, -1.7] as THREE.Vector3Tuple, rot: [0, -Math.PI / 2, 0] as THREE.Vector3Tuple }
+  ];
+  return (
+    <>
+      {shelfSlots.flatMap((slot, shelfIndex) => (
+        [-0.82, 0, 0.82].map((localX, index) => {
+          const product = products[(shelfIndex * 3 + index) % products.length];
+          return (
+            <ShelfProduct
+              key={`shelf-product-${shelfIndex}-${index}-${product.id}`}
+              product={product}
+              position={[slot.base[0] + (slot.rot[1] > 0 ? 0.02 : -0.02), 0.62 + (index % 3) * 0.54, slot.base[2] + localX]}
+              rotation={slot.rot}
+              scale={0.72}
+              currency={currency}
+              theme={theme}
+              onSelect={onSelect}
+              variant={index % 2 ? "box" : "tray"}
+            />
+          );
+        })
+      ))}
+    </>
   );
 }
 
@@ -416,12 +562,14 @@ function StoreScene({ products, categories, settings, viewpoint, yaw, onSelect, 
   const theme = useMemo(() => themeFor(settings), [settings]);
   const businessName = safeBusinessName(settings);
   const sign = useMemo(() => createSignTexture(businessName, theme.accent, settings.logo_url), [businessName, theme.accent, settings.logo_url]);
+  const floorTexture = useMemo(() => createFloorTexture(theme), [theme]);
   const categoryCount = Math.max(1, categories.length);
 
   return (
     <>
-      <color attach="background" args={["#edfafa"]} />
-      <fog attach="fog" args={["#f8ffff", 16, 32]} />
+      <color attach="background" args={["#f6fffd"]} />
+      <fog attach="fog" args={["#f8ffff", 18, 34]} />
+      <Environment preset="apartment" environmentIntensity={0.55} />
       <StoreLighting theme={theme} mode={settings.storefront_3d_lighting} />
       <CameraRig viewpoint={viewpoint} yaw={yaw} />
       {[-2.8, 0, 2.8].map((x) => <CeilingLight key={`light-${x}`} x={x} z={-1.4} theme={theme} />)}
@@ -429,7 +577,7 @@ function StoreScene({ products, categories, settings, viewpoint, yaw, onSelect, 
 
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]} receiveShadow>
         <planeGeometry args={[10, 13]} />
-        <meshStandardMaterial color={theme.floor} roughness={0.58} metalness={0.03} />
+        <meshStandardMaterial map={floorTexture} roughness={0.5} metalness={0.04} />
       </mesh>
       {[-3, -1.5, 0, 1.5, 3].map((x) => (
         <mesh key={`floor-x-${x}`} rotation={[-Math.PI / 2, 0, 0]} position={[x, -0.012, 0]}>
@@ -443,25 +591,49 @@ function StoreScene({ products, categories, settings, viewpoint, yaw, onSelect, 
           <meshBasicMaterial color="#b7d8dc" transparent opacity={0.28} />
         </mesh>
       ))}
-      <WallPanel position={[0, 2.5, -5.4]} size={[10, 5, 0.18]} color={theme.wall} />
-      <mesh position={[0, 2.5, -5.29]} receiveShadow>
-        <boxGeometry args={[4.9, 3.35, 0.05]} />
-        <meshStandardMaterial color="#8b5a2b" roughness={0.52} metalness={0.03} />
+      <WallPanel position={[0, 2.5, -5.4]} size={[10, 5, 0.18]} color="#f7fbfb" />
+      <mesh position={[0, 2.55, -5.29]} receiveShadow>
+        <boxGeometry args={[5.55, 3.65, 0.06]} />
+        <meshStandardMaterial color="#6f421f" roughness={0.5} metalness={0.04} />
       </mesh>
-      {[-2, -1.2, -0.4, 0.4, 1.2, 2].map((x) => (
+      {[-2.42, -1.85, -1.28, -0.71, -0.14, 0.43, 1, 1.57, 2.14, 2.71].map((x) => (
         <mesh key={`wood-slat-${x}`} position={[x, 2.5, -5.23]}>
-          <boxGeometry args={[0.07, 3.15, 0.05]} />
-          <meshStandardMaterial color="#c0843e" roughness={0.5} />
+          <boxGeometry args={[0.08, 3.45, 0.06]} />
+          <meshStandardMaterial color={x % 1 ? "#a8662d" : "#c0843e"} roughness={0.48} />
         </mesh>
       ))}
-      <WallPanel position={[-5, 2.5, 0]} rotation={[0, Math.PI / 2, 0]} size={[10.8, 5, 0.18]} color="#eff8f8" />
-      <WallPanel position={[5, 2.5, 0]} rotation={[0, Math.PI / 2, 0]} size={[10.8, 5, 0.18]} color="#f8fbff" />
+      <WallPanel position={[-5, 2.5, 0]} rotation={[0, Math.PI / 2, 0]} size={[10.8, 5, 0.18]} color="#e9f7f5" />
+      <WallPanel position={[5, 2.5, 0]} rotation={[0, Math.PI / 2, 0]} size={[10.8, 5, 0.18]} color="#eef8fb" />
       <WallPanel position={[0, 5.04, 0]} size={[10.1, 0.16, 11]} color={theme.ceiling} />
 
       <mesh position={[0, 3.02, -5.17]} castShadow>
         <planeGeometry args={[4.65, 1.34]} />
         <meshStandardMaterial map={sign} roughness={0.4} metalness={0.05} side={THREE.DoubleSide} />
       </mesh>
+      <Text
+        position={[0, 3.16, -5.03]}
+        fontSize={0.32}
+        maxWidth={4.1}
+        textAlign="center"
+        anchorX="center"
+        anchorY="middle"
+        color="#ffffff"
+        outlineWidth={0.01}
+        outlineColor="#071421"
+      >
+        {businessName.slice(0, 24)}
+      </Text>
+      <Text
+        position={[0, 2.77, -5.02]}
+        fontSize={0.12}
+        maxWidth={3.4}
+        textAlign="center"
+        anchorX="center"
+        anchorY="middle"
+        color={theme.accent}
+      >
+        Premium virtual storefront
+      </Text>
       <mesh position={[0, 2.12, -5.15]}>
         <boxGeometry args={[6.35, 0.075, 0.07]} />
         <meshStandardMaterial color={theme.accent} emissive={theme.accent} emissiveIntensity={0.2} roughness={0.3} />
@@ -481,10 +653,10 @@ function StoreScene({ products, categories, settings, viewpoint, yaw, onSelect, 
       <StorePlant position={[4.18, 0, -4.0]} scale={0.9} />
       <PosterPanel position={[-2.95, 2.35, -5.08]} text="Handcrafted with love" theme={theme} />
       <PosterPanel position={[2.95, 2.35, -5.08]} text="Fresh local treats" theme={theme} />
-      <CustomerFigure position={[-1.9, 0, 3.2]} color="#2563eb" offset={0.2} />
-      <CustomerFigure position={[2.1, 0, 2.65]} color="#f97316" offset={1.7} />
-      <CustomerFigure position={[-0.85, 0, -0.4]} color="#14b8a6" offset={2.8} />
-      <CustomerFigure position={[0.86, 0, -3.36]} color="#111827" offset={0.9} />
+      <CustomerFigure position={[-1.95, 0, 3.05]} color="#2563eb" offset={0.2} />
+      <CustomerFigure position={[1.95, 0, 2.55]} color="#f97316" offset={1.7} />
+      <CustomerFigure position={[-2.55, 0, 0.25]} color="#14b8a6" offset={2.8} />
+      <StoreCashier position={[0.92, 0, -4.02]} color="#111827" />
 
       <group position={[0, 0, -3.85]}>
         <mesh castShadow receiveShadow position={[0, 0.58, 0]}>
@@ -499,6 +671,14 @@ function StoreScene({ products, categories, settings, viewpoint, yaw, onSelect, 
           <boxGeometry args={[2.15, 0.12, 0.035]} />
           <meshStandardMaterial color={theme.accent} emissive={theme.accent} emissiveIntensity={0.22} />
         </mesh>
+        <mesh position={[-1.2, 1.34, 0.16]} castShadow>
+          <boxGeometry args={[0.66, 0.18, 0.34]} />
+          <meshStandardMaterial color="#071421" roughness={0.34} metalness={0.18} />
+        </mesh>
+        <mesh position={[-1.2, 1.48, 0.08]} rotation={[-0.28, 0, 0]}>
+          <planeGeometry args={[0.55, 0.28]} />
+          <meshStandardMaterial color="#dffbff" emissive={theme.accent} emissiveIntensity={0.09} roughness={0.35} />
+        </mesh>
       </group>
 
       {Array.from({ length: Math.min(5, categoryCount) }).map((_, index) => (
@@ -508,34 +688,9 @@ function StoreScene({ products, categories, settings, viewpoint, yaw, onSelect, 
         </mesh>
       ))}
 
-      <group position={[0, 0, 1.16]}>
-        <mesh castShadow receiveShadow position={[0, 0.28, 0]}>
-          <boxGeometry args={[6.45, 0.22, 1.95]} />
-          <meshStandardMaterial color="#ffffff" roughness={0.3} metalness={0.08} />
-        </mesh>
-        <mesh castShadow receiveShadow position={[0, 0.62, -0.42]}>
-          <boxGeometry args={[6.1, 0.18, 0.28]} />
-          <meshStandardMaterial color={theme.shelf} roughness={0.38} metalness={0.16} />
-        </mesh>
-        <mesh castShadow receiveShadow position={[0, 0.52, 0.78]}>
-          <boxGeometry args={[6.0, 0.09, 0.16]} />
-          <meshStandardMaterial color={theme.accent} emissive={theme.accent} emissiveIntensity={0.12} roughness={0.32} />
-        </mesh>
-        <mesh position={[0, 0.44, 0.88]}>
-          <boxGeometry args={[5.95, 0.045, 0.12]} />
-          <meshStandardMaterial color={theme.warm} emissive={theme.warm} emissiveIntensity={0.14} roughness={0.28} />
-        </mesh>
-        {[-2.75, 0, 2.75].map((x) => (
-          <mesh key={x} castShadow receiveShadow position={[x, 0.09, 0]}>
-            <boxGeometry args={[0.2, 0.5, 1.55]} />
-            <meshStandardMaterial color={theme.counter} roughness={0.38} metalness={0.1} />
-          </mesh>
-        ))}
-      </group>
-
-      {products.slice(0, 3).map((product, index) => <ProductPedestal key={`pedestal-${product.id}`} x={-1.45 + index * 1.45} z={1.35} theme={theme} />)}
-      {products.slice(0, 6).map((product, index) => <ProductDisplay key={product.id} product={product} index={index} currency={settings.currency} theme={theme} onSelect={onSelect} featured />)}
-      {products.slice(6).map((product, index) => <ProductDisplay key={product.id} product={product} index={index + 6} currency={settings.currency} theme={theme} onSelect={onSelect} />)}
+      <ProductDisplayTable products={products} currency={settings.currency} theme={theme} onSelect={onSelect} />
+      <ShelfProductRun products={products} currency={settings.currency} theme={theme} onSelect={onSelect} />
+      <ContactShadows position={[0, 0.025, 0.2]} opacity={0.38} scale={9.5} blur={2.7} far={5.5} color="#071421" />
 
       <Hotspot label="Featured" position={[-2.9, 0.2, 3.1]} theme={theme} onClick={() => onViewpoint("featured")} />
       <Hotspot label="Categories" position={[2.8, 0.2, 2.8]} theme={theme} onClick={() => onViewpoint("categories")} />
@@ -565,12 +720,19 @@ function StoreHUD({ settings, productCount, onExit }: { settings: Settings; prod
 
 function StoreControls({ viewpoint, onViewpoint, yaw, onYaw, onReset }: { viewpoint: Viewpoint; onViewpoint: (viewpoint: Viewpoint) => void; yaw: number; onYaw: (next: number) => void; onReset: () => void }) {
   const buttonClass = "grid h-10 w-10 place-items-center rounded-full border border-white/35 bg-white/90 text-slate-800 shadow-lg transition hover:-translate-y-0.5 hover:bg-cyan-50 sm:h-11 sm:w-11";
+  const navItems: Array<{ target: Viewpoint; label: string; icon: typeof Home }> = [
+    { target: "entrance", label: "Home", icon: Home },
+    { target: "featured", label: "Featured", icon: Sparkles },
+    { target: "categories", label: "Aisles", icon: PackageOpen },
+    { target: "checkout", label: "Checkout", icon: Store }
+  ];
   return (
     <div className="pointer-events-none absolute inset-x-3 bottom-3 z-20 grid gap-2 sm:inset-x-5 sm:bottom-5 sm:gap-3">
-      <div className="pointer-events-auto mx-auto grid w-full max-w-[calc(100vw-1.5rem)] grid-cols-4 gap-1 rounded-2xl border border-white/35 bg-slate-950/78 p-1.5 text-white shadow-2xl backdrop-blur-xl sm:flex sm:w-auto sm:max-w-full sm:gap-2 sm:rounded-full sm:p-2">
-        {(["entrance", "featured", "categories", "checkout"] as Viewpoint[]).map((target) => (
-          <button key={target} type="button" onClick={() => onViewpoint(target)} className={`min-h-9 min-w-0 truncate rounded-full px-2 text-[11px] font-black capitalize transition sm:min-h-10 sm:whitespace-nowrap sm:px-4 sm:text-xs ${viewpoint === target ? "bg-cyan-300 text-slate-950" : "bg-white/10 text-white hover:bg-white/18"}`}>
-            {target === "entrance" ? "Home" : target === "categories" ? "Aisles" : target}
+      <div className="pointer-events-auto mx-auto grid w-full max-w-[calc(100vw-1.5rem)] grid-cols-4 gap-1 rounded-[22px] border border-white/45 bg-slate-950/86 p-1.5 text-white shadow-2xl shadow-slate-950/25 backdrop-blur-xl sm:flex sm:w-auto sm:max-w-full sm:gap-2 sm:rounded-full sm:p-2">
+        {navItems.map(({ target, label, icon: Icon }) => (
+          <button key={target} type="button" onClick={() => onViewpoint(target)} className={`inline-flex min-h-10 min-w-0 items-center justify-center gap-1.5 truncate rounded-full px-2 text-[11px] font-black transition sm:min-h-11 sm:whitespace-nowrap sm:px-4 sm:text-xs ${viewpoint === target ? "bg-cyan-300 text-slate-950 shadow-lg shadow-cyan-900/25" : "bg-white/10 text-white hover:bg-white/18"}`}>
+            <Icon className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{label}</span>
           </button>
         ))}
       </div>
