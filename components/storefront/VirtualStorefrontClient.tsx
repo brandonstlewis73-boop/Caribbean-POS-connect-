@@ -3,7 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { Canvas, useFrame } from "@react-three/fiber";
-import { Billboard, ContactShadows, Environment, RoundedBox, Text } from "@react-three/drei";
+import { ContactShadows, Environment, RoundedBox, Text } from "@react-three/drei";
 import { ArrowLeft, ArrowRight, Home, Minus, PackageOpen, Plus, RotateCcw, ShoppingBag, Sparkles, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import * as THREE from "three";
@@ -151,88 +151,6 @@ function createSignTexture(name: string, accent: string, logoUrl?: string | null
   });
 }
 
-function createPersonTexture(primary: string, role: "customer" | "cashier", accent: string) {
-  return createCanvasTexture(360, 720, (ctx) => {
-    ctx.clearRect(0, 0, 360, 720);
-    ctx.shadowColor = "rgba(7,20,33,0.28)";
-    ctx.shadowBlur = 22;
-    ctx.shadowOffsetY = 12;
-    const skin = role === "cashier" ? "#8b5e3c" : "#9a673f";
-    const dark = "#111827";
-    const apron = role === "cashier" ? dark : primary;
-    const pant = role === "cashier" ? "#0f172a" : "#1e293b";
-
-    ctx.fillStyle = "rgba(7,20,33,0.18)";
-    ctx.beginPath();
-    ctx.ellipse(180, 675, 72, 18, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.shadowBlur = 0;
-    ctx.fillStyle = dark;
-    ctx.beginPath();
-    ctx.ellipse(180, 120, 56, 46, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = skin;
-    ctx.beginPath();
-    ctx.arc(180, 142, 43, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = "rgba(255,255,255,0.72)";
-    ctx.beginPath();
-    ctx.arc(165, 139, 5, 0, Math.PI * 2);
-    ctx.arc(196, 139, 5, 0, Math.PI * 2);
-    ctx.fill();
-
-    const shirtGradient = ctx.createLinearGradient(130, 195, 235, 445);
-    shirtGradient.addColorStop(0, apron);
-    shirtGradient.addColorStop(1, role === "cashier" ? accent : "#0f766e");
-    ctx.fillStyle = shirtGradient;
-    ctx.beginPath();
-    ctx.roundRect(118, 190, 124, 245, 42);
-    ctx.fill();
-
-    if (role === "cashier") {
-      ctx.fillStyle = "rgba(248,250,252,0.94)";
-      ctx.beginPath();
-      ctx.roundRect(137, 245, 86, 116, 22);
-      ctx.fill();
-      ctx.fillStyle = accent;
-      ctx.fillRect(151, 279, 58, 8);
-    }
-
-    ctx.fillStyle = skin;
-    ctx.beginPath();
-    ctx.roundRect(82, 220, 35, 178, 18);
-    ctx.roundRect(243, 220, 35, 178, 18);
-    ctx.fill();
-
-    ctx.fillStyle = pant;
-    ctx.beginPath();
-    ctx.roundRect(128, 418, 45, 190, 20);
-    ctx.roundRect(187, 418, 45, 190, 20);
-    ctx.fill();
-
-    ctx.fillStyle = "#020617";
-    ctx.beginPath();
-    ctx.roundRect(104, 604, 70, 30, 12);
-    ctx.roundRect(187, 604, 70, 30, 12);
-    ctx.fill();
-
-    if (role === "customer") {
-      ctx.fillStyle = "rgba(245,196,81,0.92)";
-      ctx.beginPath();
-      ctx.roundRect(70, 328, 46, 72, 12);
-      ctx.fill();
-      ctx.strokeStyle = "rgba(7,20,33,0.28)";
-      ctx.lineWidth = 5;
-      ctx.beginPath();
-      ctx.arc(93, 328, 20, Math.PI, Math.PI * 2);
-      ctx.stroke();
-    }
-  });
-}
-
 function useImageTexture(url?: string | null) {
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
   useEffect(() => {
@@ -361,50 +279,116 @@ function CeilingLight({ x, z, theme }: { x: number; z: number; theme: ThemeToken
   );
 }
 
+function HumanFigure({ color, accent = "#12D6DF", role = "customer", animated = true }: { color: string; accent?: string; role?: "customer" | "cashier"; animated?: boolean }) {
+  const leftLeg = useRef<THREE.Group>(null);
+  const rightLeg = useRef<THREE.Group>(null);
+  const leftArm = useRef<THREE.Group>(null);
+  const rightArm = useRef<THREE.Group>(null);
+  const torso = useRef<THREE.Group>(null);
+  const skin = role === "cashier" ? "#9a673f" : "#a66a43";
+  const pant = role === "cashier" ? "#0f172a" : "#1e293b";
+
+  useFrame(({ clock }) => {
+    const step = Math.sin(clock.elapsedTime * (role === "cashier" ? 1.6 : 3.1));
+    if (leftLeg.current) leftLeg.current.rotation.x = animated ? step * 0.34 : 0.04;
+    if (rightLeg.current) rightLeg.current.rotation.x = animated ? -step * 0.34 : -0.04;
+    if (leftArm.current) leftArm.current.rotation.x = role === "cashier" ? -0.38 + Math.sin(clock.elapsedTime * 1.8) * 0.12 : -step * 0.26;
+    if (rightArm.current) rightArm.current.rotation.x = role === "cashier" ? -0.52 + Math.cos(clock.elapsedTime * 1.5) * 0.1 : step * 0.26;
+    if (torso.current) torso.current.position.y = animated ? Math.abs(step) * 0.018 : Math.sin(clock.elapsedTime * 0.8) * 0.006;
+  });
+
+  return (
+    <group scale={0.72}>
+      <mesh position={[0, 0.03, 0]} rotation={[-Math.PI / 2, 0, 0]} scale={[1.15, 0.46, 1]}>
+        <circleGeometry args={[0.32, 36]} />
+        <meshBasicMaterial color="#071421" transparent opacity={0.2} />
+      </mesh>
+      <group ref={torso} position={[0, 0, 0]}>
+        <group ref={leftLeg} position={[-0.11, 0.5, 0]}>
+          <mesh castShadow position={[0, -0.24, 0]}>
+            <capsuleGeometry args={[0.055, 0.42, 6, 12]} />
+            <meshStandardMaterial color={pant} roughness={0.52} />
+          </mesh>
+          <mesh castShadow position={[0.02, -0.49, 0.08]} scale={[1.35, 0.45, 1]}>
+            <boxGeometry args={[0.12, 0.08, 0.18]} />
+            <meshStandardMaterial color="#020617" roughness={0.55} />
+          </mesh>
+        </group>
+        <group ref={rightLeg} position={[0.11, 0.5, 0]}>
+          <mesh castShadow position={[0, -0.24, 0]}>
+            <capsuleGeometry args={[0.055, 0.42, 6, 12]} />
+            <meshStandardMaterial color={pant} roughness={0.52} />
+          </mesh>
+          <mesh castShadow position={[0.02, -0.49, 0.08]} scale={[1.35, 0.45, 1]}>
+            <boxGeometry args={[0.12, 0.08, 0.18]} />
+            <meshStandardMaterial color="#020617" roughness={0.55} />
+          </mesh>
+        </group>
+        <RoundedBox args={[0.42, 0.58, 0.2]} radius={0.08} smoothness={8} castShadow position={[0, 0.88, 0]}>
+          <meshStandardMaterial color={color} roughness={0.42} metalness={0.04} />
+        </RoundedBox>
+        {role === "cashier" ? (
+          <RoundedBox args={[0.26, 0.3, 0.035]} radius={0.025} smoothness={6} castShadow position={[0, 0.9, 0.12]}>
+            <meshStandardMaterial color="#f8fafc" roughness={0.4} />
+          </RoundedBox>
+        ) : (
+          <RoundedBox args={[0.18, 0.22, 0.07]} radius={0.03} smoothness={6} castShadow position={[-0.33, 0.74, 0.04]}>
+            <meshStandardMaterial color={accent} roughness={0.4} />
+          </RoundedBox>
+        )}
+        <group ref={leftArm} position={[-0.28, 1.03, 0]}>
+          <mesh castShadow position={[0, -0.22, 0]}>
+            <capsuleGeometry args={[0.04, 0.38, 6, 12]} />
+            <meshStandardMaterial color={skin} roughness={0.48} />
+          </mesh>
+        </group>
+        <group ref={rightArm} position={[0.28, 1.03, 0]}>
+          <mesh castShadow position={[0, -0.22, 0]}>
+            <capsuleGeometry args={[0.04, 0.38, 6, 12]} />
+            <meshStandardMaterial color={skin} roughness={0.48} />
+          </mesh>
+        </group>
+        <mesh castShadow position={[0, 1.28, 0]}>
+          <sphereGeometry args={[0.17, 24, 16]} />
+          <meshStandardMaterial color={skin} roughness={0.45} />
+        </mesh>
+        <mesh castShadow position={[0, 1.4, -0.02]} scale={[1.05, 0.48, 0.9]}>
+          <sphereGeometry args={[0.18, 24, 12]} />
+          <meshStandardMaterial color="#111827" roughness={0.55} />
+        </mesh>
+      </group>
+    </group>
+  );
+}
+
 function WalkingCustomer({ position, color = "#2563eb", offset = 0 }: { position: THREE.Vector3Tuple; color?: string; offset?: number }) {
   const ref = useRef<THREE.Group>(null);
-  const texture = useMemo(() => createPersonTexture(color, "customer", "#12D6DF"), [color]);
   useFrame(({ clock }) => {
     if (!ref.current) return;
-    ref.current.position.x = position[0] + Math.sin(clock.elapsedTime * 0.55 + offset) * 0.28;
-    ref.current.position.z = position[2] + Math.cos(clock.elapsedTime * 0.42 + offset) * 0.08;
-    ref.current.position.y = position[1] + Math.sin(clock.elapsedTime * 1.2 + offset) * 0.012;
+    const t = clock.elapsedTime * 0.34 + offset;
+    const x = position[0] + Math.sin(t) * 0.48;
+    const z = position[2] + Math.cos(t * 0.9) * 0.22;
+    const nextX = position[0] + Math.sin(t + 0.05) * 0.48;
+    const nextZ = position[2] + Math.cos((t + 0.05) * 0.9) * 0.22;
+    ref.current.position.set(x, position[1], z);
+    ref.current.rotation.y = Math.atan2(nextX - x, nextZ - z);
   });
   return (
     <group ref={ref} position={position}>
-      <mesh position={[0, 0.03, 0]} rotation={[-Math.PI / 2, 0, 0]} scale={[1.38, 0.54, 1]}>
-        <circleGeometry args={[0.27, 36]} />
-        <meshBasicMaterial color="#071421" transparent opacity={0.18} />
-      </mesh>
-      <Billboard position={[0, 0.9, 0]}>
-        <mesh castShadow>
-          <planeGeometry args={[0.66, 1.4]} />
-          <meshBasicMaterial map={texture} transparent depthWrite={false} side={THREE.DoubleSide} />
-        </mesh>
-      </Billboard>
+      <HumanFigure color={color} />
     </group>
   );
 }
 
 function StoreCashier({ position, color = "#071421" }: { position: THREE.Vector3Tuple; color?: string }) {
   const ref = useRef<THREE.Group>(null);
-  const texture = useMemo(() => createPersonTexture(color, "cashier", "#12D6DF"), [color]);
   useFrame(({ clock }) => {
     if (!ref.current) return;
-    ref.current.position.y = position[1] + Math.sin(clock.elapsedTime * 0.75) * 0.006;
+    ref.current.rotation.y = -0.08 + Math.sin(clock.elapsedTime * 0.55) * 0.08;
   });
   return (
-    <group ref={ref} position={position}>
-      <mesh position={[0, 0.03, 0]} rotation={[-Math.PI / 2, 0, 0]} scale={[1.32, 0.52, 1]}>
-        <circleGeometry args={[0.25, 36]} />
-        <meshBasicMaterial color="#071421" transparent opacity={0.18} />
-      </mesh>
-      <Billboard position={[0, 0.88, 0]}>
-        <mesh castShadow>
-          <planeGeometry args={[0.62, 1.36]} />
-          <meshBasicMaterial map={texture} transparent depthWrite={false} side={THREE.DoubleSide} />
-        </mesh>
-      </Billboard>
+    <group ref={ref} position={position} rotation={[0, -0.08, 0]}>
+      <HumanFigure color={color} role="cashier" animated={false} />
     </group>
   );
 }
