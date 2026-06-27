@@ -279,7 +279,19 @@ function CeilingLight({ x, z, theme }: { x: number; z: number; theme: ThemeToken
   );
 }
 
-function HumanFigure({ color, accent = "#12D6DF", role = "customer", animated = true }: { color: string; accent?: string; role?: "customer" | "cashier"; animated?: boolean }) {
+function HumanFigure({
+  color,
+  accent = "#12D6DF",
+  role = "customer",
+  animated = true,
+  action = "walk"
+}: {
+  color: string;
+  accent?: string;
+  role?: "customer" | "cashier";
+  animated?: boolean;
+  action?: "walk" | "browse" | "work";
+}) {
   const leftLeg = useRef<THREE.Group>(null);
   const rightLeg = useRef<THREE.Group>(null);
   const leftArm = useRef<THREE.Group>(null);
@@ -290,11 +302,15 @@ function HumanFigure({ color, accent = "#12D6DF", role = "customer", animated = 
 
   useFrame(({ clock }) => {
     const step = Math.sin(clock.elapsedTime * (role === "cashier" ? 1.6 : 3.1));
-    if (leftLeg.current) leftLeg.current.rotation.x = animated ? step * 0.34 : 0.04;
-    if (rightLeg.current) rightLeg.current.rotation.x = animated ? -step * 0.34 : -0.04;
-    if (leftArm.current) leftArm.current.rotation.x = role === "cashier" ? -0.38 + Math.sin(clock.elapsedTime * 1.8) * 0.12 : -step * 0.26;
-    if (rightArm.current) rightArm.current.rotation.x = role === "cashier" ? -0.52 + Math.cos(clock.elapsedTime * 1.5) * 0.1 : step * 0.26;
-    if (torso.current) torso.current.position.y = animated ? Math.abs(step) * 0.018 : Math.sin(clock.elapsedTime * 0.8) * 0.006;
+    const reach = action === "browse";
+    if (leftLeg.current) leftLeg.current.rotation.x = animated && !reach ? step * 0.34 : 0.04;
+    if (rightLeg.current) rightLeg.current.rotation.x = animated && !reach ? -step * 0.34 : -0.04;
+    if (leftArm.current) leftArm.current.rotation.x = reach ? -1.04 + Math.sin(clock.elapsedTime * 1.7) * 0.08 : role === "cashier" ? -0.38 + Math.sin(clock.elapsedTime * 1.8) * 0.12 : -step * 0.26;
+    if (rightArm.current) rightArm.current.rotation.x = reach ? -0.84 + Math.cos(clock.elapsedTime * 1.4) * 0.08 : role === "cashier" ? -0.52 + Math.cos(clock.elapsedTime * 1.5) * 0.1 : step * 0.26;
+    if (torso.current) {
+      torso.current.position.y = animated && !reach ? Math.abs(step) * 0.018 : Math.sin(clock.elapsedTime * 0.8) * 0.006;
+      torso.current.rotation.x = reach ? -0.08 + Math.sin(clock.elapsedTime * 1.2) * 0.015 : 0;
+    }
   });
 
   return (
@@ -332,9 +348,15 @@ function HumanFigure({ color, accent = "#12D6DF", role = "customer", animated = 
             <meshStandardMaterial color="#f8fafc" roughness={0.4} />
           </RoundedBox>
         ) : (
-          <RoundedBox args={[0.18, 0.22, 0.07]} radius={0.03} smoothness={6} castShadow position={[-0.33, 0.74, 0.04]}>
-            <meshStandardMaterial color={accent} roughness={0.4} />
-          </RoundedBox>
+          <group position={[-0.34, 0.68, 0.08]}>
+            <RoundedBox args={[0.18, 0.22, 0.07]} radius={0.03} smoothness={6} castShadow>
+              <meshStandardMaterial color={accent} roughness={0.4} />
+            </RoundedBox>
+            <mesh position={[0, 0.14, 0]} rotation={[0, 0, 0]}>
+              <torusGeometry args={[0.08, 0.012, 8, 18, Math.PI]} />
+              <meshStandardMaterial color="#071421" roughness={0.5} />
+            </mesh>
+          </group>
         )}
         <group ref={leftArm} position={[-0.28, 1.03, 0]}>
           <mesh castShadow position={[0, -0.22, 0]}>
@@ -380,6 +402,23 @@ function WalkingCustomer({ position, color = "#2563eb", offset = 0 }: { position
   );
 }
 
+function BrowsingCustomer({ position, rotation = [0, 0, 0], color = "#14b8a6" }: { position: THREE.Vector3Tuple; rotation?: THREE.Vector3Tuple; color?: string }) {
+  const ref = useRef<THREE.Group>(null);
+  useFrame(({ clock }) => {
+    if (!ref.current) return;
+    ref.current.position.x = position[0] + Math.sin(clock.elapsedTime * 0.55) * 0.035;
+    ref.current.rotation.y = rotation[1] + Math.sin(clock.elapsedTime * 0.8) * 0.045;
+  });
+  return (
+    <group ref={ref} position={position} rotation={rotation}>
+      <HumanFigure color={color} action="browse" animated={false} />
+      <RoundedBox args={[0.22, 0.12, 0.16]} radius={0.025} smoothness={6} castShadow position={[0.28, 0.74, 0.28]}>
+        <meshStandardMaterial color="#F5C451" roughness={0.42} />
+      </RoundedBox>
+    </group>
+  );
+}
+
 function StoreCashier({ position, color = "#071421" }: { position: THREE.Vector3Tuple; color?: string }) {
   const ref = useRef<THREE.Group>(null);
   useFrame(({ clock }) => {
@@ -388,7 +427,29 @@ function StoreCashier({ position, color = "#071421" }: { position: THREE.Vector3
   });
   return (
     <group ref={ref} position={position} rotation={[0, -0.08, 0]}>
-      <HumanFigure color={color} role="cashier" animated={false} />
+      <HumanFigure color={color} role="cashier" action="work" animated={false} />
+    </group>
+  );
+}
+
+function AnimatedCheckoutItems({ theme }: { theme: ThemeTokens }) {
+  const ref = useRef<THREE.Group>(null);
+  useFrame(({ clock }) => {
+    if (!ref.current) return;
+    ref.current.position.x = -0.38 + Math.sin(clock.elapsedTime * 0.85) * 0.22;
+    ref.current.rotation.y = Math.sin(clock.elapsedTime * 0.7) * 0.04;
+  });
+  return (
+    <group ref={ref} position={[-0.35, 1.34, 0.28]}>
+      {[-0.22, 0.04, 0.28].map((x, index) => (
+        <RoundedBox key={x} args={[0.2, 0.1, 0.16]} radius={0.025} smoothness={6} castShadow receiveShadow position={[x, index * 0.08, index % 2 ? 0.02 : 0]}>
+          <meshStandardMaterial color={index % 2 ? theme.accent : theme.warm} roughness={0.4} metalness={0.03} />
+        </RoundedBox>
+      ))}
+      <mesh position={[0.05, 0.2, 0.02]} rotation={[-0.22, 0, 0]}>
+        <planeGeometry args={[0.5, 0.18]} />
+        <meshStandardMaterial color="#ecfeff" emissive={theme.accent} emissiveIntensity={0.06} roughness={0.35} side={THREE.DoubleSide} />
+      </mesh>
     </group>
   );
 }
@@ -750,7 +811,7 @@ function StoreScene({ products, categories, settings, viewpoint, yaw, onSelect, 
       <PosterPanel position={[2.95, 2.35, -5.08]} text="Fresh local treats" theme={theme} />
       <WalkingCustomer position={[-2.1, 0, 3.1]} color="#2563eb" offset={0.2} />
       <WalkingCustomer position={[2.15, 0, 2.55]} color="#f97316" offset={1.7} />
-      <WalkingCustomer position={[-2.75, 0, 0.1]} color="#14b8a6" offset={2.8} />
+      <BrowsingCustomer position={[-2.9, 0, 0.1]} rotation={[0, Math.PI / 2.35, 0]} color="#14b8a6" />
       <StoreCashier position={[0.92, 0, -4.02]} color="#111827" />
 
       <group position={[0, 0, -3.85]}>
@@ -774,6 +835,7 @@ function StoreScene({ products, categories, settings, viewpoint, yaw, onSelect, 
           <planeGeometry args={[0.55, 0.28]} />
           <meshStandardMaterial color="#dffbff" emissive={theme.accent} emissiveIntensity={0.09} roughness={0.35} />
         </mesh>
+        <AnimatedCheckoutItems theme={theme} />
       </group>
 
       {Array.from({ length: Math.min(5, categoryCount) }).map((_, index) => (
