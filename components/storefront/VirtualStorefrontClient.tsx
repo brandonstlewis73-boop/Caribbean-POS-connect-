@@ -3,7 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { Minus, Plus, ShoppingBag, Sparkles, X } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/Button";
 import { money } from "@/lib/constants";
 import type { Category, Product, Settings } from "@/lib/types";
@@ -16,31 +16,32 @@ type Props = {
   onExit: () => void;
 };
 
-type DisplayKind = "box" | "tray" | "bag";
+type ProductVisual = "package" | "tray" | "stack";
 
 type StoreTheme = {
   accent: string;
-  warm: string;
+  gold: string;
   wall: string;
+  panel: string;
   wood: string;
-  dark: string;
+  floor: string;
 };
 
 type DisplayUnit = {
   id: string;
   product: Product;
-  kind: DisplayKind;
+  visual: ProductVisual;
   index: number;
 };
 
 const STORE_THEMES: Record<string, StoreTheme> = {
-  caribbean: { accent: "#12D6DF", warm: "#F5C451", wall: "#2a1b15", wood: "#8a5429", dark: "#071421" },
-  "modern-retail": { accent: "#48F3F8", warm: "#F5C451", wall: "#111827", wood: "#6b4a31", dark: "#071421" },
-  cafe: { accent: "#14b8a6", warm: "#F5C451", wall: "#332016", wood: "#8b5a35", dark: "#1c120d" },
-  restaurant: { accent: "#12D6DF", warm: "#FFD978", wall: "#2b201c", wood: "#7a4b32", dark: "#111827" },
-  grocery: { accent: "#34d399", warm: "#F5C451", wall: "#183325", wood: "#5d6b37", dark: "#071421" },
-  beauty: { accent: "#f0abfc", warm: "#F5C451", wall: "#352039", wood: "#6f3f76", dark: "#160f1c" },
-  clothing: { accent: "#60a5fa", warm: "#F5C451", wall: "#1d2a41", wood: "#38598a", dark: "#071421" }
+  caribbean: { accent: "#12D6DF", gold: "#F5C451", wall: "#271912", panel: "#0B1D2E", wood: "#8a5429", floor: "#eee8df" },
+  "modern-retail": { accent: "#48F3F8", gold: "#F5C451", wall: "#111827", panel: "#172033", wood: "#6b4a31", floor: "#edf2f7" },
+  cafe: { accent: "#14b8a6", gold: "#F5C451", wall: "#332016", panel: "#26140d", wood: "#8b5a35", floor: "#f2e8dc" },
+  restaurant: { accent: "#12D6DF", gold: "#FFD978", wall: "#2b201c", panel: "#15110f", wood: "#7a4b32", floor: "#eee7df" },
+  grocery: { accent: "#34d399", gold: "#F5C451", wall: "#183325", panel: "#0f2419", wood: "#5d6b37", floor: "#e5f3e8" },
+  beauty: { accent: "#f0abfc", gold: "#F5C451", wall: "#352039", panel: "#211025", wood: "#6f3f76", floor: "#f7edf7" },
+  clothing: { accent: "#60a5fa", gold: "#F5C451", wall: "#1d2a41", panel: "#101927", wood: "#38598a", floor: "#edf2fb" }
 };
 
 function safeBusinessName(settings: Settings) {
@@ -48,40 +49,105 @@ function safeBusinessName(settings: Settings) {
 }
 
 function themeFor(settings: Settings): StoreTheme {
-  const key = String(settings.storefront_3d_theme || settings.business_type || "caribbean").toLowerCase();
-  const base = STORE_THEMES[key] || STORE_THEMES.caribbean;
-  const color = settings.business_color && /^#?[0-9a-f]{6}$/i.test(settings.business_color)
+  const selected = String(settings.storefront_3d_theme || settings.business_type || "caribbean").toLowerCase();
+  const base = STORE_THEMES[selected] || STORE_THEMES.caribbean;
+  const accent = settings.business_color && /^#?[0-9a-f]{6}$/i.test(settings.business_color)
     ? settings.business_color.startsWith("#") ? settings.business_color : `#${settings.business_color}`
     : base.accent;
-  return { ...base, accent: color };
+  return { ...base, accent };
 }
 
-function productTone(product: Product) {
+function toneFor(product: Product) {
   const name = product.name.toLowerCase();
   if (name.includes("pink") || name.includes("strawberry") || name.includes("rose")) {
-    return { fill: "#f9a8d4", face: "#fff1f7", edge: "#be185d", text: "#9d174d" };
+    return { fill: "#f43f8a", soft: "#ffe4f1", deep: "#9d174d" };
   }
   if (name.includes("chocolate") || name.includes("brownie") || name.includes("cocoa")) {
-    return { fill: "#5b2d1c", face: "#a1623f", edge: "#2b160f", text: "#3b1b10" };
+    return { fill: "#6b341f", soft: "#c08457", deep: "#25140f" };
   }
-  return { fill: "#12D6DF", face: "#e6fbfd", edge: "#0f766e", text: "#0f766e" };
+  return { fill: "#12D6DF", soft: "#dcfbff", deep: "#0f766e" };
 }
 
-function displayUnits(products: Product[], count: number, offset = 0): DisplayUnit[] {
+function visualFor(product: Product, index: number): ProductVisual {
+  const name = product.name.toLowerCase();
+  if (name.includes("brownie") || name.includes("chocolate") || name.includes("cake")) return "tray";
+  if (name.includes("pink") || name.includes("sweet") || name.includes("candy")) return "stack";
+  return index % 3 === 0 ? "tray" : "package";
+}
+
+function makeDisplayUnits(products: Product[], count: number, offset = 0): DisplayUnit[] {
   if (!products.length) return [];
   return Array.from({ length: count }, (_, index) => {
     const product = products[(index + offset) % products.length];
-    const name = product.name.toLowerCase();
-    const kind: DisplayKind = name.includes("brownie") || name.includes("chocolate")
-      ? "tray"
-      : name.includes("drink") || name.includes("juice") || name.includes("coffee")
-        ? "bag"
-        : "box";
-    return { id: `${product.id}-${offset}-${index}`, product, kind, index };
+    return {
+      id: `${product.id}-${offset}-${index}`,
+      product,
+      visual: visualFor(product, index),
+      index
+    };
   });
 }
 
-function ProductPackage({
+function StoreAtmosphere({ theme }: { theme: StoreTheme }) {
+  return (
+    <>
+      <div className="absolute inset-0" style={{ background: `linear-gradient(180deg, ${theme.wall} 0%, #111827 52%, ${theme.floor} 52%, #f8fafc 100%)` }} />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_22%_12%,rgba(18,214,223,0.26),transparent_28%),radial-gradient(circle_at_78%_10%,rgba(245,196,81,0.24),transparent_22%),linear-gradient(90deg,rgba(255,255,255,0.08),transparent_26%,transparent_74%,rgba(255,255,255,0.08))]" />
+      <div className="absolute inset-x-6 bottom-10 h-20 rounded-[50%] bg-slate-950/20 blur-2xl" />
+    </>
+  );
+}
+
+function StoreLighting({ theme }: { theme: StoreTheme }) {
+  return (
+    <>
+      <div className="absolute left-1/2 top-3 h-4 w-32 -translate-x-1/2 rounded-full bg-white shadow-[0_0_38px_rgba(255,244,219,0.9)]" />
+      <div className="absolute left-[22%] top-5 h-3 w-20 -translate-x-1/2 rounded-full bg-white/85 shadow-[0_0_26px_rgba(255,244,219,0.85)]" />
+      <div className="absolute left-[78%] top-5 h-3 w-20 -translate-x-1/2 rounded-full bg-white/85 shadow-[0_0_26px_rgba(255,244,219,0.85)]" />
+      <div className="absolute inset-x-[12%] top-[51%] h-1 rounded-full shadow-[0_0_24px_rgba(18,214,223,0.8)]" style={{ backgroundColor: theme.accent }} />
+    </>
+  );
+}
+
+function StoreBackWall({ settings, theme }: { settings: Settings; theme: StoreTheme }) {
+  const businessName = safeBusinessName(settings);
+  return (
+    <div className="relative overflow-hidden rounded-[28px] border border-white/10 px-4 py-5 shadow-2xl sm:px-6 sm:py-7" style={{ backgroundColor: theme.panel }}>
+      <div className="absolute inset-0 opacity-80" style={{ backgroundImage: "repeating-linear-gradient(90deg,rgba(255,255,255,0.07) 0 5px, transparent 5px 30px)" }} />
+      <div className="absolute inset-x-8 top-0 h-1 rounded-full shadow-[0_0_20px_rgba(18,214,223,0.85)]" style={{ backgroundColor: theme.accent }} />
+      <div className="relative mx-auto flex max-w-xl items-center justify-center gap-3 rounded-[24px] border border-white/10 bg-slate-950/72 px-4 py-4 shadow-2xl">
+        {settings.logo_url ? <img src={settings.logo_url} alt="" className="h-12 w-12 shrink-0 rounded-2xl bg-white object-contain p-1 shadow-lg" /> : null}
+        <div className="min-w-0">
+          <p className="truncate text-2xl font-black tracking-tight text-white sm:text-4xl">{businessName}</p>
+          <p className="mt-1 text-xs font-black uppercase tracking-[0.18em]" style={{ color: theme.accent }}>Premium virtual storefront</p>
+        </div>
+      </div>
+      <div className="absolute bottom-0 left-0 right-0 h-1.5" style={{ backgroundColor: theme.gold }} />
+    </div>
+  );
+}
+
+function PlantDecor({ side }: { side: "left" | "right" }) {
+  return (
+    <div className={`pointer-events-none absolute bottom-[34%] hidden h-24 w-16 sm:block ${side === "left" ? "left-3" : "right-3"}`}>
+      <div className="absolute bottom-0 left-1/2 h-9 w-10 -translate-x-1/2 rounded-b-2xl rounded-t-md bg-slate-900 shadow-xl" />
+      {[-36, -18, 0, 18, 36].map((rotate) => (
+        <div key={rotate} className="absolute bottom-7 left-1/2 h-20 w-3 origin-bottom rounded-full bg-teal-700 shadow-md" style={{ transform: `translateX(-50%) rotate(${rotate}deg)` }} />
+      ))}
+    </div>
+  );
+}
+
+function ShelfSlot({ children }: { children: ReactNode }) {
+  return (
+    <div className="relative grid min-w-0 place-items-center">
+      <span className="absolute inset-x-2 bottom-1 h-2 rounded-full bg-slate-950/25 blur-sm" />
+      {children}
+    </div>
+  );
+}
+
+function ShelfProductPackage({
   unit,
   currency,
   onSelect,
@@ -92,73 +158,51 @@ function ProductPackage({
   onSelect: (product: Product) => void;
   compact?: boolean;
 }) {
-  const tone = productTone(unit.product);
+  const tone = toneFor(unit.product);
+  const size = compact ? "h-14 w-14" : "h-16 w-16";
 
-  if (unit.kind === "tray") {
+  if (unit.visual === "tray") {
     return (
-      <button
-        type="button"
-        onClick={() => onSelect(unit.product)}
-        className="group grid min-w-0 justify-items-center gap-1 rounded-2xl p-1 outline-none transition hover:-translate-y-1 focus-visible:ring-2 focus-visible:ring-cyan-300"
-        aria-label={`View ${unit.product.name}`}
-      >
-        <span className={`${compact ? "h-14 w-20" : "h-16 w-24"} relative rounded-2xl border border-white/30 p-1 shadow-xl`} style={{ backgroundColor: tone.edge }}>
+      <button type="button" onClick={() => onSelect(unit.product)} aria-label={`View ${unit.product.name}`} className="group grid justify-items-center gap-1 rounded-2xl p-1 outline-none transition hover:-translate-y-1 focus-visible:ring-2 focus-visible:ring-cyan-300">
+        <span className={`${compact ? "h-14 w-20" : "h-16 w-24"} relative rounded-2xl border border-white/35 p-1 shadow-xl`} style={{ backgroundColor: tone.deep }}>
           <span className="grid h-full grid-cols-3 gap-1">
-            {Array.from({ length: 6 }).map((_, piece) => (
-              <span key={piece} className="rounded-lg shadow-inner" style={{ backgroundColor: piece % 2 ? tone.face : tone.fill }} />
-            ))}
+            {Array.from({ length: 6 }).map((_, index) => <span key={index} className="rounded-md shadow-inner" style={{ backgroundColor: index % 2 ? tone.soft : tone.fill }} />)}
           </span>
           {unit.product.image_url ? <img src={unit.product.image_url} alt="" className="absolute -right-1 -top-2 h-8 w-8 rounded-lg border border-white bg-white object-cover shadow-md" /> : null}
         </span>
-        <PackageCaption product={unit.product} currency={currency} />
+        <ProductPrice product={unit.product} currency={currency} />
+      </button>
+    );
+  }
+
+  if (unit.visual === "stack") {
+    return (
+      <button type="button" onClick={() => onSelect(unit.product)} aria-label={`View ${unit.product.name}`} className="group grid justify-items-center gap-1 rounded-2xl p-1 outline-none transition hover:-translate-y-1 focus-visible:ring-2 focus-visible:ring-cyan-300">
+        <span className={`${compact ? "h-14 w-20" : "h-16 w-24"} relative`}>
+          {[0, 1, 2].map((layer) => (
+            <span key={layer} className="absolute left-1/2 h-7 w-16 -translate-x-1/2 rounded-xl border border-white/40 shadow-lg" style={{ bottom: layer * 10, backgroundColor: layer % 2 ? tone.soft : tone.fill }} />
+          ))}
+          {unit.product.image_url ? <img src={unit.product.image_url} alt="" className="absolute right-0 top-0 h-8 w-8 rounded-lg border border-white bg-white object-cover shadow-md" /> : null}
+        </span>
+        <ProductPrice product={unit.product} currency={currency} />
       </button>
     );
   }
 
   return (
-    <button
-      type="button"
-      onClick={() => onSelect(unit.product)}
-      className="group grid min-w-0 justify-items-center gap-1 rounded-2xl p-1 outline-none transition hover:-translate-y-1 focus-visible:ring-2 focus-visible:ring-cyan-300"
-      aria-label={`View ${unit.product.name}`}
-    >
-      <span
-        className={`${compact ? "h-16 w-14" : "h-20 w-16"} relative overflow-hidden rounded-[18px] border border-white/45 shadow-xl`}
-        style={{ background: `linear-gradient(145deg, ${tone.face}, #fff 55%, ${tone.fill})` }}
-      >
-        {unit.product.image_url ? <img src={unit.product.image_url} alt="" className="absolute inset-x-2 top-2 h-9 rounded-lg object-cover shadow-sm" /> : null}
-        <span className="absolute inset-x-2 bottom-5 h-2 rounded-full" style={{ backgroundColor: tone.edge }} />
+    <button type="button" onClick={() => onSelect(unit.product)} aria-label={`View ${unit.product.name}`} className="group grid justify-items-center gap-1 rounded-2xl p-1 outline-none transition hover:-translate-y-1 focus-visible:ring-2 focus-visible:ring-cyan-300">
+      <span className={`${size} relative overflow-hidden rounded-[18px] border border-white/45 shadow-xl`} style={{ background: `linear-gradient(145deg, ${tone.soft}, #fff 55%, ${tone.fill})` }}>
+        {unit.product.image_url ? <img src={unit.product.image_url} alt="" className="absolute inset-x-2 top-2 h-8 rounded-lg object-cover shadow-sm" /> : null}
+        <span className="absolute inset-x-2 bottom-5 h-2 rounded-full" style={{ backgroundColor: tone.deep }} />
         <span className="absolute bottom-2 left-1/2 h-1.5 w-8 -translate-x-1/2 rounded-full bg-white/70" />
       </span>
-      <PackageCaption product={unit.product} currency={currency} />
+      <ProductPrice product={unit.product} currency={currency} />
     </button>
   );
 }
 
-function PackageCaption({ product, currency }: { product: Product; currency: string }) {
-  return (
-    <span className="max-w-[88px] truncate rounded-full bg-white px-2 py-1 text-[10px] font-black text-slate-900 shadow-sm">
-      {money(product.selling_price, currency)}
-    </span>
-  );
-}
-
-function StoreBackWall({ settings, theme }: { settings: Settings; theme: StoreTheme }) {
-  const businessName = safeBusinessName(settings);
-  return (
-    <div className="relative overflow-hidden rounded-[28px] border border-white/10 px-4 py-5 text-center shadow-2xl sm:px-6 sm:py-7" style={{ backgroundColor: theme.wall }}>
-      <div className="absolute inset-0 opacity-80" style={{ backgroundImage: "repeating-linear-gradient(90deg,rgba(255,255,255,0.055) 0 6px, transparent 6px 34px)" }} />
-      <div className="absolute inset-x-10 top-0 h-1 rounded-full shadow-[0_0_22px_rgba(18,214,223,0.8)]" style={{ backgroundColor: theme.accent }} />
-      <div className="relative mx-auto flex max-w-xl items-center justify-center gap-3 rounded-[24px] border border-white/10 bg-slate-950/70 px-4 py-4 shadow-2xl">
-        {settings.logo_url ? <img src={settings.logo_url} alt="" className="h-12 w-12 rounded-2xl bg-white object-contain p-1 shadow-lg" /> : null}
-        <div className="min-w-0 text-left">
-          <p className="truncate text-2xl font-black tracking-tight text-white sm:text-4xl">{businessName}</p>
-          <p className="mt-1 text-xs font-black uppercase tracking-[0.18em]" style={{ color: theme.accent }}>Virtual storefront</p>
-        </div>
-      </div>
-      <div className="absolute bottom-0 left-0 right-0 h-1.5" style={{ backgroundColor: theme.warm }} />
-    </div>
-  );
+function ProductPrice({ product, currency }: { product: Product; currency: string }) {
+  return <span className="max-w-[86px] truncate rounded-full bg-white px-2 py-1 text-[10px] font-black text-slate-900 shadow-sm">{money(product.selling_price, currency)}</span>;
 }
 
 function StoreShelfWall({
@@ -175,7 +219,7 @@ function StoreShelfWall({
   onSelect: (product: Product) => void;
 }) {
   return (
-    <div className="rounded-[26px] border border-white/12 bg-slate-950/78 p-3 shadow-2xl">
+    <div className="rounded-[26px] border border-white/12 bg-slate-950/76 p-3 shadow-2xl backdrop-blur-sm">
       <div className="mb-3 flex items-center justify-between gap-3">
         <p className="text-xs font-black uppercase tracking-[0.16em] text-white/75">{title}</p>
         <span className="h-2 w-16 rounded-full shadow-[0_0_16px_rgba(18,214,223,0.75)]" style={{ backgroundColor: theme.accent }} />
@@ -185,13 +229,19 @@ function StoreShelfWall({
           <div key={row} className="relative grid grid-cols-4 gap-2 border-t border-white/10 pt-2">
             <div className="absolute inset-x-0 bottom-2 h-2 rounded-full" style={{ backgroundColor: theme.wood }} />
             {units.slice(row * 4, row * 4 + 4).map((unit) => (
-              <ProductPackage key={unit.id} unit={unit} currency={currency} onSelect={onSelect} compact />
+              <ShelfSlot key={unit.id}>
+                <ShelfProductPackage unit={unit} currency={currency} onSelect={onSelect} compact />
+              </ShelfSlot>
             ))}
           </div>
         ))}
       </div>
     </div>
   );
+}
+
+function ProductTrayStack({ unit, currency, onSelect }: { unit: DisplayUnit; currency: string; onSelect: (product: Product) => void }) {
+  return <ShelfProductPackage unit={{ ...unit, visual: unit.visual === "package" ? "tray" : unit.visual }} currency={currency} onSelect={onSelect} />;
 }
 
 function ProductDisplayIsland({
@@ -206,7 +256,8 @@ function ProductDisplayIsland({
   onSelect: (product: Product) => void;
 }) {
   return (
-    <div className="rounded-[30px] border border-white/50 bg-white/94 p-4 shadow-2xl">
+    <div className="relative rounded-[30px] border border-white/55 bg-white/94 p-4 shadow-2xl">
+      <div className="absolute -top-1 left-8 right-8 h-2 rounded-full shadow-[0_0_22px_rgba(18,214,223,0.8)]" style={{ backgroundColor: theme.accent }} />
       <div className="mb-3 flex items-center justify-between gap-3">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Center display</p>
@@ -214,9 +265,9 @@ function ProductDisplayIsland({
         </div>
         <Sparkles className="h-5 w-5" style={{ color: theme.accent }} />
       </div>
-      <div className="grid grid-cols-2 gap-3 min-[430px]:grid-cols-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 min-[430px]:grid-cols-3 sm:grid-cols-4 md:grid-cols-6">
         {units.map((unit) => (
-          <ProductPackage key={unit.id} unit={{ ...unit, kind: unit.kind === "box" ? "tray" : unit.kind }} currency={currency} onSelect={onSelect} />
+          <ProductTrayStack key={unit.id} unit={unit} currency={currency} onSelect={onSelect} />
         ))}
       </div>
     </div>
@@ -225,20 +276,22 @@ function ProductDisplayIsland({
 
 function StoreControls({ onExit }: { onExit: () => void }) {
   return (
-    <div className="grid grid-cols-3 gap-2">
-      <span className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-3 text-xs font-black text-slate-700">
-        Home
-      </span>
-      <span className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-cyan-200 bg-cyan-50 px-3 text-xs font-black text-cyan-800">
-        Featured
-      </span>
-      <button
-        type="button"
-        onClick={onExit}
-        className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-slate-950 px-3 text-xs font-black text-white shadow-lg transition hover:bg-teal-700"
-      >
-        Cart
-      </button>
+    <div className="hidden grid-cols-4 gap-2 rounded-[24px] border border-slate-200 bg-white/88 p-2 shadow-lg backdrop-blur-xl md:grid">
+      {["Home", "Featured", "Aisles"].map((label) => (
+        <span key={label} className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 px-3 text-xs font-black text-slate-700">{label}</span>
+      ))}
+      <button type="button" onClick={onExit} className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-slate-950 px-3 text-xs font-black text-white shadow-lg transition hover:bg-teal-700">Cart</button>
+    </div>
+  );
+}
+
+function MobileStoreControls({ onExit }: { onExit: () => void }) {
+  return (
+    <div className="grid grid-cols-4 gap-1 rounded-[22px] border border-slate-200 bg-white/90 p-1.5 shadow-lg backdrop-blur-xl md:hidden">
+      {["Home", "Featured", "Aisles"].map((label) => (
+        <span key={label} className="inline-flex min-h-10 items-center justify-center rounded-2xl bg-slate-100 px-2 text-[10px] font-black text-slate-700">{label}</span>
+      ))}
+      <button type="button" onClick={onExit} className="inline-flex min-h-10 items-center justify-center rounded-2xl bg-slate-950 px-2 text-[10px] font-black text-white">Cart</button>
     </div>
   );
 }
@@ -298,21 +351,23 @@ function PremiumStoreScene({
   onSelect: (product: Product) => void;
 }) {
   const theme = useMemo(() => themeFor(settings), [settings]);
-  const leftUnits = useMemo(() => displayUnits(products, 8, 0), [products]);
-  const rightUnits = useMemo(() => displayUnits(products, 8, 4), [products]);
-  const featuredUnits = useMemo(() => displayUnits(products, products.length < 3 ? 4 : 6, 9), [products]);
+  const leftUnits = useMemo(() => makeDisplayUnits(products, 8, 0), [products]);
+  const rightUnits = useMemo(() => makeDisplayUnits(products, 8, 4), [products]);
+  const islandUnits = useMemo(() => makeDisplayUnits(products, products.length < 3 ? 4 : 6, 8), [products]);
 
   return (
     <div className="relative overflow-hidden rounded-[30px] border border-slate-200 bg-slate-950 p-3 shadow-2xl sm:p-5">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(18,214,223,0.22),transparent_28%),radial-gradient(circle_at_90%_8%,rgba(245,196,81,0.2),transparent_24%)]" />
-      <div className="absolute inset-x-0 bottom-0 h-1/3 bg-[linear-gradient(135deg,rgba(255,255,255,0.92),rgba(229,231,235,0.94))]" />
+      <StoreAtmosphere theme={theme} />
+      <StoreLighting theme={theme} />
+      <PlantDecor side="left" />
+      <PlantDecor side="right" />
       <div className="relative grid gap-3 sm:gap-4">
         <StoreBackWall settings={settings} theme={theme} />
         <div className="grid gap-3 lg:grid-cols-2">
           <StoreShelfWall title="Left shelf" units={leftUnits} currency={settings.currency} theme={theme} onSelect={onSelect} />
           <StoreShelfWall title="Right shelf" units={rightUnits} currency={settings.currency} theme={theme} onSelect={onSelect} />
         </div>
-        <ProductDisplayIsland units={featuredUnits} currency={settings.currency} theme={theme} onSelect={onSelect} />
+        <ProductDisplayIsland units={islandUnits} currency={settings.currency} theme={theme} onSelect={onSelect} />
         {!products.length ? (
           <div className="rounded-[24px] border border-white/20 bg-white/94 p-5 text-center shadow-xl">
             <ShoppingBag className="mx-auto h-8 w-8 text-teal-700" />
@@ -348,8 +403,9 @@ export default function VirtualStore3D({ products, categories, settings, onAddTo
       </div>
       <PremiumStoreScene products={visibleProducts} settings={settings} onSelect={setSelectedProduct} />
       <StoreControls onExit={onExit} />
+      <MobileStoreControls onExit={onExit} />
       <p className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-center text-[11px] font-bold leading-5 text-slate-600">
-        Tap a package to view details. Checkout stays in the normal store flow.
+        Tap a shelf package to view details. Checkout stays in the normal store flow.
       </p>
       {selectedProduct ? (
         <ProductDetailModal
