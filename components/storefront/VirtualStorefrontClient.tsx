@@ -2,8 +2,10 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import { Minus, Plus, ShoppingBag, Sparkles, X } from "lucide-react";
-import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { Canvas } from "@react-three/fiber";
+import { ContactShadows, RoundedBox, Text } from "@react-three/drei";
+import { Minus, Plus, ShoppingBag, X } from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { money } from "@/lib/constants";
 import type { Category, Product, Settings } from "@/lib/types";
@@ -16,33 +18,45 @@ type Props = {
   onExit: () => void;
 };
 
-type ProductVisual = "package" | "tray" | "stack";
-
 type StoreTheme = {
   accent: string;
   gold: string;
   wall: string;
-  panel: string;
   wood: string;
+  shelf: string;
   floor: string;
 };
 
-type DisplayUnit = {
+type Hotspot = {
   id: string;
   product: Product;
-  visual: ProductVisual;
+  x: number;
+  y: number;
   index: number;
+  size: "sm" | "md" | "lg";
+  kind: "package" | "tray" | "stack";
 };
 
 const STORE_THEMES: Record<string, StoreTheme> = {
-  caribbean: { accent: "#12D6DF", gold: "#F5C451", wall: "#271912", panel: "#0B1D2E", wood: "#8a5429", floor: "#eee8df" },
-  "modern-retail": { accent: "#48F3F8", gold: "#F5C451", wall: "#111827", panel: "#172033", wood: "#6b4a31", floor: "#edf2f7" },
-  cafe: { accent: "#14b8a6", gold: "#F5C451", wall: "#332016", panel: "#26140d", wood: "#8b5a35", floor: "#f2e8dc" },
-  restaurant: { accent: "#12D6DF", gold: "#FFD978", wall: "#2b201c", panel: "#15110f", wood: "#7a4b32", floor: "#eee7df" },
-  grocery: { accent: "#34d399", gold: "#F5C451", wall: "#183325", panel: "#0f2419", wood: "#5d6b37", floor: "#e5f3e8" },
-  beauty: { accent: "#f0abfc", gold: "#F5C451", wall: "#352039", panel: "#211025", wood: "#6f3f76", floor: "#f7edf7" },
-  clothing: { accent: "#60a5fa", gold: "#F5C451", wall: "#1d2a41", panel: "#101927", wood: "#38598a", floor: "#edf2fb" }
+  caribbean: { accent: "#12D6DF", gold: "#F5C451", wall: "#241610", wood: "#8a5429", shelf: "#0f3143", floor: "#eee8df" },
+  "modern-retail": { accent: "#48F3F8", gold: "#F5C451", wall: "#111827", wood: "#6b4a31", shelf: "#172033", floor: "#edf2f7" },
+  cafe: { accent: "#14b8a6", gold: "#F5C451", wall: "#332016", wood: "#8b5a35", shelf: "#4c2d1f", floor: "#f2e8dc" },
+  restaurant: { accent: "#12D6DF", gold: "#FFD978", wall: "#2b201c", wood: "#7a4b32", shelf: "#2b201c", floor: "#eee7df" },
+  grocery: { accent: "#34d399", gold: "#F5C451", wall: "#183325", wood: "#5d6b37", shelf: "#174734", floor: "#e5f3e8" },
+  beauty: { accent: "#f0abfc", gold: "#F5C451", wall: "#352039", wood: "#6f3f76", shelf: "#4b2d50", floor: "#f7edf7" },
+  clothing: { accent: "#60a5fa", gold: "#F5C451", wall: "#1d2a41", wood: "#38598a", shelf: "#1d3357", floor: "#edf2fb" }
 };
+
+const HOTSPOT_SLOTS = [
+  { x: 18, y: 48, size: "sm" as const },
+  { x: 28, y: 41, size: "sm" as const },
+  { x: 40, y: 69, size: "lg" as const },
+  { x: 52, y: 65, size: "lg" as const },
+  { x: 66, y: 42, size: "sm" as const },
+  { x: 78, y: 49, size: "sm" as const },
+  { x: 58, y: 76, size: "md" as const },
+  { x: 33, y: 77, size: "md" as const }
+];
 
 function safeBusinessName(settings: Settings) {
   return (settings.business_name || "Storefront").trim() || "Storefront";
@@ -59,239 +73,301 @@ function themeFor(settings: Settings): StoreTheme {
 
 function toneFor(product: Product) {
   const name = product.name.toLowerCase();
-  if (name.includes("pink") || name.includes("strawberry") || name.includes("rose")) {
-    return { fill: "#f43f8a", soft: "#ffe4f1", deep: "#9d174d" };
-  }
-  if (name.includes("chocolate") || name.includes("brownie") || name.includes("cocoa")) {
-    return { fill: "#6b341f", soft: "#c08457", deep: "#25140f" };
-  }
+  if (name.includes("pink") || name.includes("strawberry") || name.includes("rose")) return { fill: "#f43f8a", soft: "#ffe4f1", deep: "#9d174d" };
+  if (name.includes("chocolate") || name.includes("brownie") || name.includes("cocoa")) return { fill: "#6b341f", soft: "#c08457", deep: "#25140f" };
   return { fill: "#12D6DF", soft: "#dcfbff", deep: "#0f766e" };
 }
 
-function visualFor(product: Product, index: number): ProductVisual {
+function kindFor(product: Product, index: number): Hotspot["kind"] {
   const name = product.name.toLowerCase();
   if (name.includes("brownie") || name.includes("chocolate") || name.includes("cake")) return "tray";
   if (name.includes("pink") || name.includes("sweet") || name.includes("candy")) return "stack";
   return index % 3 === 0 ? "tray" : "package";
 }
 
-function makeDisplayUnits(products: Product[], count: number, offset = 0): DisplayUnit[] {
+function makeHotspots(products: Product[]): Hotspot[] {
   if (!products.length) return [];
-  return Array.from({ length: count }, (_, index) => {
-    const product = products[(index + offset) % products.length];
+  return HOTSPOT_SLOTS.map((slot, index) => {
+    const product = products[index % products.length];
     return {
-      id: `${product.id}-${offset}-${index}`,
+      id: `${product.id}-hotspot-${index}`,
       product,
-      visual: visualFor(product, index),
-      index
+      x: slot.x,
+      y: slot.y,
+      index,
+      size: slot.size,
+      kind: kindFor(product, index)
     };
   });
-}
-
-function StoreAtmosphere({ theme }: { theme: StoreTheme }) {
-  return (
-    <>
-      <div className="absolute inset-0" style={{ background: `linear-gradient(180deg, ${theme.wall} 0%, #111827 52%, ${theme.floor} 52%, #f8fafc 100%)` }} />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_22%_12%,rgba(18,214,223,0.26),transparent_28%),radial-gradient(circle_at_78%_10%,rgba(245,196,81,0.24),transparent_22%),linear-gradient(90deg,rgba(255,255,255,0.08),transparent_26%,transparent_74%,rgba(255,255,255,0.08))]" />
-      <div className="absolute inset-x-6 bottom-10 h-20 rounded-[50%] bg-slate-950/20 blur-2xl" />
-    </>
-  );
 }
 
 function StoreLighting({ theme }: { theme: StoreTheme }) {
   return (
     <>
-      <div className="absolute left-1/2 top-3 h-4 w-32 -translate-x-1/2 rounded-full bg-white shadow-[0_0_38px_rgba(255,244,219,0.9)]" />
-      <div className="absolute left-[22%] top-5 h-3 w-20 -translate-x-1/2 rounded-full bg-white/85 shadow-[0_0_26px_rgba(255,244,219,0.85)]" />
-      <div className="absolute left-[78%] top-5 h-3 w-20 -translate-x-1/2 rounded-full bg-white/85 shadow-[0_0_26px_rgba(255,244,219,0.85)]" />
-      <div className="absolute inset-x-[12%] top-[51%] h-1 rounded-full shadow-[0_0_24px_rgba(18,214,223,0.8)]" style={{ backgroundColor: theme.accent }} />
+      <ambientLight intensity={0.55} color="#fff7e8" />
+      <directionalLight position={[0, 5.8, 4.8]} intensity={1.6} color="#fff1d6" castShadow />
+      <pointLight position={[-2.8, 2.4, 1.4]} intensity={1.1} color={theme.accent} distance={5.8} />
+      <pointLight position={[2.8, 2.6, -1.8]} intensity={0.9} color={theme.gold} distance={5.6} />
+      <spotLight position={[0, 4.4, -1.6]} angle={0.45} penumbra={0.72} intensity={1.7} color="#fff3d6" castShadow />
     </>
   );
 }
 
-function StoreBackWall({ settings, theme }: { settings: Settings; theme: StoreTheme }) {
+function StoreSceneBackground({ settings, theme }: { settings: Settings; theme: StoreTheme }) {
   const businessName = safeBusinessName(settings);
   return (
-    <div className="relative overflow-hidden rounded-[28px] border border-white/10 px-4 py-5 shadow-2xl sm:px-6 sm:py-7" style={{ backgroundColor: theme.panel }}>
-      <div className="absolute inset-0 opacity-80" style={{ backgroundImage: "repeating-linear-gradient(90deg,rgba(255,255,255,0.07) 0 5px, transparent 5px 30px)" }} />
-      <div className="absolute inset-x-8 top-0 h-1 rounded-full shadow-[0_0_20px_rgba(18,214,223,0.85)]" style={{ backgroundColor: theme.accent }} />
-      <div className="relative mx-auto flex max-w-xl items-center justify-center gap-3 rounded-[24px] border border-white/10 bg-slate-950/72 px-4 py-4 shadow-2xl">
-        {settings.logo_url ? <img src={settings.logo_url} alt="" className="h-12 w-12 shrink-0 rounded-2xl bg-white object-contain p-1 shadow-lg" /> : null}
-        <div className="min-w-0">
-          <p className="truncate text-2xl font-black tracking-tight text-white sm:text-4xl">{businessName}</p>
-          <p className="mt-1 text-xs font-black uppercase tracking-[0.18em]" style={{ color: theme.accent }}>Premium virtual storefront</p>
-        </div>
-      </div>
-      <div className="absolute bottom-0 left-0 right-0 h-1.5" style={{ backgroundColor: theme.gold }} />
-    </div>
+    <group>
+      <mesh receiveShadow position={[0, -0.05, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[8.4, 7.6]} />
+        <meshStandardMaterial color={theme.floor} roughness={0.72} metalness={0.04} />
+      </mesh>
+      <mesh receiveShadow position={[0, 1.75, -3.05]}>
+        <boxGeometry args={[8.4, 3.8, 0.16]} />
+        <meshStandardMaterial color={theme.wall} roughness={0.6} />
+      </mesh>
+      <mesh receiveShadow position={[-4.12, 1.45, -0.2]} rotation={[0, 0.35, 0]}>
+        <boxGeometry args={[0.18, 2.9, 5.6]} />
+        <meshStandardMaterial color="#f8fafc" roughness={0.52} />
+      </mesh>
+      <mesh receiveShadow position={[4.12, 1.45, -0.2]} rotation={[0, -0.35, 0]}>
+        <boxGeometry args={[0.18, 2.9, 5.6]} />
+        <meshStandardMaterial color="#f8fafc" roughness={0.52} />
+      </mesh>
+      <mesh position={[0, 2.35, -2.94]}>
+        <boxGeometry args={[3.7, 1.15, 0.18]} />
+        <meshStandardMaterial color="#071421" roughness={0.42} metalness={0.08} />
+      </mesh>
+      <Text position={[0, 2.55, -2.83]} fontSize={0.34} maxWidth={3.2} textAlign="center" color="#F8FAFC" anchorX="center" anchorY="middle">
+        {businessName}
+      </Text>
+      <Text position={[0, 2.23, -2.82]} fontSize={0.11} maxWidth={3.1} textAlign="center" color={theme.accent} anchorX="center" anchorY="middle">
+        PREMIUM VIRTUAL STOREFRONT
+      </Text>
+      <mesh position={[0, 1.78, -2.82]}>
+        <boxGeometry args={[3.6, 0.035, 0.08]} />
+        <meshStandardMaterial color={theme.gold} emissive={theme.gold} emissiveIntensity={0.55} />
+      </mesh>
+    </group>
+  );
+}
+
+function StoreShelfWall({ side, theme }: { side: "left" | "right"; theme: StoreTheme }) {
+  const x = side === "left" ? -2.85 : 2.85;
+  const rotation = side === "left" ? 0.18 : -0.18;
+  return (
+    <group position={[x, 1.15, -1.18]} rotation={[0, rotation, 0]}>
+      <RoundedBox args={[1.38, 2.08, 0.32]} radius={0.08} smoothness={4} castShadow receiveShadow>
+        <meshStandardMaterial color={theme.shelf} roughness={0.48} metalness={0.08} />
+      </RoundedBox>
+      {[0.42, 0, -0.44].map((y) => (
+        <mesh key={y} position={[0, y, 0.24]} castShadow>
+          <boxGeometry args={[1.46, 0.06, 0.5]} />
+          <meshStandardMaterial color={theme.wood} roughness={0.52} />
+        </mesh>
+      ))}
+      <mesh position={[0, 0.86, 0.3]}>
+        <boxGeometry args={[1.1, 0.035, 0.08]} />
+        <meshStandardMaterial color={theme.accent} emissive={theme.accent} emissiveIntensity={0.7} />
+      </mesh>
+    </group>
+  );
+}
+
+function StoreBackWall({ settings, theme }: { settings: Settings; theme: StoreTheme }) {
+  return <StoreSceneBackground settings={settings} theme={theme} />;
+}
+
+function ProductDisplayIsland({ theme }: { theme: StoreTheme }) {
+  return (
+    <group position={[0, 0.46, 0.98]}>
+      <RoundedBox args={[2.72, 0.56, 1.2]} radius={0.12} smoothness={5} castShadow receiveShadow>
+        <meshStandardMaterial color="#111827" roughness={0.45} metalness={0.08} />
+      </RoundedBox>
+      <mesh position={[0, 0.32, 0]}>
+        <boxGeometry args={[2.46, 0.05, 1.02]} />
+        <meshStandardMaterial color={theme.wood} roughness={0.42} />
+      </mesh>
+      <mesh position={[0, 0.04, 0.63]}>
+        <boxGeometry args={[2.28, 0.04, 0.06]} />
+        <meshStandardMaterial color={theme.accent} emissive={theme.accent} emissiveIntensity={0.75} />
+      </mesh>
+    </group>
+  );
+}
+
+function StoreAtmosphere({ theme }: { theme: StoreTheme }) {
+  return (
+    <>
+      <color attach="background" args={["#f8fafc"]} />
+      <fog attach="fog" args={["#f8fafc", 7.5, 10.5]} />
+      <StoreLighting theme={theme} />
+    </>
   );
 }
 
 function PlantDecor({ side }: { side: "left" | "right" }) {
+  const x = side === "left" ? -3.42 : 3.42;
   return (
-    <div className={`pointer-events-none absolute bottom-[34%] hidden h-24 w-16 sm:block ${side === "left" ? "left-3" : "right-3"}`}>
-      <div className="absolute bottom-0 left-1/2 h-9 w-10 -translate-x-1/2 rounded-b-2xl rounded-t-md bg-slate-900 shadow-xl" />
-      {[-36, -18, 0, 18, 36].map((rotate) => (
-        <div key={rotate} className="absolute bottom-7 left-1/2 h-20 w-3 origin-bottom rounded-full bg-teal-700 shadow-md" style={{ transform: `translateX(-50%) rotate(${rotate}deg)` }} />
+    <group position={[x, 0.25, 1.32]}>
+      <mesh castShadow>
+        <cylinderGeometry args={[0.16, 0.2, 0.48, 16]} />
+        <meshStandardMaterial color="#172033" roughness={0.55} />
+      </mesh>
+      {[-0.45, -0.22, 0, 0.22, 0.45].map((rotate) => (
+        <mesh key={rotate} position={[0, 0.48, 0]} rotation={[0.55, 0, rotate]} castShadow>
+          <boxGeometry args={[0.07, 0.58, 0.025]} />
+          <meshStandardMaterial color="#0f766e" roughness={0.4} />
+        </mesh>
       ))}
-    </div>
+    </group>
   );
 }
 
-function ShelfSlot({ children }: { children: ReactNode }) {
-  return (
-    <div className="relative grid min-w-0 place-items-center">
-      <span className="absolute inset-x-2 bottom-1 h-2 rounded-full bg-slate-950/25 blur-sm" />
-      {children}
-    </div>
-  );
-}
-
-function ShelfProductPackage({
-  unit,
-  currency,
-  onSelect,
-  compact = false
-}: {
-  unit: DisplayUnit;
-  currency: string;
-  onSelect: (product: Product) => void;
-  compact?: boolean;
-}) {
+function ProductSceneModel({ unit }: { unit: Hotspot }) {
   const tone = toneFor(unit.product);
-  const size = compact ? "h-14 w-14" : "h-16 w-16";
+  const positionMap = [
+    [-2.98, 1.25, -0.85],
+    [-2.58, 1.78, -0.9],
+    [-0.55, 0.92, 1.0],
+    [0.48, 0.92, 1.0],
+    [2.52, 1.78, -0.9],
+    [2.96, 1.25, -0.85],
+    [1.1, 0.92, 0.76],
+    [-1.1, 0.92, 0.76]
+  ] as const;
+  const [x, y, z] = positionMap[unit.index % positionMap.length];
 
-  if (unit.visual === "tray") {
+  if (unit.kind === "tray") {
     return (
-      <button type="button" onClick={() => onSelect(unit.product)} aria-label={`View ${unit.product.name}`} className="group grid justify-items-center gap-1 rounded-2xl p-1 outline-none transition hover:-translate-y-1 focus-visible:ring-2 focus-visible:ring-cyan-300">
-        <span className={`${compact ? "h-14 w-20" : "h-16 w-24"} relative rounded-2xl border border-white/35 p-1 shadow-xl`} style={{ backgroundColor: tone.deep }}>
-          <span className="grid h-full grid-cols-3 gap-1">
-            {Array.from({ length: 6 }).map((_, index) => <span key={index} className="rounded-md shadow-inner" style={{ backgroundColor: index % 2 ? tone.soft : tone.fill }} />)}
-          </span>
-          {unit.product.image_url ? <img src={unit.product.image_url} alt="" className="absolute -right-1 -top-2 h-8 w-8 rounded-lg border border-white bg-white object-cover shadow-md" /> : null}
-        </span>
-        <ProductPrice product={unit.product} currency={currency} />
-      </button>
-    );
-  }
-
-  if (unit.visual === "stack") {
-    return (
-      <button type="button" onClick={() => onSelect(unit.product)} aria-label={`View ${unit.product.name}`} className="group grid justify-items-center gap-1 rounded-2xl p-1 outline-none transition hover:-translate-y-1 focus-visible:ring-2 focus-visible:ring-cyan-300">
-        <span className={`${compact ? "h-14 w-20" : "h-16 w-24"} relative`}>
-          {[0, 1, 2].map((layer) => (
-            <span key={layer} className="absolute left-1/2 h-7 w-16 -translate-x-1/2 rounded-xl border border-white/40 shadow-lg" style={{ bottom: layer * 10, backgroundColor: layer % 2 ? tone.soft : tone.fill }} />
-          ))}
-          {unit.product.image_url ? <img src={unit.product.image_url} alt="" className="absolute right-0 top-0 h-8 w-8 rounded-lg border border-white bg-white object-cover shadow-md" /> : null}
-        </span>
-        <ProductPrice product={unit.product} currency={currency} />
-      </button>
+      <group position={[x, y, z]}>
+        <mesh castShadow>
+          <boxGeometry args={[0.36, 0.08, 0.28]} />
+          <meshStandardMaterial color={tone.deep} roughness={0.52} />
+        </mesh>
+        {[0, 1, 2].map((piece) => (
+          <mesh key={piece} position={[-0.11 + piece * 0.11, 0.07, 0]} castShadow>
+            <boxGeometry args={[0.08, 0.07, 0.18]} />
+            <meshStandardMaterial color={piece % 2 ? tone.soft : tone.fill} roughness={0.5} />
+          </mesh>
+        ))}
+      </group>
     );
   }
 
   return (
-    <button type="button" onClick={() => onSelect(unit.product)} aria-label={`View ${unit.product.name}`} className="group grid justify-items-center gap-1 rounded-2xl p-1 outline-none transition hover:-translate-y-1 focus-visible:ring-2 focus-visible:ring-cyan-300">
-      <span className={`${size} relative overflow-hidden rounded-[18px] border border-white/45 shadow-xl`} style={{ background: `linear-gradient(145deg, ${tone.soft}, #fff 55%, ${tone.fill})` }}>
-        {unit.product.image_url ? <img src={unit.product.image_url} alt="" className="absolute inset-x-2 top-2 h-8 rounded-lg object-cover shadow-sm" /> : null}
-        <span className="absolute inset-x-2 bottom-5 h-2 rounded-full" style={{ backgroundColor: tone.deep }} />
-        <span className="absolute bottom-2 left-1/2 h-1.5 w-8 -translate-x-1/2 rounded-full bg-white/70" />
+    <group position={[x, y, z]}>
+      <RoundedBox args={[0.22, 0.36, 0.16]} radius={0.025} smoothness={2} castShadow>
+        <meshStandardMaterial color={unit.kind === "stack" ? tone.fill : tone.soft} roughness={0.48} />
+      </RoundedBox>
+      <mesh position={[0, -0.08, 0.085]}>
+        <boxGeometry args={[0.16, 0.04, 0.02]} />
+        <meshStandardMaterial color={tone.deep} />
+      </mesh>
+    </group>
+  );
+}
+
+function PremiumStoreScene({
+  products,
+  settings,
+  onSelect
+}: {
+  products: Product[];
+  settings: Settings;
+  onSelect: (product: Product) => void;
+}) {
+  const theme = useMemo(() => themeFor(settings), [settings]);
+  const hotspots = useMemo(() => makeHotspots(products), [products]);
+
+  return (
+    <div className="relative overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-2xl">
+      <div className="relative h-[440px] min-[430px]:h-[500px] md:h-[650px]">
+        <Canvas
+          shadows
+          camera={{ position: [0, 2.05, 5.25], fov: 43 }}
+          dpr={[1, 1.6]}
+          gl={{ antialias: true, alpha: false, powerPreference: "high-performance" }}
+        >
+          <StoreAtmosphere theme={theme} />
+          <StoreBackWall settings={settings} theme={theme} />
+          <StoreShelfWall side="left" theme={theme} />
+          <StoreShelfWall side="right" theme={theme} />
+          <ProductDisplayIsland theme={theme} />
+          <PlantDecor side="left" />
+          <PlantDecor side="right" />
+          {hotspots.map((unit) => <ProductSceneModel key={unit.id} unit={unit} />)}
+          <ContactShadows position={[0, 0.01, 0]} opacity={0.28} scale={7.2} blur={2.4} far={4.2} />
+        </Canvas>
+        <ProductHotspotLayer hotspots={hotspots} settings={settings} onSelect={onSelect} />
+        {!products.length ? (
+          <div className="absolute inset-x-4 top-6 z-20 mx-auto max-w-md rounded-[24px] border border-slate-200 bg-white/94 p-5 text-center shadow-xl backdrop-blur-xl">
+            <ShoppingBag className="mx-auto h-8 w-8 text-teal-700" />
+            <p className="mt-3 text-lg font-black text-slate-950">No products added yet.</p>
+            <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">This store has not published products for the virtual storefront.</p>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function ShelfProductPackage({ unit, settings, onSelect }: { unit: Hotspot; settings: Settings; onSelect: (product: Product) => void }) {
+  const tone = toneFor(unit.product);
+  const sizeClass = unit.size === "lg" ? "h-16 w-20 sm:h-20 sm:w-24" : unit.size === "md" ? "h-14 w-16 sm:h-16 sm:w-20" : "h-11 w-12 sm:h-14 sm:w-16";
+
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(unit.product)}
+      className="group relative grid justify-items-center rounded-2xl outline-none transition hover:-translate-y-1 focus-visible:ring-2 focus-visible:ring-cyan-300"
+      aria-label={`View ${unit.product.name}`}
+    >
+      <span className="absolute -inset-2 rounded-full bg-cyan-300/0 blur-xl transition group-hover:bg-cyan-300/35 group-focus-visible:bg-cyan-300/35" />
+      {unit.kind === "tray" ? (
+        <span className={`${sizeClass} relative grid grid-cols-3 gap-1 rounded-2xl border border-white/50 bg-slate-950/80 p-1 shadow-xl`}>
+          {Array.from({ length: 6 }).map((_, index) => <span key={index} className="rounded-md shadow-inner" style={{ backgroundColor: index % 2 ? tone.soft : tone.fill }} />)}
+        </span>
+      ) : (
+        <span className={`${sizeClass} relative overflow-hidden rounded-2xl border border-white/60 shadow-xl`} style={{ background: `linear-gradient(145deg, ${tone.soft}, #fff 55%, ${tone.fill})` }}>
+          {unit.product.image_url ? <img src={unit.product.image_url} alt="" className="absolute inset-x-1.5 top-1.5 h-7 rounded-lg object-cover shadow-sm sm:h-9" /> : null}
+          <span className="absolute inset-x-2 bottom-4 h-1.5 rounded-full" style={{ backgroundColor: tone.deep }} />
+          <span className="absolute bottom-2 left-1/2 h-1 w-8 -translate-x-1/2 rounded-full bg-white/80" />
+        </span>
+      )}
+      <span className="pointer-events-none absolute left-1/2 top-full mt-2 hidden min-w-36 -translate-x-1/2 rounded-2xl border border-slate-200 bg-white/95 px-3 py-2 text-left shadow-xl backdrop-blur-xl group-hover:block group-focus-visible:block">
+        <span className="block truncate text-xs font-black text-slate-950">{unit.product.name}</span>
+        <span className="mt-1 block text-xs font-black text-teal-700">{money(unit.product.selling_price, settings.currency)}</span>
       </span>
-      <ProductPrice product={unit.product} currency={currency} />
     </button>
   );
 }
 
-function ProductPrice({ product, currency }: { product: Product; currency: string }) {
-  return <span className="max-w-[86px] truncate rounded-full bg-white px-2 py-1 text-[10px] font-black text-slate-900 shadow-sm">{money(product.selling_price, currency)}</span>;
-}
-
-function StoreShelfWall({
-  title,
-  units,
-  currency,
-  theme,
-  onSelect
-}: {
-  title: string;
-  units: DisplayUnit[];
-  currency: string;
-  theme: StoreTheme;
-  onSelect: (product: Product) => void;
-}) {
+function ProductHotspotLayer({ hotspots, settings, onSelect }: { hotspots: Hotspot[]; settings: Settings; onSelect: (product: Product) => void }) {
   return (
-    <div className="rounded-[26px] border border-white/12 bg-slate-950/76 p-3 shadow-2xl backdrop-blur-sm">
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <p className="text-xs font-black uppercase tracking-[0.16em] text-white/75">{title}</p>
-        <span className="h-2 w-16 rounded-full shadow-[0_0_16px_rgba(18,214,223,0.75)]" style={{ backgroundColor: theme.accent }} />
-      </div>
-      <div className="grid gap-2">
-        {[0, 1].map((row) => (
-          <div key={row} className="relative grid grid-cols-4 gap-2 border-t border-white/10 pt-2">
-            <div className="absolute inset-x-0 bottom-2 h-2 rounded-full" style={{ backgroundColor: theme.wood }} />
-            {units.slice(row * 4, row * 4 + 4).map((unit) => (
-              <ShelfSlot key={unit.id}>
-                <ShelfProductPackage unit={unit} currency={currency} onSelect={onSelect} compact />
-              </ShelfSlot>
-            ))}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function ProductTrayStack({ unit, currency, onSelect }: { unit: DisplayUnit; currency: string; onSelect: (product: Product) => void }) {
-  return <ShelfProductPackage unit={{ ...unit, visual: unit.visual === "package" ? "tray" : unit.visual }} currency={currency} onSelect={onSelect} />;
-}
-
-function ProductDisplayIsland({
-  units,
-  currency,
-  theme,
-  onSelect
-}: {
-  units: DisplayUnit[];
-  currency: string;
-  theme: StoreTheme;
-  onSelect: (product: Product) => void;
-}) {
-  return (
-    <div className="relative rounded-[30px] border border-white/55 bg-white/94 p-4 shadow-2xl">
-      <div className="absolute -top-1 left-8 right-8 h-2 rounded-full shadow-[0_0_22px_rgba(18,214,223,0.8)]" style={{ backgroundColor: theme.accent }} />
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Center display</p>
-          <p className="text-base font-black text-slate-950">Featured products</p>
+    <div className="absolute inset-0 z-10">
+      {hotspots.map((unit) => (
+        <div key={unit.id} className="absolute -translate-x-1/2 -translate-y-1/2" style={{ left: `${unit.x}%`, top: `${unit.y}%` }}>
+          <ShelfProductPackage unit={unit} settings={settings} onSelect={onSelect} />
         </div>
-        <Sparkles className="h-5 w-5" style={{ color: theme.accent }} />
-      </div>
-      <div className="grid grid-cols-2 gap-3 min-[430px]:grid-cols-3 sm:grid-cols-4 md:grid-cols-6">
-        {units.map((unit) => (
-          <ProductTrayStack key={unit.id} unit={unit} currency={currency} onSelect={onSelect} />
-        ))}
-      </div>
+      ))}
     </div>
   );
 }
 
 function StoreControls({ onExit }: { onExit: () => void }) {
   return (
-    <div className="hidden grid-cols-4 gap-2 rounded-[24px] border border-slate-200 bg-white/88 p-2 shadow-lg backdrop-blur-xl md:grid">
-      {["Home", "Featured", "Aisles"].map((label) => (
-        <span key={label} className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 px-3 text-xs font-black text-slate-700">{label}</span>
-      ))}
-      <button type="button" onClick={onExit} className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-slate-950 px-3 text-xs font-black text-white shadow-lg transition hover:bg-teal-700">Cart</button>
+    <div className="grid grid-cols-[1fr_auto] items-center gap-2 rounded-[24px] border border-slate-200 bg-white/92 p-2 shadow-lg backdrop-blur-xl">
+      <p className="px-3 text-xs font-bold leading-5 text-slate-600">Tap glowing shelf items to view products.</p>
+      <button type="button" onClick={onExit} className="inline-flex min-h-10 items-center justify-center rounded-2xl bg-slate-950 px-4 text-xs font-black text-white shadow-lg transition hover:bg-teal-700">Cart</button>
     </div>
   );
 }
 
 function MobileStoreControls({ onExit }: { onExit: () => void }) {
   return (
-    <div className="grid grid-cols-4 gap-1 rounded-[22px] border border-slate-200 bg-white/90 p-1.5 shadow-lg backdrop-blur-xl md:hidden">
-      {["Home", "Featured", "Aisles"].map((label) => (
-        <span key={label} className="inline-flex min-h-10 items-center justify-center rounded-2xl bg-slate-100 px-2 text-[10px] font-black text-slate-700">{label}</span>
-      ))}
-      <button type="button" onClick={onExit} className="inline-flex min-h-10 items-center justify-center rounded-2xl bg-slate-950 px-2 text-[10px] font-black text-white">Cart</button>
+    <div className="grid grid-cols-[1fr_auto] items-center gap-2 rounded-[22px] border border-slate-200 bg-white/92 p-2 shadow-lg backdrop-blur-xl md:hidden">
+      <p className="px-2 text-[11px] font-bold leading-5 text-slate-600">Tap products in the scene.</p>
+      <button type="button" onClick={onExit} className="inline-flex min-h-10 items-center justify-center rounded-2xl bg-slate-950 px-4 text-[11px] font-black text-white">Cart</button>
     </div>
   );
 }
@@ -341,45 +417,6 @@ function ProductDetailModal({ product, category, settings, onClose, onAddToCart 
   );
 }
 
-function PremiumStoreScene({
-  products,
-  settings,
-  onSelect
-}: {
-  products: Product[];
-  settings: Settings;
-  onSelect: (product: Product) => void;
-}) {
-  const theme = useMemo(() => themeFor(settings), [settings]);
-  const leftUnits = useMemo(() => makeDisplayUnits(products, 8, 0), [products]);
-  const rightUnits = useMemo(() => makeDisplayUnits(products, 8, 4), [products]);
-  const islandUnits = useMemo(() => makeDisplayUnits(products, products.length < 3 ? 4 : 6, 8), [products]);
-
-  return (
-    <div className="relative overflow-hidden rounded-[30px] border border-slate-200 bg-slate-950 p-3 shadow-2xl sm:p-5">
-      <StoreAtmosphere theme={theme} />
-      <StoreLighting theme={theme} />
-      <PlantDecor side="left" />
-      <PlantDecor side="right" />
-      <div className="relative grid gap-3 sm:gap-4">
-        <StoreBackWall settings={settings} theme={theme} />
-        <div className="grid gap-3 lg:grid-cols-2">
-          <StoreShelfWall title="Left shelf" units={leftUnits} currency={settings.currency} theme={theme} onSelect={onSelect} />
-          <StoreShelfWall title="Right shelf" units={rightUnits} currency={settings.currency} theme={theme} onSelect={onSelect} />
-        </div>
-        <ProductDisplayIsland units={islandUnits} currency={settings.currency} theme={theme} onSelect={onSelect} />
-        {!products.length ? (
-          <div className="rounded-[24px] border border-white/20 bg-white/94 p-5 text-center shadow-xl">
-            <ShoppingBag className="mx-auto h-8 w-8 text-teal-700" />
-            <p className="mt-3 text-lg font-black text-slate-950">No products added yet.</p>
-            <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">This store has not published products for the virtual storefront.</p>
-          </div>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
 export default function VirtualStore3D({ products, categories, settings, onAddToCart, onExit }: Props) {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const visibleProducts = useMemo(() => products.filter((product) => product.active !== false).slice(0, 24), [products]);
@@ -393,7 +430,7 @@ export default function VirtualStore3D({ products, categories, settings, onAddTo
           <img src={settings.logo_url || "/caribbean-pos-connect-icon.png"} alt="" className="h-12 w-12 shrink-0 rounded-2xl border border-slate-200 bg-white object-contain p-1 shadow-sm" />
           <div className="min-w-0">
             <p className="truncate text-lg font-black">{businessName}</p>
-            <p className="truncate text-xs font-bold text-slate-500">Premium virtual storefront</p>
+            <p className="truncate text-xs font-bold text-slate-500">Virtual storefront</p>
           </div>
         </div>
         <div className="grid grid-cols-[1fr_auto] items-center gap-2 sm:flex sm:shrink-0">
@@ -402,11 +439,8 @@ export default function VirtualStore3D({ products, categories, settings, onAddTo
         </div>
       </div>
       <PremiumStoreScene products={visibleProducts} settings={settings} onSelect={setSelectedProduct} />
-      <StoreControls onExit={onExit} />
+      <div className="hidden md:block"><StoreControls onExit={onExit} /></div>
       <MobileStoreControls onExit={onExit} />
-      <p className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-center text-[11px] font-bold leading-5 text-slate-600">
-        Tap a shelf package to view details. Checkout stays in the normal store flow.
-      </p>
       {selectedProduct ? (
         <ProductDetailModal
           product={selectedProduct}
