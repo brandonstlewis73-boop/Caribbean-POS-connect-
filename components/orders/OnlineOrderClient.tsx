@@ -365,7 +365,7 @@ export function OnlineOrderClient({
         </div>
       </header>
 
-      <div id="storefront" className="mx-auto grid max-w-[1680px] min-w-0 gap-6 px-4 py-6 lg:gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(410px,440px)] xl:pl-28 xl:pr-8 2xl:gap-10">
+      <div id="storefront" className="mx-auto grid max-w-[1720px] min-w-0 gap-7 px-4 py-6 lg:gap-9 xl:grid-cols-[minmax(0,1fr)_minmax(450px,480px)] xl:pl-28 xl:pr-8 2xl:gap-12">
         <section className="grid min-w-0 gap-4">
           <div className="relative overflow-hidden rounded-[34px] border border-teal-100 bg-slate-950 text-white shadow-2xl shadow-teal-950/10">
             {settings.storefront_banner_url ? (
@@ -422,6 +422,10 @@ export function OnlineOrderClient({
               settings={displaySettings}
               onAddToCart={add}
               onExit={() => setShowVirtualStore(false)}
+              onViewCart={() => {
+                setShowVirtualStore(false);
+                setMobileCheckoutOpen(true);
+              }}
             />
           ) : null}
           {settings.storefront_status === "paused" ? (
