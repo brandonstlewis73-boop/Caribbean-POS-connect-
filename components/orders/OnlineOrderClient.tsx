@@ -61,7 +61,7 @@ function StoreField({ label, className, ...props }: InputHTMLAttributes<HTMLInpu
     <label className="grid min-w-0 gap-2 text-sm font-bold text-slate-700">
       <span>{label}</span>
       <input
-        className={`min-h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-teal-500 focus:ring-4 focus:ring-teal-100 ${className || ""}`}
+        className={`min-h-12 w-full rounded-[18px] border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-teal-500 focus:ring-4 focus:ring-teal-100 ${className || ""}`}
         {...props}
       />
     </label>
@@ -73,7 +73,7 @@ function StoreSelect({ label, children, className, ...props }: SelectHTMLAttribu
     <label className="grid min-w-0 gap-2 text-sm font-bold text-slate-700">
       <span>{label}</span>
       <select
-        className={`min-h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100 ${className || ""}`}
+        className={`min-h-12 w-full rounded-[18px] border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-950 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100 ${className || ""}`}
         {...props}
       >
         {children}
@@ -539,7 +539,7 @@ export function OnlineOrderClient({
           ) : null}
           {!order ? (
             <>
-          <section className="rounded-[32px] border border-slate-200 bg-white shadow-2xl shadow-slate-950/10">
+          <section className="rounded-[34px] border border-slate-200 bg-white shadow-2xl shadow-slate-950/10">
             <div className="border-b border-slate-200 px-5 py-4">
               <h2 className="text-lg font-black tracking-tight text-slate-950">Your order</h2>
               <p className="mt-1 text-sm font-semibold text-slate-500">{cart.length ? `${cart.length} item${cart.length === 1 ? "" : "s"} selected` : "Build your cart from the menu"}</p>
@@ -585,24 +585,24 @@ export function OnlineOrderClient({
             </div>
           </section>
 
-          <section className="rounded-[32px] border border-slate-200 bg-white p-5 shadow-2xl shadow-slate-950/10 sm:p-6">
+          <section className="rounded-[34px] border border-slate-200 bg-white p-5 shadow-2xl shadow-slate-950/10 sm:p-6">
             <div className="mb-4">
               <h2 className="text-lg font-black tracking-tight text-slate-950">Checkout</h2>
               <p className="mt-1 text-sm font-semibold text-slate-500">Confirm your contact, address, and payment preference.</p>
             </div>
-            <div className="grid gap-3">
-              <div className="grid grid-cols-2 gap-2">
+            <div className="grid gap-4">
+              <div className="grid grid-cols-2 gap-1 rounded-[22px] border border-slate-200 bg-slate-50 p-1">
                 <button
                   onClick={() => setFulfillment("delivery")}
                   disabled={settings.delivery_enabled === false}
-                  className={`min-h-11 rounded-full text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-45 ${fulfillment === "delivery" ? "bg-slate-950 text-white" : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}
+                  className={`min-h-11 rounded-[18px] text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-45 ${fulfillment === "delivery" ? "bg-slate-950 text-white shadow-sm" : "text-slate-600 hover:bg-white"}`}
                 >
                   Delivery
                 </button>
                 <button
                   onClick={() => setFulfillment("pickup")}
                   disabled={settings.pickup_enabled === false}
-                  className={`min-h-11 rounded-full text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-45 ${fulfillment === "pickup" ? "bg-slate-950 text-white" : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}
+                  className={`min-h-11 rounded-[18px] text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-45 ${fulfillment === "pickup" ? "bg-slate-950 text-white shadow-sm" : "text-slate-600 hover:bg-white"}`}
                 >
                   Pickup
                 </button>

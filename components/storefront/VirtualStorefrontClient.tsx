@@ -17,7 +17,7 @@ type Props = {
   onViewCart?: () => void;
 };
 
-type HotspotZone = "heroShelfLeft" | "heroShelfRight" | "centerDisplay" | "counterDisplay" | "drinksFridge" | "freezerSection";
+type HotspotZone = "shelf" | "centerDisplay" | "counter" | "drinks" | "frozen";
 
 type HotspotPosition = {
   zone: HotspotZone;
@@ -34,14 +34,14 @@ type ProductHotspotData = HotspotPosition & {
 const STORE_SCENE_IMAGE = "/storefront/premium-bakery-virtual-store.png";
 
 const HOTSPOT_POSITIONS: HotspotPosition[] = [
-  { zone: "heroShelfLeft", x: 24, y: 47, size: "sm" },
+  { zone: "shelf", x: 24, y: 47, size: "sm" },
   { zone: "centerDisplay", x: 46, y: 58, size: "md" },
   { zone: "centerDisplay", x: 55, y: 61, size: "sm" },
-  { zone: "heroShelfRight", x: 73, y: 43, size: "sm" },
-  { zone: "drinksFridge", x: 84, y: 57, size: "sm" },
-  { zone: "freezerSection", x: 36, y: 75, size: "sm" },
-  { zone: "counterDisplay", x: 20, y: 66, size: "sm" },
-  { zone: "drinksFridge", x: 88, y: 42, size: "sm" }
+  { zone: "shelf", x: 73, y: 43, size: "sm" },
+  { zone: "drinks", x: 84, y: 57, size: "sm" },
+  { zone: "frozen", x: 36, y: 75, size: "sm" },
+  { zone: "counter", x: 20, y: 66, size: "sm" },
+  { zone: "drinks", x: 88, y: 42, size: "sm" }
 ];
 
 function safeBusinessName(settings: Settings) {
@@ -50,8 +50,8 @@ function safeBusinessName(settings: Settings) {
 
 function zoneForProduct(product: Product): HotspotZone | null {
   const text = `${product.name} ${product.category || ""} ${product.description || ""}`.toLowerCase();
-  if (text.includes("drink") || text.includes("juice") || text.includes("soda") || text.includes("water") || text.includes("mauby") || text.includes("sorrel")) return "drinksFridge";
-  if (text.includes("frozen") || text.includes("ice") || text.includes("freezer")) return "freezerSection";
+  if (text.includes("drink") || text.includes("juice") || text.includes("soda") || text.includes("water") || text.includes("mauby") || text.includes("sorrel")) return "drinks";
+  if (text.includes("frozen") || text.includes("ice") || text.includes("freezer")) return "frozen";
   return null;
 }
 
@@ -134,41 +134,55 @@ function StoreSceneImage({ settings, productCount, onExit, onViewCart, children 
 function StoreSceneEnhancements() {
   return (
     <>
-      <div className="pointer-events-none absolute right-[8%] top-[30%] z-[2] h-[30%] w-[14%] rounded-[18px] border border-cyan-100/45 bg-cyan-200/12 shadow-[0_0_34px_rgba(103,232,249,0.32)] backdrop-blur-[1px]">
-        <div className="absolute inset-2 rounded-[14px] border border-white/25 bg-gradient-to-b from-white/24 to-cyan-300/8" />
-        <span className="absolute left-1/2 top-2 -translate-x-1/2 rounded-full bg-cyan-950/55 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-cyan-50">Drinks</span>
-      </div>
-      <div className="pointer-events-none absolute left-[27%] bottom-[13%] z-[2] h-[15%] w-[21%] rounded-[20px] border border-sky-100/50 bg-sky-200/14 shadow-[0_0_30px_rgba(125,211,252,0.28)] backdrop-blur-[1px]">
-        <div className="absolute inset-2 rounded-[16px] border border-white/30 bg-gradient-to-r from-white/25 to-sky-300/8" />
-        <span className="absolute left-3 top-2 rounded-full bg-sky-950/55 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-sky-50">Frozen</span>
-      </div>
-      <ShopperSilhouette variant="shelf" className="left-[67%] top-[48%]" />
-      <ShopperSilhouette variant="center" className="left-[51%] top-[61%]" />
-      <ShopperSilhouette variant="counter" className="left-[17%] top-[58%]" />
-      <ShopperSilhouette variant="cashier" className="left-[12%] top-[42%]" />
+      <StoreSign label="Drinks" tone="cyan" className="right-[9%] top-[31%]" />
+      <StoreSign label="Frozen" tone="sky" className="left-[31%] bottom-[23%]" />
+      <StoreSign label="Fresh Picks" tone="violet" className="left-[43%] top-[50%]" />
+      <ShopperSilhouette variant="shelf" className="left-[68%] top-[53%]" />
+      <ShopperSilhouette variant="center" className="left-[50%] top-[66%]" />
+      <ShopperSilhouette variant="counter" className="left-[19%] top-[62%]" />
+      <ShopperSilhouette variant="cashier" className="left-[13%] top-[48%]" />
       <style jsx>{`
         @keyframes shopper-drift {
-          0%, 100% { transform: translate3d(-50%, -50%, 0) translateX(-4px); opacity: 0.58; }
-          50% { transform: translate3d(-50%, -50%, 0) translateX(6px); opacity: 0.76; }
+          0%, 100% { transform: translate3d(-50%, -50%, 0) translateX(-5px); opacity: 0.68; }
+          50% { transform: translate3d(-50%, -50%, 0) translateX(7px); opacity: 0.86; }
         }
       `}</style>
     </>
   );
 }
 
+function StoreSign({ label, tone, className }: { label: string; tone: "cyan" | "sky" | "violet"; className: string }) {
+  const toneClass =
+    tone === "cyan"
+      ? "border-cyan-100/35 bg-cyan-950/48 text-cyan-50 shadow-cyan-500/20"
+      : tone === "sky"
+        ? "border-sky-100/35 bg-sky-950/48 text-sky-50 shadow-sky-500/20"
+        : "border-violet-100/35 bg-violet-950/48 text-violet-50 shadow-violet-500/20";
+
+  return (
+    <span
+      className={`pointer-events-none absolute z-[4] rounded-full border px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.14em] shadow-lg backdrop-blur-md ${toneClass} ${className}`}
+    >
+      {label}
+    </span>
+  );
+}
+
 function ShopperSilhouette({ className, variant }: { className: string; variant: "shelf" | "center" | "counter" | "cashier" }) {
   const isCashier = variant === "cashier";
+  const delay = variant === "shelf" ? "0s" : variant === "center" ? "1.8s" : "3.2s";
   return (
     <div
       className={`pointer-events-none absolute z-[3] hidden -translate-x-1/2 -translate-y-1/2 sm:block ${className}`}
-      style={{ animation: isCashier ? undefined : "shopper-drift 7s ease-in-out infinite" }}
+      style={{ animation: isCashier ? undefined : `shopper-drift 7.5s ease-in-out ${delay} infinite` }}
     >
-      <div className="relative h-28 w-12 opacity-70 blur-[0.2px]">
-        <span className="absolute left-1/2 top-0 h-5 w-5 -translate-x-1/2 rounded-full bg-slate-900/72 shadow-lg" />
-        <span className={`absolute left-1/2 top-5 h-14 w-8 -translate-x-1/2 rounded-t-full ${isCashier ? "bg-slate-950/76" : "bg-slate-800/64"} shadow-xl`} />
-        <span className="absolute left-[18px] top-[70px] h-12 w-2 rotate-6 rounded-full bg-slate-900/58" />
-        <span className="absolute right-[18px] top-[70px] h-12 w-2 -rotate-6 rounded-full bg-slate-900/58" />
-        <span className="absolute left-1/2 bottom-0 h-3 w-12 -translate-x-1/2 rounded-full bg-slate-950/20 blur-sm" />
+      <div className="relative h-32 w-14 opacity-85">
+        <span className="absolute left-1/2 top-0 h-6 w-6 -translate-x-1/2 rounded-full bg-slate-950/82 shadow-lg ring-1 ring-white/15" />
+        <span className={`absolute left-1/2 top-6 h-16 w-9 -translate-x-1/2 rounded-t-full ${isCashier ? "bg-slate-950/84" : "bg-slate-800/76"} shadow-xl ring-1 ring-white/10`} />
+        <span className={`absolute left-[23px] top-9 h-8 w-2 -rotate-12 rounded-full ${isCashier ? "bg-cyan-100/38" : "bg-white/28"}`} />
+        <span className="absolute left-[20px] top-[82px] h-12 w-2 rotate-6 rounded-full bg-slate-950/68" />
+        <span className="absolute right-[20px] top-[82px] h-12 w-2 -rotate-6 rounded-full bg-slate-950/68" />
+        <span className="absolute left-1/2 bottom-0 h-3 w-14 -translate-x-1/2 rounded-full bg-slate-950/28 blur-sm" />
       </div>
     </div>
   );
@@ -185,7 +199,7 @@ function ProductHotspotLayer({ hotspots, settings, onSelect }: { hotspots: Produ
 }
 
 function ProductHotspot({ hotspot, settings, onSelect }: { hotspot: ProductHotspotData; settings: Settings; onSelect: (product: Product) => void }) {
-  const sizeClass = hotspot.size === "lg" ? "h-10 w-10 sm:h-12 sm:w-12" : hotspot.size === "md" ? "h-9 w-9 sm:h-11 sm:w-11" : "h-8 w-8 sm:h-10 sm:w-10";
+  const sizeClass = hotspot.size === "lg" ? "h-8 w-8 sm:h-10 sm:w-10" : hotspot.size === "md" ? "h-7 w-7 sm:h-9 sm:w-9" : "h-6 w-6 sm:h-8 sm:w-8";
 
   return (
     <button
@@ -195,12 +209,14 @@ function ProductHotspot({ hotspot, settings, onSelect }: { hotspot: ProductHotsp
       style={{ left: `${hotspot.x}%`, top: `${hotspot.y}%` }}
       aria-label={`View ${hotspot.product.name}`}
     >
-      <span className="absolute -inset-2 rounded-full bg-violet-500/30 blur-lg transition group-hover:bg-violet-400/55 group-focus-visible:bg-violet-400/55" />
-      <span className={`${sizeClass} relative grid place-items-center overflow-hidden rounded-full border border-white/80 bg-violet-600 shadow-xl shadow-violet-950/35 ring-2 ring-violet-300/35 transition group-hover:scale-110 group-focus-visible:scale-110`}>
+      <span className="absolute -inset-1.5 rounded-full bg-violet-500/24 blur-md transition group-hover:bg-violet-400/48 group-focus-visible:bg-violet-400/48" />
+      <span className="absolute inset-0 rounded-full border border-violet-100/70 opacity-35 motion-safe:animate-ping" />
+      <span className={`${sizeClass} relative grid place-items-center overflow-hidden rounded-full border border-white/80 bg-slate-950/82 shadow-lg shadow-violet-950/30 ring-1 ring-violet-200/45 transition group-hover:scale-110 group-focus-visible:scale-110`}>
+        <span className="absolute inset-1 rounded-full bg-violet-500/76" />
         {hotspot.product.image_url ? (
-          <img src={hotspot.product.image_url} alt="" className="h-full w-full object-cover" />
+          <img src={hotspot.product.image_url} alt="" className="relative h-[70%] w-[70%] rounded-full object-cover shadow-sm" />
         ) : (
-          <ShoppingBag className="h-4 w-4 text-white" />
+          <ShoppingBag className="relative h-3.5 w-3.5 text-white" />
         )}
       </span>
       <span className="pointer-events-none absolute left-1/2 top-full mt-2 hidden min-w-44 -translate-x-1/2 rounded-2xl border border-white/20 bg-slate-950/88 px-3 py-2 text-left text-white shadow-2xl backdrop-blur-xl group-hover:block group-focus-visible:block">
