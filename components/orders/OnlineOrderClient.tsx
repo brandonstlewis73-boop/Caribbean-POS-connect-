@@ -4,7 +4,7 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState, type InputHTMLAttributes, type SelectHTMLAttributes } from "react";
-import { Bell, CheckCircle2, Headphones, Home, LocateFixed, Lock, Minus, Package, Plus, Search, ShieldCheck, ShoppingBag, Store, Trash2, Truck, X } from "lucide-react";
+import { Bell, CheckCircle2, Headphones, LocateFixed, Lock, Minus, Plus, Search, ShieldCheck, ShoppingBag, Store, Trash2, Truck, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { getDefaultCountryForCurrency, getDeliveryRegionsForCurrency, money, PAYMENT_METHODS } from "@/lib/constants";
 import { publicStoreName } from "@/lib/storefront-identity";
@@ -323,22 +323,7 @@ export function OnlineOrderClient({
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top_left,rgba(18,214,223,0.12),transparent_32%),linear-gradient(180deg,#f8fffe_0%,#eef7f5_44%,#f7faf8_100%)] pb-24 text-slate-950 xl:pb-0">
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-24 flex-col items-center justify-between bg-[#06172a] px-3 py-6 text-white shadow-2xl xl:flex">
-        <div className="grid gap-8">
-          <img src="/caribbean-pos-connect-icon.png" alt="Caribbean POS Connect" className="mx-auto h-14 w-14 rounded-2xl object-contain shadow-lg" />
-          <nav className="grid gap-3" aria-label="Storefront sections">
-            <a href="#storefront" className="grid h-12 w-12 place-items-center rounded-2xl bg-cyan-400/18 text-cyan-100 shadow-lg shadow-cyan-950/30" aria-label="Storefront"><Home className="h-5 w-5" /></a>
-            <a href="#products" className="grid h-12 w-12 place-items-center rounded-2xl text-slate-300 transition hover:bg-white/10 hover:text-white" aria-label="Products"><Package className="h-5 w-5" /></a>
-            <a href="#checkout" className="grid h-12 w-12 place-items-center rounded-2xl text-slate-300 transition hover:bg-white/10 hover:text-white" aria-label="Cart"><ShoppingBag className="h-5 w-5" /></a>
-            <a href="/contact" className="grid h-12 w-12 place-items-center rounded-2xl text-slate-300 transition hover:bg-white/10 hover:text-white" aria-label="Support"><Headphones className="h-5 w-5" /></a>
-          </nav>
-        </div>
-        <div className="grid gap-3 rounded-3xl border border-white/10 bg-white/8 p-3 text-center">
-          <img src={displaySettings.logo_url || "/caribbean-pos-connect-icon.png"} alt="" className="h-10 w-10 rounded-2xl bg-white object-contain p-1" />
-          <span className="h-2 w-2 place-self-center rounded-full bg-emerald-400" />
-        </div>
-      </aside>
-      <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/94 px-4 py-3 shadow-sm backdrop-blur-xl xl:pl-28">
+      <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/94 px-4 py-3 shadow-sm backdrop-blur-xl">
         <div className="mx-auto flex max-w-[1620px] flex-wrap items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <span className="hidden text-base font-black tracking-tight text-blue-700 sm:inline">Caribbean <span className="text-slate-900">POS Connect</span></span>
@@ -365,7 +350,7 @@ export function OnlineOrderClient({
         </div>
       </header>
 
-      <div id="storefront" className="mx-auto grid max-w-[1720px] min-w-0 gap-7 px-4 py-6 lg:gap-9 xl:grid-cols-[minmax(0,1fr)_minmax(450px,480px)] xl:pl-28 xl:pr-8 2xl:gap-12">
+      <div id="storefront" className="mx-auto grid max-w-[1720px] min-w-0 gap-7 px-4 py-6 lg:gap-9 xl:grid-cols-[minmax(0,1fr)_minmax(450px,480px)] xl:px-8 2xl:gap-12">
         <section className="grid min-w-0 gap-4">
           <div className="relative overflow-hidden rounded-[34px] border border-teal-100 bg-slate-950 text-white shadow-2xl shadow-teal-950/10">
             {settings.storefront_banner_url ? (

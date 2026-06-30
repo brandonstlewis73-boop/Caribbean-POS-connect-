@@ -134,9 +134,7 @@ function StoreSceneImage({ settings, productCount, onExit, onViewCart, children 
 function StoreSceneEnhancements() {
   return (
     <>
-      <StoreSign label="Drinks" tone="cyan" className="right-[9%] top-[31%]" />
-      <StoreSign label="Frozen" tone="sky" className="left-[31%] bottom-[23%]" />
-      <StoreSign label="Fresh Picks" tone="violet" className="left-[43%] top-[50%]" />
+      <StoreSign label="Fresh Picks" className="left-[43%] top-[50%]" />
       <ShopperSilhouette variant="shelf" className="left-[68%] top-[53%]" />
       <ShopperSilhouette variant="center" className="left-[50%] top-[66%]" />
       <ShopperSilhouette variant="counter" className="left-[19%] top-[62%]" />
@@ -151,17 +149,10 @@ function StoreSceneEnhancements() {
   );
 }
 
-function StoreSign({ label, tone, className }: { label: string; tone: "cyan" | "sky" | "violet"; className: string }) {
-  const toneClass =
-    tone === "cyan"
-      ? "border-cyan-100/35 bg-cyan-950/48 text-cyan-50 shadow-cyan-500/20"
-      : tone === "sky"
-        ? "border-sky-100/35 bg-sky-950/48 text-sky-50 shadow-sky-500/20"
-        : "border-violet-100/35 bg-violet-950/48 text-violet-50 shadow-violet-500/20";
-
+function StoreSign({ label, className }: { label: string; className: string }) {
   return (
     <span
-      className={`pointer-events-none absolute z-[4] rounded-full border px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.14em] shadow-lg backdrop-blur-md ${toneClass} ${className}`}
+      className={`pointer-events-none absolute z-[4] rounded-full border border-violet-100/30 bg-slate-950/46 px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.14em] text-violet-50 shadow-lg shadow-violet-500/15 backdrop-blur-md ${className}`}
     >
       {label}
     </span>
