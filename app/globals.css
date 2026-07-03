@@ -722,10 +722,17 @@ th {
     padding-bottom: max(env(safe-area-inset-bottom), 0.25rem);
   }
 
-  .landing-button-primary,
-  .landing-button-glass,
-  .landing-button-gold {
+  .landing-actions .landing-button-primary,
+  .landing-actions .landing-button-glass,
+  .landing-actions .landing-button-gold {
     width: 100%;
+  }
+
+  .landing-nav .landing-button-primary {
+    width: auto;
+    min-width: max-content;
+    padding-left: 0.875rem;
+    padding-right: 0.875rem;
   }
 }
 

@@ -133,8 +133,8 @@ export default function LandingPage() {
       </div>
 
       <header className="landing-nav sticky top-0 z-40 border-b border-white/10 bg-[#071421]/72 backdrop-blur-2xl">
-        <div className="mx-auto flex min-h-20 w-full max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
-          <Link href="/" className="group flex min-w-0 items-center gap-3" aria-label={`${APP_NAME} homepage`}>
+        <div className="mx-auto flex min-h-20 w-full max-w-7xl items-center justify-between gap-3 px-4 sm:gap-4 sm:px-6 lg:px-8">
+          <Link href="/" className="group flex min-w-0 flex-1 items-center gap-3" aria-label={`${APP_NAME} homepage`}>
             <Image
               src="/caribbean-pos-connect-icon.png"
               alt={`${APP_NAME} logo`}
@@ -143,9 +143,9 @@ export default function LandingPage() {
               className="h-12 w-12 shrink-0 rounded-2xl border border-[#48F3F8]/25 bg-[#0B1D2E] object-cover shadow-[0_0_34px_rgba(72,243,248,0.2)] transition duration-300 group-hover:scale-105"
               priority
             />
-            <span className="min-w-0">
-              <span className="block text-sm font-black leading-tight text-white sm:text-base">Caribbean POS Connect</span>
-              <span className="block text-xs font-bold text-[#A7B4C7]">POS for Caribbean businesses</span>
+            <span className="min-w-0 overflow-hidden">
+              <span className="block truncate text-sm font-black leading-tight text-white sm:text-base">Caribbean POS Connect</span>
+              <span className="block truncate text-xs font-bold text-[#A7B4C7]">POS for Caribbean businesses</span>
             </span>
           </Link>
 
