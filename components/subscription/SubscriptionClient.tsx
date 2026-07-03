@@ -1,14 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, CreditCard, Sparkles } from "lucide-react";
+import { CheckCircle2, CreditCard, ShieldCheck, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Panel, PanelHeader } from "@/components/ui/Panel";
-import { money } from "@/lib/constants";
+import { getCurrencyMeta } from "@/lib/constants";
 import { readApiPayload } from "@/lib/client-response";
 import { normalizePlanId, type PlanUsageSummary } from "@/lib/plan-gating";
 import type { Subscription, SubscriptionPlan, SubscriptionPlanId } from "@/lib/types";
+
+function planPrice(plan: SubscriptionPlan) {
+  const symbol = getCurrencyMeta(plan.currency).symbol;
+  return `${symbol}${Number(plan.monthly_price).toFixed(Number.isInteger(plan.monthly_price) ? 0 : 2)}`;
+}
 
 export function SubscriptionClient({
   plans,
@@ -90,6 +95,19 @@ export function SubscriptionClient({
 
   const hasPaymentProvider = paymentProvidersReady.stripe || paymentProvidersReady.paypal || paymentProvidersReady.wipay;
   const canManageStripe = paymentProvidersReady.stripe && current?.provider === "stripe" && Boolean(current.provider_customer_id);
+  const pricingPlans = (["starter", "premium", "pro"] as SubscriptionPlanId[])
+    .map((planId) => plans.find((plan) => plan.id === planId))
+    .filter(Boolean) as SubscriptionPlan[];
+  const planDescriptions: Partial<Record<SubscriptionPlanId, string>> = {
+    starter: "For new businesses that need POS, products, orders, and receipts.",
+    premium: "For active teams that need storefront, staff tools, and messaging workflows.",
+    pro: "For growing operations that need automation, reports, AI support, and scale."
+  };
+  const ctaLabels: Partial<Record<SubscriptionPlanId, string>> = {
+    starter: "Start Starter",
+    premium: "Start Business",
+    pro: "Start Pro"
+  };
 
   return (
     <div className="grid min-w-0 gap-4">
@@ -151,39 +169,81 @@ export function SubscriptionClient({
         </div>
       </Panel>
 
-      <div className="grid items-stretch gap-6 md:grid-cols-2 xl:grid-cols-3">
-        {plans.map((plan) => {
+      <section className="relative overflow-hidden rounded-[34px] border border-cyan-200/12 bg-[radial-gradient(circle_at_50%_0%,rgba(18,214,223,0.18),transparent_34%),linear-gradient(135deg,rgba(6,23,42,0.98),rgba(9,31,50,0.96)_48%,rgba(5,14,27,0.99))] p-5 shadow-[0_28px_90px_rgba(0,0,0,0.28)] sm:p-7">
+        <div className="pointer-events-none absolute -right-24 top-10 h-64 w-64 rounded-full bg-cyan-400/10 blur-3xl" />
+        <div className="pointer-events-none absolute -left-20 bottom-0 h-56 w-56 rounded-full bg-amber-300/10 blur-3xl" />
+        <div className="relative mb-7 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-200">Choose your plan</p>
+            <h2 className="mt-2 text-3xl font-black tracking-tight text-white sm:text-4xl">Simple plans for serious businesses</h2>
+            <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-slate-300">
+              Start with the tools you need today, then upgrade as your storefront, staff, messaging, and AI workflows grow.
+            </p>
+          </div>
+          <div className="inline-flex w-fit items-center gap-2 rounded-full border border-cyan-200/20 bg-white/8 px-4 py-2 text-xs font-black text-cyan-50 shadow-lg">
+            <ShieldCheck className="h-4 w-4 text-cyan-200" />
+            Monthly billing
+          </div>
+        </div>
+
+        <div className="relative grid items-stretch gap-5 lg:grid-cols-3">
+          {pricingPlans.map((plan) => {
           const active = currentPlanId === plan.id;
+          const highlighted = plan.id === "premium";
           return (
-            <Panel key={plan.id} className={active ? "border-cyan-300/70 shadow-[0_22px_80px_rgba(18,214,223,0.16)]" : ""}>
-              <div className="flex h-full min-h-[440px] flex-col gap-6 p-6 sm:p-7">
+            <div
+              key={plan.id}
+              className={`relative flex min-h-[470px] flex-col overflow-hidden rounded-[32px] border p-6 shadow-2xl transition duration-300 hover:-translate-y-1 sm:p-7 ${
+                highlighted
+                  ? "border-cyan-200/55 bg-gradient-to-br from-cyan-400/18 via-white/[0.08] to-slate-950/76 shadow-cyan-950/45 ring-1 ring-cyan-300/35"
+                  : "border-white/10 bg-white/[0.055] shadow-slate-950/35"
+              } ${active ? "ring-2 ring-emerald-300/60" : ""}`}
+            >
+              {highlighted ? (
+                <div className="absolute inset-x-5 top-4 flex justify-end">
+                  <span className="rounded-full bg-gradient-to-r from-cyan-300 to-teal-300 px-3 py-1 text-[11px] font-black uppercase tracking-[0.14em] text-slate-950 shadow-lg shadow-cyan-950/30">
+                    Most Popular
+                  </span>
+                </div>
+              ) : null}
+              <div className="flex h-full flex-col gap-6 pt-6">
                 <div>
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-sm font-black text-cyan-200">{plan.audience}</p>
-                      <h2 className="mt-2 text-2xl font-black">{plan.name}</h2>
+                      <h3 className="mt-2 text-3xl font-black tracking-tight text-white">{plan.name}</h3>
                     </div>
                     {active ? <Badge tone="teal">Current</Badge> : null}
                   </div>
-                  <p className="mt-5 flex flex-wrap items-end gap-x-2 gap-y-1 text-4xl font-black leading-none text-white"><span>{money(plan.monthly_price, plan.currency)}</span><span className="pb-1 text-sm font-bold leading-5 text-slate-300">/ month</span></p>
+                  <p className="mt-5 flex flex-wrap items-end gap-x-2 gap-y-1 text-5xl font-black leading-none tracking-tight text-white sm:text-6xl">
+                    <span>{planPrice(plan)}</span>
+                    <span className="pb-1 text-base font-black leading-5 text-slate-300">/mo</span>
+                  </p>
+                  <p className="mt-5 min-h-16 text-sm font-semibold leading-6 text-slate-300">{planDescriptions[plan.id] || plan.audience}</p>
                 </div>
-                <div className="grid flex-1 content-start gap-3">
+                <div className="flex flex-1 content-start flex-wrap gap-2">
                   {plan.features.map((feature) => (
-                    <p key={feature} className="flex items-start gap-3 text-sm font-semibold leading-6 text-slate-200">
-                      <CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-cyan-300" />
+                    <span key={feature} className="inline-flex min-h-10 items-center gap-2 rounded-full border border-white/10 bg-white/[0.07] px-3 text-sm font-black text-slate-100">
+                      <CheckCircle2 className="h-4 w-4 shrink-0 text-cyan-300" />
                       {feature}
-                    </p>
+                    </span>
                   ))}
                 </div>
-                <Button variant={active ? "secondary" : "primary"} onClick={() => choosePlan(plan.id)} disabled={loadingPlan !== null || active}>
+                <Button
+                  variant={active ? "secondary" : "primary"}
+                  onClick={() => choosePlan(plan.id)}
+                  disabled={loadingPlan !== null || active}
+                  className={`w-full rounded-full ${active ? "" : highlighted ? "bg-gradient-to-r from-cyan-300 to-teal-300 text-slate-950 hover:from-cyan-200 hover:to-teal-200" : "bg-gradient-to-r from-blue-600 to-cyan-500 text-white hover:from-blue-500 hover:to-cyan-400"}`}
+                >
                   {plan.id === "starter" ? <Sparkles className="h-4 w-4" /> : <CreditCard className="h-4 w-4" />}
-                  {loadingPlan === plan.id ? "Loading..." : active ? "Current plan" : plan.monthly_price > 0 ? "Checkout with Stripe" : current ? "Switch plan" : "Start trial"}
+                  {loadingPlan === plan.id ? "Loading..." : active ? "Current plan" : ctaLabels[plan.id] || "Choose plan"}
                 </Button>
               </div>
-            </Panel>
+            </div>
           );
-        })}
-      </div>
+          })}
+        </div>
+      </section>
 
       {message ? <p className="rounded-card border border-white/10 bg-white/[0.06] p-3 text-sm font-black text-teal-50">{message}</p> : null}
     </div>

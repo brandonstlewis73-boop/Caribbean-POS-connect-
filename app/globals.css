@@ -390,6 +390,37 @@ th {
   }
 }
 
+@keyframes sparklePulse {
+  0%, 100% {
+    transform: rotate(0deg) scale(1);
+    filter: drop-shadow(0 0 0 rgba(245, 196, 81, 0));
+  }
+  50% {
+    transform: rotate(10deg) scale(1.14);
+    filter: drop-shadow(0 0 10px rgba(245, 196, 81, 0.7));
+  }
+}
+
+@keyframes buttonShine {
+  0% {
+    transform: translateX(-140%) skewX(-18deg);
+  }
+  55%, 100% {
+    transform: translateX(180%) skewX(-18deg);
+  }
+}
+
+@keyframes glowBreathe {
+  0%, 100% {
+    opacity: 0.72;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+}
+
 @layer utilities {
   .landing-premium {
     background:
@@ -418,6 +449,23 @@ th {
   .landing-nav {
     transition: background-color 280ms ease, border-color 280ms ease, box-shadow 280ms ease;
     box-shadow: 0 18px 60px rgba(0, 0, 0, 0.2);
+  }
+
+  .landing-headline-glow {
+    animation: glowBreathe 7s ease-in-out infinite;
+  }
+
+  .landing-gradient-text {
+    background: linear-gradient(90deg, #f8fafc 0%, #48f3f8 42%, #f5c451 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    text-shadow: 0 0 42px rgba(72, 243, 248, 0.16);
+  }
+
+  .landing-sparkle {
+    animation: sparklePulse 2.4s ease-in-out infinite;
+    transform-origin: center;
   }
 
   .landing-nav-link::after {
@@ -538,10 +586,23 @@ th {
   }
 
   .landing-button-primary {
+    position: relative;
+    overflow: hidden;
     background: linear-gradient(135deg, #48f3f8 0%, #12d6df 52%, #6ffcff 100%);
     box-shadow: 0 20px 54px rgba(18, 214, 223, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.56);
     transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 180ms ease;
     will-change: transform;
+  }
+
+  .landing-button-primary::after {
+    content: "";
+    pointer-events: none;
+    position: absolute;
+    inset: -40% auto -40% -30%;
+    width: 44%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.58), transparent);
+    opacity: 0.72;
+    animation: buttonShine 3.6s ease-in-out infinite;
   }
 
   .landing-button-primary:hover {
@@ -551,6 +612,8 @@ th {
 
   .landing-button-glass,
   .landing-button-gold {
+    position: relative;
+    overflow: hidden;
     border: 1px solid rgba(72, 243, 248, 0.22);
     background: rgba(11, 29, 46, 0.84);
     box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.08);
@@ -571,6 +634,22 @@ th {
 
   .landing-dashboard-card {
     animation: dashboardFloat 6s ease-in-out infinite;
+  }
+
+  .landing-feature-preview {
+    opacity: 0;
+    animation: fadeUpPremium 720ms cubic-bezier(0.16, 1, 0.3, 1) 700ms forwards;
+  }
+
+  .hero-feature-card {
+    transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1), border-color 220ms ease, background-color 220ms ease, box-shadow 220ms ease;
+  }
+
+  .hero-feature-card:hover {
+    transform: translateY(-3px);
+    border-color: rgba(72, 243, 248, 0.34);
+    background: rgba(11, 29, 46, 0.84);
+    box-shadow: 0 22px 60px rgba(18, 214, 223, 0.12), 0 18px 70px rgba(0, 0, 0, 0.22);
   }
 
   .landing-glass-shine {
@@ -638,6 +717,16 @@ th {
   .landing-dashboard-card {
     animation-duration: 8s;
   }
+
+  .landing-actions {
+    padding-bottom: max(env(safe-area-inset-bottom), 0.25rem);
+  }
+
+  .landing-button-primary,
+  .landing-button-glass,
+  .landing-button-gold {
+    width: 100%;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -647,6 +736,9 @@ th {
   .landing-dashboard-card,
   .landing-wave,
   .live-pulse,
+  .landing-sparkle,
+  .landing-headline-glow,
+  .landing-feature-preview,
   .hero-word,
   .landing-kicker,
   .landing-subtitle,

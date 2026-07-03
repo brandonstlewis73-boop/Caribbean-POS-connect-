@@ -76,33 +76,33 @@ export const PLAN_CONFIG: Record<PlanId, PlanConfig> = {
   },
   starter: {
     id: "starter",
-    name: "Starter Plan",
-    audience: "For small Caribbean businesses",
-    monthlyPrice: 149,
-    currency: "TTD",
+    name: "Starter",
+    audience: "Launch",
+    monthlyPrice: 29,
+    currency: "USD",
     limits: { aiGenerations: 0, whatsappMessages: 200, staff: 3, products: 100, locations: 1 },
     features: ["pos", "storefront", "inventory", "delivery", "reports", "whatsappMessaging"],
-    featureList: ["Basic POS", "Customer management", "Order tracking", "Basic reports", "WhatsApp order alerts"]
+    featureList: ["POS", "Products", "Orders", "Receipts"]
   },
   pro: {
     id: "pro",
-    name: "Pro Plan",
-    audience: "For growing retail and delivery teams",
-    monthlyPrice: 299,
-    currency: "TTD",
-    limits: { aiGenerations: 500, whatsappMessages: 1000, staff: 10, products: 500, locations: 1 },
-    features: ["pos", "storefront", "inventory", "delivery", "reports", "whatsappMessaging", "aiSupport", "advancedReports"],
-    featureList: ["Everything in Starter", "AI support", "Inventory management", "Delivery management", "Advanced reports"]
+    name: "Pro",
+    audience: "Growth",
+    monthlyPrice: 149,
+    currency: "USD",
+    limits: { aiGenerations: 500, whatsappMessages: 1000, staff: 10, products: 500, locations: 3 },
+    features: ["pos", "storefront", "inventory", "delivery", "reports", "whatsappMessaging", "aiSupport", "advancedReports", "multiLocation"],
+    featureList: ["Automation", "Analytics", "AI Support", "Multi-location"]
   },
   premium: {
     id: "premium",
-    name: "Premium Plan",
-    audience: "For multi-location operators",
-    monthlyPrice: 499,
-    currency: "TTD",
-    limits: { aiGenerations: 2000, whatsappMessages: 5000, staff: 30, products: 2000, locations: 5 },
+    name: "Business",
+    audience: "Popular",
+    monthlyPrice: 79,
+    currency: "USD",
+    limits: { aiGenerations: 2000, whatsappMessages: 5000, staff: 30, products: 2000, locations: 2 },
     features: ["pos", "storefront", "inventory", "delivery", "reports", "whatsappMessaging", "aiSupport", "advancedReports", "multiLocation", "customBranding", "threeDStorefront"],
-    featureList: ["Everything in Pro", "3D storefront", "Multi-location support", "Custom branding", "Full back office tools"]
+    featureList: ["Storefront", "Staff", "Messaging", "Reports"]
   },
   enterprise: {
     id: "enterprise",

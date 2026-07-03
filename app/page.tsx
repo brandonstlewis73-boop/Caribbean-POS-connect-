@@ -42,6 +42,15 @@ const controlTasks = [
   { label: "Send WhatsApp updates", icon: MessageCircle, tone: "text-teal-200" }
 ];
 
+const heroPreviewCards = [
+  { title: "Fast checkout", icon: Zap },
+  { title: "Online storefront", icon: Store },
+  { title: "Orders", icon: ClipboardCheck },
+  { title: "Inventory", icon: Boxes },
+  { title: "WhatsApp-ready", icon: MessageCircle },
+  { title: "Staff tools", icon: UsersRound }
+];
+
 const trustItems = [
   { title: "Cloud Based", text: "Secure & Reliable", icon: Cloud },
   { title: "WhatsApp Ready", text: "Automated Updates", icon: MessageCircle },
@@ -94,24 +103,30 @@ const businesses = [
 const plans = [
   {
     name: "Starter",
+    price: "US$29/mo",
     detail: "For new businesses that need POS, products, orders, and receipts.",
-    badge: "Launch"
+    badge: "Launch",
+    cta: "Start Starter"
   },
   {
     name: "Business",
+    price: "US$79/mo",
     detail: "For active teams that need storefront, staff tools, and messaging workflows.",
-    badge: "Popular"
+    badge: "Popular",
+    cta: "Start Business"
   },
   {
     name: "Pro",
+    price: "US$149/mo",
     detail: "For growing operations that need automation, reports, AI support, and scale.",
-    badge: "Growth"
+    badge: "Growth",
+    cta: "Start Pro"
   }
 ];
 
 export default function LandingPage() {
   return (
-    <main className="landing-premium min-h-screen overflow-x-hidden bg-[#071421] text-[#F8FAFC]">
+    <main className="landing-premium min-h-screen overflow-x-hidden bg-[#071421] pb-[max(env(safe-area-inset-bottom),1.25rem)] text-[#F8FAFC]">
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden bg-[#071421]">
         <div className="landing-mesh absolute inset-0" />
         <div className="landing-grid absolute inset-0" />
@@ -144,10 +159,10 @@ export default function LandingPage() {
 
           <Link
             href="/signup"
-            className="landing-button-primary inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-full px-4 text-sm font-black text-[#031018] shadow-[0_18px_44px_rgba(18,214,223,0.24)]"
+            className="landing-button-primary group inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-full px-4 text-sm font-black text-[#031018] shadow-[0_18px_44px_rgba(18,214,223,0.24)]"
           >
             Get Started
-            <ArrowRight className="h-4 w-4" />
+            <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
           </Link>
         </div>
       </header>
@@ -158,18 +173,18 @@ export default function LandingPage() {
         <div className="landing-orb landing-orb-gold" />
         <div className="landing-particles" />
 
-        <div className="relative mx-auto grid w-full max-w-7xl gap-12 px-4 pb-16 pt-12 sm:px-6 sm:pt-16 lg:grid-cols-[minmax(0,1fr)_minmax(360px,540px)] lg:items-center lg:px-8 lg:pb-24 lg:pt-20">
+        <div className="relative mx-auto grid w-full max-w-7xl gap-10 px-4 pb-[calc(env(safe-area-inset-bottom)+4.5rem)] pt-10 sm:px-6 sm:pt-16 lg:grid-cols-[minmax(0,1fr)_minmax(360px,540px)] lg:items-center lg:px-8 lg:pb-24 lg:pt-20">
           <div className="landing-copy relative min-w-0">
-            <div className="absolute -left-16 top-12 -z-10 h-56 w-56 rounded-full bg-[#12D6DF]/18 blur-[90px]" />
+            <div className="landing-headline-glow absolute -left-16 top-12 -z-10 h-64 w-64 rounded-full bg-[#12D6DF]/20 blur-[90px]" />
             <div className="landing-kicker inline-flex min-h-9 items-center gap-2 rounded-full border border-[#48F3F8]/25 bg-[#0B1D2E]/70 px-3 text-xs font-black uppercase tracking-[0.2em] text-[#48F3F8] shadow-[0_0_38px_rgba(72,243,248,0.12)] backdrop-blur-xl">
-              <Sparkles className="h-4 w-4 text-[#F5C451]" />
+              <Sparkles className="landing-sparkle h-4 w-4 text-[#F5C451]" />
               Professional SaaS POS
             </div>
 
             <h1 className="mt-6 max-w-4xl text-5xl font-black leading-[0.94] tracking-tight text-white sm:text-6xl lg:text-7xl">
               <span className="hero-word">Caribbean</span>{" "}
               <span className="hero-word hero-word-delay-1 text-[#48F3F8]">POS</span>{" "}
-              <span className="hero-word hero-word-delay-2">Connect</span>
+              <span className="hero-word hero-word-delay-2 landing-gradient-text">Connect</span>
             </h1>
             <p className="landing-subtitle mt-5 max-w-2xl text-xl font-black leading-8 text-[#F8FAFC] sm:text-2xl">
               Run your store, orders, inventory, deliveries, and receipts from one simple POS.
@@ -180,9 +195,9 @@ export default function LandingPage() {
 
             <div className="landing-actions relative mt-8 flex flex-col gap-3 sm:flex-row">
               <div className="absolute -left-10 -top-8 -z-10 h-28 w-56 rounded-full bg-[#F5C451]/14 blur-[56px]" />
-              <Link href="/signup" className="landing-button-primary inline-flex min-h-12 items-center justify-center gap-2 rounded-full px-6 text-sm font-black text-[#031018]">
+              <Link href="/signup" className="landing-button-primary group inline-flex min-h-12 items-center justify-center gap-2 rounded-full px-6 text-sm font-black text-[#031018]">
                 Get Started
-                <ArrowRight className="h-4 w-4" />
+                <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />
               </Link>
               <a href="#plans" className="landing-button-glass inline-flex min-h-12 items-center justify-center rounded-full px-6 text-sm font-black text-white">
                 View Plans
@@ -192,7 +207,21 @@ export default function LandingPage() {
               </Link>
             </div>
 
-            <div className="landing-proof mt-9 grid gap-4 text-sm font-bold text-[#A7B4C7] sm:grid-cols-3">
+            <div className="landing-feature-preview mt-7 grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {heroPreviewCards.map((item, index) => {
+                const Icon = item.icon;
+                return (
+                  <div key={item.title} className="hero-feature-card reveal-up rounded-2xl border border-[#48F3F8]/14 bg-[#0B1D2E]/64 p-3 shadow-[0_18px_42px_rgba(0,0,0,0.22)] backdrop-blur-xl" style={{ animationDelay: `${680 + index * 70}ms` }}>
+                    <span className="grid h-9 w-9 place-items-center rounded-xl bg-[#12D6DF]/12 text-[#48F3F8] shadow-[0_0_28px_rgba(72,243,248,0.12)]">
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <p className="mt-3 text-xs font-black leading-4 text-white">{item.title}</p>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="landing-proof mt-7 grid gap-4 text-sm font-bold text-[#D8E5F5] sm:grid-cols-3">
               {[
                 "Fast checkout",
                 "Online storefront",
@@ -338,17 +367,22 @@ export default function LandingPage() {
 
         <div className="mt-12 grid items-stretch gap-6 lg:grid-cols-3 lg:gap-8">
           {plans.map((plan, index) => (
-            <article key={plan.name} className="reveal-on-scroll premium-card flex h-full min-h-[260px] flex-col rounded-3xl border border-[#48F3F8]/16 bg-[#0B1D2E]/88 p-7 shadow-[0_24px_80px_rgba(0,0,0,0.30)]" style={{ animationDelay: `${index * 100}ms` }}>
+            <article key={plan.name} className={`reveal-on-scroll premium-card flex h-full min-h-[320px] flex-col rounded-3xl border p-7 shadow-[0_24px_80px_rgba(0,0,0,0.30)] ${plan.name === "Business" ? "border-[#48F3F8]/45 bg-[#0B1D2E]/94 shadow-[0_28px_100px_rgba(18,214,223,0.18)] ring-1 ring-[#48F3F8]/30" : "border-[#48F3F8]/16 bg-[#0B1D2E]/88"}`} style={{ animationDelay: `${index * 100}ms` }}>
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-sm font-black text-[#48F3F8]">{plan.badge}</p>
                   <h3 className="mt-2 text-2xl font-black text-white">{plan.name}</h3>
                 </div>
-                <ShieldCheck className="h-6 w-6 text-emerald-200" />
+                {plan.name === "Business" ? (
+                  <span className="rounded-full bg-gradient-to-r from-[#48F3F8] to-[#12D6DF] px-3 py-1 text-[11px] font-black uppercase tracking-[0.14em] text-[#031018]">Most Popular</span>
+                ) : (
+                  <ShieldCheck className="h-6 w-6 text-emerald-200" />
+                )}
               </div>
+              <p className="mt-6 text-5xl font-black tracking-tight text-white">{plan.price}</p>
               <p className="mt-5 min-h-16 text-sm font-semibold leading-6 text-[#A7B4C7]">{plan.detail}</p>
-              <Link href="/signup" className="landing-button-glass mt-6 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full px-4 text-sm font-black text-white">
-                Start {plan.name}
+              <Link href="/signup" className={`${plan.name === "Business" ? "landing-button-primary text-[#031018]" : "landing-button-glass text-white"} mt-auto inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full px-4 text-sm font-black`}>
+                {plan.cta}
                 <ChevronRight className="h-4 w-4" />
               </Link>
             </article>
