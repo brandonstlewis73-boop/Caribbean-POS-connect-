@@ -58,7 +58,6 @@ const secondaryGroups: { label: string; items: NavItem[] }[] = [
       { label: "Customers", href: "/customers", icon: UsersRound },
       { label: "Categories", href: "/categories", icon: Tags },
       { label: "Inventory", href: "/inventory", icon: Boxes },
-      { label: "Storefront", href: "/online", icon: Store },
       { label: "Reports", href: "/reports", icon: BarChart3 }
     ]
   },
