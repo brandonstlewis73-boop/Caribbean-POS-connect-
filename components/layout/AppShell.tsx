@@ -24,6 +24,7 @@ export async function AppShell({
       active={active}
       title={title}
       actions={actions}
+      businessId={user?.business_id || null}
       currency={currency || "Set currency"}
       market={market}
       orderAlertsEnabled={settings?.new_order_alerts_enabled !== false}

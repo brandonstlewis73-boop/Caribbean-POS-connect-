@@ -91,7 +91,8 @@ export function OnlineOrderClient({
   menuEndpoint = "/api/online",
   orderEndpoint = "/api/orders",
   businessId = null,
-  storefrontSlug = null
+  storefrontSlug = null,
+  refreshOnMount = true
 }: {
   products: Product[];
   categories?: Category[];
@@ -102,6 +103,7 @@ export function OnlineOrderClient({
   orderEndpoint?: string;
   businessId?: string | null;
   storefrontSlug?: string | null;
+  refreshOnMount?: boolean;
 }) {
   const [products, setProducts] = useState(initialProducts);
   const [categories, setCategories] = useState(initialCategories);
@@ -127,6 +129,7 @@ export function OnlineOrderClient({
   const displaySettings = useMemo(() => ({ ...settings, business_name: publicStoreName(settings.business_name, storefrontSlug) }), [settings, storefrontSlug]);
 
   useEffect(() => {
+    if (!refreshOnMount) return;
     let cancelled = false;
     async function loadOnlineMenu() {
       try {
@@ -157,7 +160,7 @@ export function OnlineOrderClient({
     return () => {
       cancelled = true;
     };
-  }, [initialSettings, menuEndpoint]);
+  }, [initialSettings, menuEndpoint, refreshOnMount]);
 
   const threeDStorefrontEnabled = Boolean(settings.storefront_3d_enabled);
   useEffect(() => {
@@ -328,7 +331,7 @@ export function OnlineOrderClient({
           <div className="flex min-w-0 items-center gap-3">
             <span className="hidden text-base font-black tracking-tight text-blue-700 sm:inline">Caribbean <span className="text-slate-900">POS Connect</span></span>
             <div className="h-6 w-px bg-slate-200 max-sm:hidden" />
-            <img src={displaySettings.logo_url || "/caribbean-pos-connect-icon.png"} alt="" className="h-11 w-11 shrink-0 rounded-2xl border border-slate-200 bg-white object-contain p-1 shadow-sm" />
+            <img src={displaySettings.logo_url || "/caribbean-pos-connect-icon.png"} alt="" decoding="async" className="h-11 w-11 shrink-0 rounded-2xl border border-slate-200 bg-white object-contain p-1 shadow-sm" />
             <div className="min-w-0">
               <h1 className="truncate text-lg font-black leading-tight tracking-tight text-slate-950 sm:text-xl">{displaySettings.business_name}</h1>
               <p className="truncate text-xs font-semibold text-slate-500 sm:text-sm">Online ordering - {marketCountry} / {settings.currency}</p>
@@ -358,7 +361,7 @@ export function OnlineOrderClient({
         <section className="grid min-w-0 gap-4">
           <div className="relative overflow-hidden rounded-[34px] border border-teal-100 bg-slate-950 text-white shadow-2xl shadow-teal-950/10">
             {settings.storefront_banner_url ? (
-              <img src={settings.storefront_banner_url} alt="" className="absolute inset-0 h-full w-full object-cover opacity-38" />
+              <img src={settings.storefront_banner_url} alt="" decoding="async" className="absolute inset-0 h-full w-full object-cover opacity-38" />
             ) : null}
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_22%,rgba(72,243,248,0.28),transparent_30%),radial-gradient(circle_at_92%_10%,rgba(245,196,81,0.2),transparent_24%),linear-gradient(135deg,rgba(7,20,33,0.96),rgba(9,52,61,0.9)_58%,rgba(7,20,33,0.98))]" />
             <div className="relative grid gap-6 p-5 sm:p-7 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
@@ -378,7 +381,7 @@ export function OnlineOrderClient({
               </div>
               <div className="grid gap-3 rounded-[26px] border border-white/14 bg-white/10 p-4 backdrop-blur-md sm:min-w-64">
                 <div className="flex items-center gap-3">
-                  <img src={displaySettings.logo_url || "/caribbean-pos-connect-icon.png"} alt="" className="h-14 w-14 rounded-2xl border border-white/20 bg-white object-contain p-1" />
+                  <img src={displaySettings.logo_url || "/caribbean-pos-connect-icon.png"} alt="" decoding="async" className="h-14 w-14 rounded-2xl border border-white/20 bg-white object-contain p-1" />
                   <div>
                     <p className="text-sm font-black text-white">{displaySettings.business_name}</p>
                     <p className="text-xs font-bold text-cyan-50/65">{marketCountry} / {settings.currency}</p>
@@ -509,7 +512,7 @@ export function OnlineOrderClient({
           id="checkout"
           className={`min-w-0 gap-5 self-start scroll-mt-24 xl:sticky xl:top-24 xl:grid ${
             mobileCheckoutOpen && !order
-              ? "fixed inset-x-0 bottom-0 z-50 grid max-h-[88vh] overflow-auto rounded-t-[34px] bg-slate-50 p-4 shadow-2xl xl:relative xl:max-h-none xl:overflow-visible xl:rounded-none xl:bg-transparent xl:p-0 xl:shadow-none"
+              ? "fixed inset-x-0 bottom-0 z-50 grid max-h-[calc(88dvh-env(safe-area-inset-bottom))] overflow-auto rounded-t-[34px] bg-slate-50 p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-2xl xl:relative xl:max-h-none xl:overflow-visible xl:rounded-none xl:bg-transparent xl:p-0 xl:shadow-none"
               : order
                 ? "grid"
                 : "hidden"

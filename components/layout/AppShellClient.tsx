@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   BarChart3,
   Boxes,
@@ -90,6 +90,7 @@ export function AppShellClient({
   title,
   children,
   actions,
+  businessId,
   currency,
   market,
   orderAlertsEnabled,
@@ -101,6 +102,7 @@ export function AppShellClient({
   title: string;
   children: ReactNode;
   actions?: ReactNode;
+  businessId?: string | null;
   currency: string;
   market: string;
   orderAlertsEnabled: boolean;
@@ -110,19 +112,23 @@ export function AppShellClient({
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [newOrderCount, setNewOrderCount] = useState(0);
+  const orderCountStorageKey = useMemo(
+    () => `caribbean:new-order-count:${businessId || "unknown"}`,
+    [businessId]
+  );
 
   useEffect(() => {
-    const storedCount = Number(window.localStorage.getItem("caribbean:new-order-count") || 0);
+    const storedCount = Number(window.localStorage.getItem(orderCountStorageKey) || 0);
     if (storedCount > 0 && active !== "Orders") setNewOrderCount(storedCount);
     function handleNewOrder() {
       setNewOrderCount((current) => {
         const next = current + 1;
-        window.localStorage.setItem("caribbean:new-order-count", String(next));
+        window.localStorage.setItem(orderCountStorageKey, String(next));
         return next;
       });
     }
     function clearNewOrders() {
-      window.localStorage.removeItem("caribbean:new-order-count");
+      window.localStorage.removeItem(orderCountStorageKey);
       setNewOrderCount(0);
     }
     window.addEventListener("caribbean:new-order", handleNewOrder as EventListener);
@@ -132,7 +138,7 @@ export function AppShellClient({
       window.removeEventListener("caribbean:new-order", handleNewOrder as EventListener);
       window.removeEventListener("caribbean:orders-seen", clearNewOrders as EventListener);
     };
-  }, [active]);
+  }, [active, orderCountStorageKey]);
 
   useEffect(() => {
     if (!menuOpen) return;

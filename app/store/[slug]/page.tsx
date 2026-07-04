@@ -53,6 +53,7 @@ export default async function StorefrontPage({
       orderEndpoint={`/api/store/${encodeURIComponent(slug)}/orders`}
       businessId={business.id}
       storefrontSlug={slug}
+      refreshOnMount={false}
     />
   );
 }
