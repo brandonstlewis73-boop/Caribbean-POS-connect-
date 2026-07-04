@@ -91,10 +91,14 @@ assert.match(storefrontIdentity, /payment_links_enabled/, "Public storefront ide
 assert.match(publicStorePage, /withPublicStoreIdentity/, "Server-rendered storefront should sanitize public settings before hydration.");
 assert.match(publicStoreApi, /withPublicStoreIdentity/, "Public store API should sanitize public settings before returning JSON.");
 assert.match(virtualStore, /supportsWebGL/, "3D storefront should detect WebGL support.");
-assert.match(virtualStore, /function ProductModal/, "3D storefront should use a reusable product modal.");
+assert.match(virtualStore, /function ProductDetailModal/, "3D storefront should use a reusable product modal.");
 assert.match(virtualStore, /onAddToCart\(product\)/, "3D storefront product modal should use the existing cart callback.");
-assert.match(virtualStore, /function StoreScene|function StoreLighting|function ProductDisplay|function Hotspot|function StoreHUD|function StoreControls/, "3D storefront should be split into reusable scene components.");
-assert.match(virtualStore, /Canvas/, "3D storefront should use React Three Fiber Canvas.");
+assert.match(virtualStore, /function StoreSceneImage/, "Virtual storefront should use the premium rendered store scene component.");
+assert.match(virtualStore, /function ProductHotspotLayer/, "Virtual storefront should place live product hotspots over the scene.");
+assert.match(virtualStore, /function ProductHotspot/, "Virtual storefront should expose tappable product hotspots.");
+assert.match(virtualStore, /STORE_SCENE_IMAGE/, "Virtual storefront should load a premium store background image.");
+assert.match(virtualStore, /HOTSPOT_POSITIONS/, "Virtual storefront should define hotspot positions in code, not customer-facing labels.");
+assert.doesNotMatch(virtualStore, /LEFT SHELF|RIGHT SHELF|CENTER DISPLAY/, "Virtual storefront should not show internal shelf layout labels.");
 assert.match(storePage, /canUseFeature\(planId, "threeDStorefront"\)/, "Store page should enforce Premium 3D access server-side.");
 assert.match(storeApi, /canUseFeature\(planId, "threeDStorefront"\)/, "Store API should enforce Premium 3D access on refresh.");
 const exchange = read("lib/exchange-rates.ts");

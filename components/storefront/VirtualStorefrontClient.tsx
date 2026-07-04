@@ -3,7 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { Minus, Plus, ShoppingBag, X } from "lucide-react";
-import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/Button";
 import { money } from "@/lib/constants";
 import type { Category, Product, Settings } from "@/lib/types";
@@ -48,6 +48,19 @@ function safeBusinessName(settings: Settings) {
   return (settings.business_name || "Storefront").trim() || "Storefront";
 }
 
+function supportsWebGL() {
+  if (typeof window === "undefined" || typeof document === "undefined") return false;
+  try {
+    const canvas = document.createElement("canvas");
+    return Boolean(
+      window.WebGLRenderingContext &&
+        (canvas.getContext("webgl") || canvas.getContext("experimental-webgl"))
+    );
+  } catch {
+    return false;
+  }
+}
+
 function zoneForProduct(product: Product): HotspotZone | null {
   const text = `${product.name} ${product.category || ""} ${product.description || ""}`.toLowerCase();
   if (text.includes("drink") || text.includes("juice") || text.includes("soda") || text.includes("water") || text.includes("mauby") || text.includes("sorrel")) return "drinks";
@@ -85,15 +98,15 @@ function CartPanel({ count, onExit, onViewCart }: { count: number; onExit: () =>
   );
 }
 
-function MobileCartDrawer({ count, onExit, onViewCart }: { count: number; onExit: () => void; onViewCart: () => void }) {
+function MobileCartDrawer({ onExit, onViewCart }: { onExit: () => void; onViewCart: () => void }) {
   return (
-    <div className="fixed inset-x-3 bottom-3 z-30 rounded-[24px] border border-white/20 bg-slate-950/86 p-2 shadow-2xl backdrop-blur-xl sm:hidden">
+    <div className="rounded-[24px] border border-slate-200 bg-white/92 p-2 shadow-xl shadow-slate-950/10 backdrop-blur-xl sm:hidden">
       <div className="grid grid-cols-[1fr_1fr] gap-2">
-        <Button type="button" size="sm" onClick={onExit} className="rounded-2xl border-white/10 bg-white/10 text-xs text-white hover:bg-white/20">
+        <Button type="button" size="sm" onClick={onExit} className="rounded-2xl border-slate-200 bg-white text-xs font-black text-slate-800 hover:bg-slate-50">
           Shop Normally
         </Button>
-        <Button type="button" size="sm" variant="primary" onClick={onViewCart} className="rounded-2xl bg-violet-600 text-xs text-white hover:bg-violet-500">
-          Cart ({count})
+        <Button type="button" size="sm" variant="primary" onClick={onViewCart} className="rounded-2xl bg-violet-600 text-xs font-black text-white hover:bg-violet-500">
+          View Cart
         </Button>
       </div>
     </div>
@@ -265,16 +278,24 @@ function ProductDetailModal({ product, category, settings, onClose, onAddToCart 
 
 function VirtualStoreExperience({ products, categories, settings, onAddToCart, onExit, onViewCart }: Props) {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [sceneMode, setSceneMode] = useState<"checking" | "webgl-ready" | "image-fallback">("checking");
   const visibleProducts = useMemo(() => products.filter((product) => product.active !== false), [products]);
   const hotspots = useMemo(() => productHotspots(visibleProducts), [visibleProducts]);
   const categoryNameById = useMemo(() => new Map(categories.map((category) => [category.id, category.name])), [categories]);
 
+  useEffect(() => {
+    setSceneMode(supportsWebGL() ? "webgl-ready" : "image-fallback");
+  }, []);
+
   return (
-    <section className="relative grid gap-3 overflow-hidden rounded-[32px] border border-slate-200 bg-white p-3 shadow-xl shadow-slate-950/10 sm:p-4">
+    <section
+      data-render-mode={sceneMode}
+      className="relative grid gap-3 overflow-hidden rounded-[32px] border border-slate-200 bg-white p-3 shadow-xl shadow-slate-950/10 sm:p-4"
+    >
       <StoreSceneImage settings={settings} productCount={visibleProducts.length} onExit={onExit} onViewCart={onViewCart || onExit}>
         <ProductHotspotLayer hotspots={hotspots} settings={settings} onSelect={setSelectedProduct} />
       </StoreSceneImage>
-      <MobileCartDrawer count={visibleProducts.length} onExit={onExit} onViewCart={onViewCart || onExit} />
+      <MobileCartDrawer onExit={onExit} onViewCart={onViewCart || onExit} />
       {!hotspots.length ? (
         <p className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-center text-sm font-bold text-slate-600">
           No products are available in this virtual store yet.

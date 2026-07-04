@@ -342,8 +342,12 @@ export function OnlineOrderClient({
             </label>
             <button type="button" className="hidden h-11 w-11 place-items-center rounded-2xl border border-slate-200 bg-white text-slate-600 shadow-sm sm:grid" aria-label="Notifications"><Bell className="h-4 w-4" /></button>
             {!order ? (
-              <a href="#checkout" className="rounded-full border border-teal-200 bg-teal-50 px-3 py-2 text-sm font-black text-teal-800 shadow-sm">
-                Cart {cart.length} - {formatMoney(total)}
+              <a
+                href="#checkout"
+                className="inline-flex min-h-11 shrink-0 items-center justify-center whitespace-nowrap rounded-full border border-teal-200 bg-teal-50 px-3 py-2 text-sm font-black text-teal-800 shadow-sm"
+              >
+                <span>Cart {cart.length}</span>
+                <span className="hidden sm:inline"> - {formatMoney(total)}</span>
               </a>
             ) : null}
           </div>
@@ -683,7 +687,7 @@ export function OnlineOrderClient({
         </aside>
       </div>
       {!order && cart.length ? (
-        <button type="button" onClick={() => setMobileCheckoutOpen(true)} className="fixed inset-x-3 bottom-3 z-40 grid rounded-full bg-slate-950 px-5 py-3 text-white shadow-2xl xl:hidden">
+        <button type="button" onClick={() => setMobileCheckoutOpen(true)} className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-40 grid rounded-full bg-slate-950 px-5 py-3 text-white shadow-2xl xl:hidden">
           <span className="flex items-center justify-between gap-3 text-sm font-black">
             <span>{cart.length} item{cart.length === 1 ? "" : "s"}</span>
             <span>Checkout - {formatMoney(total)}</span>
@@ -701,7 +705,7 @@ export function OnlineOrderClient({
           );
         })}
       </section>
-      <footer className="mx-auto flex max-w-[1620px] flex-wrap gap-3 px-4 pb-8 text-sm font-bold text-slate-500 xl:pl-28 xl:pr-6">
+      <footer className="mx-auto flex max-w-[1620px] flex-wrap gap-3 px-4 pb-[calc(env(safe-area-inset-bottom)+6rem)] text-sm font-bold text-slate-500 xl:pb-8 xl:pl-28 xl:pr-6">
         <a href="/privacy" className="hover:text-teal-700">Privacy policy</a>
         <a href="/contact" className="hover:text-teal-700">Contact</a>
       </footer>
