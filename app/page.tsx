@@ -16,7 +16,6 @@ import {
   ReceiptText,
   ShieldCheck,
   Smartphone,
-  Sparkles,
   Store,
   UsersRound,
   Zap
@@ -176,12 +175,7 @@ export default function LandingPage() {
         <div className="relative mx-auto grid w-full max-w-7xl gap-10 px-4 pb-[calc(env(safe-area-inset-bottom)+4.5rem)] pt-10 sm:px-6 sm:pt-16 lg:grid-cols-[minmax(0,1fr)_minmax(360px,540px)] lg:items-center lg:px-8 lg:pb-24 lg:pt-20">
           <div className="landing-copy relative min-w-0">
             <div className="landing-headline-glow absolute -left-16 top-12 -z-10 h-64 w-64 rounded-full bg-[#12D6DF]/20 blur-[90px]" />
-            <div className="landing-kicker inline-flex min-h-9 items-center gap-2 rounded-full border border-[#48F3F8]/25 bg-[#0B1D2E]/70 px-3 text-xs font-black uppercase tracking-[0.2em] text-[#48F3F8] shadow-[0_0_38px_rgba(72,243,248,0.12)] backdrop-blur-xl">
-              <Sparkles className="landing-sparkle h-4 w-4 text-[#F5C451]" />
-              Professional SaaS POS
-            </div>
-
-            <h1 className="mt-6 max-w-4xl text-5xl font-black leading-[0.94] tracking-tight text-white sm:text-6xl lg:text-7xl">
+            <h1 className="max-w-4xl text-5xl font-black leading-[0.94] tracking-tight text-white sm:text-6xl lg:text-7xl">
               <span className="hero-word">Caribbean</span>{" "}
               <span className="hero-word hero-word-delay-1 text-[#48F3F8]">POS</span>{" "}
               <span className="hero-word hero-word-delay-2 landing-gradient-text">Connect</span>
