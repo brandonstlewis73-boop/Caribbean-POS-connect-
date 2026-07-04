@@ -13,7 +13,7 @@ export default async function SubscriptionPage() {
   ]);
   const stripe = stripeConfigStatus();
   return (
-    <AppShell active="Subscription" title="Subscription & Billing">
+    <AppShell active="Subscription" title="Subscription & Billing" user={user}>
       <SubscriptionClient
         plans={plans}
         subscription={subscription}

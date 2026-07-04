@@ -11,7 +11,7 @@ export default async function DeliveriesPage() {
   const deliveryGate = canUseFeature(planId, "delivery");
   if (!deliveryGate.allowed) {
     return (
-      <AppShell active="Deliveries" title="Deliveries">
+      <AppShell active="Deliveries" title="Deliveries" user={user}>
         <UpgradeRequired
           title="Delivery management is locked"
           description="Delivery boards, driver route assistance, Waze links, and delivery assignment tools are available on paid plans."
@@ -23,7 +23,7 @@ export default async function DeliveriesPage() {
   }
   const [deliveries, settings] = await Promise.all([getDeliveries(user), getBusinessSettings(user.business_id)]);
   return (
-    <AppShell active="Deliveries" title="Deliveries">
+    <AppShell active="Deliveries" title="Deliveries" user={user} settings={settings}>
       <DeliveriesClient deliveries={deliveries} currency={settings.currency} />
     </AppShell>
   );

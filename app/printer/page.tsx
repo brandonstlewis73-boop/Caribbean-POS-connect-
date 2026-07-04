@@ -7,7 +7,7 @@ export default async function PrinterPage() {
   const user = await requirePagePermission("orders:read");
   const settings = await getBusinessSettings(user.business_id);
   return (
-    <AppShell active="Printer" title="Printer & Receipts">
+    <AppShell active="Printer" title="Printer & Receipts" user={user} settings={settings}>
       <PrinterSettingsClient settings={settings} />
     </AppShell>
   );

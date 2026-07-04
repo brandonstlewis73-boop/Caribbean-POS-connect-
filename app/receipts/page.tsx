@@ -11,7 +11,7 @@ export default async function ReceiptsPage() {
     getBusinessSettings(user.business_id)
   ]);
   return (
-    <AppShell active="Receipts" title="Receipts">
+    <AppShell active="Receipts" title="Receipts" user={user} settings={settings}>
       <ReceiptsClient
         receipts={receipts}
         currency={settings.currency}

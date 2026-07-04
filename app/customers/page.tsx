@@ -10,7 +10,7 @@ export default async function CustomersPage() {
     getBusinessSettings(user.business_id)
   ]);
   return (
-    <AppShell active="Customers" title="Customers">
+    <AppShell active="Customers" title="Customers" user={user} settings={settings}>
       <CustomersClient customers={customers} currency={settings.currency} />
     </AppShell>
   );

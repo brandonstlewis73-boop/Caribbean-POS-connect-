@@ -14,7 +14,7 @@ export default async function SettingsPage() {
     getPlanUsageSummary(user.business_id)
   ]);
   return (
-    <AppShell active="Settings" title="Settings">
+    <AppShell active="Settings" title="Settings" user={user} settings={settings}>
       <SettingsClient
         settings={settings}
         staff={staff}

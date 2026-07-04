@@ -12,7 +12,7 @@ export default async function OrdersPage() {
     getBusinessSettings(user.business_id)
   ]);
   return (
-    <AppShell active="Orders" title="Orders">
+    <AppShell active="Orders" title="Orders" user={user} settings={settings}>
       <OrdersClient
         orders={orders}
         drivers={drivers}

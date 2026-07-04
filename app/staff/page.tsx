@@ -7,7 +7,7 @@ export default async function StaffPage() {
   const user = await requirePagePermission("staff:manage");
   const staff = await listUsers(undefined, true, user.business_id);
   return (
-    <AppShell active="Staff" title="Staff Management">
+    <AppShell active="Staff" title="Staff Management" user={user}>
       <StaffClient staff={staff} />
     </AppShell>
   );

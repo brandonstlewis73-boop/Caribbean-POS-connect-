@@ -11,7 +11,7 @@ export default async function ReportsPage() {
   const reportsGate = canUseFeature(planId, "reports");
   if (!reportsGate.allowed) {
     return (
-      <AppShell active="Reports" title="Reports">
+      <AppShell active="Reports" title="Reports" user={user}>
         <UpgradeRequired
           title="Reports are locked"
           description="Sales reports, customer summaries, payment breakdowns, and cashier performance unlock on Starter and higher plans."
@@ -23,7 +23,7 @@ export default async function ReportsPage() {
   }
   const data = await getDashboardData(user.business_id);
   return (
-    <AppShell active="Reports" title="Reports">
+    <AppShell active="Reports" title="Reports" user={user}>
       <ReportsClient data={data} />
     </AppShell>
   );

@@ -7,7 +7,7 @@ export default async function DashboardPage() {
   const user = await requirePagePermission("dashboard:read");
   const data = await getDashboardData(user.business_id);
   return (
-    <AppShell active="Dashboard" title="Back Office Dashboard">
+    <AppShell active="Dashboard" title="Back Office Dashboard" user={user}>
       <DashboardHome data={data} />
     </AppShell>
   );

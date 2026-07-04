@@ -11,7 +11,7 @@ export default async function InventoryPage() {
     getBusinessSettings(user.business_id)
   ]);
   return (
-    <AppShell active="Inventory" title="Inventory">
+    <AppShell active="Inventory" title="Inventory" user={user} settings={settings}>
       <InventoryClient products={products} categories={categories} currency={settings.currency} />
     </AppShell>
   );

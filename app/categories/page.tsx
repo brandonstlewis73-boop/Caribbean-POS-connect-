@@ -8,7 +8,7 @@ export default async function CategoriesPage() {
   const categories = await listCategories(undefined, true, user.business_id);
 
   return (
-    <AppShell active="Categories" title="Categories">
+    <AppShell active="Categories" title="Categories" user={user}>
       <CategoriesClient categories={categories} />
     </AppShell>
   );

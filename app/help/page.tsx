@@ -21,7 +21,7 @@ export default async function HelpSupportPage() {
   const dbStatus = databaseConfigStatus();
 
   return (
-    <AppShell active="Help & Support" title="Help & Support">
+    <AppShell active="Help & Support" title="Help & Support" user={user} settings={settings}>
       <HelpSupportClient
         articles={articles}
         tickets={tickets}

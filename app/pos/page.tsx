@@ -13,7 +13,7 @@ export default async function POSPage() {
     listCategories(undefined, false, user.business_id)
   ]);
   return (
-    <AppShell active="POS" title="POS checkout">
+    <AppShell active="POS" title="POS checkout" user={user} settings={settings}>
       <POSClient
         products={products}
         customers={customers}

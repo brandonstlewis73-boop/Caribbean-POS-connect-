@@ -13,7 +13,7 @@ export default async function AiBusinessOSPage() {
   const status = aiBusinessStatus(usage.planId);
 
   return (
-    <AppShell active="AI Tools" title="AI Business OS">
+    <AppShell active="AI Tools" title="AI Business OS" user={user}>
       <AiBusinessOSClient usage={usage} aiStatus={status} />
     </AppShell>
   );
