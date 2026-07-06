@@ -183,7 +183,7 @@ export function ReceiptsClient({
                 <tr>
                   <td colSpan={7} className="px-4 py-10 text-center">
                     <p className="font-black">No receipts found.</p>
-                    <p className="mt-1 text-sm font-semibold text-slate-500">Completed orders will generate receipts automatically.</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-500">Placed orders will generate receipts automatically.</p>
                   </td>
                 </tr>
               ) : null}

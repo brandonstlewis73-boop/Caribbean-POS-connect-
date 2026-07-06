@@ -76,6 +76,8 @@ const storeApi = read("app/api/store/[slug]/route.ts");
 const data = read("lib/data.ts");
 assert.match(data, /name\.toLowerCase\(\) !== "uncategorized"/, "Product saves should not recreate deleted category names.");
 assert.match(data, /UPDATE products SET category = \$1, category_id = NULL/, "Deleted category products should be marked Uncategorized.");
+assert.match(data, /await createOrUpdateReceiptRecord\([\s\S]*client,[\s\S]*order,[\s\S]*receiptNumber,/, "Placed orders should create receipt records immediately.");
+assert.match(data, /completed_at = CASE WHEN \$17::timestamptz IS NOT NULL THEN \$17::timestamptz ELSE completed_at END/, "Pending order receipts should not be falsely marked completed.");
 
 const runtimeText = [read("lib/ai-business.ts"), settings, inventory].join("\n");
 assert.doesNotMatch(runtimeText, /Savannah Retail|Savannah & Sea|Baker Buds|Dutty|fake data|John Doe|Priya/);

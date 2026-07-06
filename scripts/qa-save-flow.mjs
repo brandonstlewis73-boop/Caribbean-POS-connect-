@@ -189,6 +189,15 @@ assertOk(
   "New delivery order should not decrement product stock before completion."
 );
 
+const receiptsBeforeCompletion = await request(`/api/receipts?q=${encodeURIComponent(order.order_number)}`, {
+  headers: { Cookie: cookie }
+});
+assertOk(receiptsBeforeCompletion.status === 200, `Receipts list before completion failed: ${receiptsBeforeCompletion.text}`);
+assertOk(
+  receiptsBeforeCompletion.payload?.data?.receipts?.some((item) => item.order_id === order.id),
+  "Placed order did not generate a receipt record."
+);
+
 const orderComplete = await request(`/api/orders/${order.id}`, {
   method: "PATCH",
   headers: {
@@ -220,7 +229,7 @@ const receipts = await request(`/api/receipts?q=${encodeURIComponent(order.order
 assertOk(receipts.status === 200, `Receipts list failed: ${receipts.text}`);
 assertOk(
   receipts.payload?.data?.receipts?.some((item) => item.order_id === order.id),
-  "Completed order did not generate a receipt record."
+  "Completed order receipt record was not preserved."
 );
 
 const customerAfterOrder = await request(`/api/customers/${customer.id}`, {

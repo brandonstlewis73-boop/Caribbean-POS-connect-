@@ -87,7 +87,7 @@ export const DEFAULT_HELP_ARTICLES: HelpArticle[] = [
     title: "First-time setup checklist",
     category: "Getting Started",
     content:
-      "Start in Settings. Add your business name, phone, logo, country, currency, delivery rates, receipt message, and WhatsApp number. Then add products in Inventory, add staff roles, run a small POS checkout test, complete the order, and confirm a receipt is created.",
+      "Start in Settings. Add your business name, phone, logo, country, currency, delivery rates, receipt message, and WhatsApp number. Then add products in Inventory, add staff roles, run a small POS checkout test, place an order, and confirm a receipt is created.",
     tags: ["setup", "business profile", "checklist"],
     visibility: "staff",
     published: true,
@@ -98,7 +98,7 @@ export const DEFAULT_HELP_ARTICLES: HelpArticle[] = [
     title: "Complete an order in POS checkout",
     category: "Orders & Checkout",
     content:
-      "Open POS, add products to the cart, choose or create the customer if needed, choose payment method and order type, then submit. For active orders, open Orders and move the status to Completed. Completion updates receipts, customer history, and inventory.",
+      "Open POS, add products to the cart, choose or create the customer if needed, choose payment method and order type, then submit. A receipt is created when the order is placed. For active orders, open Orders and move the status to Completed to finalize inventory, customer history, and completion details.",
     tags: ["checkout", "complete order", "pos"],
     visibility: "staff",
     published: true,
@@ -164,7 +164,7 @@ export const DEFAULT_HELP_ARTICLES: HelpArticle[] = [
     title: "Print or resend receipts",
     category: "Receipts",
     content:
-      "Receipts are created when orders are completed. Open Receipts to search by customer, phone, order number, or date. Use Print for a paper receipt or WhatsApp to resend the receipt if messaging is configured.",
+      "Receipts are created when orders are placed. Open Receipts to search by customer, phone, order number, or date. Completed orders update the receipt completion details. Use Print for a paper receipt or WhatsApp to resend the receipt if messaging is configured.",
     tags: ["receipt", "print", "whatsapp"],
     visibility: "staff",
     published: true,

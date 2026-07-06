@@ -2123,7 +2123,7 @@ async function createOrUpdateReceiptRecord(
       payment_method = $14,
       payment_status = $15,
       completed_by = $16,
-      completed_at = COALESCE($17::timestamptz, completed_at, NOW()),
+      completed_at = CASE WHEN $17::timestamptz IS NOT NULL THEN $17::timestamptz ELSE completed_at END,
       updated_at = NOW()
      WHERE order_id = $2
      RETURNING id`,
@@ -2137,7 +2137,7 @@ async function createOrUpdateReceiptRecord(
       items, subtotal, discount_total, tax_total, delivery_fee, total, payment_method,
       payment_status, completed_by, completed_at, channel, updated_at
     )
-    SELECT $18, $1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11, $12, $13, $14, $15, $16, COALESCE($17::timestamptz, NOW()), 'print', NOW()
+    SELECT $18, $1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11, $12, $13, $14, $15, $16, $17::timestamptz, 'print', NOW()
     WHERE NOT EXISTS (SELECT 1 FROM receipts WHERE order_id = $2)`,
     [
       ...values,
@@ -2646,11 +2646,14 @@ export async function createOrder(payload: CheckoutPayload, userId?: string) {
 
     let order = await readOrderById(client, orderId, businessId);
     if (!order) throw new Error("Order not found");
-    if (shouldCompleteNow) {
-      await createOrUpdateReceiptRecord(client, order, receiptNumber, payload.created_by || userId || null);
-      order = await readOrderById(client, orderId, businessId);
-      if (!order) throw new Error("Order not found");
-    }
+    await createOrUpdateReceiptRecord(
+      client,
+      order,
+      receiptNumber,
+      shouldCompleteNow ? payload.created_by || userId || null : null
+    );
+    order = await readOrderById(client, orderId, businessId);
+    if (!order) throw new Error("Order not found");
     if (settings.whatsapp_enabled) {
       const businessMessage = buildOrderWhatsAppMessage(order, settings);
       const customerMessage = buildCustomerConfirmationMessage(order, settings);
