@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, CreditCard, ShieldCheck, Sparkles } from "lucide-react";
+import { CheckCircle2, CreditCard, ShieldCheck, Sparkles, X } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Panel, PanelHeader } from "@/components/ui/Panel";
@@ -108,9 +108,101 @@ export function SubscriptionClient({
     premium: "Start Business",
     pro: "Start Pro"
   };
+  const planCompareRows = [
+    { label: "POS checkout", starter: true, premium: true, pro: true },
+    { label: "Products", starter: true, premium: true, pro: true },
+    { label: "Orders", starter: true, premium: true, pro: true },
+    { label: "Receipts", starter: true, premium: true, pro: true },
+    { label: "Storefront", starter: false, premium: true, pro: true },
+    { label: "Staff tools", starter: false, premium: true, pro: true },
+    { label: "Messaging", starter: false, premium: true, pro: true },
+    { label: "Reports", starter: false, premium: true, pro: true },
+    { label: "Automation", starter: false, premium: false, pro: true },
+    { label: "AI support", starter: false, premium: false, pro: true }
+  ];
 
   return (
-    <div className="grid min-w-0 gap-4">
+    <>
+    <div className="kyte-plan-screen md:hidden">
+      <section className="kyte-plan-header">
+        <h1>Choose your plan</h1>
+        <button type="button" aria-label="Close plan picker" onClick={() => window.history.back()}>
+          <X className="h-5 w-5" />
+        </button>
+      </section>
+
+      <section className="kyte-plan-stage">
+        <div className="kyte-billing-toggle" aria-label="Billing frequency">
+          <button type="button" className="active">Monthly</button>
+          <button type="button">Annual <span>-17%</span></button>
+        </div>
+        <div className="kyte-plan-carousel">
+          {pricingPlans.map((plan) => {
+            const active = currentPlanId === plan.id;
+            const highlighted = plan.id === "premium";
+            return (
+              <article key={plan.id} className={`kyte-plan-card ${highlighted ? "highlighted" : ""}`}>
+                {highlighted ? <span className="kyte-plan-popular">Most popular</span> : null}
+                <p>{plan.audience}</p>
+                <h2>{plan.name}</h2>
+                <div className="kyte-plan-price">
+                  <strong>{planPrice(plan)}</strong>
+                  <span>/mo</span>
+                </div>
+                <p className="kyte-plan-description">{planDescriptions[plan.id] || plan.audience}</p>
+                <ul>
+                  {plan.features.slice(0, 4).map((feature) => (
+                    <li key={feature}>
+                      <CheckCircle2 className="h-5 w-5" />
+                      <span>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  type="button"
+                  onClick={() => choosePlan(plan.id)}
+                  disabled={loadingPlan !== null || active}
+                  className="kyte-plan-button"
+                >
+                  {loadingPlan === plan.id ? "Loading..." : active ? "Current plan" : ctaLabels[plan.id] || "Choose plan"}
+                </button>
+              </article>
+            );
+          })}
+        </div>
+        <div className="kyte-plan-dots" aria-hidden>
+          <span />
+          <span className="active" />
+          <span />
+        </div>
+      </section>
+
+      <section className="kyte-compare-plans">
+        <div className="kyte-compare-title">
+          <h2>Compare plans</h2>
+          <span />
+        </div>
+        <div className="kyte-compare-table">
+          <div className="kyte-compare-row header">
+            <span>Features</span>
+            <strong>Starter</strong>
+            <strong>Business</strong>
+            <strong>Pro</strong>
+          </div>
+          {planCompareRows.map((row) => (
+            <div key={row.label} className="kyte-compare-row">
+              <span>{row.label}</span>
+              <strong>{row.starter ? <CheckCircle2 className="h-5 w-5" /> : "-"}</strong>
+              <strong>{row.premium ? <CheckCircle2 className="h-5 w-5" /> : "-"}</strong>
+              <strong>{row.pro ? <CheckCircle2 className="h-5 w-5" /> : "-"}</strong>
+            </div>
+          ))}
+        </div>
+      </section>
+      {message ? <p className="kyte-mobile-notice">{message}</p> : null}
+    </div>
+
+    <div className="hidden min-w-0 gap-4 md:grid">
       <Panel>
         <PanelHeader
           title="Subscription"
@@ -247,5 +339,6 @@ export function SubscriptionClient({
 
       {message ? <p className="rounded-card border border-white/10 bg-white/[0.06] p-3 text-sm font-black text-teal-50">{message}</p> : null}
     </div>
+    </>
   );
 }

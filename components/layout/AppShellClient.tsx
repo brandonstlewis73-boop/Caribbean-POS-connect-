@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
+
 import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
@@ -7,6 +9,7 @@ import {
   BarChart3,
   Boxes,
   BrainCircuit,
+  ChevronRight,
   CreditCard,
   ClipboardList,
   LifeBuoy,
@@ -19,7 +22,6 @@ import {
   ReceiptText,
   Settings,
   ShoppingCart,
-  Store,
   Tags,
   UserCog,
   UsersRound,
@@ -80,6 +82,44 @@ const secondaryGroups: { label: string; items: NavItem[] }[] = [
 
 const navItems = navGroups.flatMap((group) => group.items);
 
+const mobileDrawerGroups: { label: string; items: NavItem[] }[] = [
+  {
+    label: "Checkout",
+    items: [
+      { label: "Home", href: "/dashboard", icon: LayoutDashboard },
+      { label: "Checkout", href: "/pos", icon: ShoppingCart },
+      { label: "Orders", href: "/orders", icon: ClipboardList },
+      { label: "Receipts", href: "/receipts", icon: ReceiptText },
+      { label: "Deliveries", href: "/deliveries", icon: MapPinned }
+    ]
+  },
+  {
+    label: "Back Office",
+    items: [
+      { label: "Products", href: "/inventory", icon: Boxes },
+      { label: "Customers", href: "/customers", icon: UsersRound },
+      { label: "Categories", href: "/categories", icon: Tags },
+      { label: "Reports", href: "/reports", icon: BarChart3 }
+    ]
+  },
+  {
+    label: "Business",
+    items: [
+      { label: "WhatsApp", href: "/settings#whatsapp", icon: MessageCircle },
+      { label: "AI Tools", href: "/ai", icon: BrainCircuit },
+      { label: "Staff", href: "/staff", icon: UserCog },
+      { label: "Subscription", href: "/subscription", icon: CreditCard },
+      { label: "Settings", href: "/settings", icon: Settings }
+    ]
+  },
+  {
+    label: "Support",
+    items: [
+      { label: "Help", href: "/help", icon: LifeBuoy }
+    ]
+  }
+];
+
 const bottomNavItems = ["Dashboard", "POS", "Orders", "Receipts", "Settings"]
   .map((label) => navItems.find((item) => item.label === label))
   .filter((item): item is NavItem => Boolean(item));
@@ -90,6 +130,8 @@ export function AppShellClient({
   children,
   actions,
   businessId,
+  businessName,
+  businessLogoUrl,
   currency,
   market,
   orderAlertsEnabled,
@@ -102,6 +144,8 @@ export function AppShellClient({
   children: ReactNode;
   actions?: ReactNode;
   businessId?: string | null;
+  businessName?: string | null;
+  businessLogoUrl?: string | null;
   currency: string;
   market: string;
   orderAlertsEnabled: boolean;
@@ -167,7 +211,7 @@ export function AppShellClient({
 
       <aside
         className={cn(
-          "glass-panel-strong app-mobile-drawer fixed inset-y-0 left-0 z-50 w-[86vw] max-w-[280px] overflow-y-auto px-4 transition-transform duration-300 ease-out md:hidden",
+          "app-mobile-drawer fixed inset-y-0 left-0 z-50 w-[82vw] max-w-[320px] overflow-y-auto bg-[#354050] px-5 text-white shadow-[18px_0_70px_rgba(0,0,0,0.36)] transition-transform duration-300 ease-out md:hidden",
           menuOpen ? "translate-x-0" : "-translate-x-full"
         )}
         aria-hidden={!menuOpen}
@@ -179,51 +223,50 @@ export function AppShellClient({
           <button
             type="button"
             aria-label="Close navigation"
-            className="touch-target inline-grid place-items-center rounded-card border border-white/10 bg-white/[0.06] text-teal-50 transition hover:bg-white/[0.12]"
+            className="touch-target inline-grid place-items-center rounded-2xl border border-white/10 bg-white/[0.08] text-white transition hover:bg-white/[0.14]"
             onClick={() => setMenuOpen(false)}
           >
             <X className="h-5 w-5" />
           </button>
         </div>
-        <SecondaryMenu active={active} newOrderCount={newOrderCount} onNavigate={() => setMenuOpen(false)} />
+        <SecondaryMenu
+          active={active}
+          newOrderCount={newOrderCount}
+          businessName={businessName}
+          businessLogoUrl={businessLogoUrl}
+          onNavigate={() => setMenuOpen(false)}
+        />
       </aside>
 
       <div className="min-w-0 md:pl-sidebar">
-        <header className="app-safe-top sticky top-0 z-30 border-b border-white/10 bg-[#03100f]/92 px-3 pb-3 shadow-soft backdrop-blur-xl sm:px-5 lg:px-6">
+        <header className="app-shell-header app-safe-top sticky top-0 z-30 border-b border-white/10 bg-[#03100f]/92 px-3 pb-3 shadow-soft backdrop-blur-xl sm:px-5 lg:px-6">
           <div className="mx-auto grid min-h-[52px] w-full max-w-[1240px] min-w-0 gap-3 sm:flex sm:items-center sm:justify-between">
             <div className="flex min-w-0 items-center gap-3">
               <button
                 type="button"
                 aria-label="Open secondary menu"
-                className="touch-target inline-grid shrink-0 place-items-center rounded-card border border-white/10 bg-white/[0.07] text-teal-50 shadow-soft transition hover:border-cyan-200/35 hover:bg-white/[0.12] md:hidden"
+                className="app-shell-menu-button touch-target inline-grid shrink-0 place-items-center rounded-card border border-white/10 bg-white/[0.07] text-teal-50 shadow-soft transition hover:border-cyan-200/35 hover:bg-white/[0.12] md:hidden"
                 onClick={() => setMenuOpen(true)}
               >
                 <Menu className="h-5 w-5" />
               </button>
               <div className="min-w-0">
-                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-200/65 sm:text-xs">
+                <p className="app-shell-title-kicker text-[11px] font-black uppercase tracking-[0.18em] text-cyan-200/65 sm:text-xs">
                   {market} / {currency}
                 </p>
-                <h1 className="min-w-0 text-xl font-black leading-tight text-white sm:text-2xl">
+                <h1 className="app-shell-title min-w-0 text-xl font-black leading-tight text-white sm:text-2xl">
                   {title}
                 </h1>
               </div>
             </div>
 
             <div className="grid min-w-0 max-w-full gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-end">
-              <Link
-                href="/online"
-                className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-card border border-white/10 bg-white/[0.07] px-3 py-2 text-center text-sm font-black leading-tight text-teal-50 shadow-soft transition hover:border-cyan-200/35 hover:bg-white/[0.12] sm:w-auto"
-              >
-                <Store className="h-4 w-4 shrink-0" />
-                <span>Storefront</span>
-              </Link>
               {actions}
             </div>
           </div>
         </header>
 
-        <main className="animate-fade-in app-safe-bottom-space min-w-0 max-w-full overflow-x-hidden px-3 pt-4 xs:px-4 sm:px-5 md:pb-8 lg:px-6">
+        <main className="app-shell-main animate-fade-in app-safe-bottom-space min-w-0 max-w-full overflow-x-hidden px-3 pt-4 xs:px-4 sm:px-5 md:pb-8 lg:px-6">
           <div className="mx-auto w-full max-w-[1240px] min-w-0">{children}</div>
         </main>
       </div>
@@ -329,47 +372,77 @@ function SidebarContent({
   );
 }
 
-function SecondaryMenu({ active, newOrderCount, onNavigate }: { active: string; newOrderCount: number; onNavigate: () => void }) {
+function SecondaryMenu({
+  active,
+  newOrderCount,
+  businessName,
+  businessLogoUrl,
+  onNavigate
+}: {
+  active: string;
+  newOrderCount: number;
+  businessName?: string | null;
+  businessLogoUrl?: string | null;
+  onNavigate: () => void;
+}) {
   return (
-    <div className="grid gap-5">
-      <div className="flex min-w-0 items-center gap-3 rounded-card border border-white/10 bg-white/[0.06] px-3 py-3 shadow-soft">
-        <Image
-          src="/caribbean-pos-connect-icon.png"
-          alt=""
-          width={44}
-          height={44}
-          className="h-11 w-11 shrink-0 rounded-card object-contain"
-        />
-        <span className="min-w-0">
-          <span className="block text-sm font-black leading-tight text-white">{APP_NAME}</span>
-          <span className="text-xs font-bold text-cyan-200/70">Account menu</span>
+    <div className="grid min-h-[calc(100dvh-5rem)] gap-5">
+      <Link
+        href="/dashboard"
+        onClick={onNavigate}
+        className="flex min-w-0 items-center gap-3 rounded-3xl border border-white/10 bg-white/[0.08] px-3 py-3 shadow-soft"
+      >
+        {businessLogoUrl ? (
+          <img
+            src={businessLogoUrl}
+            alt=""
+            className="h-12 w-12 shrink-0 rounded-2xl bg-white object-cover"
+          />
+        ) : (
+          <Image
+            src="/caribbean-pos-connect-icon.png"
+            alt=""
+            width={44}
+            height={44}
+            className="h-12 w-12 shrink-0 rounded-2xl object-contain"
+          />
+        )}
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-black leading-tight text-white">{businessName || APP_NAME}</span>
+          <span className="text-xs font-bold text-cyan-200/70">Business menu</span>
         </span>
-      </div>
+        <ChevronRight className="h-5 w-5 text-cyan-100/65" />
+      </Link>
       <nav className="grid gap-5">
-        {secondaryGroups.map((group) => (
+        {mobileDrawerGroups.map((group) => (
           <div key={group.label} className="grid gap-1">
-            <p className="px-3 text-[11px] font-black uppercase tracking-[0.18em] text-teal-100/45">
+            <p className="px-3 text-[11px] font-black uppercase tracking-[0.28em] text-white/36">
               {group.label}
             </p>
             {group.items.map((item) => {
               const Icon = item.icon;
-              const selected = item.label === active;
+              const selected =
+                item.label === active ||
+                (item.label === "Checkout" && active === "POS") ||
+                (item.label === "Home" && active === "Dashboard") ||
+                (item.label === "Products" && active === "Inventory") ||
+                (item.label === "Help" && active === "Help & Support");
               return (
                 <Link
                   key={item.href}
                   href={item.href}
                   onClick={onNavigate}
                   className={cn(
-                    "group flex min-h-11 min-w-0 items-center gap-3 rounded-card px-3 text-sm font-black transition duration-200",
+                    "group flex min-h-12 min-w-0 items-center gap-4 rounded-2xl px-3 text-[15px] font-black transition duration-200",
                     selected
-                      ? "bg-cyan-300 text-slate-950 shadow-glow"
-                      : "text-teal-50/75 hover:bg-white/[0.08] hover:text-white"
+                      ? "bg-white/12 text-white"
+                      : "text-white/82 hover:bg-white/[0.08] hover:text-white"
                   )}
                 >
-                  <Icon className={cn("h-4 w-4 shrink-0 transition", selected ? "text-slate-950" : "text-cyan-100/70 group-hover:text-cyan-100")} />
+                  <Icon className={cn("h-5 w-5 shrink-0 transition", selected ? "text-teal-300" : "text-white/56 group-hover:text-teal-200")} />
                   <span className="min-w-0 truncate">{item.label}</span>
                   {item.label === "Orders" && newOrderCount > 0 ? (
-                    <span className="ml-auto grid min-h-5 min-w-5 place-items-center rounded-full bg-amber-300 px-1.5 text-[10px] font-black text-slate-950">{newOrderCount}</span>
+                    <span className="ml-auto grid min-h-6 min-w-6 place-items-center rounded-full bg-teal-300 px-1.5 text-xs font-black text-slate-900">{newOrderCount}</span>
                   ) : null}
                 </Link>
               );
@@ -377,7 +450,20 @@ function SecondaryMenu({ active, newOrderCount, onNavigate }: { active: string; 
           </div>
         ))}
       </nav>
-      <SignOutButton />
+      <div className="mt-auto grid gap-3">
+        <Link
+          href="/subscription"
+          onClick={onNavigate}
+          className="flex items-center justify-between gap-3 rounded-none bg-teal-300 px-4 py-4 text-base font-black text-slate-800 shadow-[0_-12px_30px_rgba(20,184,166,0.16)]"
+        >
+          <span>
+            <span className="block">Upgrade plan</span>
+            <span className="block text-sm font-bold text-slate-700/80">Tools to help you grow</span>
+          </span>
+          <ChevronRight className="h-6 w-6" />
+        </Link>
+        <SignOutButton />
+      </div>
     </div>
   );
 }
@@ -405,7 +491,7 @@ function SignOutButton() {
 
 function BottomNavigation({ active, hidden, newOrderCount }: { active: string; hidden?: boolean; newOrderCount: number }) {
   return (
-    <nav className={cn("safe-bottom fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#03100f]/95 px-2 pt-2 shadow-medium backdrop-blur-2xl transition-transform duration-200 md:hidden", hidden ? "translate-y-full" : "translate-y-0")}>
+    <nav className={cn("safe-bottom fixed inset-x-0 bottom-0 z-40 hidden border-t border-white/10 bg-[#03100f]/95 px-2 pt-2 shadow-medium backdrop-blur-2xl transition-transform duration-200 md:hidden", hidden ? "translate-y-full" : "translate-y-0")}>
       <div className="grid grid-cols-5 gap-1">
         {bottomNavItems.map((item) => {
           const Icon = item.icon;

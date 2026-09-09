@@ -7,7 +7,9 @@ import {
   Banknote,
   Barcode,
   Camera,
+  ChevronRight,
   CreditCard,
+  Grid2X2,
   LocateFixed,
   Minus,
   PackageCheck,
@@ -18,6 +20,7 @@ import {
   Search,
   Send,
   Trash2,
+  UserPlus,
   X
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -105,7 +108,9 @@ export function POSClient({
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scannerError, setScannerError] = useState("");
   const [lastOrder, setLastOrder] = useState<Order | null>(null);
+  const [mobileCheckoutOpen, setMobileCheckoutOpen] = useState(false);
   const barcodeInputRef = useRef<HTMLInputElement>(null);
+  const mobileBarcodeInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const scannerStreamRef = useRef<MediaStream | null>(null);
   const addProductByBarcodeRef = useRef<(rawCode: string) => boolean>(() => false);
@@ -155,9 +160,12 @@ export function POSClient({
   const defaultDeliveryRegion = deliveryRegions[0] || "";
   const defaultCountry = getDefaultCountryForCurrency(settings.currency);
   const deliveryRegionLabel = settings.currency === "USD" ? "State / territory" : "Delivery region";
+  const cartQuantity = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   useEffect(() => {
-    barcodeInputRef.current?.focus();
+    if (window.matchMedia("(min-width: 768px)").matches) {
+      barcodeInputRef.current?.focus();
+    }
   }, []);
 
   useEffect(() => {
@@ -410,6 +418,7 @@ export function POSClient({
       setLastOrder(payload.data.order);
       setCart([]);
       setDiscount(0);
+      setMobileCheckoutOpen(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Checkout failed");
     } finally {
@@ -418,7 +427,225 @@ export function POSClient({
   }
 
   return (
-    <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(360px,420px)]">
+    <>
+    <div className="kyte-mobile-screen md:hidden">
+      <section className="kyte-mobile-toolbar">
+        <label className="kyte-mobile-search">
+          <Search className="h-6 w-6 text-slate-500" />
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search by product, SKU, or barcode"
+          />
+        </label>
+        <div className="kyte-mobile-tools" aria-label="POS tools">
+          <button type="button" onClick={() => mobileBarcodeInputRef.current?.focus()} aria-label="Scan barcode">
+            <Barcode className="h-5 w-5" />
+          </button>
+          <button type="button" onClick={() => setScannerOpen(true)} aria-label="Open camera scanner">
+            <Camera className="h-5 w-5" />
+          </button>
+          <button type="button" aria-label="Grid view">
+            <Grid2X2 className="h-5 w-5" />
+          </button>
+          <button type="button" aria-label="Quantity multiplier" className="kyte-tool-pill">
+            1X
+          </button>
+        </div>
+        <form onSubmit={submitBarcode} className="sr-only">
+          <input
+            ref={mobileBarcodeInputRef}
+            value={barcodeInput}
+            onChange={(event) => setBarcodeInput(event.target.value)}
+            aria-label="Barcode"
+          />
+        </form>
+      </section>
+
+      <div className="kyte-category-tabs">
+        <button
+          type="button"
+          onClick={() => setCategory("all")}
+          className={category === "all" ? "active" : ""}
+        >
+          All
+        </button>
+        {categories.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => setCategory(item.id)}
+            className={category === item.id ? "active" : ""}
+          >
+            {item.icon ? `${item.icon} ` : ""}{item.name}
+          </button>
+        ))}
+      </div>
+
+      {barcodeMessage ? (
+        <p className={`kyte-mobile-notice ${barcodeMessage.includes("not found") ? "error" : ""}`}>
+          {barcodeMessage}
+        </p>
+      ) : null}
+      {error ? <p className="kyte-mobile-notice error">{error}</p> : null}
+
+      <section className="kyte-product-list" aria-label="Products">
+        {filteredProducts.map((product) => {
+          const price = product.discount_price || product.selling_price;
+          return (
+            <button
+              type="button"
+              key={product.id}
+              onClick={() => addProduct(product)}
+              className="kyte-product-row"
+            >
+              {product.image_url ? (
+                <img src={product.image_url} alt={product.name} loading="lazy" />
+              ) : (
+                <span className="kyte-product-initials">
+                  {product.name.slice(0, 2).toUpperCase()}
+                </span>
+              )}
+              <span className="min-w-0 flex-1">
+                <strong>{product.name}</strong>
+                <small>{product.sku || product.category || "No SKU"}</small>
+              </span>
+              <span className="kyte-product-price">
+                {product.discount_price ? <small>{formatMoney(product.selling_price)}</small> : null}
+                <strong>{formatMoney(price)}</strong>
+              </span>
+            </button>
+          );
+        })}
+        {!filteredProducts.length ? (
+          <div className="kyte-empty-state">
+            <p>No products found.</p>
+            <span>Add products in Inventory or clear the search.</span>
+          </div>
+        ) : null}
+      </section>
+
+      <button
+        type="button"
+        className="kyte-cart-cta"
+        onClick={() => setMobileCheckoutOpen(true)}
+        disabled={!cart.length}
+      >
+        <span>{cart.length ? `${cartQuantity} item${cartQuantity === 1 ? "" : "s"} - ${formatMoney(total)}` : "Add items to checkout"}</span>
+        <ChevronRight className="h-6 w-6" />
+      </button>
+
+      {mobileCheckoutOpen ? (
+        <div className="kyte-sheet-backdrop" onClick={() => setMobileCheckoutOpen(false)}>
+          <section className="kyte-bottom-sheet" onClick={(event) => event.stopPropagation()} aria-label="Mobile checkout">
+            <div className="kyte-sheet-handle" />
+            <div className="kyte-sheet-header">
+              <div>
+                <h2>Checkout</h2>
+                <p>{cartQuantity} item{cartQuantity === 1 ? "" : "s"} selected</p>
+              </div>
+              <button type="button" onClick={() => setMobileCheckoutOpen(false)} aria-label="Close checkout">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="kyte-sheet-cart">
+              {cart.map((item) => (
+                <div key={item.id} className="kyte-sheet-cart-row">
+                  <div>
+                    <strong>{item.name}</strong>
+                    <span>{formatMoney(item.selling_price)}</span>
+                  </div>
+                  <div className="kyte-qty-control">
+                    <button type="button" onClick={() => updateQuantity(item.id, -1)} aria-label={`Reduce ${item.name}`}>
+                      <Minus className="h-4 w-4" />
+                    </button>
+                    <span>{item.quantity}</span>
+                    <button type="button" onClick={() => updateQuantity(item.id, 1)} aria-label={`Increase ${item.name}`}>
+                      <Plus className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="kyte-sheet-total">
+              <span>Total</span>
+              <strong>{formatMoney(total)}</strong>
+            </div>
+
+            <div className="kyte-segmented">
+              {[
+                ["in_store", "In store"],
+                ["pickup", "Pickup"],
+                ["delivery", "Delivery"]
+              ].map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setOrderType(value as typeof orderType)}
+                  className={orderType === value ? "active" : ""}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <div className="kyte-sheet-form">
+              <label>
+                <span>Phone</span>
+                <input value={customer.phone} onChange={(event) => loadCustomerByPhone(event.target.value)} placeholder="Customer phone" />
+              </label>
+              <label>
+                <span>Name</span>
+                <input value={customer.name} onChange={(event) => setCustomer({ ...customer, name: event.target.value })} placeholder="Customer name" />
+              </label>
+              {orderType === "delivery" ? (
+                <>
+                  <label className="full">
+                    <span>Delivery address</span>
+                    <input value={customer.street_address} onChange={(event) => setCustomer({ ...customer, street_address: event.target.value })} placeholder="Street address" />
+                  </label>
+                  <label>
+                    <span>City</span>
+                    <input value={customer.city} onChange={(event) => setCustomer({ ...customer, city: event.target.value })} placeholder="City" />
+                  </label>
+                  <label>
+                    <span>{deliveryRegionLabel}</span>
+                    <select value={customer.region} onChange={(event) => setCustomer({ ...customer, region: event.target.value })}>
+                      {deliveryRegions.map((region) => <option key={region}>{region}</option>)}
+                    </select>
+                  </label>
+                </>
+              ) : null}
+            </div>
+
+            <div className="kyte-payment-row">
+              {enabledPaymentMethods.slice(0, 4).map((method) => (
+                <button
+                  key={method}
+                  type="button"
+                  onClick={() => {
+                    setPaymentMethod(method);
+                    setPaymentStatus(method === "Pay on delivery" ? "unpaid" : "paid");
+                  }}
+                  className={paymentMethod === method ? "active" : ""}
+                >
+                  {method}
+                </button>
+              ))}
+            </div>
+
+            <button type="button" className="kyte-primary-action" onClick={completeSale} disabled={isSaving || !cart.length}>
+              <UserPlus className="h-5 w-5" />
+              {isSaving ? "Completing sale..." : `Complete sale - ${formatMoney(total)}`}
+            </button>
+          </section>
+        </div>
+      ) : null}
+    </div>
+
+    <div className="hidden min-w-0 gap-4 md:grid xl:grid-cols-[minmax(0,1fr)_minmax(360px,420px)]">
       <div className="grid min-w-0 gap-4">
         <Panel>
           <div className="grid min-w-0 gap-3 p-4 xl:grid-cols-[minmax(0,1fr)_minmax(260px,360px)_auto_auto]">
@@ -747,6 +974,7 @@ export function POSClient({
           </Panel>
         ) : null}
       </aside>
+    </div>
       {scannerOpen ? (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/80 p-4 backdrop-blur-sm">
           <div className="w-full max-w-md overflow-hidden rounded-card border border-white/10 bg-slate-950 text-white shadow-2xl">
@@ -773,6 +1001,6 @@ export function POSClient({
           </div>
         </div>
       ) : null}
-    </div>
+    </>
   );
 }

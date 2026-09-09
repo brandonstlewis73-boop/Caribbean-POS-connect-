@@ -1,7 +1,7 @@
 "use client";
 
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
-import { History, LocateFixed, MessageCircle, PlusCircle, Search, Trash2, UserRound } from "lucide-react";
+import { ChevronRight, History, LocateFixed, MessageCircle, Plus, PlusCircle, Search, Trash2, UserRound, X } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Panel, PanelHeader } from "@/components/ui/Panel";
 import { Button } from "@/components/ui/Button";
@@ -89,6 +89,7 @@ export function CustomersClient({ customers, currency }: { customers: Customer[]
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [locating, setLocating] = useState(false);
+  const [mobileProfileOpen, setMobileProfileOpen] = useState(false);
   const deferredQuery = useDeferredValue(query);
   const formatMoney = (value: number | string | null | undefined) => money(value, currency);
 
@@ -124,6 +125,7 @@ export function CustomersClient({ customers, currency }: { customers: Customer[]
     setProfile(null);
     setDraft(emptyCustomerDraft(currency));
     setMessage("Enter the customer details, then save the profile.");
+    setMobileProfileOpen(true);
   }
 
   async function refreshCustomers(customerId: string) {
@@ -240,7 +242,136 @@ export function CustomersClient({ customers, currency }: { customers: Customer[]
       : null;
 
   return (
-    <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(320px,380px)_minmax(0,1fr)]">
+    <>
+    <div className="kyte-mobile-screen kyte-customers-screen md:hidden">
+      <section className="kyte-mobile-toolbar">
+        <label className="kyte-mobile-search">
+          <Search className="h-6 w-6 text-slate-500" />
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search by name or contact information"
+          />
+        </label>
+        <button type="button" className="kyte-square-action" onClick={startNewCustomer} aria-label="Add customer">
+          <Plus className="h-7 w-7" />
+        </button>
+      </section>
+
+      <section className="kyte-customer-list" aria-label="Customers">
+        {filtered.map((customer) => {
+          const whatsappHref = customer.phone
+            ? `https://wa.me/${cleanWhatsAppNumber(customer.phone)}`
+            : "";
+          return (
+            <div key={customer.id} className="kyte-customer-row">
+              <button
+                type="button"
+                className="kyte-customer-main"
+                onClick={() => {
+                  setSelectedId(customer.id);
+                  setDraft(customer);
+                  setMobileProfileOpen(true);
+                }}
+              >
+                <span className="min-w-0 flex-1">
+                  <strong>{customer.name || customer.phone || "Unnamed customer"}</strong>
+                  <small>
+                    {customer.last_order_at
+                      ? `Last purchase: ${new Date(customer.last_order_at).toLocaleDateString()} - ${formatMoney(customer.total_spent)}`
+                      : customer.phone || customer.email || "No contact saved"}
+                  </small>
+                </span>
+              </button>
+              {whatsappHref ? (
+                <a
+                  href={whatsappHref}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="kyte-whatsapp-link"
+                  onClick={(event) => event.stopPropagation()}
+                  aria-label={`Message ${customer.name || "customer"} on WhatsApp`}
+                >
+                  <MessageCircle className="h-6 w-6" />
+                </a>
+              ) : (
+                <span className="kyte-whatsapp-link disabled" aria-hidden>
+                  <MessageCircle className="h-6 w-6" />
+                </span>
+              )}
+              <ChevronRight className="h-5 w-5 text-slate-400" />
+            </div>
+          );
+        })}
+        {!filtered.length ? (
+          <div className="kyte-empty-state">
+            <p>No customers found.</p>
+            <span>Create a customer or clear the search.</span>
+          </div>
+        ) : null}
+      </section>
+
+      {mobileProfileOpen && draft ? (
+        <div className="kyte-sheet-backdrop" onClick={() => setMobileProfileOpen(false)}>
+          <section className="kyte-bottom-sheet" onClick={(event) => event.stopPropagation()} aria-label="Customer profile">
+            <div className="kyte-sheet-handle" />
+            <div className="kyte-sheet-header">
+              <div>
+                <h2>{draft.id === "new" ? "New customer" : "Customer profile"}</h2>
+                <p>{draft.orders_count || 0} orders - {formatMoney(draft.total_spent || 0)} spent</p>
+              </div>
+              <button type="button" onClick={() => setMobileProfileOpen(false)} aria-label="Close customer profile">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            {message ? <p className="kyte-mobile-notice">{message}</p> : null}
+            <div className="kyte-sheet-form">
+              <label className="full">
+                <span>Full name</span>
+                <input value={draft.name || ""} onChange={(event) => setDraft({ ...draft, name: event.target.value })} placeholder="Customer name" />
+              </label>
+              <label>
+                <span>Phone</span>
+                <input value={draft.phone || ""} onChange={(event) => setDraft({ ...draft, phone: event.target.value })} placeholder="Phone number" />
+              </label>
+              <label>
+                <span>Email</span>
+                <input value={draft.email || ""} onChange={(event) => setDraft({ ...draft, email: event.target.value })} placeholder="Email optional" />
+              </label>
+              <label className="full">
+                <span>Address</span>
+                <input value={draft.street_address || ""} onChange={(event) => setDraft({ ...draft, street_address: event.target.value })} placeholder="Street address" />
+              </label>
+              <label>
+                <span>City</span>
+                <input value={draft.city || ""} onChange={(event) => setDraft({ ...draft, city: event.target.value })} placeholder="City" />
+              </label>
+              <label>
+                <span>Country</span>
+                <input value={draft.country || getDefaultCountryForCurrency(currency)} onChange={(event) => setDraft({ ...draft, country: event.target.value })} />
+              </label>
+            </div>
+            <div className="grid gap-3 px-1">
+              <button type="button" className="kyte-secondary-action" onClick={useCurrentLocation} disabled={locating}>
+                <LocateFixed className="h-5 w-5" />
+                {locating ? "Finding location..." : "Use current location"}
+              </button>
+              <button type="button" className="kyte-primary-action" onClick={saveCustomer} disabled={saving}>
+                {saving ? "Saving..." : draft.id === "new" ? "Create customer" : "Save profile"}
+              </button>
+              {draft.id !== "new" ? (
+                <button type="button" className="kyte-danger-action" onClick={deleteCustomer} disabled={saving}>
+                  <Trash2 className="h-5 w-5" />
+                  Delete customer
+                </button>
+              ) : null}
+            </div>
+          </section>
+        </div>
+      ) : null}
+    </div>
+
+    <div className="hidden min-w-0 gap-4 md:grid xl:grid-cols-[minmax(320px,380px)_minmax(0,1fr)]">
       <Panel>
         <PanelHeader
           title="Customers"
@@ -439,5 +570,6 @@ export function CustomersClient({ customers, currency }: { customers: Customer[]
         </Panel>
       )}
     </div>
+    </>
   );
 }
