@@ -17,12 +17,14 @@ function planPrice(plan: SubscriptionPlan) {
 
 export function SubscriptionClient({
   plans,
+  selectedPlan,
   subscription,
   usageSummary,
   paymentProvidersReady,
   stripeStatus
 }: {
   plans: SubscriptionPlan[];
+  selectedPlan?: string | null;
   subscription: Subscription | null;
   usageSummary: PlanUsageSummary;
   paymentProvidersReady: { stripe: boolean; paypal: boolean; wipay: boolean };
@@ -37,60 +39,73 @@ export function SubscriptionClient({
   const [message, setMessage] = useState("");
   const [loadingPlan, setLoadingPlan] = useState<SubscriptionPlanId | null>(null);
   const currentPlanId = normalizePlanId(current?.plan_id);
+  const requestedPlan = selectedPlan ? plans.find((plan) => plan.id === normalizePlanId(selectedPlan)) : null;
 
   async function choosePlan(planId: SubscriptionPlanId) {
     setMessage("");
     setLoadingPlan(planId);
-    const selectedPlan = plans.find((plan) => plan.id === planId);
-    if (selectedPlan && selectedPlan.monthly_price > 0) {
-      if (!paymentProvidersReady.stripe) {
+    try {
+      const selectedPlan = plans.find((plan) => plan.id === planId);
+      if (selectedPlan && selectedPlan.monthly_price > 0) {
+        if (!paymentProvidersReady.stripe) {
+          setLoadingPlan(null);
+          setMessage("Stripe is not configured. Add STRIPE_SECRET_KEY and plan price IDs in Vercel, then redeploy.");
+          return;
+        }
+        const checkout = await fetch("/api/stripe/checkout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ plan_id: planId })
+        });
+        const checkoutPayload = await readApiPayload<{ url: string }>(checkout);
         setLoadingPlan(null);
-        setMessage("Stripe is not configured. Add STRIPE_SECRET_KEY and plan price IDs in Vercel, then redeploy.");
+        if (!checkout.ok || !checkoutPayload.data?.url) {
+          setMessage(checkoutPayload.error || "Stripe checkout could not be started.");
+          return;
+        }
+        window.location.href = checkoutPayload.data.url;
         return;
       }
-      const checkout = await fetch("/api/stripe/checkout", {
-        method: "POST",
+
+      const response = await fetch("/api/subscription", {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ plan_id: planId })
       });
-      const checkoutPayload = await readApiPayload<{ url: string }>(checkout);
+      const payload = await readApiPayload<{ subscription: Subscription }>(response);
       setLoadingPlan(null);
-      if (!checkout.ok || !checkoutPayload.data?.url) {
-        setMessage(checkoutPayload.error || "Stripe checkout could not be started.");
+      if (!response.ok) {
+        setMessage(payload.error || "Plan could not be updated.");
         return;
       }
-      window.location.href = checkoutPayload.data.url;
-      return;
-    }
-
-    const response = await fetch("/api/subscription", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ plan_id: planId })
-    });
-    const payload = await readApiPayload<{ subscription: Subscription }>(response);
-    setLoadingPlan(null);
-    if (!response.ok) {
-      setMessage(payload.error || "Plan could not be updated.");
-      return;
-    }
-    if (payload.data?.subscription) {
-      setCurrent(payload.data.subscription);
-      setMessage("Subscription plan updated. Payment checkout can be connected next.");
+      if (payload.data?.subscription) {
+        setCurrent(payload.data.subscription);
+        setMessage("Subscription plan updated. Payment checkout can be connected next.");
+      }
+    } catch {
+      setMessage("Could not connect to billing. Check your connection and try again.");
+    } finally {
+      setLoadingPlan(null);
     }
   }
 
   async function openBillingPortal() {
     setMessage("");
     setLoadingPlan("business");
-    const response = await fetch("/api/stripe/portal", { method: "POST" });
-    const payload = await readApiPayload<{ url: string }>(response);
-    setLoadingPlan(null);
-    if (!response.ok || !payload.data?.url) {
-      setMessage(payload.error || "Stripe billing portal could not be opened.");
-      return;
+    try {
+      const response = await fetch("/api/stripe/portal", { method: "POST" });
+      const payload = await readApiPayload<{ url: string }>(response);
+      setLoadingPlan(null);
+      if (!response.ok || !payload.data?.url) {
+        setMessage(payload.error || "Stripe billing portal could not be opened.");
+        return;
+      }
+      window.location.href = payload.data.url;
+    } catch {
+      setMessage("Could not connect to billing. Check your connection and try again.");
+    } finally {
+      setLoadingPlan(null);
     }
-    window.location.href = payload.data.url;
   }
 
   const hasPaymentProvider = paymentProvidersReady.stripe || paymentProvidersReady.paypal || paymentProvidersReady.wipay;
@@ -123,6 +138,11 @@ export function SubscriptionClient({
 
   return (
     <>
+    {requestedPlan ? <section className="mb-4 rounded-card border border-cyan-200/30 bg-[#0b1d2e] p-4 text-white">
+      <p className="font-bold">Selected: {requestedPlan.name} - {planPrice(requestedPlan)}/mo</p>
+      <p className="mt-2 text-sm text-slate-200">Review your plan, then continue to billing to confirm.</p>
+      <button type="button" onClick={() => choosePlan(requestedPlan.id)} disabled={loadingPlan !== null || currentPlanId === requestedPlan.id} className="mt-3 min-h-11 rounded-lg bg-cyan-300 px-4 font-bold text-slate-950 disabled:opacity-60">{loadingPlan === requestedPlan.id ? "Loading..." : currentPlanId === requestedPlan.id ? "Current plan" : "Continue to billing"}</button>
+    </section> : null}
     <div className="kyte-plan-screen md:hidden">
       <section className="kyte-plan-header">
         <h1>Choose your plan</h1>
@@ -132,10 +152,7 @@ export function SubscriptionClient({
       </section>
 
       <section className="kyte-plan-stage">
-        <div className="kyte-billing-toggle" aria-label="Billing frequency">
-          <button type="button" className="active">Monthly</button>
-          <button type="button">Annual <span>-17%</span></button>
-        </div>
+        <p className="mb-6 text-center text-sm font-semibold text-white">Monthly billing</p>
         <div className="kyte-plan-carousel">
           {pricingPlans.map((plan) => {
             const active = currentPlanId === plan.id;

@@ -17,7 +17,7 @@ export function Badge({
   };
 
   return (
-    <span className={cn("inline-flex min-h-7 items-center rounded-full border px-2.5 py-1 text-xs font-black leading-tight", tones[tone])}>
+    <span data-badge-tone={tone} className={cn("inline-flex min-h-7 items-center rounded-full border px-2.5 py-1 text-xs font-black leading-tight", tones[tone])}>
       {children}
     </span>
   );

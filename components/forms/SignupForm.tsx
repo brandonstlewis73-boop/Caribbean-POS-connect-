@@ -8,8 +8,10 @@ import { Button } from "@/components/ui/Button";
 import { Field, SelectField } from "@/components/ui/Field";
 import { CARIBBEAN_CURRENCIES, currencyOptionLabel, getDefaultCountryForCurrency } from "@/lib/constants";
 import { readApiPayload } from "@/lib/client-response";
+import { marketingPlans } from "@/lib/marketing-content";
 
-export function SignupForm() {
+export function SignupForm({ selectedPlan }: { selectedPlan?: string | null }) {
+  const plan = marketingPlans.find((item) => item.id === selectedPlan);
   const router = useRouter();
   const [draft, setDraft] = useState({
     business_name: "",
@@ -55,7 +57,7 @@ export function SignupForm() {
         setError(payload.error || "Signup failed. Please check the form and try again.");
         return;
       }
-      router.push("/dashboard?setup=1");
+      router.push(plan ? `/subscription?plan=${plan.id}&setup=1` : "/dashboard?setup=1");
       router.refresh();
     } catch {
       setError("Signup failed. Please check the server and try again.");
@@ -75,6 +77,7 @@ export function SignupForm() {
           Open a business account, get a storefront link, and start receiving orders.
         </p>
       </div>
+      {plan ? <p className="rounded-card border border-cyan-200/30 bg-cyan-300/10 p-3 text-sm font-bold text-cyan-100">{plan.name} - US${plan.price}/mo. Create your account to review billing and confirm your plan.</p> : null}
       <div className="grid gap-3 md:grid-cols-2">
         <Field label="Business name" value={draft.business_name} onChange={(event) => update("business_name", event.target.value)} />
         <Field label="Owner name" value={draft.owner_name} onChange={(event) => update("owner_name", event.target.value)} />

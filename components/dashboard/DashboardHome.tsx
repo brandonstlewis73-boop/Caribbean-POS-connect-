@@ -27,7 +27,7 @@ function SalesBars({ series, currency }: { series: DashboardData["salesSeries"];
   const max = Math.max(...series.map((item) => item.total), 1);
 
   return (
-    <div className="flex h-full min-w-0 items-end gap-3 overflow-x-auto rounded-3xl border border-cyan-200/12 bg-slate-950/35 px-4 pb-7 pt-5">
+    <div className="flex h-full min-w-0 items-end gap-3 overflow-x-auto rounded-3xl border border-[var(--dashboard-border)] bg-[var(--dashboard-subtle)] px-4 pb-7 pt-5">
       {series.length ? (
         series.map((item) => (
           <div key={item.date} className="flex h-full min-w-8 flex-1 flex-col justify-end gap-2">
@@ -36,11 +36,11 @@ function SalesBars({ series, currency }: { series: DashboardData["salesSeries"];
               title={`${item.date}: ${money(item.total, currency)}`}
               style={{ height: `${Math.max(8, (item.total / max) * 100)}%` }}
             />
-            <span className="rotate-45 text-[10px] font-bold text-teal-50/45">{item.date.slice(5)}</span>
+            <span className="rotate-45 text-[10px] font-bold text-[color:var(--dashboard-muted)]">{item.date.slice(5)}</span>
           </div>
         ))
       ) : (
-        <div className="grid h-full w-full place-items-center text-sm font-semibold text-teal-50/45">
+        <div className="grid h-full w-full place-items-center text-sm font-semibold text-[color:var(--dashboard-muted)]">
           No sales yet.
         </div>
       )}
@@ -141,14 +141,14 @@ export function DashboardHome({ data }: { data: DashboardData }) {
   }
 
   return (
-    <div className="mx-auto grid w-full max-w-[1200px] gap-6">
+    <div className="dashboard-home mx-auto grid w-full max-w-[1200px] gap-6">
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
-        <div className="rounded-3xl border border-cyan-200/12 bg-[#0B1D2E]/88 p-6 shadow-[0_20px_70px_rgba(0,0,0,0.28)] sm:p-7">
+        <div className="rounded-3xl border border-[var(--dashboard-border)] dashboard-surface p-6 shadow-[0_20px_70px_rgba(0,0,0,0.28)] sm:p-7">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
-              <p className="text-sm font-bold text-teal-50/62">Business storefront</p>
-              <h2 className="mt-1 truncate text-2xl font-black text-white">{hasStorefront ? data.business?.name : "Storefront not set up yet"}</h2>
-              <p className="mt-2 break-all text-sm font-semibold text-cyan-100/80">{hasStorefront ? `/${storefrontSlug}` : "Complete your business profile to publish your storefront."}</p>
+              <p className="text-sm font-bold text-[color:var(--dashboard-muted)]">Business storefront</p>
+              <h2 className="mt-1 truncate text-2xl font-black text-[color:var(--dashboard-ink)]">{hasStorefront ? data.business?.name : "Storefront not set up yet"}</h2>
+              <p className="mt-2 break-all text-sm font-semibold text-[color:var(--dashboard-accent)]">{hasStorefront ? `/${storefrontSlug}` : "Complete your business profile to publish your storefront."}</p>
             </div>
             <div className="flex flex-wrap gap-2">
               <Badge tone={!hasStorefront || data.business?.active === false ? "amber" : "green"}>
@@ -167,11 +167,11 @@ export function DashboardHome({ data }: { data: DashboardData }) {
                 <ExternalLink className="h-4 w-4" />
                 Open Store
               </Link>
-              <button type="button" onClick={copyStoreLink} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-card border border-white/10 bg-white/[0.07] px-3 text-sm font-black text-white transition hover:bg-white/[0.12]">
+              <button type="button" onClick={copyStoreLink} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-card border border-[var(--dashboard-border)] bg-[var(--dashboard-subtle)] px-3 text-sm font-black text-[color:var(--dashboard-ink)] transition hover:bg-white/[0.12]">
                 <Copy className="h-4 w-4" />
                 Copy Link
               </button>
-              <Link href="/settings" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-card border border-white/10 bg-white/[0.07] px-3 text-sm font-black text-white transition hover:bg-white/[0.12]">
+              <Link href="/settings" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-card border border-[var(--dashboard-border)] bg-[var(--dashboard-subtle)] px-3 text-sm font-black text-[color:var(--dashboard-ink)] transition hover:bg-white/[0.12]">
                 <Settings className="h-4 w-4" />
                 Edit Storefront
               </Link>
@@ -179,27 +179,27 @@ export function DashboardHome({ data }: { data: DashboardData }) {
           ) : (
             <div className="mt-6 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {setupActions.map((action) => (
-                <Link key={action.label} href={action.href} className="inline-flex min-h-11 items-center justify-center rounded-card border border-white/10 bg-white/[0.07] px-3 text-center text-sm font-black text-white transition hover:bg-white/[0.12]">
+                <Link key={action.label} href={action.href} className="inline-flex min-h-11 items-center justify-center rounded-card border border-[var(--dashboard-border)] bg-[var(--dashboard-subtle)] px-3 text-center text-sm font-black text-[color:var(--dashboard-ink)] transition hover:bg-white/[0.12]">
                   {action.label}
                 </Link>
               ))}
             </div>
           )}
-          {copyMessage ? <p className="mt-3 text-sm font-bold text-cyan-100/70">{copyMessage}</p> : null}
+          {copyMessage ? <p className="mt-3 text-sm font-bold text-[color:var(--dashboard-accent)]">{copyMessage}</p> : null}
         </div>
 
-        <div className="grid gap-5 sm:grid-cols-2">
+        <div className="dashboard-stats grid grid-cols-2 gap-3 sm:gap-5">
           {topStats.map((stat) => {
             const Icon = stat.icon;
             return (
-              <div key={stat.label} className="rounded-3xl border border-cyan-200/12 bg-[#0B1D2E]/82 p-5 shadow-[0_16px_45px_rgba(0,0,0,0.22)]">
+              <div key={stat.label} className="rounded-3xl border border-[var(--dashboard-border)] dashboard-surface p-5 shadow-[0_16px_45px_rgba(0,0,0,0.22)]">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-bold text-teal-50/62">{stat.label}</p>
-                  <span className="grid h-9 w-9 place-items-center rounded-card bg-cyan-300/10 text-cyan-200">
+                  <p className="text-sm font-bold text-[color:var(--dashboard-muted)]">{stat.label}</p>
+                  <span className="grid h-9 w-9 place-items-center rounded-card bg-cyan-300/10 text-[color:var(--dashboard-accent)]">
                     <Icon className="h-4 w-4" />
                   </span>
                 </div>
-                <p className="mt-4 text-2xl font-black text-white">{stat.value}</p>
+                <p className="mt-4 text-2xl font-black text-[color:var(--dashboard-ink)]">{stat.value}</p>
               </div>
             );
           })}
@@ -212,12 +212,12 @@ export function DashboardHome({ data }: { data: DashboardData }) {
             {quickStats.map((stat) => {
               const Icon = stat.icon;
               return (
-                <div key={stat.label} className="rounded-3xl border border-cyan-200/12 bg-white/[0.055] p-5">
+                <div key={stat.label} className="rounded-3xl border border-[var(--dashboard-border)] dashboard-surface p-5">
                   <div className="flex items-center justify-between gap-3">
-                    <p className="text-sm font-bold text-teal-50/58">{stat.label}</p>
-                    <Icon className="h-4 w-4 text-cyan-200" />
+                    <p className="text-sm font-bold text-[color:var(--dashboard-muted)]">{stat.label}</p>
+                    <Icon className="h-4 w-4 text-[color:var(--dashboard-accent)]" />
                   </div>
-                  <p className="mt-3 text-xl font-black text-white">{stat.value}</p>
+                  <p className="mt-3 text-xl font-black text-[color:var(--dashboard-ink)]">{stat.value}</p>
                 </div>
               );
             })}
@@ -225,20 +225,20 @@ export function DashboardHome({ data }: { data: DashboardData }) {
 
           <div className="grid gap-5 lg:grid-cols-2">
             <Panel>
-              <PanelHeader title="Recent orders" description="Latest storefront and POS orders" action={<Link href="/orders" className="hidden text-sm font-black text-cyan-100 hover:text-white lg:inline">View all</Link>} />
+              <PanelHeader title="Recent orders" description="Latest storefront and POS orders" action={<Link href="/orders" className="hidden text-sm font-black text-[color:var(--dashboard-accent)] hover:text-[color:var(--dashboard-ink)] lg:inline">View all</Link>} />
               <div className="divide-y divide-white/10">
                 {recentOrders.length ? (
                   recentOrders.map((order) => (
                     <div key={order.id} className="flex items-center justify-between gap-3 px-4 py-3">
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-black text-white">#{order.order_number} - {order.customer_snapshot.name || "Walk-in customer"}</p>
-                        <p className="mt-1 text-xs font-semibold text-teal-50/50">{order.order_type.replaceAll("_", " ")} / {formatMoney(order.total)}</p>
+                        <p className="truncate text-sm font-black text-[color:var(--dashboard-ink)]">#{order.order_number} - {order.customer_snapshot.name || "Walk-in customer"}</p>
+                        <p className="mt-1 text-xs font-semibold text-[color:var(--dashboard-muted)]">{order.order_type.replaceAll("_", " ")} / {formatMoney(order.total)}</p>
                       </div>
                       <Badge tone={orderStatusTone(order.status)}>{orderStatusLabel(order.status)}</Badge>
                     </div>
                   ))
                 ) : (
-                  <div className="flex items-center gap-3 px-4 py-6 text-sm font-semibold text-teal-50/50">
+                  <div className="flex items-center gap-3 px-4 py-6 text-sm font-semibold text-[color:var(--dashboard-muted)]">
                     <ShoppingCart className="h-4 w-4" />
                     No orders yet.
                   </div>
@@ -247,20 +247,20 @@ export function DashboardHome({ data }: { data: DashboardData }) {
             </Panel>
 
             <Panel>
-              <PanelHeader title="Low stock products" description="Items at or below reorder level" action={<Link href="/inventory" className="text-sm font-black text-cyan-100 hover:text-white">Inventory</Link>} />
+              <PanelHeader title="Low stock products" description="Items at or below reorder level" action={<Link href="/inventory" className="text-sm font-black text-[color:var(--dashboard-accent)] hover:text-[color:var(--dashboard-ink)]">Inventory</Link>} />
               <div className="divide-y divide-white/10">
                 {data.lowStock.length ? (
                   data.lowStock.slice(0, 6).map((product) => (
                     <div key={product.id} className="flex items-center justify-between gap-3 px-4 py-3">
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-black text-white">{product.name}</p>
-                        <p className="mt-1 text-xs font-semibold text-teal-50/50">{product.sku || product.barcode || "No SKU"}</p>
+                        <p className="truncate text-sm font-black text-[color:var(--dashboard-ink)]">{product.name}</p>
+                        <p className="mt-1 text-xs font-semibold text-[color:var(--dashboard-muted)]">{product.sku || product.barcode || "No SKU"}</p>
                       </div>
                       <Badge tone={product.stock_quantity <= 5 ? "red" : "amber"}>{product.stock_quantity} left</Badge>
                     </div>
                   ))
                 ) : (
-                  <div className="flex items-center gap-3 px-4 py-6 text-sm font-semibold text-teal-50/50">
+                  <div className="flex items-center gap-3 px-4 py-6 text-sm font-semibold text-[color:var(--dashboard-muted)]">
                     <PackageCheck className="h-4 w-4" />
                     Inventory is comfortably stocked.
                   </div>
@@ -297,13 +297,13 @@ export function DashboardHome({ data }: { data: DashboardData }) {
                     <div key={item.key} className={cn("rounded-3xl border p-4", item.complete ? "border-emerald-300/20 bg-emerald-300/[0.08]" : "border-amber-200/20 bg-amber-200/[0.08]")}>
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="text-sm font-black text-white">{item.label}</p>
-                          <p className="mt-1 text-xs font-semibold text-teal-50/50">{item.complete ? "Completed" : "Needs setup"}</p>
+                          <p className="text-sm font-black text-[color:var(--dashboard-ink)]">{item.label}</p>
+                          <p className="mt-1 text-xs font-semibold text-[color:var(--dashboard-muted)]">{item.complete ? "Completed" : "Needs setup"}</p>
                         </div>
                         <Badge tone={item.complete ? "green" : "amber"}>{item.complete ? "Done" : "Todo"}</Badge>
                       </div>
                       {!item.complete ? (
-                        <Link href={action.href} className="mt-3 inline-flex min-h-9 items-center justify-center rounded-card border border-white/10 bg-white/[0.07] px-3 text-xs font-black text-white transition hover:bg-white/[0.12]">
+                        <Link href={action.href} className="mt-3 inline-flex min-h-9 items-center justify-center rounded-card border border-[var(--dashboard-border)] bg-[var(--dashboard-subtle)] px-3 text-xs font-black text-[color:var(--dashboard-ink)] transition hover:bg-white/[0.12]">
                           {action.label}
                         </Link>
                       ) : null}
@@ -317,16 +317,16 @@ export function DashboardHome({ data }: { data: DashboardData }) {
           <Panel>
             <PanelHeader title="Quick actions" />
             <div className="grid gap-2 p-4">
-              <Link href="/inventory" className="inline-flex min-h-11 items-center gap-2 rounded-card border border-white/10 bg-white/[0.07] px-3 text-sm font-black text-white hover:bg-white/[0.12]">
+              <Link href="/inventory" className="inline-flex min-h-11 items-center gap-2 rounded-card border border-[var(--dashboard-border)] bg-[var(--dashboard-subtle)] px-3 text-sm font-black text-[color:var(--dashboard-ink)] hover:bg-white/[0.12]">
                 <PackageCheck className="h-4 w-4" />
                 Add inventory
               </Link>
-              <Link href="/settings#whatsapp" className="inline-flex min-h-11 items-center gap-2 rounded-card border border-white/10 bg-white/[0.07] px-3 text-sm font-black text-white hover:bg-white/[0.12]">
+              <Link href="/settings#whatsapp" className="inline-flex min-h-11 items-center gap-2 rounded-card border border-[var(--dashboard-border)] bg-[var(--dashboard-subtle)] px-3 text-sm font-black text-[color:var(--dashboard-ink)] hover:bg-white/[0.12]">
                 <MessageCircle className="h-4 w-4" />
                 Configure WhatsApp
               </Link>
               {hasStorefront ? (
-                <Link href={storefrontUrl || "/settings"} target="_blank" className="inline-flex min-h-11 items-center gap-2 rounded-card border border-white/10 bg-white/[0.07] px-3 text-sm font-black text-white hover:bg-white/[0.12]">
+                <Link href={storefrontUrl || "/settings"} target="_blank" className="inline-flex min-h-11 items-center gap-2 rounded-card border border-[var(--dashboard-border)] bg-[var(--dashboard-subtle)] px-3 text-sm font-black text-[color:var(--dashboard-ink)] hover:bg-white/[0.12]">
                   <Store className="h-4 w-4" />
                   Preview storefront
                 </Link>
@@ -347,12 +347,12 @@ function CompactList({ title, items }: { title: string; items: Array<{ label: st
         {items.length ? (
           items.slice(0, 6).map((item) => (
             <div key={`${item.label}-${item.value}`} className="flex min-w-0 justify-between gap-3 px-4 py-3 text-sm">
-              <span className="min-w-0 truncate font-black text-white">{item.label}</span>
-              <span className="shrink-0 font-semibold text-teal-50/55">{item.value}</span>
+              <span className="min-w-0 truncate font-black text-[color:var(--dashboard-ink)]">{item.label}</span>
+              <span className="shrink-0 font-semibold text-[color:var(--dashboard-muted)]">{item.value}</span>
             </div>
           ))
         ) : (
-          <div className="px-4 py-6 text-sm font-semibold text-teal-50/50">No data yet.</div>
+          <div className="px-4 py-6 text-sm font-semibold text-[color:var(--dashboard-muted)]">No data yet.</div>
         )}
       </div>
     </Panel>

@@ -13,7 +13,7 @@ export function Panel({
     <section
       id={id}
       className={cn(
-        "min-w-0 overflow-hidden rounded-3xl border border-cyan-200/12 bg-[#0B1D2E]/88 shadow-[0_20px_70px_rgba(0,0,0,0.30)] dark:border-cyan-200/12",
+        "ui-panel min-w-0 overflow-hidden rounded-3xl border border-cyan-200/12 bg-[rgba(11,29,46,0.88)] shadow-[0_20px_70px_rgba(0,0,0,0.30)] dark:border-cyan-200/12",
         className
       )}
     >
