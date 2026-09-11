@@ -102,8 +102,10 @@ export function DashboardHome({ data }: { data: DashboardData }) {
     { href: "/inventory", label: "Add Products" },
     { href: "/settings", label: "Publish Storefront" }
   ];
-  const completedChecklist = (data.setupChecklist || []).filter((item) => item.complete).length;
-  const totalChecklist = Math.max((data.setupChecklist || []).length, 1);
+  const setupChecklist = data.setupChecklist || [];
+  const incompleteSetup = setupChecklist.filter((item) => !item.complete);
+  const completedChecklist = setupChecklist.length - incompleteSetup.length;
+  const totalChecklist = Math.max(setupChecklist.length, 1);
   const setupProgress = Math.round((completedChecklist / totalChecklist) * 100);
 
   const topStats = [
@@ -284,6 +286,7 @@ export function DashboardHome({ data }: { data: DashboardData }) {
         </div>
 
         <aside className="grid min-w-0 gap-5 self-start">
+          {incompleteSetup.length ? (
           <Panel>
             <PanelHeader title="Setup checklist" description={`${completedChecklist} of ${totalChecklist} completed`} />
             <div className="p-4">
@@ -291,7 +294,7 @@ export function DashboardHome({ data }: { data: DashboardData }) {
                 <div className="h-full rounded-full bg-gradient-to-r from-teal-300 to-cyan-300" style={{ width: `${setupProgress}%` }} />
               </div>
               <div className="mt-4 grid gap-2">
-                {(data.setupChecklist || []).map((item) => {
+                {incompleteSetup.map((item) => {
                   const action = checklistAction(item.key, storefrontUrl);
                   return (
                     <div key={item.key} className={cn("rounded-3xl border p-4", item.complete ? "border-emerald-300/20 bg-emerald-300/[0.08]" : "border-amber-200/20 bg-amber-200/[0.08]")}>
@@ -313,6 +316,7 @@ export function DashboardHome({ data }: { data: DashboardData }) {
               </div>
             </div>
           </Panel>
+          ) : null}
 
           <Panel>
             <PanelHeader title="Quick actions" />

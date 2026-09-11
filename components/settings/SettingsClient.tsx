@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import {
   AlertTriangle,
   Bell,
@@ -68,6 +68,24 @@ const notificationTemplates = {
 };
 
 type CategoryDeleteMode = "move_to_uncategorized" | "delete_category_only";
+type SettingsSection = "business" | "storefront" | "operations" | "payments" | "account";
+
+const SETTINGS_SECTIONS: Array<{ key: SettingsSection; label: string }> = [
+  { key: "business", label: "Business" },
+  { key: "storefront", label: "Storefront" },
+  { key: "operations", label: "Operations" },
+  { key: "payments", label: "Payments" },
+  { key: "account", label: "Account" }
+];
+
+function settingsSectionFromHash(hash: string): SettingsSection {
+  const value = hash.replace(/^#/, "").toLowerCase();
+  if (["storefront", "three-d-storefront", "3d"].includes(value)) return "storefront";
+  if (["whatsapp", "staff", "categories", "delivery", "operations"].includes(value)) return "operations";
+  if (["payments", "billing"].includes(value)) return "payments";
+  if (value === "account") return "account";
+  return "business";
+}
 
 function Toggle({
   label,
@@ -91,16 +109,18 @@ function SettingsCard({
   title,
   description,
   children,
-  id
+  id,
+  className
 }: {
   icon: React.ComponentType<{ className?: string }>;
   title: string;
   description: string;
   children: React.ReactNode;
   id?: string;
+  className?: string;
 }) {
   return (
-    <Panel id={id} className="scroll-mt-24">
+    <Panel id={id} className={`scroll-mt-24 ${className || ""}`}>
       <PanelHeader
         title={title}
         description={description}
@@ -184,6 +204,7 @@ export function SettingsClient({
   const [notificationTestMessage, setNotificationTestMessage] = useState("");
   const [locationMessage, setLocationMessage] = useState("");
   const [saving, setSaving] = useState(false);
+  const [activeSettingsSection, setActiveSettingsSection] = useState<SettingsSection>("business");
   const [locating, setLocating] = useState(false);
   const [busyId, setBusyId] = useState("");
   const activeBusiness = businessItems.find((business) => business.id === draft.active_business_id) || null;
@@ -197,6 +218,18 @@ export function SettingsClient({
     if (typeof window === "undefined") return storefrontUrl;
     return new URL(storefrontUrl, window.location.origin).toString();
   }, [storefrontSlug, storefrontUrl]);
+
+  useEffect(() => {
+    const syncSectionFromHash = () => setActiveSettingsSection(settingsSectionFromHash(window.location.hash));
+    syncSectionFromHash();
+    window.addEventListener("hashchange", syncSectionFromHash);
+    return () => window.removeEventListener("hashchange", syncSectionFromHash);
+  }, []);
+
+  function selectSettingsSection(section: SettingsSection) {
+    setActiveSettingsSection(section);
+    window.history.replaceState(null, "", `#${section}`);
+  }
 
   function update<K extends keyof Settings>(key: K, value: Settings[K]) {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -568,8 +601,22 @@ export function SettingsClient({
         </div>
       </section>
 
+      <nav className="flex gap-2 overflow-x-auto pb-1" aria-label="Settings sections">
+        {SETTINGS_SECTIONS.map((section) => (
+          <button
+            key={section.key}
+            type="button"
+            onClick={() => selectSettingsSection(section.key)}
+            aria-pressed={activeSettingsSection === section.key}
+            className={`min-h-10 shrink-0 rounded-card border px-4 text-sm font-black transition ${activeSettingsSection === section.key ? "border-cyan-200/35 bg-cyan-300 text-slate-950" : "border-white/10 bg-white/[0.055] text-teal-50/75 hover:bg-white/[0.1]"}`}
+          >
+            {section.label}
+          </button>
+        ))}
+      </nav>
+
       <div className="grid gap-5 xl:grid-cols-2">
-        <SettingsCard icon={Building2} title="Business Profile" description="Core business details used on the dashboard, storefront, receipts, and orders.">
+        <SettingsCard id="business" className={activeSettingsSection === "business" ? undefined : "hidden"} icon={Building2} title="Business Profile" description="Core business details used on the dashboard, storefront, receipts, and orders.">
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Business name" value={draft.business_name} onChange={(event) => update("business_name", event.target.value)} />
             <SelectField label="Business type" value={draft.business_type || "retail"} onChange={(event) => update("business_type", event.target.value)}>
@@ -603,7 +650,7 @@ export function SettingsClient({
           {locationMessage ? <p className="text-sm font-bold text-teal-50/60">{locationMessage}</p> : null}
         </SettingsCard>
 
-        <SettingsCard icon={Store} title="Storefront Settings" description="Public storefront identity, order channels, and customer-facing controls.">
+        <SettingsCard id="storefront" className={activeSettingsSection === "storefront" ? undefined : "hidden"} icon={Store} title="Storefront Settings" description="Public storefront identity, order channels, and customer-facing controls.">
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Storefront name" value={draft.business_name} onChange={(event) => update("business_name", event.target.value)} />
             <Field label="Storefront slug/link" value={storefrontSlug || suggestedStorefrontSlug || "Complete business profile first"} readOnly />
@@ -632,7 +679,7 @@ export function SettingsClient({
           </div>
         </SettingsCard>
 
-        <SettingsCard icon={Store} title="3D Storefront" description="Premium virtual storefront mode for customers who want an immersive product view.">
+        <SettingsCard id="three-d-storefront" className={activeSettingsSection === "storefront" ? undefined : "hidden"} icon={Store} title="3D Storefront" description="Premium virtual storefront mode for customers who want an immersive product view.">
           <div className="grid gap-4">
             <div className="rounded-card border border-cyan-200/15 bg-cyan-300/[0.06] p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
@@ -681,7 +728,7 @@ export function SettingsClient({
             </div>
           </div>
         </SettingsCard>
-        <SettingsCard id="whatsapp" icon={Bell} title="Order Notifications" description="Automatic customer updates connected to order status changes.">
+        <SettingsCard id="whatsapp" className={activeSettingsSection === "operations" ? undefined : "hidden"} icon={Bell} title="Order Notifications" description="Automatic customer updates connected to order status changes.">
                     <div className="grid gap-3 rounded-card border border-cyan-200/15 bg-cyan-300/[0.06] p-3">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-100/65">Admin new order alerts</p>
             <Toggle label="Enable new order alerts" checked={draft.new_order_alerts_enabled !== false} onChange={(value) => update("new_order_alerts_enabled", value)} />
@@ -724,7 +771,7 @@ export function SettingsClient({
           ) : null}
         </SettingsCard>
 
-        <SettingsCard icon={UserCog} title="Team / Staff" description="Add, edit, and remove staff accounts for this business.">
+        <SettingsCard id="staff" className={activeSettingsSection === "operations" ? undefined : "hidden"} icon={UserCog} title="Team / Staff" description="Add, edit, and remove staff accounts for this business.">
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Staff name" value={staffDraft.name} onChange={(event) => setStaffDraft((current) => ({ ...current, name: event.target.value }))} />
             <SelectField label="Staff role" value={staffDraft.role} onChange={(event) => setStaffDraft((current) => ({ ...current, role: event.target.value }))}>
@@ -761,7 +808,7 @@ export function SettingsClient({
           </div>
         </SettingsCard>
 
-        <SettingsCard icon={Tags} title="Categories" description="Manage POS and storefront item groups. Changes update products, POS filters, item forms, and storefront categories.">
+        <SettingsCard id="categories" className={activeSettingsSection === "operations" ? undefined : "hidden"} icon={Tags} title="Categories" description="Manage POS and storefront item groups. Changes update products, POS filters, item forms, and storefront categories.">
           <div className="grid gap-4 sm:grid-cols-[1fr_80px_120px]">
             <Field label="Category name" value={categoryDraft.name} onChange={(event) => setCategoryDraft((current) => ({ ...current, name: event.target.value }))} />
             <Field label="Icon" value={categoryDraft.icon} onChange={(event) => setCategoryDraft((current) => ({ ...current, icon: event.target.value }))} />
@@ -845,7 +892,7 @@ export function SettingsClient({
           ) : null}
         </SettingsCard>
 
-        <SettingsCard icon={CreditCard} title="Currency & Payments" description="Store currency, customer conversion display, accepted methods, and payment instructions.">
+        <SettingsCard id="payments" className={activeSettingsSection === "payments" ? undefined : "hidden"} icon={CreditCard} title="Currency & Payments" description="Store currency, customer conversion display, accepted methods, and payment instructions.">
           <div className="grid gap-3 sm:grid-cols-2">
             <Toggle label="Cash" checked={draft.payment_cash_enabled} onChange={(value) => update("payment_cash_enabled", value)} />
             <Toggle label="Card" checked={draft.payment_card_enabled} onChange={(value) => update("payment_card_enabled", value)} />
@@ -874,7 +921,7 @@ export function SettingsClient({
           </Button>
         </SettingsCard>
 
-        <SettingsCard icon={Truck} title="Delivery / Waze" description="Delivery pricing and navigation settings for drivers.">
+        <SettingsCard id="delivery" className={activeSettingsSection === "operations" ? undefined : "hidden"} icon={Truck} title="Delivery / Waze" description="Delivery pricing and navigation settings for drivers.">
           <div className="grid gap-4 sm:grid-cols-2">
             <Toggle label="Enable delivery" checked={draft.delivery_enabled !== false} onChange={(value) => update("delivery_enabled", value)} />
             <Field label="Default delivery fee" type="number" value={draft.delivery_fee} onChange={(event) => update("delivery_fee", Number(event.target.value))} />
@@ -899,7 +946,7 @@ export function SettingsClient({
           </Button>
         </SettingsCard>
 
-        <SettingsCard icon={CreditCard} title="Subscription / Billing" description="Plan controls for selling Caribbean POS Connect as a SaaS product.">
+        <SettingsCard id="billing" className={activeSettingsSection === "payments" ? undefined : "hidden"} icon={CreditCard} title="Subscription / Billing" description="Plan controls for selling Caribbean POS Connect as a SaaS product.">
           <div className="grid gap-3">
             <div className="rounded-card border border-white/10 bg-black/20 p-4">
               <p className="text-sm font-bold text-teal-50/60">Current plan</p>
@@ -942,7 +989,7 @@ export function SettingsClient({
           </div>
         </SettingsCard>
 
-        <SettingsCard icon={ImageIcon} title="Appearance / Branding" description="Customize storefront, receipt, and business visuals.">
+        <SettingsCard id="branding" className={activeSettingsSection === "business" ? undefined : "hidden"} icon={ImageIcon} title="Appearance / Branding" description="Customize storefront, receipt, and business visuals.">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="rounded-card border border-white/10 bg-black/20 p-4">
               <Image
@@ -982,7 +1029,7 @@ export function SettingsClient({
           </Button>
         </SettingsCard>
 
-        <SettingsCard icon={ShieldAlert} title="Danger Zone" description="High-risk business data actions. Confirmation is required.">
+        <SettingsCard id="account" className={activeSettingsSection === "account" ? undefined : "hidden"} icon={ShieldAlert} title="Danger Zone" description="High-risk business data actions. Confirmation is required.">
           <div className="grid gap-3 sm:grid-cols-3">
             <Button type="button" variant="danger" onClick={() => resetDanger("Delete test data")} className="w-full">
               <Trash2 className="h-4 w-4" />
