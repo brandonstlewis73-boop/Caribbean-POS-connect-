@@ -235,6 +235,17 @@ th {
 .integration-play { display: inline-flex; justify-content: center; align-items: center; gap: 8px; width: 100%; min-height: 44px; border-radius: 6px; background: #08796e; color: white; font-size: 14px; font-weight: 700; }
 .integration-waze .integration-play { background: #1965aa; }
 .delivery-symbol { display: flex; gap: 32px; color: #1965aa; align-items: center; }
+.waze-route-preview { display: grid; gap: 12px; }
+.waze-map-frame { position: relative; min-height: 180px; overflow: hidden; border: 1px solid #b8d4df; border-radius: 12px; background: #dceff5; }
+.waze-destination, .waze-driver { position: absolute; display: inline-flex; align-items: center; gap: 5px; border-radius: 999px; padding: 6px 9px; font-size: 11px; font-weight: 800; box-shadow: 0 8px 16px rgba(20, 56, 79, 0.16); }
+.waze-destination { right: 7%; top: 22%; background: #fff; color: #b72838; }
+.waze-driver { left: 9%; bottom: 18%; background: #08796e; color: #fff; }
+.waze-route-details { display: flex; align-items: center; gap: 10px; border-radius: 10px; background: #edf7fb; padding: 10px 12px; }
+.waze-route-logo { width: 66px; height: 20px; object-fit: contain; }
+.waze-route-details div { display: grid; gap: 2px; min-width: 0; }
+.waze-route-details strong { color: #173549; font-size: 14px; }
+.waze-route-details span { color: #607b88; font-size: 12px; font-weight: 700; }
+.waze-route-preview > p { margin: 0; color: #213b46; font-size: 14px; line-height: 1.5; }
 .solution-page { min-height: 100dvh; background: #f4f8fa; color: #1c3545; color-scheme: light; padding-bottom: env(safe-area-inset-bottom); }
 .solution-page header, .solution-page footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 16px; padding: 20px 24px; background: white; }
 .solution-page a { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; color: #09665d; font-weight: 700; }
@@ -269,6 +280,8 @@ th {
   .integration-demo-content p { font-size: 14px; }
   .delivery-symbol { gap: 0; flex-direction: column; }
   .delivery-symbol > svg { width: 28px; height: 28px; }
+  .integration-demo-content:has(.waze-route-preview) { display: block; min-height: 0; padding: 16px 0; }
+  .waze-map-frame { min-height: 175px; }
   .landing-value-strip article > p:first-child { font-size: 24px; }
   .kyte-home footer > div { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 24px; }
   .kyte-home footer > div > span { grid-column: 1 / -1; }

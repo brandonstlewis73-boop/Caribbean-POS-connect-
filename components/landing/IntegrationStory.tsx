@@ -36,8 +36,22 @@ export function IntegrationStory({ type }: { type: keyof typeof stories }) {
       <div className="integration-demo" aria-label={`${story.name} workflow example`}>
         <div className="integration-demo-title"><span>Example order</span><span>{step + 1} / 3</span></div>
         <div className="integration-demo-content" key={step}>
-          {type === "waze" ? <div className="delivery-symbol"><MapPin size={46} /><Navigation size={30} /></div> : <Image src="/marketing/whatsapp.svg" alt="" width={48} height={48} />}
-          <p aria-live="polite">{story.messages[step]}</p>
+          {type === "waze" ? (
+            <div className="waze-route-preview">
+              <div className="waze-map-frame">
+                <Image src="/marketing/trinidad-delivery-route.svg" alt="Example delivery route in Trinidad" fill sizes="(max-width: 767px) 100vw, 500px" className="object-cover" />
+                <span className="waze-destination"><MapPin size={18} aria-hidden="true" /><span>Customer</span></span>
+                <span className="waze-driver"><Navigation size={14} aria-hidden="true" /> Driver</span>
+              </div>
+              <div className="waze-route-details">
+                <Image src="/marketing/waze.svg" alt="Waze" width={66} height={20} className="waze-route-logo" />
+                <div><strong>{step === 2 ? "Delivered" : step === 1 ? "Route ready" : "7 min away"}</strong><span>Delivery order #1042</span></div>
+              </div>
+              <p aria-live="polite">{story.messages[step]}</p>
+            </div>
+          ) : (
+            <><Image src="/marketing/whatsapp.svg" alt="" width={48} height={48} /><p aria-live="polite">{story.messages[step]}</p></>
+          )}
           {step === 2 && <Check size={24} />}
         </div>
         <button type="button" className="integration-play" onClick={() => setStep((step + 1) % 3)}>{step === 2 ? <RotateCcw size={18} /> : <Play size={18} />}{step === 2 ? "Replay example" : "Next step"}</button>

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 560" role="img" aria-labelledby="title desc">
+  <title id="title">Example Trinidad delivery route</title>
+  <desc id="desc">A stylized delivery route from Port of Spain through Chaguanas to a customer destination.</desc>
+  <rect width="960" height="560" fill="#dceff5"/>
+  <path d="M0 70C126 25 219 86 334 42s200-45 304 13 201 41 322-12v517H0Z" fill="#f5f1dd"/>
+  <path d="M-42 442c164-83 265-19 363-86S513 231 623 278s202 54 391-27" fill="none" stroke="#b6d8c6" stroke-width="66" stroke-linecap="round" opacity=".72"/>
+  <path d="M-30 324c147-58 250-9 330-38s121-104 229-95 129 94 249 87 157-82 216-93" fill="none" stroke="#fff" stroke-width="24" stroke-linecap="round"/>
+  <path d="M21 122c95 40 165 122 266 123s144-65 254-61 152 80 252 90 122-28 178-51" fill="none" stroke="#fff" stroke-width="18" stroke-linecap="round"/>
+  <path d="M74 83l86 77m-12-124 95 144m420-124 78 132m-32-144 123 158M432 300l75 117m-149-80 51 102m371-60 95 93" stroke="#d6dde1" stroke-width="9" stroke-linecap="round"/>
+  <path d="M117 324C221 306 270 294 337 267c85-34 102-101 192-87 61 10 69 56 147 69 64 11 113-11 178-47" fill="none" stroke="#35cdb8" stroke-width="13" stroke-linecap="round" stroke-dasharray="2 26"/>
+  <path d="M117 324C221 306 270 294 337 267c85-34 102-101 192-87 61 10 69 56 147 69 64 11 113-11 178-47" fill="none" stroke="#08796e" stroke-width="6" stroke-linecap="round"/>
+  <g transform="translate(96 298)"><circle r="25" fill="#08796e" stroke="#fff" stroke-width="8"/><path d="M-8 0h16M0-8v16" stroke="#fff" stroke-width="5" stroke-linecap="round"/></g>
+  <g transform="translate(853 197)"><path d="M0-34c-20 0-36 16-36 36 0 27 36 56 36 56S36 29 36 2C36-18 20-34 0-34Z" fill="#e85050" stroke="#fff" stroke-width="8"/><circle cy="2" r="11" fill="#fff"/></g>
+  <g fill="#375768" font-family="Arial, sans-serif" font-weight="700" font-size="18"><text x="64" y="382">Port of Spain</text><text x="410" y="142">Chaguanas</text><text x="735" y="334">Customer location</text></g>
+  <g fill="#7391a0" font-family="Arial, sans-serif" font-size="14"><text x="71" y="406">Store pickup</text><text x="411" y="165">Route overview</text><text x="736" y="357">Delivery destination</text></g>
+</svg>

@@ -326,9 +326,9 @@ export function OnlineOrderClient({
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top_left,rgba(18,214,223,0.12),transparent_32%),linear-gradient(180deg,#f8fffe_0%,#eef7f5_44%,#f7faf8_100%)] pb-24 text-slate-950 xl:pb-0">
-      <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/94 px-4 py-3 shadow-sm backdrop-blur-xl">
-        <div className="mx-auto flex max-w-[1620px] flex-wrap items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-3">
+      <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/94 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] shadow-sm backdrop-blur-xl">
+        <div className="mx-auto flex max-w-[1620px] flex-nowrap items-center justify-between gap-2 sm:gap-3">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
             <span className="hidden text-base font-black tracking-tight text-blue-700 sm:inline">Caribbean <span className="text-slate-900">POS Connect</span></span>
             <div className="h-6 w-px bg-slate-200 max-sm:hidden" />
             <img src={displaySettings.logo_url || "/caribbean-pos-connect-icon.png"} alt="" decoding="async" className="h-11 w-11 shrink-0 rounded-2xl border border-slate-200 bg-white object-contain p-1 shadow-sm" />
@@ -337,7 +337,7 @@ export function OnlineOrderClient({
               <p className="truncate text-xs font-semibold text-slate-500 sm:text-sm">Online ordering - {marketCountry} / {settings.currency}</p>
             </div>
           </div>
-          <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
+          <div className="flex min-w-0 items-center justify-end gap-2">
             <label className="relative hidden min-w-64 max-w-xs flex-1 lg:block">
               <span className="sr-only">Search products</span>
               <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
