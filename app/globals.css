@@ -235,6 +235,27 @@ th {
 .integration-play { display: inline-flex; justify-content: center; align-items: center; gap: 8px; width: 100%; min-height: 44px; border-radius: 6px; background: #08796e; color: white; font-size: 14px; font-weight: 700; }
 .integration-waze .integration-play { background: #1965aa; }
 .delivery-symbol { display: flex; gap: 32px; color: #1965aa; align-items: center; }
+.whatsapp-chat-preview { display: grid; gap: 12px; width: 100%; }
+.whatsapp-chat-top { display: flex; align-items: center; gap: 10px; border-radius: 12px 12px 8px 8px; background: #075e54; padding: 10px 12px; color: #fff; }
+.whatsapp-chat-top img { width: 28px; height: 28px; border-radius: 50%; background: #fff; padding: 3px; }
+.whatsapp-chat-top div { display: grid; gap: 1px; min-width: 0; }
+.whatsapp-chat-top strong { font-size: 13px; }
+.whatsapp-chat-top span { color: #d4f7ec; font-size: 11px; font-weight: 700; }
+.whatsapp-online-dot { margin-left: auto; width: 8px; height: 8px; border-radius: 999px; background: #57e389; box-shadow: 0 0 0 3px rgba(87, 227, 137, 0.15); }
+.whatsapp-chat-thread { display: grid; gap: 9px; min-height: 184px; border: 1px solid #c9ded8; border-radius: 10px; background: #efeae2; padding: 12px; }
+.whatsapp-bubble { display: grid; gap: 6px; width: fit-content; max-width: 90%; border-radius: 9px; padding: 9px 10px 6px; color: #22353a; font-size: 13px; font-weight: 650; line-height: 1.45; box-shadow: 0 1px 1px rgba(25, 45, 49, 0.09); }
+.whatsapp-bubble p { margin: 0; color: inherit; font-size: inherit; line-height: inherit; }
+.whatsapp-bubble time { display: flex; align-items: center; justify-content: flex-end; gap: 2px; color: #6e8484; font-size: 10px; font-weight: 700; }
+.whatsapp-bubble time svg { color: #20a9e0; }
+.whatsapp-bubble-incoming { background: #fff; border-top-left-radius: 2px; }
+.whatsapp-bubble-outgoing { justify-self: end; background: #d9fdd3; border-top-right-radius: 2px; }
+.whatsapp-order-image { position: relative; display: grid; grid-template-columns: 54px minmax(0, 1fr); gap: 8px; min-width: 200px; overflow: hidden; border-radius: 7px; background: rgba(255, 255, 255, 0.72); padding: 6px; }
+.whatsapp-order-thumbnail { position: relative; min-height: 54px; overflow: hidden; border-radius: 5px; }
+.whatsapp-order-image div { display: grid; align-content: center; gap: 1px; min-width: 0; }
+.whatsapp-order-image strong { font-size: 12px; }
+.whatsapp-order-image span { color: #5e7472; font-size: 10px; font-weight: 700; }
+.whatsapp-order-image b { color: #08796e; font-size: 11px; }
+.whatsapp-chat-caption { margin: 0; color: #426059; font-size: 13px; font-weight: 700; line-height: 1.45; }
 .waze-route-preview { display: grid; gap: 12px; }
 .waze-map-frame { position: relative; min-height: 180px; overflow: hidden; border: 1px solid #b8d4df; border-radius: 12px; background: #dceff5; }
 .waze-destination, .waze-driver { position: absolute; display: inline-flex; align-items: center; gap: 5px; border-radius: 999px; padding: 6px 9px; font-size: 11px; font-weight: 800; box-shadow: 0 8px 16px rgba(20, 56, 79, 0.16); }
@@ -280,7 +301,7 @@ th {
   .integration-demo-content p { font-size: 14px; }
   .delivery-symbol { gap: 0; flex-direction: column; }
   .delivery-symbol > svg { width: 28px; height: 28px; }
-  .integration-demo-content:has(.waze-route-preview) { display: block; min-height: 0; padding: 16px 0; }
+  .integration-demo-content:has(.waze-route-preview), .integration-demo-content:has(.whatsapp-chat-preview) { display: block; min-height: 0; padding: 16px 0; }
   .waze-map-frame { min-height: 175px; }
   .landing-value-strip article > p:first-child { font-size: 24px; }
   .kyte-home footer > div { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 24px; }
@@ -809,6 +830,28 @@ th {
 }
 
 @media (max-width: 767px) {
+  .app-shell-main.animate-fade-in {
+    animation: none;
+    opacity: 1;
+  }
+
+  .settings-page {
+    padding: 16px;
+    background: #f1f6f8;
+    color: #172b3a;
+  }
+
+  .settings-page-intro {
+    border-color: #d7e4e8 !important;
+    background: #ffffff !important;
+    box-shadow: 0 4px 16px rgb(23 43 58 / 5%) !important;
+  }
+
+  .settings-page-intro h2 { color: #172b3a !important; }
+  .settings-page-intro p { color: #4b6172 !important; }
+  .settings-section-tab { border-color: #d7e4e8 !important; background: #ffffff !important; color: #4b6172 !important; }
+  .settings-section-tab[aria-pressed="true"] { border-color: #53d8e7 !important; background: #5ad9eb !important; color: #172b3a !important; }
+
   .app-shell-header {
     border-color: #e5e7eb !important;
     background: rgba(255, 255, 255, 0.96) !important;

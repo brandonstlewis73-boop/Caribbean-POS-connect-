@@ -22,6 +22,41 @@ const stories = {
   }
 };
 
+function WhatsAppChatPreview({ step }: { step: number }) {
+  const caption = [
+    "A customer asks about order #1042.",
+    "The order update includes a clear product and collection summary.",
+    "The customer receives a friendly confirmation in the same conversation."
+  ][step];
+
+  return (
+    <div className="whatsapp-chat-preview">
+      <div className="whatsapp-chat-top">
+        <Image src="/marketing/whatsapp.svg" alt="" width={28} height={28} />
+        <div><strong>Baker buds</strong><span>Business account</span></div>
+        <span className="whatsapp-online-dot" aria-label="Online" />
+      </div>
+      <div className="whatsapp-chat-thread">
+        <div className="whatsapp-bubble whatsapp-bubble-incoming">Hi, is order #1042 ready for pickup?<time>10:41</time></div>
+        {step >= 1 ? (
+          <div className="whatsapp-bubble whatsapp-bubble-outgoing">
+            <p>Great news. Your order is ready for collection.</p>
+            <div className="whatsapp-order-image">
+              <div className="whatsapp-order-thumbnail"><Image src="/marketing/chicken.jpg" alt="Jerk chicken order item" fill sizes="54px" className="object-cover" /></div>
+              <div><strong>Order #1042</strong><span>Jerk chicken and juice</span><b>TT$79.00</b></div>
+            </div>
+            <time>10:42 <Check size={13} aria-label="Sent" /></time>
+          </div>
+        ) : (
+          <div className="whatsapp-bubble whatsapp-bubble-outgoing">I am checking it now.<time>10:41 <Check size={13} aria-label="Sent" /></time></div>
+        )}
+        {step === 2 ? <div className="whatsapp-bubble whatsapp-bubble-incoming">Thank you, I am on my way.<time>10:43</time></div> : null}
+      </div>
+      <p className="whatsapp-chat-caption" aria-live="polite">{caption}</p>
+    </div>
+  );
+}
+
 export function IntegrationStory({ type }: { type: keyof typeof stories }) {
   const story = stories[type];
   const [step, setStep] = useState(0);
@@ -50,9 +85,9 @@ export function IntegrationStory({ type }: { type: keyof typeof stories }) {
               <p aria-live="polite">{story.messages[step]}</p>
             </div>
           ) : (
-            <><Image src="/marketing/whatsapp.svg" alt="" width={48} height={48} /><p aria-live="polite">{story.messages[step]}</p></>
+            <WhatsAppChatPreview step={step} />
           )}
-          {step === 2 && <Check size={24} />}
+          {type === "waze" && step === 2 && <Check size={24} />}
         </div>
         <button type="button" className="integration-play" onClick={() => setStep((step + 1) % 3)}>{step === 2 ? <RotateCcw size={18} /> : <Play size={18} />}{step === 2 ? "Replay example" : "Next step"}</button>
       </div>

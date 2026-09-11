@@ -588,8 +588,8 @@ export function SettingsClient({
   }
 
   return (
-    <div className="mx-auto grid w-full max-w-[1180px] gap-5 pb-4">
-      <section className="rounded-card border border-white/10 bg-white/[0.05] p-5 shadow-soft sm:p-6">
+    <div className="settings-page mx-auto grid w-full max-w-[1180px] gap-5 pb-4">
+      <section className="settings-page-intro rounded-card border border-white/10 bg-white/[0.05] p-5 shadow-soft sm:p-6">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <h2 className="text-2xl font-black text-white">Settings</h2>
@@ -601,14 +601,14 @@ export function SettingsClient({
         </div>
       </section>
 
-      <nav className="flex gap-2 overflow-x-auto pb-1" aria-label="Settings sections">
+      <nav className="settings-section-nav flex gap-2 overflow-x-auto pb-1" aria-label="Settings sections">
         {SETTINGS_SECTIONS.map((section) => (
           <button
             key={section.key}
             type="button"
             onClick={() => selectSettingsSection(section.key)}
             aria-pressed={activeSettingsSection === section.key}
-            className={`min-h-10 shrink-0 rounded-card border px-4 text-sm font-black transition ${activeSettingsSection === section.key ? "border-cyan-200/35 bg-cyan-300 text-slate-950" : "border-white/10 bg-white/[0.055] text-teal-50/75 hover:bg-white/[0.1]"}`}
+            className={`settings-section-tab min-h-10 shrink-0 rounded-card border px-4 text-sm font-black transition ${activeSettingsSection === section.key ? "border-cyan-200/35 bg-cyan-300 text-slate-950" : "border-white/10 bg-white/[0.055] text-teal-50/75 hover:bg-white/[0.1]"}`}
           >
             {section.label}
           </button>
