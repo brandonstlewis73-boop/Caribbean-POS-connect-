@@ -126,13 +126,9 @@ export function getPlanConfig(planId?: string | null): PlanConfig {
   return PLAN_CONFIG[normalizePlanId(planId)];
 }
 
-function rank(planId: string | null | undefined) {
-  return PLAN_ORDER.indexOf(normalizePlanId(planId));
-}
-
 export function canUseFeature(planId: string | null | undefined, feature: FeatureKey) {
   const requiredPlan = FEATURE_PLANS[feature];
-  const allowed = rank(planId) >= rank(requiredPlan);
+  const allowed = getPlanConfig(planId).features.includes(feature);
   return {
     allowed,
     feature,

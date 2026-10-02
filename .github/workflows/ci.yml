@@ -44,6 +44,12 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Signup and billing guards
+        run: npm run test:signup-billing
+
+      - name: Plan gating
+        run: npm run test:plan-gating
+
       - name: Build
         run: npm run build
         env:
