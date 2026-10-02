@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { fail, ok } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
 import { getCurrentSubscription, listSubscriptionPlans, updateSubscriptionPlan } from "@/lib/data";
+import { canChangeSubscriptionManually } from "@/lib/billing-policy";
 import { normalizePlanId } from "@/lib/plan-gating";
 import { stripeConfigStatus } from "@/lib/stripe";
 import type { SubscriptionPlanId } from "@/lib/types";
@@ -32,7 +33,11 @@ export async function PATCH(request: NextRequest) {
   if (!rawPlanId || (normalizePlanId(rawPlanId) !== rawPlanId && rawPlanId !== "free" && rawPlanId !== "business")) {
     return fail("Select a valid subscription plan.", 422);
   }
-  const planId = rawPlanId as SubscriptionPlanId;
+  const current = await getCurrentSubscription(auth.user.business_id);
+  if (!canChangeSubscriptionManually(rawPlanId, current?.provider)) {
+    return fail("Use billing checkout or Manage billing to change a paid subscription. Contact support for Enterprise access.", 403);
+  }
+  const planId = normalizePlanId(rawPlanId) as SubscriptionPlanId;
   const subscription = await updateSubscriptionPlan(planId, auth.user.id);
   return subscription ? ok({ subscription }) : fail("Subscription could not be updated.", 400);
 }

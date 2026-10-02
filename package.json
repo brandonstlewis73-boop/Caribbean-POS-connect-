@@ -11,6 +11,7 @@
     "lint": "eslint .",
     "test:ai-tools": "tsx scripts/test-ai-tools.ts",
     "test:map-links": "tsx scripts/test-map-links.ts",
+    "test:signup-billing": "tsx scripts/test-signup-billing.ts",
     "test:plan-gating": "tsx scripts/test-plan-gating.ts",
     "test:tenant-isolation": "tsx scripts/test-tenant-isolation.ts",
     "test:production-hardening": "tsx scripts/test-production-hardening.ts",

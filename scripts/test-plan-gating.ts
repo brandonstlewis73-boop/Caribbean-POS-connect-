@@ -23,6 +23,8 @@ assert.equal(FEATURE_PLANS.threeDStorefront, "premium");
 assert.equal(canUseFeature("starter", "whatsappMessaging").allowed, true);
 assert.equal(canUseFeature("starter", "aiSupport").allowed, false);
 assert.equal(canUseFeature("pro", "aiSupport").allowed, true);
+assert.equal(canUseFeature("pro", "multiLocation").allowed, true);
+assert.equal(canUseFeature("pro", "customBranding").allowed, false);
 assert.equal(canUseFeature("premium", "multiLocation").allowed, true);
 assert.equal(canUseFeature("pro", "threeDStorefront").allowed, false);
 assert.equal(canUseFeature("premium", "threeDStorefront").allowed, true);
