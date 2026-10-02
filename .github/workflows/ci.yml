@@ -50,6 +50,9 @@ jobs:
       - name: PayPal billing verification
         run: npm run test:paypal
 
+      - name: PayPal setup verification
+        run: npm run test:paypal-setup
+
       - name: Plan gating
         run: npm run test:plan-gating
 

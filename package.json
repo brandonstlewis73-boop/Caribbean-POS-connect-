@@ -11,6 +11,8 @@
     "lint": "eslint .",
     "test:ai-tools": "tsx scripts/test-ai-tools.ts",
     "test:map-links": "tsx scripts/test-map-links.ts",
+    "setup:paypal": "node scripts/setup-paypal.mjs",
+    "test:paypal-setup": "node scripts/test-paypal-setup.mjs",
     "test:paypal": "node --conditions=react-server --import tsx scripts/test-paypal.ts",
     "test:signup-billing": "tsx scripts/test-signup-billing.ts",
     "test:plan-gating": "tsx scripts/test-plan-gating.ts",
