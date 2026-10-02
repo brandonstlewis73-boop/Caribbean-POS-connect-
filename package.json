@@ -11,6 +11,7 @@
     "lint": "eslint .",
     "test:ai-tools": "tsx scripts/test-ai-tools.ts",
     "test:map-links": "tsx scripts/test-map-links.ts",
+    "test:paypal": "node --conditions=react-server --import tsx scripts/test-paypal.ts",
     "test:signup-billing": "tsx scripts/test-signup-billing.ts",
     "test:plan-gating": "tsx scripts/test-plan-gating.ts",
     "test:tenant-isolation": "tsx scripts/test-tenant-isolation.ts",
@@ -37,6 +38,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "recharts": "^2.15.0",
+    "server-only": "^0.0.1",
     "tailwind-merge": "^2.5.5",
     "three": "^0.184.0",
     "zod": "^3.24.1"

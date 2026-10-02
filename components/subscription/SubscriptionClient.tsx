@@ -21,24 +21,21 @@ export function SubscriptionClient({
   subscription,
   usageSummary,
   paymentProvidersReady,
-  stripeStatus
+  paypalResult,
+  paypalEnvironment
 }: {
   plans: SubscriptionPlan[];
   selectedPlan?: string | null;
   subscription: Subscription | null;
   usageSummary: PlanUsageSummary;
-  paymentProvidersReady: { stripe: boolean; paypal: boolean; wipay: boolean };
-  stripeStatus?: {
-    configured: boolean;
-    webhookConfigured: boolean;
-    readyForPaidCheckout: boolean;
-    missing: string[];
-  };
+  paymentProvidersReady: { paypal: boolean };
+  paypalResult?: string;
+  paypalEnvironment?: string | null;
 }) {
   const [current, setCurrent] = useState(subscription);
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState(paypalResult === "success" ? "PayPal subscription confirmed." : paypalResult === "pending" ? "PayPal approval is processing. Your plan activates after payment confirmation." : paypalResult === "cancelled" ? "PayPal checkout was cancelled. Your current plan is unchanged." : paypalResult === "error" ? "We could not confirm this PayPal subscription. Please contact support." : "");
   const [loadingPlan, setLoadingPlan] = useState<SubscriptionPlanId | null>(null);
-  const currentPlanId = normalizePlanId(current?.plan_id);
+  const currentPlanId = current?.status === "cancelled" || current?.status === "paused" || current?.status === "past_due" ? "trial" : normalizePlanId(current?.plan_id);
   const requestedPlan = selectedPlan ? plans.find((plan) => plan.id === normalizePlanId(selectedPlan)) : null;
 
   async function choosePlan(planId: SubscriptionPlanId) {
@@ -47,12 +44,12 @@ export function SubscriptionClient({
     try {
       const selectedPlan = plans.find((plan) => plan.id === planId);
       if (selectedPlan && selectedPlan.monthly_price > 0) {
-        if (!paymentProvidersReady.stripe) {
+        if (!paymentProvidersReady.paypal) {
           setLoadingPlan(null);
-          setMessage("Stripe is not configured. Add STRIPE_SECRET_KEY and plan price IDs in Vercel, then redeploy.");
+          setMessage("PayPal checkout is being set up. Please contact support.");
           return;
         }
-        const checkout = await fetch("/api/stripe/checkout", {
+        const checkout = await fetch("/api/paypal/checkout", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ plan_id: planId })
@@ -60,7 +57,7 @@ export function SubscriptionClient({
         const checkoutPayload = await readApiPayload<{ url: string }>(checkout);
         setLoadingPlan(null);
         if (!checkout.ok || !checkoutPayload.data?.url) {
-          setMessage(checkoutPayload.error || "Stripe checkout could not be started.");
+          setMessage(checkoutPayload.error || "PayPal checkout could not be started.");
           return;
         }
         window.location.href = checkoutPayload.data.url;
@@ -80,7 +77,7 @@ export function SubscriptionClient({
       }
       if (payload.data?.subscription) {
         setCurrent(payload.data.subscription);
-        setMessage("Subscription plan updated. Payment checkout can be connected next.");
+        setMessage("Free plan selected.");
       }
     } catch {
       setMessage("Could not connect to billing. Check your connection and try again.");
@@ -97,7 +94,7 @@ export function SubscriptionClient({
       const payload = await readApiPayload<{ url: string }>(response);
       setLoadingPlan(null);
       if (!response.ok || !payload.data?.url) {
-        setMessage(payload.error || "Stripe billing portal could not be opened.");
+        setMessage(payload.error || "Existing billing could not be opened.");
         return;
       }
       window.location.href = payload.data.url;
@@ -108,8 +105,9 @@ export function SubscriptionClient({
     }
   }
 
-  const hasPaymentProvider = paymentProvidersReady.stripe || paymentProvidersReady.paypal || paymentProvidersReady.wipay;
-  const canManageStripe = paymentProvidersReady.stripe && current?.provider === "stripe" && Boolean(current.provider_customer_id);
+  const hasPaymentProvider = paymentProvidersReady.paypal;
+  const canManageStripe = current?.provider === "stripe" && Boolean(current.provider_customer_id);
+  const canManagePayPal = current?.provider === "paypal" && Boolean(current.provider_subscription_id);
   const pricingPlans = (["starter", "premium", "pro"] as SubscriptionPlanId[])
     .map((planId) => plans.find((plan) => plan.id === planId))
     .filter(Boolean) as SubscriptionPlan[];
@@ -141,8 +139,14 @@ export function SubscriptionClient({
     {requestedPlan ? <section className="mb-4 rounded-card border border-cyan-200/30 bg-[#0b1d2e] p-4 text-white">
       <p className="font-bold">Selected: {requestedPlan.name} - {planPrice(requestedPlan)}/mo</p>
       <p className="mt-2 text-sm text-slate-200">Review your plan, then continue to billing to confirm.</p>
-      <button type="button" onClick={() => choosePlan(requestedPlan.id)} disabled={loadingPlan !== null || currentPlanId === requestedPlan.id} className="mt-3 min-h-11 rounded-lg bg-cyan-300 px-4 font-bold text-slate-950 disabled:opacity-60">{loadingPlan === requestedPlan.id ? "Loading..." : currentPlanId === requestedPlan.id ? "Current plan" : "Continue to billing"}</button>
+      <button type="button" onClick={() => choosePlan(requestedPlan.id)} disabled={loadingPlan !== null || currentPlanId === requestedPlan.id} className="mt-3 min-h-11 rounded-lg bg-cyan-300 px-4 font-bold text-slate-950 disabled:opacity-60">{loadingPlan === requestedPlan.id ? "Loading..." : currentPlanId === requestedPlan.id ? "Current plan" : "Continue with PayPal"}</button>
     </section> : null}
+    <section className="mb-4 rounded-card border border-cyan-200/30 p-4 text-sm">
+      <p>Subscriptions are billed monthly in USD through PayPal. Confirm the amount and recurring payment on PayPal before subscribing.</p>
+      {paypalEnvironment === "sandbox" ? <p className="mt-2 font-bold">Test checkout only — no live payments.</p> : null}
+      {canManagePayPal ? <a className="mt-2 inline-block underline" href={paypalEnvironment === "sandbox" ? "https://www.sandbox.paypal.com/myaccount/autopay/" : "https://www.paypal.com/myaccount/autopay/"} target="_blank" rel="noopener noreferrer">Manage or cancel your PayPal subscription</a> : null}
+      {canManageStripe ? <Button className="mt-2" onClick={openBillingPortal}>Manage existing subscription</Button> : null}
+    </section>
     <div className="kyte-plan-screen md:hidden">
       <section className="kyte-plan-header">
         <h1>Choose your plan</h1>
@@ -239,10 +243,7 @@ export function SubscriptionClient({
           </div>
           <div className="rounded-3xl border border-cyan-200/12 bg-slate-950/35 p-5 shadow-[0_16px_45px_rgba(0,0,0,0.20)]">
             <p className="text-sm font-bold text-teal-50/60">Payment checkout</p>
-            <p className="mt-2 text-sm font-black">{hasPaymentProvider ? "Stripe checkout available" : "Ready for Stripe, PayPal, or WiPay setup"}</p>
-            {stripeStatus && stripeStatus.missing.length ? (
-              <p className="mt-2 text-xs font-bold text-amber-200">Missing Stripe setup: {stripeStatus.missing.join(", ")}</p>
-            ) : null}
+            <p className="mt-2 text-sm font-black">{hasPaymentProvider ? "PayPal subscription checkout" : "PayPal checkout is being set up"}</p>
             {canManageStripe ? (
               <Button type="button" variant="secondary" className="mt-3 w-full" onClick={openBillingPortal} disabled={loadingPlan !== null}>
                 <CreditCard className="h-4 w-4" />
