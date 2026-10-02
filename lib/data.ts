@@ -1224,6 +1224,8 @@ export async function syncStripeSubscription(input: {
   const normalizedPlanId = normalizePlanId(input.planId);
   const plan = getPlanConfig(normalizedPlanId);
   const existing = await getCurrentSubscription(input.businessId);
+  // Legacy Stripe events must not replace a migrated PayPal agreement.
+  if (existing?.provider === "paypal") return existing;
   const subscriptionId = existing?.id || createId("sub");
   const businessStatus = input.status === "active"
     ? "active"
@@ -1337,6 +1339,7 @@ function monthStartIso() {
 
 export async function getSubscriptionPlanId(businessId?: string | null) {
   const subscription = await getCurrentSubscription(businessId);
+  if (subscription?.provider === "paypal" && subscription.status !== "active") return "trial";
   return normalizePlanId(subscription?.plan_id || subscription?.plan_name);
 }
 

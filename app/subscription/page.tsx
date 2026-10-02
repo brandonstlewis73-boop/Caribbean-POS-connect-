@@ -2,10 +2,10 @@ import { AppShell } from "@/components/layout/AppShell";
 import { SubscriptionClient } from "@/components/subscription/SubscriptionClient";
 import { getCurrentSubscription, getPlanUsageSummary, listSubscriptionPlans } from "@/lib/data";
 import { requirePagePermission } from "@/lib/page-auth";
-import { stripeConfigStatus } from "@/lib/stripe";
+import { paypalConfigStatus } from "@/lib/paypal";
 import { publicPlanId } from "@/lib/marketing-content";
 
-export default async function SubscriptionPage({ searchParams }: { searchParams: Promise<{ plan?: string }> }) {
+export default async function SubscriptionPage({ searchParams }: { searchParams: Promise<{ plan?: string; paypal?: string }> }) {
   const selectedPlan = publicPlanId((await searchParams).plan);
   const user = await requirePagePermission("settings:write");
   const [subscription, plans, usageSummary] = await Promise.all([
@@ -13,7 +13,7 @@ export default async function SubscriptionPage({ searchParams }: { searchParams:
     listSubscriptionPlans(),
     getPlanUsageSummary(user.business_id)
   ]);
-  const stripe = stripeConfigStatus();
+  const paypal = paypalConfigStatus();
   return (
     <AppShell active="Subscription" title="Subscription & Billing" user={user}>
       <SubscriptionClient
@@ -21,12 +21,9 @@ export default async function SubscriptionPage({ searchParams }: { searchParams:
         plans={plans}
         subscription={subscription}
         usageSummary={usageSummary}
-        paymentProvidersReady={{
-          stripe: stripe.configured,
-          paypal: Boolean(process.env.PAYPAL_CLIENT_ID && process.env.PAYPAL_CLIENT_SECRET),
-          wipay: Boolean(process.env.WIPAY_ACCOUNT_NUMBER || process.env.WIPAY_API_KEY)
-        }}
-        stripeStatus={stripe}
+        paymentProvidersReady={{ paypal: paypal.configured }}
+        paypalResult={(await searchParams).paypal}
+        paypalEnvironment={paypal.environment}
       />
     </AppShell>
   );

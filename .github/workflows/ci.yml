@@ -47,6 +47,9 @@ jobs:
       - name: Signup and billing guards
         run: npm run test:signup-billing
 
+      - name: PayPal billing verification
+        run: npm run test:paypal
+
       - name: Plan gating
         run: npm run test:plan-gating
 
