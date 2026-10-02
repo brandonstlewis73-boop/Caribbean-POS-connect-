@@ -1,4 +1,5 @@
 import "server-only";
+import { LOCAL_AI_MODEL, localAiEnabled } from "./local-ai-config";
 import { AI_BUSINESS_TOOLS, getAiBusinessTool, type AiBusinessToolId } from "./ai-business-config";
 import { money } from "./constants";
 import { createId, query } from "./db";
@@ -31,14 +32,8 @@ type BusinessAiContext = {
   dashboard: Awaited<ReturnType<typeof getDashboardData>>;
 };
 
-function aiEnabled() {
-  const flag = process.env.AI_SUPPORT_ENABLED;
-  return Boolean(process.env.OPENAI_API_KEY) && (flag === undefined || flag === "" || flag === "true" || flag === "1");
-}
-
-function aiModel() {
-  return process.env.AI_MODEL || "gpt-5";
-}
+function aiEnabled() { return localAiEnabled(); }
+function aiModel() { return LOCAL_AI_MODEL; }
 
 function planRank(plan: PlanId) {
   return PLAN_ORDER.indexOf(plan);
@@ -171,38 +166,6 @@ Return sections:
 `;
 }
 
-async function callOpenAi(instructions: string, input: string) {
-  if (!aiEnabled()) {
-    return null;
-  }
-  const response = await fetch("https://api.openai.com/v1/responses", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      model: aiModel(),
-      instructions,
-      input,
-      max_output_tokens: 900
-    })
-  });
-  if (!response.ok) {
-    console.warn("AI business tool request failed", { status: response.status });
-    return null;
-  }
-  const payload = await response.json();
-  if (typeof payload.output_text === "string") return payload.output_text;
-  const output = Array.isArray(payload.output) ? payload.output : [];
-  return output
-    .flatMap((item: any) => (Array.isArray(item.content) ? item.content : []))
-    .map((content: any) => content?.text)
-    .filter(Boolean)
-    .join("\n")
-    .trim();
-}
-
 function fallbackOutput(toolId: AiBusinessToolId, prompt: string, context: BusinessAiContext) {
   const tool = getAiBusinessTool(toolId);
   const settings = context.settings;
@@ -214,7 +177,7 @@ function fallbackOutput(toolId: AiBusinessToolId, prompt: string, context: Busin
     "This keeps the workflow available without exposing API keys or inventing production data.",
     "",
     "Review before using",
-    `Add OPENAI_API_KEY and AI_MODEL in Vercel, redeploy, then run this again. Your request was: ${prompt.slice(0, 300)}`
+    `Load the local model in a compatible browser, then run this again. Your request was: ${prompt.slice(0, 300)}`
   ].join("\n");
 }
 
@@ -260,10 +223,9 @@ export async function runAiBusinessTool(user: User, input: AiToolRunInput) {
   const context = await getBusinessAiContext(businessId);
   const cleanPrompt = redactSensitiveText(input.prompt);
   const cleanExtra = redactSensitiveText(input.extraContext || "");
-  const inputText = `Business context:\n${buildContextBlock(context)}\n\nUser request:\n${cleanPrompt}\n\nExtra context:\n${cleanExtra}`;
-  const aiText = await callOpenAi(toolInstructions(input.toolId), inputText);
-  const configured = Boolean(aiText);
-  const output = redactSensitiveText(aiText || fallbackOutput(input.toolId, cleanPrompt, context));
+  const inputText = `User request:\n${cleanPrompt.slice(0, 1800)}\n\nExtra context:\n${cleanExtra.slice(0, 600)}\n\nBusiness context (selected records):\n${redactSensitiveText(buildContextBlock(context)).slice(0, 3500)}`;
+  const configured = false;
+  const output = aiEnabled() ? "Local generation prepared. The draft is generated on your device and is not stored in server logs." : redactSensitiveText(fallbackOutput(input.toolId, cleanPrompt, context));
 
   await logAiBusinessRun({
     userId: user.id,
@@ -276,6 +238,7 @@ export async function runAiBusinessTool(user: User, input: AiToolRunInput) {
 
   return {
     tool,
+    generation: aiEnabled() ? { instructions: toolInstructions(input.toolId), input: inputText } : null,
     output,
     configured,
     model: aiModel(),
@@ -287,7 +250,8 @@ export async function runAiBusinessTool(user: User, input: AiToolRunInput) {
 export function aiBusinessStatus(planId: PlanId) {
   return {
     enabled: aiEnabled(),
-    hasApiKey: Boolean(process.env.OPENAI_API_KEY),
+    hasApiKey: false,
+    provider: "browser",
     model: aiModel(),
     tools: AI_BUSINESS_TOOLS.map((tool) => ({
       ...tool,

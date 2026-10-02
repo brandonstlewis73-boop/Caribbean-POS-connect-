@@ -1,3 +1,4 @@
+import { LOCAL_AI_MODEL, localAiEnabled } from "./local-ai-config";
 import { HELP_CATEGORIES, SUPPORT_KNOWLEDGE_CONTEXT } from "./support-context";
 import type { HelpArticle, Role, SupportTicketInput, SupportTicketPriority } from "./types";
 
@@ -30,22 +31,10 @@ const SECRET_PATTERNS = [
   /\b(password|auth_token|api_key|secret)\s*[:=]\s*[^\s"'<>]+/gi
 ];
 
-function aiEnabledByFlag() {
-  const flag = process.env.AI_SUPPORT_ENABLED;
-  return flag === undefined || flag === "" || flag === "true" || flag === "1";
-}
-
 export function aiSupportStatus() {
-  const hasApiKey = Boolean(process.env.OPENAI_API_KEY);
-  const enabled = aiEnabledByFlag() && hasApiKey;
-  return {
-    enabled,
-    hasApiKey,
-    model: process.env.AI_MODEL || "gpt-5",
-    message: enabled
-      ? "AI support is ready."
-      : "AI support is not configured yet."
-  };
+  const enabled = localAiEnabled();
+  return { enabled, hasApiKey: false, provider: "browser", model: LOCAL_AI_MODEL,
+    message: enabled ? "Local browser AI is available on compatible devices." : "AI support is disabled." };
 }
 
 export function redactSensitiveText(value: string) {
@@ -126,48 +115,6 @@ function fallbackAnswer(question: string, articles: HelpArticle[]) {
   return "AI support is not configured yet. You can still search the help articles, use the getting started checklist, or submit a support ticket with the issue category, priority, and steps you already tried.";
 }
 
-async function callOpenAi({
-  instructions,
-  input,
-  maxOutputTokens = 700
-}: {
-  instructions: string;
-  input: string;
-  maxOutputTokens?: number;
-}) {
-  const status = aiSupportStatus();
-  if (!status.enabled) return null;
-
-  const response = await fetch("https://api.openai.com/v1/responses", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      model: status.model,
-      instructions,
-      input,
-      max_output_tokens: maxOutputTokens
-    })
-  });
-
-  if (!response.ok) {
-    console.warn("AI support request failed", { status: response.status });
-    return null;
-  }
-
-  const payload = await response.json();
-  if (typeof payload.output_text === "string") return payload.output_text;
-  const output = Array.isArray(payload.output) ? payload.output : [];
-  return output
-    .flatMap((item: any) => (Array.isArray(item.content) ? item.content : []))
-    .map((content: any) => content?.text)
-    .filter(Boolean)
-    .join("\n")
-    .trim();
-}
-
 export async function generateSupportAnswer({ question, role, currentPage, articles, messages = [] }: SupportAnswerInput) {
   const cleanQuestion = redactSensitiveText(question);
   const status = aiSupportStatus();
@@ -192,15 +139,10 @@ export async function generateSupportAnswer({ question, role, currentPage, artic
     .map((message) => `${message.role}: ${redactSensitiveText(message.content)}`)
     .join("\n");
 
-  const answer =
-    (await callOpenAi({
-      instructions: supportInstructions(role, currentPage),
-      input: `Help articles:\n${articleContext(articles)}\n\nRecent chat:\n${recentMessages}\n\nUser question:\n${cleanQuestion}`
-    })) || fallbackAnswer(cleanQuestion, articles);
-
   return {
-    configured: true,
-    answer: redactSensitiveText(answer),
+    configured: false,
+    answer: "Local AI context prepared.",
+    generation: { instructions: supportInstructions(role, currentPage), input: `User question:\n${cleanQuestion.slice(0, 1500)}\n\nRecent chat:\n${recentMessages.slice(-1200)}\n\nHelp articles:\n${redactSensitiveText(articleContext(articles)).slice(0, 3000)}` },
     model: status.model
   };
 }
@@ -240,41 +182,6 @@ function fallbackTicketSummary(ticket: SupportTicketInput): TicketSummary {
 }
 
 export async function generateTicketSummary(ticket: SupportTicketInput): Promise<TicketSummary> {
-  const fallback = fallbackTicketSummary(ticket);
-  const status = aiSupportStatus();
-  if (!status.enabled) return fallback;
-
-  const input = redactSensitiveText(
-    `Create a JSON support triage summary for this ticket.
-Name: ${ticket.name || ""}
-Business: ${ticket.business_name || ""}
-Category: ${ticket.issue_category || ""}
-Priority selected: ${ticket.priority || ""}
-Message: ${ticket.message || ""}`
-  );
-
-  const response = await callOpenAi({
-    instructions:
-      "Return only JSON with keys ai_summary, ai_category, ai_priority, ai_possible_solution, ai_steps_tried. Do not include secrets. Keep the summary short.",
-    input,
-    maxOutputTokens: 500
-  });
-  if (!response) return fallback;
-
-  try {
-    const parsed = JSON.parse(response.replace(/^```json\s*/i, "").replace(/```$/i, ""));
-    const priority = heuristicPriority(String(parsed.ai_summary || ""), parsed.ai_priority);
-    return {
-      ai_summary: redactSensitiveText(String(parsed.ai_summary || fallback.ai_summary)).slice(0, 500),
-      ai_category: String(parsed.ai_category || fallback.ai_category),
-      ai_priority: priority,
-      ai_possible_solution: redactSensitiveText(String(parsed.ai_possible_solution || fallback.ai_possible_solution)).slice(0, 1000),
-      ai_steps_tried: Array.isArray(parsed.ai_steps_tried)
-        ? parsed.ai_steps_tried.map((step: unknown) => redactSensitiveText(String(step)).slice(0, 240)).slice(0, 6)
-        : fallback.ai_steps_tried
-    };
-  } catch {
-    return fallback;
-  }
+  // Ticket metadata remains deterministic on the server; no remote AI requests.
+  return fallbackTicketSummary(ticket);
 }
-

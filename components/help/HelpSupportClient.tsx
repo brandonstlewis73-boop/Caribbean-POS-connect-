@@ -1,5 +1,7 @@
 "use client";
 
+import { assertLocalAiSupport, generateLocalDraft } from "@/lib/local-ai";
+import type { LocalGeneration } from "@/lib/local-ai-config";
 import { useMemo, useState, type ChangeEvent } from "react";
 import {
   AlertTriangle,
@@ -157,9 +159,9 @@ const troubleshootingCards = [
     fix: "Join the sandbox from the receiving phone, confirm TWILIO_WHATSAPP_FROM uses whatsapp:+number, then send a test message."
   },
   {
-    title: "Missing OPENAI_API_KEY",
-    description: "AI Support is unavailable until the server has an OpenAI key.",
-    fix: "Add OPENAI_API_KEY and AI_SUPPORT_ENABLED=true in Vercel Production, then redeploy."
+    title: "Local AI cannot load",
+    description: "The browser needs WebGPU, sufficient free memory, and an initial model download.",
+    fix: "Use a WebGPU-compatible browser, check available memory, and allow the initial model download."
   },
   {
     title: "Missing Twilio environment variables",
@@ -245,12 +247,13 @@ export function HelpSupportClient({
   const [activeTrouble, setActiveTrouble] = useState(troubleshootingCards[0].title);
   const [chatInput, setChatInput] = useState("");
   const [chatBusy, setChatBusy] = useState(false);
+  const [localProgress, setLocalProgress] = useState("");
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     {
       role: "assistant",
       content: aiStatus.enabled
         ? "Ask a question about using Caribbean POS Connect. I can help with setup, checkout, products, customers, storefront, WhatsApp, AI features, and billing."
-        : "AI Support is not configured yet. Add OPENAI_API_KEY to enable this feature.",
+        : "Local AI is disabled. Help articles and support tickets remain available.",
       configured: aiStatus.enabled
     }
   ]);
@@ -304,6 +307,7 @@ export function HelpSupportClient({
     const nextMessages: ChatMessage[] = [...chatMessages, { role: "user", content: clean }];
     setChatMessages(nextMessages);
     try {
+      assertLocalAiSupport();
       const response = await fetch("/api/help/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -313,9 +317,10 @@ export function HelpSupportClient({
           messages: nextMessages.slice(-8)
         })
       });
-      const payload = await readApiPayload<{ answer: string; configured: boolean; model: string }>(response);
+      const payload = await readApiPayload<{ answer: string; configured: boolean; model: string; generation?: LocalGeneration }>(response);
       if (!response.ok || !payload.data) throw new Error(payload.error || "Support chat could not answer.");
-      setChatMessages((current) => [...current, { role: "assistant", content: payload.data!.answer, configured: payload.data!.configured }]);
+      const answer = payload.data.generation ? await generateLocalDraft(payload.data.generation, setLocalProgress) : payload.data.answer;
+      setChatMessages((current) => [...current, { role: "assistant", content: answer, configured: Boolean(payload.data!.generation) || payload.data!.configured }]);
     } catch (error) {
       setChatMessages((current) => [
         ...current,
@@ -394,7 +399,7 @@ export function HelpSupportClient({
           </div>
           <div className="flex flex-wrap gap-2">
             <Badge tone={systemStatus.databaseConfigured ? "green" : "red"}>{systemStatus.databaseConfigured ? "Database ready" : "Database not configured"}</Badge>
-            <Badge tone={aiStatus.enabled ? "green" : "amber"}>{aiStatus.enabled ? "AI ready" : "AI not configured"}</Badge>
+            <Badge tone={aiStatus.enabled ? "green" : "amber"}>{aiStatus.enabled ? "Local browser AI" : "AI disabled"}</Badge>
           </div>
         </div>
       </section>
@@ -559,11 +564,11 @@ export function HelpSupportClient({
 
         <aside className="grid min-w-0 gap-6 self-start xl:sticky xl:top-24">
           <Panel>
-            <PanelHeader title="Ask AI Support" description="Optional assistant for POS setup and troubleshooting." action={<Badge tone={aiStatus.enabled ? "green" : "amber"}>{aiStatus.enabled ? aiStatus.model : "Not configured"}</Badge>} />
+            <PanelHeader title="Ask AI Support" description="Runs on your device. First use downloads roughly 1 GB; WebGPU is required. Asking a question starts the download." action={<Badge tone={aiStatus.enabled ? "green" : "amber"}>{aiStatus.enabled ? aiStatus.model : "Not configured"}</Badge>} />
             <div className="grid gap-4 p-5 sm:p-6">
               {!aiStatus.enabled ? (
                 <p className="rounded-card border border-amber-200/20 bg-amber-300/10 p-3 text-sm font-bold leading-6 text-amber-50">
-                  AI Support is not configured yet. Add OPENAI_API_KEY to enable this feature.
+                  Local AI is disabled. Help articles and support tickets remain available.
                 </p>
               ) : null}
               <div className="grid max-h-80 gap-3 overflow-y-auto rounded-3xl border border-cyan-200/12 bg-slate-950/40 p-4">
@@ -575,7 +580,7 @@ export function HelpSupportClient({
                     <p className="whitespace-pre-wrap leading-6">{message.content}</p>
                   </div>
                 ))}
-                {chatBusy ? <p className="text-sm font-bold text-cyan-100/70">AI Support is checking the help context...</p> : null}
+                {chatBusy ? <p className="text-sm font-bold text-cyan-100/70">{localProgress || "Preparing help context…"}</p> : null}
               </div>
               <div className="grid gap-2">
                 <label htmlFor="ai-support-question" className="sr-only">Ask AI Support question</label>

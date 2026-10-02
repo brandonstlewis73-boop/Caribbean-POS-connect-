@@ -43,7 +43,7 @@ export const GETTING_STARTED_CHECKLIST = [
 export const FAQS = [
   {
     question: "Why is AI support unavailable?",
-    answer: "AI support needs OPENAI_API_KEY and AI_SUPPORT_ENABLED in the server environment. The help articles and ticket form still work without AI."
+    answer: "AI runs locally in a WebGPU-compatible browser after an initial model download. No API key is needed. Help articles and ticket forms remain available on unsupported devices."
   },
   {
     question: "Can staff see private customer or order data in support chat?",
