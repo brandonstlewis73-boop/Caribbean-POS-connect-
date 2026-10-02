@@ -2337,3 +2337,52 @@ th {
       max-width: none;
     }
   }
+
+/* Inventory example on the business showcase. */
+.inventory-preview { padding: 0; max-width: 284px; overflow: hidden; border: 6px solid #18232f; border-radius: 34px; background: #f8fafc; box-shadow: 0 2px 0 #64748b inset, 0 22px 48px #18364d26, 0 5px 12px #18364d14; }
+.inventory-status-bar { position: relative; display: flex; justify-content: space-between; align-items: center; padding: 12px 14px 8px; font-size: 10px; font-weight: 800; color: #172c3d; }
+.inventory-status-bar > span:last-child { display: flex; align-items: center; gap: 3px; }
+.inventory-camera { position: absolute; left: 50%; top: 9px; transform: translateX(-50%); width: 64px; height: 16px; border-radius: 20px; background: #111b24; }
+.inventory-app-header { display: flex; gap: 7px; align-items: center; padding: 12px 12px; background: white; border-bottom: 1px solid #e2e8f0; }
+.inventory-app-header img { border-radius: 7px; flex-shrink: 0; }
+.inventory-app-header > div { display: grid; gap: 3px; min-width: 0; }
+.inventory-app-header strong { font-size: 9px; color: #183447; }
+.inventory-app-header div span { font-size: 8px; color: #64748b; }
+.inventory-avatar { margin-left: auto; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #e2f3ef; color: #08796e; font-size: 8px; font-weight: 800; flex-shrink: 0; }
+.inventory-screen-heading { display: flex; justify-content: space-between; align-items: center; gap: 6px; padding: 16px 12px 12px; }
+.inventory-screen-heading h3 { margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -.6px; color: #173042; }
+.inventory-screen-heading p { margin: 4px 0 0; font-size: 9px; color: #64748b; }
+.inventory-demo-label { padding: 4px 6px; border: 1px solid #dbe4eb; border-radius: 5px; color: #64748b; font-size: 8px; background: white; }
+.inventory-summary { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 5px; margin: 0 12px 12px; }
+.inventory-summary > div { display: grid; gap: 5px; padding: 9px 7px; border: 1px solid #e2e8f0; border-radius: 8px; background: white; }
+.inventory-summary span { font-size: 8px; color: #64748b; }
+.inventory-summary strong { font-size: 18px; font-weight: 800; line-height: 1; color: #173042; }
+.inventory-summary .inventory-summary-alert { border-color: #fde4b4; background: #fff9ee; }
+.inventory-summary-alert strong { color: #a65e09; }
+.inventory-search { display: flex; align-items: center; gap: 6px; margin: 0 12px 14px; padding: 9px 7px; border: 1px solid #dce4eb; border-radius: 7px; background: white; color: #718397; }
+.inventory-search span { flex: 1; font-size: 8px; }
+.inventory-list-heading { display: flex; justify-content: space-between; align-items: center; padding: 0 12px 6px; font-size: 9px; color: #244358; }
+.inventory-list-heading > span { font-size: 8px; color: #64748b; }
+.inventory-product-list { margin: 0 12px; border: 1px solid #e2e8f0; border-radius: 9px; overflow: hidden; background: white; }
+.inventory-product-row { display: flex; align-items: center; gap: 7px; padding: 10px 7px; border-bottom: 1px solid #edf1f5; }
+.inventory-product-row:last-child { border-bottom: 0; }
+.inventory-product-row img { width: 38px; height: 38px; border-radius: 6px; object-fit: cover; flex-shrink: 0; }
+.inventory-product-info { display: grid; gap: 3px; min-width: 0; }
+.inventory-product-info strong { font-size: 9px; color: #173042; }
+.inventory-product-info span { font-size: 7px; color: #64748b; }
+.inventory-product-info b { font-size: 8px; font-weight: 700; color: #29495d; }
+.inventory-stock { display: grid; gap: 3px; justify-items: end; margin-left: auto; flex-shrink: 0; }
+.inventory-stock strong { font-size: 13px; color: #173042; }
+.inventory-stock span { padding: 3px 4px; border-radius: 4px; font-size: 7px; font-weight: 700; background: #e8f6ef; color: #16734d; white-space: nowrap; }
+.inventory-stock.is-low span { background: #fff0d7; color: #99560a; }
+.inventory-reorder-note { display: flex; gap: 6px; align-items: flex-start; margin: 10px 12px 14px; padding: 8px; border: 1px solid #f5dfb7; border-radius: 7px; background: #fffaf0; font-size: 8px; line-height: 1.6; color: #8b5a14; }
+.inventory-reorder-note svg { flex-shrink: 0; margin-top: 1px; }
+.inventory-bottom-nav { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); padding: 9px 5px; border-top: 1px solid #e2e8f0; background: white; }
+.inventory-bottom-nav > span { display: grid; justify-items: center; gap: 4px; font-size: 7px; color: #718397; }
+.inventory-bottom-nav .is-active { color: #08796e; font-weight: 800; }
+.inventory-preview figcaption { background: #f8fafc; color: #64748b; border-radius: 0; font-size: 8px; padding: 7px 4px; }
+.inventory-home-indicator { height: 4px; width: 70px; margin: 2px auto 8px; border-radius: 10px; background: #18232f; }
+@media (max-width: 767px) {
+  .business-device-stage:has(.inventory-preview) { grid-template-columns: minmax(0, 1fr); }
+  .business-device-stage:has(.inventory-preview) .business-tablet-photo { display: none; }
+}

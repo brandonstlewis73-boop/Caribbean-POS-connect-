@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRef, useState, type KeyboardEvent } from "react";
-import { ArrowRight, Check, Package, ReceiptText, ShoppingBag } from "lucide-react";
+import { ArrowRight, Check, Package, ReceiptText, ShoppingBag, Search, SlidersHorizontal, LayoutDashboard, BarChart3, CircleAlert, Wifi, BatteryFull, Signal } from "lucide-react";
 
 const segments = [
   {
@@ -35,6 +35,7 @@ const segments = [
 export function PhonePreview({ variant = 0 }: { variant?: number }) {
   const segment = segments[variant] || segments[0];
   const Icon = segment.icon;
+  if (segment.id === "teams") return <InventoryPreview />;
   return (
     <figure className={`product-phone phone-${segment.color}`} aria-label={`${segment.screen} example preview`}>
       <div className="product-phone-speaker" />
@@ -47,6 +48,36 @@ export function PhonePreview({ variant = 0 }: { variant?: number }) {
         {segment.rows.map((row) => <div key={row}><Check size={15} /><span>{row}</span></div>)}
       </div>
       <figcaption>{segment.caption}</figcaption>
+    </figure>
+  );
+}
+
+const inventoryPreviewProducts = [
+  { name: "Orange juice", detail: "500 ml · JU-001", image: "juice.jpg", price: "TT$18.00", stock: 48 },
+  { name: "Coffee beans", detail: "250 g · CF-002", image: "coffee.jpg", price: "TT$60.00", stock: 24 },
+  { name: "Fresh bread", detail: "Daily loaf · BR-003", image: "bread.jpg", price: "TT$12.00", stock: 4 }
+];
+
+function InventoryPreview() {
+  return (
+    <figure className="product-phone inventory-preview" aria-label="Example inventory screen with sample products and stock levels">
+      <div className="inventory-status-bar" aria-hidden="true"><span>9:41</span><div className="inventory-camera" /><span><Signal size={12} /><Wifi size={12} /><BatteryFull size={17} /></span></div>
+      <div className="inventory-app-header"><Image src="/caribbean-pos-connect-icon.png" alt="" width={26} height={26} /><div><strong>Caribbean POS Connect</strong><span>Port of Spain · Main store</span></div><span className="inventory-avatar">AL</span></div>
+      <div className="inventory-screen-heading"><div><h3>Inventory</h3><p>Your products at a glance</p></div><span className="inventory-demo-label">Sample</span></div>
+      <div className="inventory-summary"><div><span>Products</span><strong>128</strong></div><div><span>In stock</span><strong>124</strong></div><div className="inventory-summary-alert"><span>Low stock</span><strong>4</strong></div></div>
+      <div className="inventory-search"><Search size={13} /><span>Search name or SKU</span><SlidersHorizontal size={13} /></div>
+      <div className="inventory-list-heading"><strong>Products</strong><span>Showing 3 of 128</span></div>
+      <div className="inventory-product-list">
+        {inventoryPreviewProducts.map((product) => <div className="inventory-product-row" key={product.name}>
+          <Image src={`/marketing/${product.image}`} alt={product.name} width={44} height={44} />
+          <div className="inventory-product-info"><strong>{product.name}</strong><span>{product.detail}</span><b>{product.price}</b></div>
+          <div className={`inventory-stock ${product.stock < 5 ? "is-low" : ""}`}><strong>{product.stock}</strong><span>{product.stock < 5 ? "Low stock" : "In stock"}</span></div>
+        </div>)}
+      </div>
+      <div className="inventory-reorder-note"><CircleAlert size={14} /><span><strong>Fresh bread is running low</strong><br />Reorder before the next busy day.</span></div>
+      <div className="inventory-bottom-nav" aria-label="Example app navigation"><span><LayoutDashboard size={16} />Home</span><span><ShoppingBag size={16} />Sell</span><span className="is-active"><Package size={16} />Inventory</span><span><BarChart3 size={16} />Reports</span></div>
+      <figcaption>Example inventory · Sample data</figcaption>
+      <div className="inventory-home-indicator" aria-hidden="true" />
     </figure>
   );
 }
