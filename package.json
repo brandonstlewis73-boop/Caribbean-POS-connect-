@@ -9,6 +9,7 @@
     "build": "node --max-old-space-size=2048 ./node_modules/next/dist/bin/next build",
     "start": "node ./node_modules/next/dist/bin/next start",
     "lint": "eslint .",
+    "test:local-ai": "node --import tsx scripts/test-local-ai.ts",
     "test:ai-tools": "tsx scripts/test-ai-tools.ts",
     "test:map-links": "tsx scripts/test-map-links.ts",
     "test:paypal": "node --conditions=react-server --import tsx scripts/test-paypal.ts",
@@ -24,6 +25,7 @@
     "db:backup": "tsx scripts/backup-db.ts"
   },
   "dependencies": {
+    "@mlc-ai/web-llm": "^0.2.85",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.6.1",
     "bcryptjs": "^2.4.3",

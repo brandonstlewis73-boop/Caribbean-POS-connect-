@@ -1,5 +1,7 @@
 "use client";
 
+import { assertLocalAiSupport, generateLocalDraft } from "@/lib/local-ai";
+import type { LocalGeneration } from "@/lib/local-ai-config";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
@@ -20,6 +22,7 @@ import { AI_BUSINESS_TOOLS, type AiBusinessToolConfig, type AiBusinessToolId } f
 import type { PlanUsageSummary } from "@/lib/plan-gating";
 
 type ToolResult = {
+  generation?: LocalGeneration | null;
   tool: AiBusinessToolConfig;
   output: string;
   configured: boolean;
@@ -68,6 +71,7 @@ export function AiBusinessOSClient({
     setMessage("");
     setResult(null);
     try {
+      assertLocalAiSupport();
       const response = await fetch("/api/ai/tools", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -75,8 +79,10 @@ export function AiBusinessOSClient({
       });
       const payload = await readApiPayload<ToolResult>(response);
       if (!response.ok || !payload.data) throw new Error(payload.error || "AI tool could not run.");
-      setResult(payload.data);
-      setMessage(payload.data.configured ? "AI draft generated. Review before using." : "Fallback draft created. Add OPENAI_API_KEY for live AI.");
+      if (!payload.data.generation) throw new Error("Local AI is disabled.");
+      const output = await generateLocalDraft(payload.data.generation, setMessage);
+      setResult({ ...payload.data, generation: undefined, output, configured: true });
+      setMessage("Local AI draft generated on this device. Review before using.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "AI tool could not run.");
     } finally {
@@ -97,13 +103,14 @@ export function AiBusinessOSClient({
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <Badge tone={aiStatus.enabled ? "green" : "amber"}>
-                {aiStatus.enabled ? "AI configured" : "AI not configured"}
+                {aiStatus.enabled ? "Local browser AI" : "AI disabled"}
               </Badge>
               <Badge tone="teal">{usage.planName}</Badge>
               <Badge tone={aiMeter?.locked ? "amber" : "neutral"}>
                 AI usage: {aiMeter ? `${aiMeter.used}/${aiMeter.limit ?? "Unlimited"}` : "Unavailable"}
               </Badge>
             </div>
+            <Link href="/ai-test" className="mt-3 inline-block text-sm font-bold text-cyan-200 underline">Test local AI</Link>
             <h2 className="mt-4 text-2xl font-black text-white">AI Business OS</h2>
             <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-teal-50/65">
               Draft WhatsApp replies, promos, prep lists, dispatch plans, forecasts, loyalty ideas, and business advice using only this business account data.
@@ -175,9 +182,9 @@ export function AiBusinessOSClient({
                   </Link>
                 </div>
               ) : null}
-              {!aiStatus.hasApiKey ? (
+              {aiStatus.enabled ? (
                 <div className="rounded-card border border-amber-300/20 bg-amber-300/10 p-4 text-sm font-semibold leading-6 text-amber-50">
-                  OPENAI_API_KEY is not configured. The app will keep working, but live AI generation needs the key in Vercel and a fresh redeploy.
+                  First use downloads roughly 1 GB of model files and needs a compatible WebGPU device. Clicking Generate starts the download. Drafts run on this device without API fees.
                 </div>
               ) : null}
               <TextAreaField

@@ -80,8 +80,6 @@ SUPABASE_URL=https://<project-ref>.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=<server-only-service-role-key>
 SUPABASE_STORAGE_BUCKET=product-images
 ADMIN_EMAIL=admin@example.com
-OPENAI_API_KEY=
-AI_MODEL=gpt-5
 AI_SUPPORT_ENABLED=true
 DEFAULT_COUNTRY_CODE=+1868
 DEFAULT_COUNTRY=TT
@@ -311,7 +309,7 @@ The app cleans Trinidad and Tobago phone numbers before building WhatsApp links 
 ## AI Business OS
 
 - `/ai` adds AI workflows for WhatsApp ordering, missed calls, product descriptions, promos, slow-day sales boosts, loyalty, inventory forecasts, prep lists, delivery dispatch, delay detection, business coaching, profit advice, review replies, onboarding, SaaS support, receipt/expense review, Caribbean business mode, and smart checkout upsells.
-- AI calls run backend-only through `OPENAI_API_KEY` and are scoped to the logged-in business.
+- AI drafts run locally in the browser through WebLLM (Qwen3-1.7B), with no paid API fallback. Business context remains scoped to the logged-in account. Owners can test with `/ai-test`; see [local AI setup](docs/local-browser-ai.md).
 - AI outputs are drafts only. Staff must review before sending, saving, posting, or applying anything.
 - AI usage is plan-gated and counted in monthly AI generation usage.
 - Apply AI logging with `npm run db:ai-logs` or run `db/add_ai_business_logs.sql` in Supabase SQL Editor.
