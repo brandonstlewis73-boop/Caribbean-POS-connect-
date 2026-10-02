@@ -2,7 +2,7 @@
 
 Open `/ai-test` while signed in with settings access. Enter a test request and click **Download & generate** to load Qwen3-1.7B. This page uses only your entered text and does not fetch business records or change plan entitlements.
 
-The model runs in a Web Worker through WebLLM. The first run downloads roughly 1 GB of weights plus runtime files; browser caching depends on available storage. WebGPU, a secure HTTPS connection (or localhost), and sufficient device memory are required. Compatible desktop Chrome or Edge is recommended for the initial test. Unsupported devices display a clear error. Downloads can take several minutes. Closing or reloading the page stops the worker.
+The model runs in a Web Worker through WebLLM. The first run downloads roughly 1 GB of weights plus runtime files; browser caching depends on available storage. WebGPU, a secure HTTPS connection (or localhost), and sufficient device memory are required. Compatible desktop Chrome or Edge is recommended for the initial test. Unsupported devices display a clear error. Downloads can take several minutes. Use Stop to cancel a download or generation on the test page. Closing or reloading the page also stops the worker. Startup, download, and generation have timeouts; worker failures are reported instead of leaving the button busy.
 
 No OpenAI API calls or paid fallback remain. Existing OPENAI_API_KEY and AI_MODEL variables are ignored and can be removed from Vercel. AI_SUPPORT_ENABLED=false disables the business/support flows and owner test page. No AI key is needed.
 
