@@ -1,5 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { money } from "@/lib/constants";
+import { promotionFromSavedDetails } from "@/lib/ai-promotion";
 import { assertLocalAiSupport, generateLocalDraft } from "@/lib/local-ai";
 import { orderDelayReviewText, type OrderDelayReview } from "@/lib/ai-order-delays";
 import type { LocalGeneration } from "@/lib/local-ai-config";
@@ -10,9 +12,9 @@ import { workflowRevisionPrompt } from "@/lib/ai-workflows";
 import { friendlyAiProgress, usesProductSelection, workflowName } from "@/lib/ai-workspace-presentation";
 import type { AiWorkspaceResources } from "@/lib/ai-workspace-types";
 
-type Thread = { input: string; goal: string; requests: string[]; output: string;
+type Thread = { source: "ai" | "catalog"; input: string; goal: string; requests: string[]; output: string;
   review: OrderDelayReview | null; completed: boolean; productId: string; resultProductId: string; saved: boolean };
-const emptyThread = (): Thread => ({ review: null, input: "", goal: "", requests: [], output: "", completed: false, productId: "", resultProductId: "", saved: false });
+const emptyThread = (): Thread => ({ source: "ai", review: null, input: "", goal: "", requests: [], output: "", completed: false, productId: "", resultProductId: "", saved: false });
 
 export function useAiWorkspace(usage: PlanUsageSummary, enabled: boolean) {
   const [toolId, setToolId] = useState<AiBusinessToolId>("product_description_writer");
@@ -45,7 +47,7 @@ export function useAiWorkspace(usage: PlanUsageSummary, enabled: boolean) {
       const response = await fetch("/api/ai/workspace", { signal, cache: "no-store" });
       const payload = await readApiPayload<AiWorkspaceResources>(response);
       if (!response.ok || !payload.data) throw new Error(payload.error || "Product records could not be loaded.");
-      if (mounted.current && !signal?.aborted) { setResources(payload.data); return true; }
+      if (mounted.current && !signal?.aborted) { setResources(payload.data); return payload.data; }
     } catch (e) {
       if (mounted.current && !signal?.aborted) setResourceMessage(e instanceof Error ? e.message : "Product records could not be loaded.");
       return false;
@@ -88,7 +90,7 @@ export function useAiWorkspace(usage: PlanUsageSummary, enabled: boolean) {
     const controller = new AbortController(); active.current = controller;
     const current = () => mounted.current && active.current === controller;
     setBusy(true); setError(""); setStatus("Connecting your business context…");
-    changeThread(id, { input: "", output: "", review: null, completed: false, saved: false, requests: [...thread.requests, input] });
+    changeThread(id, { source: "ai", input: "", output: "", review: null, completed: false, saved: false, requests: [...thread.requests, input] });
     try {
       if (id !== "order_delay_detector") assertLocalAiSupport();
       const response = await fetch("/api/ai/tools", {
@@ -128,6 +130,23 @@ export function useAiWorkspace(usage: PlanUsageSummary, enabled: boolean) {
         void fetch("/api/ai/tools").then(response => readApiPayload<{ usage: PlanUsageSummary }>(response))
           .then(payload => { if (mounted.current && payload.data?.usage) setMeter(payload.data.usage.meters.find(item => item.key === "aiGenerations")); }).catch(() => {});
       }
+    }
+  }
+
+  async function useSavedDetails() {
+    if (toolId !== "promo_generator" || !product || busy || saving || blocked) return;
+    const id = product.id;
+    setSaving(true); setError(""); setStatus("Refreshing product details…");
+    const fresh = await loadResources();
+    if (mounted.current) {
+      const selected = fresh && fresh.products.find(item => item.id === id);
+      if (selected) {
+        changeThread("promo_generator", { ...emptyThread(), productId: id, resultProductId: id,
+          output: promotionFromSavedDetails({ productName: selected.name, priceText: money(selected.sellingPrice, fresh.currency), available: selected.stock > 0 }),
+          completed: true, source: "catalog", goal: "Write a short promotion using this product's saved details." });
+        setStatus("");
+      } else { setError("Product details could not be refreshed. Reload your catalog before creating a message."); setStatus(""); }
+      setSaving(false);
     }
   }
 
@@ -176,6 +195,6 @@ export function useAiWorkspace(usage: PlanUsageSummary, enabled: boolean) {
     startWith, run, stop: () => {
       cancelForSwitch(); setStatus("");
       setError("Request stopped. Your previous response is still available.");
-    }, saveProduct, copy, download,
+    }, useSavedDetails, saveProduct, copy, download,
     reloadResources: () => loadResources() };
 }
