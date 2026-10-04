@@ -30,6 +30,11 @@ async function main() {
   assert.deepEqual(updates, ["Hello ", "Hello ", "Hello Caribbean"]);
   const cancel = new AbortController();
   await assert.rejects(collectLocalDraft(chunks(), () => cancel.abort(), cancel.signal), /stopped/);
+  async function* repetitive() {
+    yield { choices: [{ delta: { content: "Please let me know your price for the bakery lunch special. " } }] };
+    yield { choices: [{ delta: { content: "Please let me know your price for the bakery lunch special. " } }] };
+  }
+  await assert.rejects(collectLocalDraft(repetitive(), () => {}), /repeating/);
   console.log("Local worker readiness, worker failures, startup/generation timeouts, cancellation, and retry tests passed.");
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });

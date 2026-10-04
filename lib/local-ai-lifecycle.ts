@@ -42,6 +42,14 @@ export async function collectLocalDraft(
   for await (const chunk of stream) {
     if (signal?.aborted) throw abortError();
     draft += chunk.choices[0]?.delta.content || "";
+    const sentences = draft.match(/[^.!?\n]+[.!?\n]/g) || [];
+    const seen = new Set<string>();
+    for (const sentence of sentences) {
+      const normalized = sentence.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+      if (normalized.length < 35) continue;
+      if (seen.has(normalized)) throw new Error("Local AI started repeating itself. Try a shorter, more specific request.");
+      seen.add(normalized);
+    }
     onDraft(draft);
   }
   return draft.trim();
