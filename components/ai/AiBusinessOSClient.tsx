@@ -7,6 +7,7 @@ import { getWorkflowGuide } from "@/lib/ai-workflows";
 import { usesProductSelection, workflowName, workflowStarters } from "@/lib/ai-workspace-presentation";
 import { useAiWorkspace } from "./workspace/useAiWorkspace";
 import { AiWorkspaceNavigation } from "./workspace/AiWorkspaceNavigation";
+import { AiOrderDelayReview } from "./workspace/AiOrderDelayReview";
 import { AiWorkspaceResult } from "./workspace/AiWorkspaceResult";
 import "./workspace/ai-workspace.css";
 
@@ -38,7 +39,8 @@ export function AiBusinessOSClient({usage,aiStatus,userName}: {
           <div className="aw-conversation" aria-label="AI conversation">
             {isPristine?<div className="aw-welcome"><div className="aw-welcome-heading"><span className="aw-ai-avatar"><Sparkles size={23}/></span><div><h3>What would you like to get done?</h3><p>Choose a workflow and tell me your goal.</p></div></div><div className="aw-starters">{workflowStarters(ai.toolId).map(starter=><button type="button" key={starter.label} disabled={ai.saving||ai.busy} onClick={()=>ai.startWith(starter.prompt)}><span>{starter.label}</span><ChevronRight size={17}/></button>)}</div></div>:null}
             {ai.thread.requests.slice(-3).map((request,index)=><div className="aw-user-row" key={`${index}-${request}`}><span className="aw-user-avatar" aria-hidden="true">{userName?userName.split(/\s+/).map(part=>part[0]).slice(0,2).join(""):<UserRound size={17}/>}</span><div className="aw-user-message">{request}</div></div>)}
-            {(ai.thread.output||ai.busy)?<AiWorkspaceResult workflowId={ai.toolId} title={workflowName(ai.toolId)} text={ai.thread.output} completed={ai.thread.completed} busy={ai.busy} saving={ai.saving} saved={ai.thread.saved} canSave={canSave} productName={ai.product?.name} onEdit={ai.setOutput} onSave={ai.saveProduct} onCopy={ai.copy} onDownload={ai.download}/>:null}
+            {ai.thread.review?<AiOrderDelayReview review={ai.thread.review} onDownload={ai.download}/>:null}
+            {(ai.thread.output||ai.busy)?<AiWorkspaceResult workflowId={ai.toolId} title={ai.toolId==="order_delay_detector"?"Suggested next steps":workflowName(ai.toolId)} text={ai.thread.output} completed={ai.thread.completed} busy={ai.busy} saving={ai.saving} saved={ai.thread.saved} canSave={canSave} productName={ai.product?.name} onEdit={ai.setOutput} onSave={ai.saveProduct} onCopy={ai.copy} onDownload={ai.download}/>:null}
           </div>
           <div className="aw-composer-area">
             {ai.locked?<div className="aw-access-notice">{workflowName(ai.toolId)} is available on {ai.tool.requiredPlan}. <Link href="/subscription">View plans</Link></div>:null}
