@@ -1,7 +1,7 @@
 import type { LocalGeneration } from "./local-ai-config";
 
 export function localDraftInstructions(request: LocalGeneration) {
-  if (request.purpose === "product-promotion" || request.purpose === "product-description") {
+  if (request.purpose === "product-promotion" || request.purpose === "product-description" || request.purpose === "customer-message") {
     return request.instructions.slice(0, 5000) + "\nWrite each sentence once. Do not promise that you will send a message or perform an action. Output only the finished text.";
   }
   return request.instructions.slice(0, 5000) + "\nFollow the user request directly. Output the requested draft, without an introduction or explanation. Use bracketed placeholders for facts the user has not provided. When price placeholders are requested, include [PRICE] in the actual promotion. Do not ask for missing details when placeholders are requested. Never promise to send messages, look up prices, or perform actions. Write each sentence once." +
@@ -14,6 +14,25 @@ export function localDraftIssue(request: LocalGeneration, text: string): string 
   const normalized = text.replace(/[’‘]/g, "'");
   if (/^(?:sure[,! ]|here(?:'s| is)|I can (?:write|draft|create))/i.test(normalized.trim())) {
     return "Output only the requested draft, without an assistant introduction.";
+  }
+  if (request.purpose === "customer-message" && request.customerMessageFacts) {
+    const facts = request.customerMessageFacts;
+    if (/\b(?:current|daily|weekly|monthly|today'?s?)\s+(?:sales|revenue)|\b(?:estimated profit|profit margin|cost price|pending orders|completed orders|new orders|customer spending)\b|^\s*(?:stock|margin|cost|assumptions?|internal notes?)\s*:/im.test(text)) {
+      return "Remove internal sales, costs, profit, stock, and order-report fields. Return only a reply for the customer.";
+    }
+    if (facts.catalogRequested && !facts.pickupEnabled && /\b(?:pickup|pick up)\b/i.test(text) && !/\b(?:not|no|unavailable|cannot|don't)\b.{0,35}\b(?:pickup|pick up)\b|\b(?:pickup|pick up)\b.{0,35}\b(?:not|unavailable)\b/i.test(text)) return "Pickup is not offered. Do not invite the customer to collect an order.";
+    if (facts.catalogRequested && !facts.deliveryEnabled && /\bdelivery\b/i.test(text) && !/\b(?:not|no|unavailable|cannot|don't)\b.{0,35}\bdelivery\b|\bdelivery\b.{0,35}\b(?:not|unavailable)\b/i.test(text)) return "Delivery is not offered. Do not promise delivery.";
+    if (facts.catalogRequested && facts.products.length) {
+      const lower = text.toLowerCase();
+      const mentioned = facts.products.filter(product => lower.includes(product.name.toLowerCase()));
+      if (!mentioned.length) return "Answer the availability question by naming at least one provided product and its saved price, then ask which items the customer wants.";
+      if (mentioned.some(product => !lower.includes(product.priceText.toLowerCase()))) return "Include the exact saved prices for the products you name.";
+      if (!/\b(?:which|what|choose|choice|prefer|would you like|want|interested)\b/i.test(text)) return "Ask which listed items the customer would like.";
+      if (/\b(?:provide|send|share|enter)\b.{0,35}\b(?:personal|details|address|phone|email)\b/i.test(text)) return "First help the customer choose items. Do not request personal details before their selection.";
+    }
+    const prices = text.match(/[a-z]{0,3}\s*[$€£]\s*\d+(?:[.,]\d+)*/gi) || [];
+    const compact = (value: string) => value.toLowerCase().replace(/\s|,/g, "");
+    if (facts.catalogRequested && prices.some(price => !facts.products.some(product => compact(product.priceText) === compact(price)))) return "Use only the saved catalog prices. Do not invent another price.";
   }
   if (request.purpose === "product-description" && request.descriptionFacts) {
     const facts = request.descriptionFacts;
@@ -51,7 +70,7 @@ export function localDraftIssue(request: LocalGeneration, text: string): string 
     if (facts.available && /\b(?:unavailable|out of stock|not available)\b/i.test(text)) return "The selected product is available. Do not claim it is out of stock.";
     if (!facts.available && !/\b(?:unavailable|out of stock|not available)\b/i.test(text)) return "The product is currently unavailable. Say so clearly; invite a message about availability, not an immediate order.";
   }
-  const asksForPlaceholders = request.purpose !== "product-promotion" && /\bplaceholders?\b/i.test(request.input);
+  const asksForPlaceholders = !request.purpose && /\bplaceholders?\b/i.test(request.input);
   if (asksForPlaceholders && /\b(?:prices?|costs?|amounts?)\b/i.test(request.input) &&
       !/\[[^\]\n]*(?:price|cost|amount)[^\]\n]*\]/i.test(text)) {
     return "Include a bracketed [PRICE] placeholder in the draft instead of discussing prices.";
