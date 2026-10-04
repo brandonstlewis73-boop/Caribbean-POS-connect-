@@ -247,6 +247,7 @@ export const aiSupportChatSchema = z.object({
 });
 
 export const aiBusinessToolSchema = z.object({
+  selectedProductId: z.string().trim().min(1).max(128).optional(),
   toolId: z.string().trim().min(2).max(80),
   prompt: z.string().trim().min(2).max(4000),
   extraContext: optionalText
