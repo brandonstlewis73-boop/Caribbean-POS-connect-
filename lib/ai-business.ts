@@ -1,4 +1,5 @@
 import "server-only";
+import { prepareProductDescription } from "./ai-product-description";
 import { prepareProductPromotion } from "./ai-promotion";
 import { hasPermission } from "./permissions";
 import { workflowRecordContext } from "./ai-workflows";
@@ -257,7 +258,13 @@ export async function runAiBusinessTool(user: User, input: AiToolRunInput) {
           businessName: redactSensitiveText(context.settings.business_name),
           available: selectedProduct.stock_quantity > 0
         })
-      : { instructions: toolInstructions(input.toolId), input: inputText }) : null,
+      : input.toolId === "product_description_writer" && selectedProduct
+        ? prepareProductDescription(cleanPrompt + (cleanExtra ? `\nAdditional instructions: ${cleanExtra}` : ""), {
+            productName: redactSensitiveText(selectedProduct.name),
+            category: redactSensitiveText(selectedProduct.category),
+            description: selectedProduct.description ? redactSensitiveText(selectedProduct.description) : null
+          })
+        : { instructions: toolInstructions(input.toolId), input: inputText }) : null,
     output,
     configured,
     model: aiModel(),

@@ -23,6 +23,8 @@ export function useAiWorkspace(usage: PlanUsageSummary, enabled: boolean) {
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
+  const [recordConflict, setRecordConflict] = useState(false);
+  const [recordsReloaded, setRecordsReloaded] = useState(false);
   const [meter, setMeter] = useState(usage.meters.find(item => item.key === "aiGenerations"));
   const active = useRef<AbortController | null>(null);
   const pending = useRef<{ id: AiBusinessToolId; previous: Thread } | null>(null);
@@ -39,12 +41,13 @@ export function useAiWorkspace(usage: PlanUsageSummary, enabled: boolean) {
   const loadResources = useCallback(async (signal?: AbortSignal) => {
     setLoadingResources(true); setResourceMessage("");
     try {
-      const response = await fetch("/api/ai/workspace", { signal });
+      const response = await fetch("/api/ai/workspace", { signal, cache: "no-store" });
       const payload = await readApiPayload<AiWorkspaceResources>(response);
       if (!response.ok || !payload.data) throw new Error(payload.error || "Product records could not be loaded.");
-      if (mounted.current && !signal?.aborted) setResources(payload.data);
+      if (mounted.current && !signal?.aborted) { setResources(payload.data); return true; }
     } catch (e) {
       if (mounted.current && !signal?.aborted) setResourceMessage(e instanceof Error ? e.message : "Product records could not be loaded.");
+      return false;
     } finally { if (mounted.current && !signal?.aborted) setLoadingResources(false); }
   }, []);
   useEffect(() => {
@@ -61,11 +64,12 @@ export function useAiWorkspace(usage: PlanUsageSummary, enabled: boolean) {
   }
   function selectWorkflow(id: AiBusinessToolId) {
     if (saving) return;
-    cancelForSwitch(); setToolId(id); setStatus(""); setError("");
+    cancelForSwitch(); setRecordConflict(false); setRecordsReloaded(false); setToolId(id); setStatus(""); setError("");
   }
   function chooseProduct(id: string) {
     if (saving) return;
     cancelForSwitch();
+    setRecordConflict(false); setRecordsReloaded(false);
     changeThread(toolId, { ...emptyThread(), productId: id }); setStatus(""); setError("");
   }
   function setInput(input: string) { changeThread(toolId, { input }); }
@@ -116,20 +120,31 @@ export function useAiWorkspace(usage: PlanUsageSummary, enabled: boolean) {
   async function saveProduct() {
     if (saving || busy || !thread.completed || !thread.output.trim() || !product ||
       toolId !== "product_description_writer" || thread.resultProductId !== product.id || !resources?.canSaveProducts) return;
-    setSaving(true); setError(""); setStatus(`Saving to ${product.name}…`);
+    setSaving(true); setRecordConflict(false); setError(""); setStatus(`Saving to ${product.name}…`);
     try {
       const response = await fetch("/api/ai/actions/product-description", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ productId: product.id, description: thread.output, expectedDescription: product.description })
       });
       const payload = await readApiPayload<{ saved: boolean; product: { description: string } }>(response);
-      if (!response.ok || !payload.data?.saved) throw new Error(payload.error || "This description could not be saved.");
+      if (!response.ok || !payload.data?.saved) {
+        setRecordConflict(response.status === 409);
+        throw new Error(payload.error || "This description could not be saved.");
+      }
       if (!mounted.current) return;
       setResources(current => current ? { ...current, products: current.products.map(item => item.id === product.id ? { ...item, description: payload.data!.product.description } : item) } : current);
-      changeThread(toolId, { output: payload.data.product.description, saved: true });
+      changeThread(toolId, { output: payload.data.product.description, saved: true }); setRecordsReloaded(false);
       setStatus(`Description saved to ${product.name}.`);
     } catch (e) { if (mounted.current) { setStatus(""); setError(e instanceof Error ? e.message : "This description could not be saved."); } }
     finally { if (mounted.current) setSaving(false); }
+  }
+  async function reloadAfterConflict() {
+    if (saving || loadingResources) return;
+    const loaded = await loadResources();
+    if (loaded && mounted.current) {
+      setRecordConflict(false); setRecordsReloaded(true); setError("");
+      setStatus("Product records reloaded. Review the current saved description before saving your response.");
+    }
   }
   async function copy() {
     try { await navigator.clipboard.writeText(thread.output); setStatus("Copied to clipboard."); setError(""); }
@@ -142,7 +157,7 @@ export function useAiWorkspace(usage: PlanUsageSummary, enabled: boolean) {
     setTimeout(() => URL.revokeObjectURL(url), 1000); setStatus("Result downloaded.");
   }
   return { toolId, tool, thread, product, resources, resourceMessage, loadingResources, busy, saving,
-    status, error, meter, locked, blocked, composer, selectWorkflow, chooseProduct, setInput, setOutput,
+    status, error, recordConflict, recordsReloaded, reloadAfterConflict, meter, locked, blocked, composer, selectWorkflow, chooseProduct, setInput, setOutput,
     startWith, run, stop: () => {
       cancelForSwitch(); setStatus("");
       setError("Request stopped. Your previous response is still available.");

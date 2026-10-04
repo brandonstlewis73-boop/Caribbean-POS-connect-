@@ -43,7 +43,8 @@ export function AiBusinessOSClient({usage,aiStatus,userName}: {
           <div className="aw-composer-area">
             {ai.locked?<div className="aw-access-notice">{workflowName(ai.toolId)} is available on {ai.tool.requiredPlan}. <Link href="/subscription">View plans</Link></div>:null}
             {!aiStatus.enabled?<div className="aw-access-notice">AI is currently unavailable for this business.</div>:null}
-            {ai.error?<div role="alert" className="aw-error">{ai.error}</div>:null}
+            {ai.error?<div role="alert" className="aw-error">{ai.error}{ai.recordConflict?<button type="button" className="aw-reload-action" disabled={ai.loadingResources||ai.saving} onClick={ai.reloadAfterConflict}><RotateCcw size={14}/>{ai.loadingResources?"Reloading…":"Reload current product"}</button>:null}</div>:null}
+            {ai.recordsReloaded&&ai.product?<details open className="aw-current-description"><summary>Current saved description</summary><p>{ai.product.description||"No description saved yet."}</p></details>:null}
             {ai.status?<p role="status" aria-live="polite" className="aw-status">{ai.status}</p>:null}
             <form className="aw-composer" onSubmit={event=>{event.preventDefault();void ai.run();}}>
               <label className="aw-sr-only" htmlFor="ai-workspace-request">Message your assistant</label>
