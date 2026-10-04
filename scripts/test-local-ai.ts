@@ -1,3 +1,4 @@
+import { prepareProductDescription } from "../lib/ai-product-description";
 import { prepareProductPromotion } from "../lib/ai-promotion";
 import { checkedLocalDraft, localDraftInstructions, localDraftIssue } from "../lib/local-ai-quality";
 import assert from "node:assert/strict";
@@ -59,6 +60,22 @@ async function main() {
   }, () => {}), customerCopy);
   assert.equal(attempts, 2);
   await assert.rejects(checkedLocalDraft(selectedPromotion, async () => stockSummary, () => {}), /No usable draft/);
+  const descriptionRequest = prepareProductDescription("Write a concise storefront description. Use verified facts only.", { productName: "Triple chocolate", category: "Brownies", description: null });
+  const screenshotDescription = "Triple chocolate is a delightful treat that combines the sweetness of brownies with the indulgence of truffles.\nSKU: [60]\nCategory: Brownies\nPrice: TT$60.00\nStock: 60\nAssumption: The selected product has not been reviewed or tested by any authorized personnel yet.";
+  assert(localDraftIssue(descriptionRequest, screenshotDescription));
+  assert(localDraftIssue(descriptionRequest, "Triple chocolate combines brownies with truffles."));
+  assert(localDraftIssue(descriptionRequest, "Triple chocolate brownies with creamy caramel and a crunchy texture."));
+  assert(localDraftIssue(descriptionRequest, "Triple chocolate is untested."));
+  assert(localDraftIssue(descriptionRequest, "Triple chocolate for TT$60.00."));
+  const simpleDescription = "Enjoy Triple chocolate, a delightful brownie from our selection.";
+  assert.equal(localDraftIssue(descriptionRequest, simpleDescription), null);
+  assert(!descriptionRequest.input.includes("Stock:"));
+  assert(!descriptionRequest.input.includes("Price:"));
+  const verifiedDescription = prepareProductDescription("Improve the description.", { productName: "Triple chocolate", category: "Brownies", description: "A fudgy brownie with chocolate chips." });
+  assert.equal(localDraftIssue(verifiedDescription, "Triple chocolate is a fudgy brownie with chocolate chips."), null);
+  attempts = 0;
+  assert.equal(await checkedLocalDraft(descriptionRequest, async repair => { attempts++; if (attempts === 1) return screenshotDescription; assert(repair); return simpleDescription; }, () => {}), simpleDescription);
+  await assert.rejects(checkedLocalDraft(descriptionRequest, async () => "Triple chocolate combines brownies with truffles.", () => {}), /No usable draft/);
   const original = globalThis.fetch;
   globalThis.fetch = async () => { throw new Error("No remote inference requests permitted"); };
   process.env.OPENAI_API_KEY = "test-unused-key";

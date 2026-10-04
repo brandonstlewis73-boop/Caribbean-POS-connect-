@@ -21,7 +21,7 @@ export async function saveAiProductDescription(user: User, input: {
     );
     const current = rows.rows[0];
     if (!current) throw new AiProductActionError("Product not found.", 404);
-    if ((current.description ?? null) !== input.expectedDescription) {
+    if ((current.description || null) !== (input.expectedDescription || null)) {
       throw new AiProductActionError("This product description changed since you opened it. Refresh the workspace before saving.", 409);
     }
     await query(

@@ -1,8 +1,8 @@
 import type { LocalGeneration } from "./local-ai-config";
 
 export function localDraftInstructions(request: LocalGeneration) {
-  if (request.purpose === "product-promotion") {
-    return request.instructions.slice(0, 5000) + "\nWrite each sentence once. Do not promise that you will send a message or perform an action. Output only the finished promotion.";
+  if (request.purpose === "product-promotion" || request.purpose === "product-description") {
+    return request.instructions.slice(0, 5000) + "\nWrite each sentence once. Do not promise that you will send a message or perform an action. Output only the finished text.";
   }
   return request.instructions.slice(0, 5000) + "\nFollow the user request directly. Output the requested draft, without an introduction or explanation. Use bracketed placeholders for facts the user has not provided. When price placeholders are requested, include [PRICE] in the actual promotion. Do not ask for missing details when placeholders are requested. Never promise to send messages, look up prices, or perform actions. Write each sentence once." +
     (request.purpose !== "product-promotion" && /\b(?:promo|promotion|promotions|advertisement)\b/i.test(request.input.split("Business context")[0])
@@ -14,6 +14,21 @@ export function localDraftIssue(request: LocalGeneration, text: string): string 
   const normalized = text.replace(/[’‘]/g, "'");
   if (/^(?:sure[,! ]|here(?:'s| is)|I can (?:write|draft|create))/i.test(normalized.trim())) {
     return "Output only the requested draft, without an assistant introduction.";
+  }
+  if (request.purpose === "product-description" && request.descriptionFacts) {
+    const facts = request.descriptionFacts;
+    if (/^\s*(?:sku|stock|in stock|price|category|assumptions?|notes?|review|description)\s*:/im.test(text) || /\[[^\]]+\]/.test(text)) {
+      return "Return only one or two storefront description sentences. Remove internal product fields, placeholders, assumptions, and review notes.";
+    }
+    const words = (value: string) => value.toLowerCase().match(/[a-z]+/g) || [];
+    const source = `${facts.productName} ${facts.category} ${facts.description}`;
+    const savedWords = new Set(words(source).flatMap(word => [word, word.replace(/s$/, "")]));
+    const savedNumbers = new Set(source.match(/\d+(?:[.,]\d+)*/g) || []);
+    if ((text.match(/\d+(?:[.,]\d+)*/g) || []).some(number => !savedNumbers.has(number))) return "Remove numbers that are not in the saved description facts. Do not add prices, stock counts, or SKU values.";
+    const styleWords = new Set(words("a an the and or for of to in on with from by at is are this that it its our your you enjoy try discover choose choice product item option treat everyday classic simple delightful delicious indulgent perfect ideal great addition favorite favourite available selection selected features offers offering suitable made shop find look looking store collection range ready time taste experience"));
+    const unsupported = words(text).filter(word => word.length > 3 && !savedWords.has(word) && !savedWords.has(word.replace(/s$/, "")) && !styleWords.has(word));
+    if (unsupported.length) return `Use only the saved product facts. Remove unsupported details such as ${Array.from(new Set(unsupported)).slice(0, 5).join(", ")}. Keep it simple when details are missing.`;
+    if (!text.toLowerCase().includes(facts.productName.toLowerCase())) return "Include the exact selected product name.";
   }
   if (request.purpose === "product-promotion" && request.promotionFacts) {
     const facts = request.promotionFacts;

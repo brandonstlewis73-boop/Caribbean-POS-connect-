@@ -60,6 +60,11 @@ async function main() {
     await assert.rejects(saveAiProductDescription(owner, { ...input, description: "Another description", expectedDescription: savedDescription }), /Audit unavailable/);
     assert.equal(product.description, savedDescription, "failed audit rolls back the description change");
     assert.equal(product.stock_quantity, 26);
+    auditFailure = false;
+    product.description = "";
+    const emptyResult = await saveAiProductDescription(owner, { ...input, expectedDescription: null });
+    assert.equal(emptyResult.description, input.description, "an empty catalog description does not produce a false conflict");
+    assert.equal(product.stock_quantity, 26);
     const unauthorized = await POST(new NextRequest("http://localhost/api/ai/actions/product-description", { method: "POST", headers: { cookie: "cpc_session=invalid-test-session" }, body: JSON.stringify(input) }));
     assert.equal(unauthorized.status, 401);
     console.log("AI product save: persistence, audit, role/tenant isolation, stale-content conflict, rollback, and unauthenticated API checks passed.");
