@@ -1,4 +1,5 @@
 import "server-only";
+import { workflowRecordContext } from "./ai-workflows";
 import { LOCAL_AI_MODEL, localAiEnabled } from "./local-ai-config";
 import { AI_BUSINESS_TOOLS, getAiBusinessTool, type AiBusinessToolId } from "./ai-business-config";
 import { money } from "./constants";
@@ -110,7 +111,7 @@ async function getBusinessAiContext(businessId: string): Promise<BusinessAiConte
   return { settings, products, orders, customers, dashboard };
 }
 
-function buildContextBlock(context: BusinessAiContext) {
+function buildContextBlock(context: BusinessAiContext, toolId: AiBusinessToolId) {
   const { settings, products, orders, customers, dashboard } = context;
   return `
 Business:
@@ -130,14 +131,11 @@ Current performance:
 - Completed orders: ${dashboard.completedOrders}
 - Estimated profit: ${money(dashboard.profitEstimate, settings.currency)}
 
-Products:
-${summarizeProducts(products, settings)}
-
-Recent orders:
-${summarizeOrders(orders, settings)}
-
-Customers:
-${summarizeCustomers(customers, settings)}
+${workflowRecordContext(getAiBusinessTool(toolId)!.category, {
+  products: summarizeProducts(products, settings),
+  orders: summarizeOrders(orders, settings),
+  customers: summarizeCustomers(customers, settings)
+})}
 `;
 }
 
@@ -159,10 +157,9 @@ Rules:
 - Use Caribbean small-business language where helpful, but keep it professional.
 - Be concise, practical, and mobile-readable.
 
-Return sections:
-1. Recommended draft
-2. Why this helps
-3. Review before using
+${["whatsapp_ordering_assistant", "missed_call_responder", "product_description_writer", "promo_generator", "review_reply_generator", "caribbean_business_mode"].includes(toolId)
+  ? "Return only the requested message or description, ready for the user to edit. Do not include explanations or review notes in customer-facing copy."
+  : "Return a concise workflow plan or structured draft, followed by assumptions and details to verify. Do not claim any action has been completed."}
 `;
 }
 
@@ -223,7 +220,7 @@ export async function runAiBusinessTool(user: User, input: AiToolRunInput) {
   const context = await getBusinessAiContext(businessId);
   const cleanPrompt = redactSensitiveText(input.prompt);
   const cleanExtra = redactSensitiveText(input.extraContext || "");
-  const inputText = `User request:\n${cleanPrompt.slice(0, 1800)}\n\nExtra context:\n${cleanExtra.slice(0, 600)}\n\nBusiness context (selected records):\n${redactSensitiveText(buildContextBlock(context)).slice(0, 3500)}`;
+  const inputText = `User request:\n${cleanPrompt.slice(0, 1800)}\n\nExtra context:\n${cleanExtra.slice(0, 600)}\n\nBusiness context (selected records):\n${redactSensitiveText(buildContextBlock(context, input.toolId)).slice(0, 3500)}`;
   const configured = false;
   const output = aiEnabled() ? "Local generation prepared. The draft is generated on your device and is not stored in server logs." : redactSensitiveText(fallbackOutput(input.toolId, cleanPrompt, context));
 

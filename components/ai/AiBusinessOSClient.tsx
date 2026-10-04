@@ -1,24 +1,18 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { Bot, Clipboard, Loader2, LockKeyhole, Send } from "lucide-react";
 import { assertLocalAiSupport, generateLocalDraft } from "@/lib/local-ai";
 import type { LocalGeneration } from "@/lib/local-ai-config";
-import { useMemo, useState } from "react";
-import Link from "next/link";
-import {
-  Bot,
-  CheckCircle2,
-  Clipboard,
-  Loader2,
-  LockKeyhole,
-  Send,
-  Sparkles
-} from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { TextAreaField } from "@/components/ui/Field";
+import { SelectField, TextAreaField } from "@/components/ui/Field";
 import { Panel, PanelHeader } from "@/components/ui/Panel";
 import { readApiPayload } from "@/lib/client-response";
 import { AI_BUSINESS_TOOLS, type AiBusinessToolConfig, type AiBusinessToolId } from "@/lib/ai-business-config";
+import { getWorkflowGuide, workflowRevisionPrompt } from "@/lib/ai-workflows";
+import { PLAN_ORDER } from "@/lib/plan-gating";
 import type { PlanUsageSummary } from "@/lib/plan-gating";
 
 type ToolResult = {
@@ -29,224 +23,121 @@ type ToolResult = {
   model: string;
   reviewRequired: boolean;
 };
+const categories = Array.from(new Set(AI_BUSINESS_TOOLS.map(tool => tool.category)));
 
-const categoryTone: Record<string, "teal" | "green" | "amber" | "neutral"> = {
-  Orders: "teal",
-  Marketing: "green",
-  Customers: "teal",
-  Inventory: "amber",
-  Delivery: "teal",
-  Finance: "green",
-  Operations: "neutral",
-  Support: "neutral"
-};
-
-export function AiBusinessOSClient({
-  usage,
-  aiStatus
-}: {
+export function AiBusinessOSClient({ usage, aiStatus }: {
   usage: PlanUsageSummary;
   aiStatus: { enabled: boolean; hasApiKey: boolean; model: string };
 }) {
-  const [selectedToolId, setSelectedToolId] = useState<AiBusinessToolId>("whatsapp_ordering_assistant");
+  const [toolId, setToolId] = useState<AiBusinessToolId>("whatsapp_ordering_assistant");
   const [prompt, setPrompt] = useState("");
   const [extraContext, setExtraContext] = useState("");
+  const [revision, setRevision] = useState("");
+  const [draft, setDraft] = useState("");
   const [result, setResult] = useState<ToolResult | null>(null);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const active = useRef<AbortController | null>(null);
+  useEffect(() => () => active.current?.abort(), []);
+  const tool = AI_BUSINESS_TOOLS.find(item => item.id === toolId)!;
+  const guide = getWorkflowGuide(toolId);
+  const locked = PLAN_ORDER.indexOf(usage.planId) < PLAN_ORDER.indexOf(tool.requiredPlan);
+  const aiMeter = usage.meters.find(meter => meter.key === "aiGenerations");
+  const blocked = locked || !aiStatus.enabled || Boolean(aiMeter?.locked);
 
-  const selectedTool = useMemo(
-    () => AI_BUSINESS_TOOLS.find((tool) => tool.id === selectedToolId) || AI_BUSINESS_TOOLS[0],
-    [selectedToolId]
-  );
-  const locked = useMemo(() => {
-    const order = ["trial", "starter", "pro", "premium", "enterprise"];
-    return order.indexOf(usage.planId) < order.indexOf(selectedTool.requiredPlan);
-  }, [selectedTool.requiredPlan, usage.planId]);
-  const aiMeter = usage.meters.find((meter) => meter.key === "aiGenerations");
+  function selectWorkflow(id: AiBusinessToolId) {
+    active.current?.abort(); active.current = null;
+    setBusy(false); setToolId(id); setPrompt(""); setExtraContext("");
+    setDraft(""); setRevision(""); setResult(null); setMessage("");
+  }
 
-  async function runTool() {
-    if (!prompt.trim() || busy) return;
-    setBusy(true);
-    setMessage("");
-    setResult(null);
+  async function runTool(refine = false) {
+    if (busy || blocked || !prompt.trim() || (refine && (!draft.trim() || !revision.trim()))) return;
+    const controller = new AbortController();
+    active.current = controller;
+    const previousDraft = draft;
+    const previousResult = result;
+    setBusy(true); setMessage("Preparing this workflow with your business records…");
+    setResult(null); setDraft("");
     try {
       assertLocalAiSupport();
       const response = await fetch("/api/ai/tools", {
-        method: "POST",
+        method: "POST", signal: controller.signal,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ toolId: selectedTool.id, prompt, extraContext })
+        body: JSON.stringify({ toolId: tool.id, prompt: refine ? workflowRevisionPrompt(prompt, previousDraft, revision) : prompt, extraContext })
       });
       const payload = await readApiPayload<ToolResult>(response);
-      if (!response.ok || !payload.data) throw new Error(payload.error || "AI tool could not run.");
+      if (!response.ok || !payload.data) throw new Error(payload.error || "This workflow could not run.");
       if (!payload.data.generation) throw new Error("Local AI is disabled.");
-      const output = await generateLocalDraft(payload.data.generation, setMessage);
-      setResult({ ...payload.data, generation: undefined, output, configured: true });
-      setMessage("Local AI draft generated on this device. Review before using.");
+      const current = () => active.current === controller;
+      const output = await generateLocalDraft(payload.data.generation,
+        text => { if (current()) setMessage(text); }, controller.signal,
+        text => { if (current()) setDraft(text); });
+      if (!current()) return;
+      setDraft(output); setResult({ ...payload.data, generation: undefined, output });
+      setRevision(""); setMessage("Draft ready for review. Check facts, edit the text, or ask AI for a change.");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "AI tool could not run.");
+      if (active.current !== controller) return;
+      // Keep the last usable draft if a revision fails or is stopped.
+      setDraft(refine ? previousDraft : ""); setResult(refine ? previousResult : null);
+      setMessage(controller.signal.aborted ? "Stopped. You can try again." : error instanceof Error ? error.message : "This workflow could not finish.");
     } finally {
-      setBusy(false);
+      if (active.current === controller) { active.current = null; setBusy(false); }
     }
   }
 
-  async function copyResult() {
-    if (!result?.output) return;
-    await navigator.clipboard.writeText(result.output);
-    setMessage("Draft copied. Review it before sending or saving.");
+  async function copyDraft() {
+    try { await navigator.clipboard.writeText(draft); setMessage("Your edited draft was copied. Continue in the workspace when ready."); }
+    catch { setMessage("Clipboard access is unavailable. Select and copy the draft text manually."); }
   }
 
-  return (
-    <div className="grid gap-5">
-      <Panel>
-        <div className="grid gap-4 p-5 lg:grid-cols-[minmax(0,1fr)_320px]">
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge tone={aiStatus.enabled ? "green" : "amber"}>
-                {aiStatus.enabled ? "Local browser AI" : "AI disabled"}
-              </Badge>
-              <Badge tone="teal">{usage.planName}</Badge>
-              <Badge tone={aiMeter?.locked ? "amber" : "neutral"}>
-                AI usage: {aiMeter ? `${aiMeter.used}/${aiMeter.limit ?? "Unlimited"}` : "Unavailable"}
-              </Badge>
-            </div>
-            <Link href="/ai-test" className="mt-3 inline-block text-sm font-bold text-cyan-200 underline">Test local AI</Link>
-            <h2 className="mt-4 text-2xl font-black text-white">AI Business OS</h2>
-            <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-teal-50/65">
-              Draft WhatsApp replies, promos, prep lists, dispatch plans, forecasts, loyalty ideas, and business advice using only this business account data.
-            </p>
-          </div>
-          <div className="rounded-card border border-white/10 bg-black/20 p-4 text-sm font-semibold leading-6 text-teal-50/65">
-            <p className="font-black text-white">Review required</p>
-            <p className="mt-1">AI drafts are never sent, saved, posted, or applied automatically. A business owner or staff member must review every output first.</p>
-          </div>
-        </div>
-      </Panel>
+  return <div className="grid min-w-0 max-w-full gap-5 [overflow-wrap:anywhere]">
+    <Panel><div className="min-w-0 space-y-3 p-4 sm:p-5">
+      <div className="flex flex-wrap gap-2"><Badge tone={aiStatus.enabled ? "green" : "amber"}>{aiStatus.enabled ? "Local browser AI" : "AI disabled"}</Badge><Badge tone="teal">{usage.planName}</Badge><Badge tone="neutral">AI usage: {aiMeter ? `${aiMeter.used}/${aiMeter.limit ?? "Unlimited"}` : "Unavailable"}</Badge></div>
+      <h2 className="text-2xl font-black text-white">Work with AI</h2>
+      <p className="text-sm leading-6 text-teal-50/75">Choose a workflow, prepare a draft with your business records, then refine and review it before continuing.</p>
+      <ol aria-label="Workflow steps" className="flex flex-wrap gap-2 text-xs font-bold text-cyan-100">
+        {["1 · Choose", "2 · Add details", "3 · Draft & refine", "4 · Review & continue"].map(step => <li key={step} className="rounded-lg border border-white/15 px-3 py-2">{step}</li>)}
+      </ol>
+      <p className="text-xs leading-5 text-teal-50/60">AI prepares suggestions. Sending messages, changing stock, dispatching orders, and saving records happen in the relevant workspace.</p>
+    </div></Panel>
 
-      <section className="grid gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
-        <Panel>
-          <PanelHeader title="AI tools" description="Choose a workflow" />
-          <div className="grid max-h-[760px] gap-2 overflow-y-auto p-3">
-            {AI_BUSINESS_TOOLS.map((tool) => {
-              const selected = tool.id === selectedTool.id;
-              const order = ["trial", "starter", "pro", "premium", "enterprise"];
-              const toolLocked = order.indexOf(usage.planId) < order.indexOf(tool.requiredPlan);
-              return (
-                <button
-                  key={tool.id}
-                  type="button"
-                  onClick={() => {
-                    setSelectedToolId(tool.id);
-                    setResult(null);
-                    setMessage("");
-                    setPrompt("");
-                  }}
-                  className={[
-                    "grid gap-2 rounded-card border p-3 text-left transition",
-                    selected ? "border-cyan-200/50 bg-cyan-300/12" : "border-white/10 bg-white/[0.04] hover:bg-white/[0.08]"
-                  ].join(" ")}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-sm font-black text-white">{tool.shortTitle}</p>
-                      <p className="mt-1 line-clamp-2 text-xs font-semibold leading-5 text-teal-50/55">{tool.description}</p>
-                    </div>
-                    {toolLocked ? <LockKeyhole className="h-4 w-4 shrink-0 text-amber-200" /> : <Sparkles className="h-4 w-4 shrink-0 text-cyan-200" />}
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Badge tone={categoryTone[tool.category] || "neutral"}>{tool.category}</Badge>
-                    <Badge tone={toolLocked ? "amber" : "green"}>{tool.requiredPlan}</Badge>
-                  </div>
-                </button>
-              );
-            })}
+    <section className="grid min-w-0 gap-5 xl:grid-cols-[280px_minmax(0,1fr)]">
+      <Panel className="hidden xl:block"><PanelHeader title="Workflows" description="Choose where you need help" />
+        <nav aria-label="AI workflows" className="grid max-h-[720px] gap-2 overflow-y-auto p-3">
+          {AI_BUSINESS_TOOLS.map(item => <button type="button" key={item.id} aria-pressed={item.id === toolId} onClick={() => selectWorkflow(item.id)} className={`min-w-0 rounded-xl border p-3 text-left ${item.id === toolId ? "border-cyan-200/50 bg-cyan-300/12" : "border-white/10 bg-white/[0.04]"}`}>
+            <span className="block text-sm font-bold text-white">{item.shortTitle}</span><span className="text-xs text-teal-50/60">{item.category} · {item.requiredPlan}</span>
+          </button>)}
+        </nav>
+      </Panel>
+      <div className="grid min-w-0 gap-5">
+        <Panel><PanelHeader title="Choose your workflow" description="Each workflow has its own starting point and workspace." />
+          <div className="grid min-w-0 gap-4 p-4 sm:p-5">
+            <SelectField id="ai-workflow" label="Workflow" value={toolId} onChange={event => selectWorkflow(event.target.value as AiBusinessToolId)}>
+              {categories.map(category => <optgroup label={category} key={category}>{AI_BUSINESS_TOOLS.filter(item => item.category === category).map(item => <option value={item.id} key={item.id}>{item.shortTitle} · {item.requiredPlan}</option>)}</optgroup>)}
+            </SelectField>
+            <div><h3 className="font-bold text-white">{tool.title}</h3><p className="mt-1 text-sm leading-6 text-teal-50/70">{tool.description}</p></div>
+            {locked ? <p className="rounded-xl bg-amber-300/10 p-3 text-sm text-amber-100"><LockKeyhole className="mr-2 inline h-4 w-4" />This workflow requires {tool.requiredPlan}. <Link className="underline" href="/subscription">View plans</Link></p> : null}
+            {aiMeter?.locked ? <p className="text-sm text-amber-100">Your plan’s AI allowance is unavailable. Check your subscription before generating.</p> : null}
+            <Button disabled={busy} onClick={() => { setPrompt(guide.goal); setResult(null); setDraft(""); setRevision(""); }} className="justify-self-start">Use suggested starting point</Button>
+            <TextAreaField id="ai-workflow-prompt" label={tool.promptLabel} value={prompt} disabled={busy} onChange={event => setPrompt(event.target.value)} placeholder={tool.placeholder} rows={4} maxLength={1800} />
+            <TextAreaField id="ai-workflow-context" label="Business details or instructions (optional)" value={extraContext} disabled={busy} onChange={event => setExtraContext(event.target.value)} placeholder="Add a deadline, tone, item, or order number. Saved business records are included automatically." rows={3} maxLength={600} />
+            <p className="text-xs leading-5 text-teal-50/60">First use downloads about 300 MB. A compatible WebGPU device with enough memory is required. <Link className="text-cyan-200 underline" href="/ai-test">Check local AI</Link></p>
+            <div className="flex flex-wrap gap-2"><Button variant="primary" disabled={busy || blocked || !prompt.trim()} onClick={() => runTool()}>{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}{busy ? "Working…" : "Generate workflow draft"}</Button>{busy ? <Button onClick={() => active.current?.abort()}>Stop</Button> : null}</div>
+            {message ? <p role="status" aria-live="polite" className="rounded-xl border border-white/15 p-3 text-sm text-teal-50/80">{message}</p> : null}
           </div>
         </Panel>
-
-        <div className="grid gap-5">
-          <Panel>
-            <PanelHeader
-              title={selectedTool.title}
-              description={selectedTool.description}
-              action={<Badge tone={locked ? "amber" : "green"}>{locked ? "Upgrade required" : "Ready"}</Badge>}
-            />
-            <div className="grid gap-4 p-5">
-              {locked ? (
-                <div className="rounded-card border border-amber-300/20 bg-amber-300/10 p-4">
-                  <p className="font-black text-white">This tool starts on {selectedTool.requiredPlan}.</p>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-teal-50/65">
-                    Your current plan is {usage.planName}. Upgrade to unlock this AI workflow while keeping all current data safe.
-                  </p>
-                  <Link href="/subscription" className="mt-4 inline-flex min-h-10 items-center justify-center rounded-card bg-cyan-300 px-4 text-sm font-black text-slate-950">
-                    View upgrade options
-                  </Link>
-                </div>
-              ) : null}
-              {aiStatus.enabled ? (
-                <div className="rounded-card border border-amber-300/20 bg-amber-300/10 p-4 text-sm font-semibold leading-6 text-amber-50">
-                  First use downloads roughly 1 GB of model files and needs a compatible WebGPU device. Clicking Generate starts the download. Drafts run on this device without API fees.
-                </div>
-              ) : null}
-              <TextAreaField
-                label={selectedTool.promptLabel}
-                value={prompt}
-                onChange={(event) => setPrompt(event.target.value)}
-                placeholder={selectedTool.placeholder}
-                rows={5}
-              />
-              <TextAreaField
-                label="Extra context optional"
-                value={extraContext}
-                onChange={(event) => setExtraContext(event.target.value)}
-                placeholder="Add tone, deadline, customer situation, or staff notes. Do not paste passwords or API keys."
-                rows={3}
-              />
-              <Button type="button" variant="primary" disabled={busy || locked || !prompt.trim()} onClick={runTool} className="w-full sm:w-auto">
-                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                {busy ? "Generating..." : "Generate draft"}
-              </Button>
-              {message ? (
-                <p className="rounded-card border border-white/10 bg-black/20 p-3 text-sm font-bold text-teal-50/70">{message}</p>
-              ) : null}
-            </div>
-          </Panel>
-
-          <Panel>
-            <PanelHeader
-              title="AI output"
-              description="Review, edit, then send or apply manually"
-              action={result ? <Badge tone="amber">Review required</Badge> : null}
-            />
-            <div className="p-5">
-              {result ? (
-                <div className="grid gap-4">
-                  <pre className="max-h-[520px] overflow-auto whitespace-pre-wrap rounded-card border border-white/10 bg-black/30 p-4 text-sm font-semibold leading-6 text-teal-50/80">
-                    {result.output}
-                  </pre>
-                  <div className="flex flex-col gap-2 sm:flex-row">
-                    <Button type="button" onClick={copyResult} className="w-full sm:w-auto">
-                      <Clipboard className="h-4 w-4" />
-                      Copy draft
-                    </Button>
-                    <span className="inline-flex min-h-10 items-center gap-2 rounded-card border border-emerald-300/20 bg-emerald-300/10 px-3 text-sm font-black text-emerald-100">
-                      <CheckCircle2 className="h-4 w-4" />
-                      Human approval needed
-                    </span>
-                  </div>
-                </div>
-              ) : (
-                <div className="grid min-h-56 place-items-center rounded-card border border-dashed border-white/15 bg-white/[0.03] p-6 text-center">
-                  <div>
-                    <Bot className="mx-auto h-8 w-8 text-cyan-200" />
-                    <p className="mt-3 font-black text-white">No AI draft yet</p>
-                    <p className="mt-2 text-sm font-semibold text-teal-50/55">Choose a tool, add context, and generate a reviewable draft.</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </Panel>
-        </div>
-      </section>
-    </div>
-  );
+        <Panel><PanelHeader title="Review and refine" description="Edit your draft or tell AI what to change." action={result ? <Badge tone="amber">Check facts before using</Badge> : null} />
+          <div className="grid min-w-0 gap-4 p-4 sm:p-5">
+            {draft || result || busy ? <TextAreaField id="ai-workflow-draft" label={busy ? "Draft in progress" : "Editable workflow draft"} value={draft} readOnly={busy} onChange={event => setDraft(event.target.value)} rows={10} className="leading-6" /> : <div className="rounded-xl border border-dashed border-white/20 p-6 text-center text-teal-50/65"><Bot className="mx-auto mb-2 h-7 w-7" />Choose a workflow and add the details to begin.</div>}
+            {result ? <>
+              <TextAreaField id="ai-workflow-revision" label="What should AI change?" value={revision} disabled={busy} onChange={event => setRevision(event.target.value)} placeholder="For example: shorten it, change the tone, or explain the assumptions." rows={3} maxLength={500} />
+              <div className="flex flex-wrap gap-2"><Button disabled={busy || blocked || !revision.trim() || !draft.trim()} onClick={() => runTool(true)}>Revise with AI</Button><Button disabled={busy || !draft.trim()} onClick={copyDraft}><Clipboard className="h-4 w-4" />Copy edited draft</Button></div>
+              <div className="rounded-xl border border-cyan-200/20 p-4"><p className="mb-3 text-sm leading-6 text-teal-50/75">Check product names, prices, quantities, dates, and customer details. Copy your draft and continue in the workspace to send or save it.</p><Link href={guide.workspace.href} className="inline-flex min-h-11 items-center rounded-xl bg-cyan-300 px-4 text-sm font-bold text-slate-950">{guide.workspace.label}</Link></div>
+            </> : null}
+          </div>
+        </Panel>
+      </div>
+    </section>
+  </div>;
 }

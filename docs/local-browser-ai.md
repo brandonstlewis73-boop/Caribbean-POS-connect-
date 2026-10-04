@@ -15,3 +15,11 @@ Validation includes production compilation of the worker, server tests for promp
 The smaller 32-bit model needs approximately 1.1 GB of GPU memory according to WebLLM’s catalog and does not require shader-f16. Drafts stream on the test page and are limited to 256 output tokens. A GPU adapter check runs before downloading weights. The smaller model trades answer quality for lower memory use; physical-device testing is still required.
 
 Draft validation checks explicitly requested price placeholders and unsupported first-person action promises. A completed invalid draft gets one model-generated correction attempt, then an error if it still fails. This is a limited check, not a guarantee of factual accuracy or overall quality. No canned promotion is substituted for model output.
+
+## Guided business workflows
+
+Open `/ai` and choose one of the 19 workflows available under your plan. Use the suggested starting point or enter your own goal, then add up to 600 characters of extra context. Generate the workflow draft, edit it directly, or enter a requested change and choose **Revise with AI**. Revisions include the edited draft (up to 850 characters), original goal, and requested changes; each revision prepares a new authorized request and counts toward the plan's AI allowance. A failed or stopped revision restores the previous draft.
+
+Copy the edited draft and open the linked business workspace to send or save it using that workspace's existing controls. Workflows do not automatically send messages, create orders, modify stock, dispatch deliveries, or save accounting entries. Drafts remain in page memory and are cleared when switching workflows or reloading. Stop and workflow changes cancel the active run. Context is selected by workflow category so active orders are not crowded out by a large product catalog. Plan and business access checks remain on the server.
+
+Rendered-flow checks cover mobile/desktop selection, generation, edits, revision context, failed-revision recovery, clipboard, workspace links, cancellation, and plan locks with mocked model/API responses. Live tenant data and physical-device inference are separate checks.
