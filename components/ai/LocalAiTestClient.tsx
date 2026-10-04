@@ -17,7 +17,7 @@ export function LocalAiTestClient() {
     request.current = new AbortController();
     setBusy(true); setOutput(""); setStatus("Starting local AI…");
     try {
-      const draft = await generateLocalDraft({ instructions: "You are a helpful Caribbean POS Connect test assistant. Write concise drafts. Do not invent business records or claim to perform actions. Ask for missing details. All outputs need human review.", input: prompt }, setStatus, request.current.signal);
+      const draft = await generateLocalDraft({ instructions: "You are a helpful Caribbean POS Connect test assistant. Write concise drafts. Do not invent business records or claim to perform actions. Ask for missing details. All outputs need human review.", input: prompt }, setStatus, request.current.signal, setOutput);
       setOutput(draft); setStatus("Local draft ready. Review before using.");
     } catch (error) { setStatus(error instanceof Error ? error.message : "Local generation failed."); }
     finally { request.current = null; setBusy(false); }
@@ -25,7 +25,7 @@ export function LocalAiTestClient() {
   return <Panel><div className="space-y-4 p-5">
     <h2 className="text-xl font-bold">Test local AI</h2>
     <p className="text-sm">Model: {LOCAL_AI_MODEL}. Generation runs in this browser without API charges. This test uses only the text you enter; it does not load business records or change your subscription.</p>
-    <p className="text-sm">The first run downloads roughly 1 GB, which is cached when browser storage permits. Use a compatible WebGPU browser with enough free device memory. Clicking Download &amp; generate starts the download. No paid fallback is enabled.</p>
+    <p className="text-sm">The first run downloads about 250 MB, plus runtime files, which are cached when browser storage permits. Use a compatible WebGPU browser with enough free device memory. Clicking Download &amp; generate starts the download. No paid fallback is enabled.</p>
     <TextAreaField label="Test request" value={prompt} onChange={event => setPrompt(event.target.value)} />
     <Button onClick={generate} disabled={busy || !prompt.trim()}>{busy ? "Working…" : "Download & generate"}</Button>
     {busy ? <Button variant="secondary" onClick={() => request.current?.abort()}>Stop</Button> : null}

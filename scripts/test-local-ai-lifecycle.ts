@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { guardLocalTask, waitForWorkerReady } from "../lib/local-ai-lifecycle";
+import { collectLocalDraft, guardLocalTask, waitForWorkerReady } from "../lib/local-ai-lifecycle";
 async function main() {
   const worker = new EventTarget() as unknown as Worker;
   const ready = waitForWorkerReady(worker, 1000);
@@ -20,6 +20,16 @@ async function main() {
   worker.dispatchEvent(new Event("messageerror"));
   await assert.rejects(broken, /worker failed/);
   assert.equal(await guardLocalTask(Promise.resolve("draft"), worker, undefined, 1000, "timed out"), "draft");
+  const updates: string[] = [];
+  async function* chunks() {
+    yield { choices: [{ delta: { content: "Hello " } }] };
+    yield { choices: [{ delta: {} }] };
+    yield { choices: [{ delta: { content: "Caribbean" } }] };
+  }
+  assert.equal(await collectLocalDraft(chunks(), text => updates.push(text)), "Hello Caribbean");
+  assert.deepEqual(updates, ["Hello ", "Hello ", "Hello Caribbean"]);
+  const cancel = new AbortController();
+  await assert.rejects(collectLocalDraft(chunks(), () => cancel.abort(), cancel.signal), /stopped/);
   console.log("Local worker readiness, worker failures, startup/generation timeouts, cancellation, and retry tests passed.");
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });

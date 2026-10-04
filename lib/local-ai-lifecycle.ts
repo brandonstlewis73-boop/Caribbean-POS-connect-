@@ -32,3 +32,17 @@ export function guardLocalTask<T>(task: Promise<T>, worker: Worker | null, signa
     if (signal?.aborted) onAbort();
   });
 }
+
+export async function collectLocalDraft(
+  stream: AsyncIterable<{ choices: { delta: { content?: string | null } }[] }>,
+  onDraft: (text: string) => void,
+  signal?: AbortSignal
+) {
+  let draft = "";
+  for await (const chunk of stream) {
+    if (signal?.aborted) throw abortError();
+    draft += chunk.choices[0]?.delta.content || "";
+    onDraft(draft);
+  }
+  return draft.trim();
+}
