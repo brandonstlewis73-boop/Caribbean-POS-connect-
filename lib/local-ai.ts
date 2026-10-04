@@ -1,6 +1,7 @@
 "use client";
 import { LOCAL_AI_MODEL, type LocalGeneration } from "./local-ai-config";
 import { abortError, collectLocalDraft, guardLocalTask, waitForWorkerReady } from "./local-ai-lifecycle";
+import { checkedLocalDraft, localDraftInstructions } from "./local-ai-quality";
 import type { WebWorkerMLCEngine } from "@mlc-ai/web-llm";
 let engine: WebWorkerMLCEngine | null = null;
 let initialization: Promise<WebWorkerMLCEngine> | null = null;
@@ -26,7 +27,7 @@ async function loadEngine(progress: (text: string) => void, signal?: AbortSignal
     // Next.js emits a classic worker whose chunk loader uses importScripts.
     worker = new Worker(new URL("../workers/local-ai.worker.ts", import.meta.url));
     await guardLocalTask(waitForWorkerReady(worker), worker, signal, 16000, "Local AI startup timed out. Refresh the page and try again.");
-    progress("Loading model files. First use downloads about 250 MB; you can stop at any time.");
+    progress("Loading model files. First use downloads about 300 MB; you can stop at any time.");
     initialization = CreateWebWorkerMLCEngine(worker, LOCAL_AI_MODEL, { initProgressCallback: report => progress(report.text) });
     engine = await guardLocalTask(initialization, worker, signal, 15 * 60 * 1000, "The model download timed out. Check your connection and try again.");
     return engine;
@@ -42,17 +43,24 @@ export function generateLocalDraft(request: LocalGeneration, progress: (text: st
       progress("Loading local AI. The first run downloads the model; this may take several minutes.");
       const local = await loadEngine(progress, signal);
       progress("Writing your draft on this device…");
-      const text = await guardLocalTask((async () => {
-        const stream = await local.chat.completions.create({
-          messages: [{ role: "system", content: request.instructions.slice(0, 5000) + "\nFollow the user request directly. When asked to draft text, output only that draft. If placeholders are requested, use bracketed placeholders such as [PRICE] and [BUSINESS NAME] for missing facts instead of asking questions. Never claim you will send a message or perform an action. Write each sentence once." }, { role: "user", content: request.input.slice(0, 6000) }],
-          stream: true, max_tokens: 192, temperature: 0.3, repetition_penalty: 1.15, frequency_penalty: 0.4
-        });
-        return collectLocalDraft(stream, draft => {
-          onDraft(draft);
-          progress("Writing your draft on this device…");
-        }, signal);
-      })(), worker, signal, 180000, "Local generation timed out. Try a shorter request or a device with more free GPU memory.");
-      if (!text) throw new Error("Local AI returned no draft. Try a shorter request.");
+      const text = await checkedLocalDraft(request, async repair => {
+        return guardLocalTask((async () => {
+          const stream = await local.chat.completions.create({
+            messages: [
+              { role: "system", content: localDraftInstructions(request) },
+              { role: "user", content: request.input.slice(0, 6000) + (repair ? "\nCorrection: " + repair + " Output only the completed draft." : "") }
+            ],
+            stream: true, max_tokens: 256, temperature: 0.3, repetition_penalty: 1.1, frequency_penalty: 0.3
+          });
+          return collectLocalDraft(stream, draft => {
+            onDraft(draft);
+            progress("Writing draft—checking before it is ready…");
+          }, signal);
+        })(), worker, signal, 180000, "Local generation timed out. Try a shorter request or a device with more free GPU memory.");
+      }, () => {
+        onDraft("");
+        progress("The first draft missed the request. Trying one correction…");
+      });
       return text;
     } catch (error) {
       resetEngine();

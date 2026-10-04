@@ -1,8 +1,35 @@
+import { checkedLocalDraft, localDraftInstructions, localDraftIssue } from "../lib/local-ai-quality";
 import assert from "node:assert/strict";
 import { generateSupportAnswer, generateTicketSummary, aiSupportStatus } from "../lib/ai-support";
 import { LOCAL_AI_MODEL } from "../lib/local-ai-config";
 import { assertLocalAiSupport } from "../lib/local-ai";
 async function main() {
+  const promotion = { instructions: "Draft a promotion.", input: "Write a short WhatsApp promotion for a Caribbean bakery lunch special. Use placeholders for prices." };
+  const badScreenshot = "Sure, I can draft a promotion. Hey there! I'll send you the details of our new [Lunch Special] when we have them ready. Let me know and I'll get you an update on the price points.";
+  assert(localDraftIssue(promotion, badScreenshot));
+  const good = "Lunch is ready at [BAKERY NAME]! Enjoy [LUNCH SPECIAL] for TT$[PRICE]. Available [TIME]. WhatsApp us to order!";
+  assert.equal(localDraftIssue(promotion, good), null);
+  assert(localDraftIssue(promotion, "[PRICE]. I’ll send you an update."));
+  assert(localDraftIssue(promotion, "Enjoy our [LUNCH SPECIAL]. Message us to order."));
+  assert(localDraftIssue(promotion, "TT$[PRICE]. I'll send you the details tomorrow."));
+  assert.equal(localDraftIssue({ instructions: "Help", input: "What price should I charge?" }, "Please provide your costs so I can help."), null);
+  assert(localDraftInstructions(promotion).includes("[PRICE]"));
+  let attempts = 0;
+  let repairs = 0;
+  assert.equal(await checkedLocalDraft(promotion, async repair => {
+    attempts++;
+    if (attempts === 1) return badScreenshot;
+    assert(repair);
+    return good;
+  }, () => { repairs++; }), good);
+  assert.equal(attempts, 2);
+  assert.equal(repairs, 1);
+  attempts = 0;
+  await assert.rejects(checkedLocalDraft(promotion, async () => { attempts++; return badScreenshot; }, () => {}), /No usable draft/);
+  assert.equal(attempts, 2);
+  attempts = 0;
+  assert.equal(await checkedLocalDraft(promotion, async () => { attempts++; return good; }, () => {}), good);
+  assert.equal(attempts, 1);
   const original = globalThis.fetch;
   globalThis.fetch = async () => { throw new Error("No remote inference requests permitted"); };
   process.env.OPENAI_API_KEY = "test-unused-key";
