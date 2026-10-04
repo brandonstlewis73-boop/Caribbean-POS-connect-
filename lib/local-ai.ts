@@ -44,8 +44,8 @@ export function generateLocalDraft(request: LocalGeneration, progress: (text: st
       progress("Writing your draft on this device…");
       const text = await guardLocalTask((async () => {
         const stream = await local.chat.completions.create({
-          messages: [{ role: "system", content: request.instructions.slice(0, 5000) }, { role: "user", content: request.input.slice(0, 6000) }],
-          stream: true, max_tokens: 256, temperature: 0.4
+          messages: [{ role: "system", content: request.instructions.slice(0, 5000) + "\nFollow the user request directly. When asked to draft text, output only that draft. If placeholders are requested, use bracketed placeholders such as [PRICE] and [BUSINESS NAME] for missing facts instead of asking questions. Never claim you will send a message or perform an action. Write each sentence once." }, { role: "user", content: request.input.slice(0, 6000) }],
+          stream: true, max_tokens: 192, temperature: 0.3, repetition_penalty: 1.15, frequency_penalty: 0.4
         });
         return collectLocalDraft(stream, draft => {
           onDraft(draft);
