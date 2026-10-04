@@ -293,7 +293,7 @@ export function OnlineOrderClient({
           customer: { ...customer, preferred_payment_method: paymentMethod },
           order_type: fulfillment,
           payment_method: paymentMethod,
-          payment_status: paymentMethod === "Pay on delivery" ? "unpaid" : "paid",
+          payment_status: "unpaid",
           delivery_fee: deliveryFee,
           delivery:
             fulfillment === "delivery"
