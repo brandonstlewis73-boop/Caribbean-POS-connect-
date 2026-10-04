@@ -1,4 +1,5 @@
 import "server-only";
+import { prepareProductPromotion } from "./ai-promotion";
 import { hasPermission } from "./permissions";
 import { workflowRecordContext } from "./ai-workflows";
 import { LOCAL_AI_MODEL, localAiEnabled } from "./local-ai-config";
@@ -249,7 +250,14 @@ export async function runAiBusinessTool(user: User, input: AiToolRunInput) {
 
   return {
     tool,
-    generation: aiEnabled() ? { instructions: toolInstructions(input.toolId), input: inputText } : null,
+    generation: aiEnabled() ? (input.toolId === "promo_generator" && selectedProduct
+      ? prepareProductPromotion(cleanPrompt + (cleanExtra ? `\nAdditional instructions: ${cleanExtra}` : ""), {
+          productName: redactSensitiveText(selectedProduct.name),
+          priceText: money(selectedProduct.selling_price, context.settings.currency),
+          businessName: redactSensitiveText(context.settings.business_name),
+          available: selectedProduct.stock_quantity > 0
+        })
+      : { instructions: toolInstructions(input.toolId), input: inputText }) : null,
     output,
     configured,
     model: aiModel(),
