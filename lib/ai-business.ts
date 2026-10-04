@@ -1,4 +1,5 @@
 import "server-only";
+import { prepareCustomerMessage } from "./ai-customer-message";
 import { prepareProductDescription } from "./ai-product-description";
 import { prepareProductPromotion } from "./ai-promotion";
 import { hasPermission } from "./permissions";
@@ -264,7 +265,17 @@ export async function runAiBusinessTool(user: User, input: AiToolRunInput) {
             category: redactSensitiveText(selectedProduct.category),
             description: selectedProduct.description ? redactSensitiveText(selectedProduct.description) : null
           })
-        : { instructions: toolInstructions(input.toolId), input: inputText }) : null,
+        : ["whatsapp_ordering_assistant", "missed_call_responder", "review_reply_generator", "caribbean_business_mode"].includes(input.toolId)
+          ? prepareCustomerMessage(cleanPrompt + (cleanExtra ? `\nAdditional instructions: ${cleanExtra}` : ""), {
+              businessName: redactSensitiveText(context.settings.business_name),
+              products: hasPermission(user.role, "inventory:read") ? context.products
+                .filter(product => product.active && product.stock_quantity > 0).slice(0, 5)
+                .map(product => ({ name: redactSensitiveText(product.name), priceText: money(product.selling_price, context.settings.currency) })) : [],
+              pickupEnabled: context.settings.pickup_enabled === true,
+              deliveryEnabled: context.settings.delivery_enabled === true,
+              catalogRequested: input.toolId === "whatsapp_ordering_assistant" && /\b(?:available|availability|menu|catalog)\b/i.test(cleanPrompt)
+            })
+          : { instructions: toolInstructions(input.toolId), input: inputText }) : null,
     output,
     configured,
     model: aiModel(),

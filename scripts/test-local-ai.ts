@@ -1,3 +1,4 @@
+import { prepareCustomerMessage } from "../lib/ai-customer-message";
 import { prepareProductDescription } from "../lib/ai-product-description";
 import { prepareProductPromotion } from "../lib/ai-promotion";
 import { checkedLocalDraft, localDraftInstructions, localDraftIssue } from "../lib/local-ai-quality";
@@ -76,6 +77,27 @@ async function main() {
   attempts = 0;
   assert.equal(await checkedLocalDraft(descriptionRequest, async repair => { attempts++; if (attempts === 1) return screenshotDescription; assert(repair); return simpleDescription; }, () => {}), simpleDescription);
   await assert.rejects(checkedLocalDraft(descriptionRequest, async () => "Triple chocolate combines brownies with truffles.", () => {}), /No usable draft/);
+  const customerRequest = prepareCustomerMessage("Draft a reply to a customer asking what is available for pickup today. Use saved products and prices, and ask which items they want.", {
+    businessName: "Baker buds", products: [{ name: "Strawberry Swirl Brownie", priceText: "TT$60.00" }], pickupEnabled: true, deliveryEnabled: false, catalogRequested: true
+  });
+  const badCustomerReply = "**[Baker buds, Trinidad and Tobago]** Hello! I'm here to assist you today. Please provide your details. **[Current Sales: $0.00, Weekly Sales: $0.00, Monthly Sales: $0.00, Pending Orders: 0, New Orders: 0, Completed Orders: 0]**";
+  const validCustomerReply = "Hi! Strawberry Swirl Brownie is available for pickup at TT$60.00. Which items would you like?";
+  assert(localDraftIssue(customerRequest, badCustomerReply));
+  assert(localDraftIssue(customerRequest, "Hello! Would you like to know what's available? Please provide your details."));
+  assert(localDraftIssue(customerRequest, "Strawberry Swirl Brownie costs TT$99.00. Which items would you like?"));
+  assert(localDraftIssue(customerRequest, "Strawberry Swirl Brownie is TT$60.00. Delivery is available. Which items would you like?"));
+  assert(localDraftIssue(customerRequest, "Strawberry Swirl Brownie is TT$60.00. Please provide your address and choose your items."));
+  assert.equal(localDraftIssue(customerRequest, validCustomerReply), null);
+  assert(!/cost|margin|revenue|stock|sales|customer records|pending orders/i.test(customerRequest.input));
+  assert(!localDraftInstructions(customerRequest).includes("Lunch is ready"));
+  const pickupOff = prepareCustomerMessage("What is available?", { businessName: "Baker buds", products: [{ name: "Strawberry Swirl Brownie", priceText: "TT$60.00" }], pickupEnabled: false, deliveryEnabled: false, catalogRequested: true });
+  assert(localDraftIssue(pickupOff, validCustomerReply));
+  assert.equal(localDraftIssue(pickupOff, "Strawberry Swirl Brownie is TT$60.00. Pickup is not offered. Which items would you like?"), null);
+  const reviewReply = prepareCustomerMessage("Rewrite: We will refund TT$100.00 for the delivery delay.", { businessName: "Baker buds", products: [], pickupEnabled: false, deliveryEnabled: false, catalogRequested: false });
+  assert.equal(localDraftIssue(reviewReply, "We will refund TT$100.00 for the delivery delay."), null);
+  attempts = 0;
+  assert.equal(await checkedLocalDraft(customerRequest, async repair => { attempts++; if (attempts === 1) return badCustomerReply; assert.match(repair || "", /internal/i); return validCustomerReply; }, () => {}), validCustomerReply);
+  await assert.rejects(checkedLocalDraft(customerRequest, async () => badCustomerReply, () => {}), /No usable draft/);
   const original = globalThis.fetch;
   globalThis.fetch = async () => { throw new Error("No remote inference requests permitted"); };
   process.env.OPENAI_API_KEY = "test-unused-key";
