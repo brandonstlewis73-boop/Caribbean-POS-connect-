@@ -1,3 +1,4 @@
+import { prepareProductPromotion } from "../lib/ai-promotion";
 import { checkedLocalDraft, localDraftInstructions, localDraftIssue } from "../lib/local-ai-quality";
 import assert from "node:assert/strict";
 import { generateSupportAnswer, generateTicketSummary, aiSupportStatus } from "../lib/ai-support";
@@ -30,6 +31,34 @@ async function main() {
   attempts = 0;
   assert.equal(await checkedLocalDraft(promotion, async () => { attempts++; return good; }, () => {}), good);
   assert.equal(attempts, 1);
+  const selectedPromotion = prepareProductPromotion(
+    "Write a short WhatsApp promotion. Use saved prices or [PRICE] when a price is missing.",
+    { productName: "Strawberry Swirl Brownie", priceText: "TT$60.00", businessName: "Baker buds", available: true }
+  );
+  const stockSummary = "Available Brownie: Strawberry Swirl Brownie\nPrice: TT$60.00\nStock: 26";
+  const customerCopy = "Treat yourself to a Strawberry Swirl Brownie for TT$60.00! Message us to order.";
+  assert(localDraftIssue(selectedPromotion, stockSummary), "the screenshot's stock report is not a promotion");
+  assert.equal(localDraftIssue(selectedPromotion, customerCopy), null);
+  assert(localDraftIssue(selectedPromotion, "Strawberry Swirl Brownie for TT$[PRICE]. Message us to order."));
+  assert(localDraftIssue(selectedPromotion, "Strawberry Swirl Brownie for TT$99.00. Message us to order."));
+  assert(localDraftIssue(selectedPromotion, "Strawberry Swirl Brownie for TT$60.00 or TT$40.00. Message us to order."));
+  assert(localDraftIssue(selectedPromotion, "Strawberry Swirl Brownie for TT$60.00. Today only, 20% off! Message us to order."));
+  assert(localDraftIssue(selectedPromotion, "Strawberry Swirl Brownie for TT$60.00."));
+  assert(localDraftIssue(selectedPromotion, "Strawberry Swirl Brownie for TT$60.00, out of stock. Message us."));
+  assert(!selectedPromotion.input.includes("26"), "internal stock counts stay out of the promotion prompt");
+  assert(!localDraftInstructions(selectedPromotion).includes("Lunch is ready"), "no unrelated lunch example is supplied for catalog promotions");
+  const unavailable = prepareProductPromotion("Write a promotion.", { productName: "Strawberry Swirl Brownie", priceText: "TT$60.00", businessName: "Baker buds", available: false });
+  assert(localDraftIssue(unavailable, customerCopy));
+  assert.equal(localDraftIssue(unavailable, "Strawberry Swirl Brownie (TT$60.00) is currently unavailable. Message us about availability."), null);
+  attempts = 0;
+  assert.equal(await checkedLocalDraft(selectedPromotion, async repair => {
+    attempts++;
+    if (attempts === 1) return stockSummary;
+    assert.match(repair || "", /customer-facing/);
+    return customerCopy;
+  }, () => {}), customerCopy);
+  assert.equal(attempts, 2);
+  await assert.rejects(checkedLocalDraft(selectedPromotion, async () => stockSummary, () => {}), /No usable draft/);
   const original = globalThis.fetch;
   globalThis.fetch = async () => { throw new Error("No remote inference requests permitted"); };
   process.env.OPENAI_API_KEY = "test-unused-key";
