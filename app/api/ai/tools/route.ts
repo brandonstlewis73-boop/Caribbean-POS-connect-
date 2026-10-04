@@ -26,6 +26,9 @@ export async function POST(request: NextRequest) {
   const parsed = aiBusinessToolSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return fail("Invalid AI request", 422, parsed.error.flatten());
 
+  if (parsed.data.toolId === "order_delay_detector" && !hasPermission(auth.user.role, "orders:read")) {
+    return fail("You do not have permission to review orders.", 403);
+  }
   if (["product_description_writer", "promo_generator"].includes(parsed.data.toolId) && !parsed.data.selectedProductId) {
     return fail("Choose a catalog product before generating this response.", 422);
   }

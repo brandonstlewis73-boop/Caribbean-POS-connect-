@@ -1,3 +1,4 @@
+import { buildOrderDelayReview, prepareOrderDelayAdvice, orderDelayReviewText } from "../lib/ai-order-delays";
 import { prepareCustomerMessage } from "../lib/ai-customer-message";
 import { prepareProductDescription } from "../lib/ai-product-description";
 import { prepareProductPromotion } from "../lib/ai-promotion";
@@ -98,6 +99,37 @@ async function main() {
   attempts = 0;
   assert.equal(await checkedLocalDraft(customerRequest, async repair => { attempts++; if (attempts === 1) return badCustomerReply; assert.match(repair || "", /internal/i); return validCustomerReply; }, () => {}), validCustomerReply);
   await assert.rejects(checkedLocalDraft(customerRequest, async () => badCustomerReply, () => {}), /No usable draft/);
+  const review = buildOrderDelayReview([
+    { number: "1061", status: "ready", createdAt: "2026-10-04T21:30:00Z" },
+    { number: "1060", status: "preparing", createdAt: "2026-10-04T21:00:00Z" },
+    { number: "1000", status: "completed", createdAt: "2023-04-15T18:00:00Z" },
+    { number: "1001", status: "cancelled", createdAt: "2023-04-16T19:30:00Z" }
+  ], "2026-10-04T22:00:00.000Z");
+  assert.deepEqual(review.orders.map(order => order.number), ["1060", "1061"]);
+  assert.deepEqual(review.orders.map(order => order.elapsedMinutes), [60, 30]);
+  assert.equal(review.reviewed, 2);
+  assert(!orderDelayReviewText(review).includes("2023"));
+  const orderRequest = prepareOrderDelayAdvice("Review active orders for possible delays. Do not invent promised completion times.", review);
+  const inventedOrders = '```python\n[{"order_number": 1, "timestamp": "2023-04-15 18:00", "status": "New Order", "price": 60.00, "cost": 60.00}]\n```';
+  assert(localDraftIssue(orderRequest, inventedOrders));
+  assert(localDraftIssue(orderRequest, "Review order #1 with staff."));
+  assert(localDraftIssue(orderRequest, "Review order #1060 from 2023-04-15."));
+  assert(localDraftIssue(orderRequest, "Review order #1060 from 2026-10-01."));
+  assert(localDraftIssue(orderRequest, "Order #1060 is definitely delayed."));
+  assert(localDraftIssue(orderRequest, "Order #1060 is delayed."));
+  assert(localDraftIssue(orderRequest, "Order #1060 will be ready at 22:00."));
+  const usefulAdvice = "- Check the current preparation status for order #1060 with staff.\n- Confirm collection arrangements for order #1061 before promising a completion time.";
+  assert.equal(localDraftIssue(orderRequest, usefulAdvice), null);
+  assert.equal(localDraftIssue(orderRequest, "Check the order status and recorded timestamp with staff."), null);
+  const emptyReview = buildOrderDelayReview([], "2026-10-04T22:00:00.000Z");
+  assert.match(orderDelayReviewText(emptyReview), /No active orders/);
+  const invalidReview = buildOrderDelayReview([{ number: "1062", status: "new", createdAt: "invalid" }, { number: "1063", status: "new", createdAt: "2026-10-05T00:00:00Z" }], "2026-10-04T22:00:00.000Z");
+  assert(invalidReview.orders.every(order => order.elapsedMinutes === null));
+  const limitedReview = buildOrderDelayReview(Array.from({ length: 25 }, (_, index) => ({ number: String(2000 + index), status: "new", createdAt: "2026-10-04T21:00:00Z" })), "2026-10-04T22:00:00.000Z");
+  assert.equal(limitedReview.orders.length, 20); assert.equal(limitedReview.reviewed, 25); assert(limitedReview.limited);
+  attempts = 0;
+  assert.equal(await checkedLocalDraft(orderRequest, async repair => { attempts++; if (attempts === 1) return inventedOrders; assert(repair); return usefulAdvice; }, () => {}), usefulAdvice);
+  await assert.rejects(checkedLocalDraft(orderRequest, async () => inventedOrders, () => {}), /No usable draft/);
   const original = globalThis.fetch;
   globalThis.fetch = async () => { throw new Error("No remote inference requests permitted"); };
   process.env.OPENAI_API_KEY = "test-unused-key";

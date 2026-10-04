@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { assertLocalAiSupport, generateLocalDraft } from "@/lib/local-ai";
+import { orderDelayReviewText, type OrderDelayReview } from "@/lib/ai-order-delays";
 import type { LocalGeneration } from "@/lib/local-ai-config";
 import { readApiPayload } from "@/lib/client-response";
 import { AI_BUSINESS_TOOLS, type AiBusinessToolId } from "@/lib/ai-business-config";
@@ -10,8 +11,8 @@ import { friendlyAiProgress, usesProductSelection, workflowName } from "@/lib/ai
 import type { AiWorkspaceResources } from "@/lib/ai-workspace-types";
 
 type Thread = { input: string; goal: string; requests: string[]; output: string;
-  completed: boolean; productId: string; resultProductId: string; saved: boolean };
-const emptyThread = (): Thread => ({ input: "", goal: "", requests: [], output: "", completed: false, productId: "", resultProductId: "", saved: false });
+  review: OrderDelayReview | null; completed: boolean; productId: string; resultProductId: string; saved: boolean };
+const emptyThread = (): Thread => ({ review: null, input: "", goal: "", requests: [], output: "", completed: false, productId: "", resultProductId: "", saved: false });
 
 export function useAiWorkspace(usage: PlanUsageSummary, enabled: boolean) {
   const [toolId, setToolId] = useState<AiBusinessToolId>("product_description_writer");
@@ -81,21 +82,34 @@ export function useAiWorkspace(usage: PlanUsageSummary, enabled: boolean) {
     if (!input || busy || saving || blocked) return;
     if (usesProductSelection(toolId) && !product) { setError("Choose a product for this request."); return; }
     const id = toolId;
+    let freshReview: OrderDelayReview | null = null;
     const previous = thread;
     pending.current = { id, previous };
     const controller = new AbortController(); active.current = controller;
     const current = () => mounted.current && active.current === controller;
     setBusy(true); setError(""); setStatus("Connecting your business context…");
-    changeThread(id, { input: "", output: "", completed: false, saved: false, requests: [...thread.requests, input] });
+    changeThread(id, { input: "", output: "", review: null, completed: false, saved: false, requests: [...thread.requests, input] });
     try {
-      assertLocalAiSupport();
+      if (id !== "order_delay_detector") assertLocalAiSupport();
       const response = await fetch("/api/ai/tools", {
         method: "POST", signal: controller.signal, headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ toolId: id, selectedProductId: product?.id,
           prompt: previous.completed ? workflowRevisionPrompt(previous.goal, previous.output, input) : input })
       });
-      const payload = await readApiPayload<{ generation?: LocalGeneration }>(response);
-      if (!response.ok || !payload.data?.generation) throw new Error(payload.error || "Your assistant could not start this request.");
+      const payload = await readApiPayload<{ generation?: LocalGeneration; orderReview?: OrderDelayReview }>(response);
+      if (!response.ok || !payload.data) throw new Error(payload.error || "Your assistant could not start this request.");
+      if (!current()) return;
+      freshReview = payload.data.orderReview || null;
+      if (freshReview) {
+        changeThread(id, { review: freshReview });
+        if (pending.current && !previous.completed) pending.current.previous = { ...previous, review: freshReview };
+      }
+      if (!payload.data.generation && freshReview) {
+        changeThread(id, { review: freshReview, completed: true, output: "", goal: previous.goal || input });
+        setStatus("Order review updated."); return;
+      }
+      if (!payload.data.generation) throw new Error("Your assistant could not prepare this request.");
+      if (id === "order_delay_detector") assertLocalAiSupport();
       const output = await generateLocalDraft(payload.data.generation,
         text => { if (current()) setStatus(friendlyAiProgress(text)); }, controller.signal,
         text => { if (current()) changeThread(id, { output: text }); });
@@ -104,7 +118,7 @@ export function useAiWorkspace(usage: PlanUsageSummary, enabled: boolean) {
       setStatus("");
     } catch (e) {
       if (!current()) return;
-      changeThread(id, { ...previous, input });
+      changeThread(id, { ...previous, input, review: previous.completed ? previous.review : freshReview });
       setError(controller.signal.aborted ? "Request stopped. Your previous response is still available." : e instanceof Error ? e.message : "Your assistant could not complete the request.");
       setStatus("");
     } finally {
@@ -146,12 +160,13 @@ export function useAiWorkspace(usage: PlanUsageSummary, enabled: boolean) {
       setStatus("Product records reloaded. Review the current saved description before saving your response.");
     }
   }
+  const exportText = () => [thread.review ? orderDelayReviewText(thread.review) : "", thread.completed ? thread.output : ""].filter(Boolean).join("\n\nSuggested next steps\n");
   async function copy() {
-    try { await navigator.clipboard.writeText(thread.output); setStatus("Copied to clipboard."); setError(""); }
+    try { await navigator.clipboard.writeText(exportText()); setStatus("Copied to clipboard."); setError(""); }
     catch { setError("Clipboard access is unavailable. Use Edit to select and copy the text."); }
   }
   function download() {
-    const blob = new Blob([`${workflowName(toolId)}\n\n${thread.output}\n`], { type: "text/plain;charset=utf-8" });
+    const blob = new Blob([`${workflowName(toolId)}\n\n${exportText()}\n`], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob); const anchor = document.createElement("a");
     anchor.href = url; anchor.download = `${toolId}-result.txt`; anchor.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000); setStatus("Result downloaded.");

@@ -1,4 +1,5 @@
 import "server-only";
+import { ACTIVE_ORDER_STATUSES, buildOrderDelayReview, prepareOrderDelayAdvice } from "./ai-order-delays";
 import { prepareCustomerMessage } from "./ai-customer-message";
 import { prepareProductDescription } from "./ai-product-description";
 import { prepareProductPromotion } from "./ai-promotion";
@@ -222,6 +223,21 @@ export async function runAiBusinessTool(user: User, input: AiToolRunInput) {
   await assertUsageLimit(businessId, "aiGenerations", 1);
   const usage = await getPlanUsageSummary(businessId);
   assertToolPlan(usage.planId, tool.requiredPlan);
+
+  if (input.toolId === "order_delay_detector") {
+    if (!hasPermission(user.role, "orders:read")) throw new Error("You do not have permission to review orders.");
+    const rows = await query<{ order_number: string; status: string; created_at: string | Date }>(
+      "SELECT order_number, status, created_at FROM orders WHERE business_id = $1 AND status = ANY($2::text[]) ORDER BY created_at ASC LIMIT 101",
+      [businessId, ACTIVE_ORDER_STATUSES]
+    );
+    const orderReview = buildOrderDelayReview(rows.rows.slice(0, 100).map(row => ({ number: row.order_number,
+      status: row.status, createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at) })), new Date().toISOString(), rows.rows.length > 100);
+    const prompt = redactSensitiveText(input.prompt);
+    if (orderReview.orders.length) await logAiBusinessRun({ userId: user.id, businessId, toolId: tool.id, prompt,
+      output: "Verified order review prepared. Optional next steps are generated on the user's device.", configured: false });
+    return { tool, orderReview, generation: aiEnabled() && orderReview.orders.length ? prepareOrderDelayAdvice(prompt, orderReview) : null,
+      output: "", configured: false, model: aiModel(), reviewRequired: true, usage };
+  }
 
   const context = await getBusinessAiContext(businessId);
   if (input.selectedProductId && !hasPermission(user.role, "inventory:read")) throw new Error("You do not have permission to use product records.");

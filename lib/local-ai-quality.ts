@@ -1,7 +1,7 @@
 import type { LocalGeneration } from "./local-ai-config";
 
 export function localDraftInstructions(request: LocalGeneration) {
-  if (request.purpose === "product-promotion" || request.purpose === "product-description" || request.purpose === "customer-message") {
+  if (request.purpose === "product-promotion" || request.purpose === "product-description" || request.purpose === "customer-message" || request.purpose === "order-delay") {
     return request.instructions.slice(0, 5000) + "\nWrite each sentence once. Do not promise that you will send a message or perform an action. Output only the finished text.";
   }
   return request.instructions.slice(0, 5000) + "\nFollow the user request directly. Output the requested draft, without an introduction or explanation. Use bracketed placeholders for facts the user has not provided. When price placeholders are requested, include [PRICE] in the actual promotion. Do not ask for missing details when placeholders are requested. Never promise to send messages, look up prices, or perform actions. Write each sentence once." +
@@ -14,6 +14,25 @@ export function localDraftIssue(request: LocalGeneration, text: string): string 
   const normalized = text.replace(/[’‘]/g, "'");
   if (/^(?:sure[,! ]|here(?:'s| is)|I can (?:write|draft|create))/i.test(normalized.trim())) {
     return "Output only the requested draft, without an assistant introduction.";
+  }
+  if (request.purpose === "order-delay" && request.orderDelayFacts) {
+    const facts = request.orderDelayFacts;
+    if (/```|\b(?:python|order_number|json)\b|[{}]|^\s*\[\s*\{/i.test(text)) return "Return a plain-language next-step checklist, not code, JSON, sample data, or an order report.";
+    const orderNumbers = new Set(facts.orders.map(order => order.number));
+    const refs = [...text.matchAll(/#([a-z0-9_-]+)|\border\s+(?:number\s*)?#?([0-9][a-z0-9_-]*)/gi)];
+    if (refs.some(match => !orderNumbers.has(match[1] || match[2]))) return "Refer only to the exact order numbers in the verified review. Do not invent an order.";
+    const timestamps = [facts.asOf, ...facts.orders.map(order => order.createdAt).filter((value): value is string => Boolean(value))];
+    const dates = new Set(timestamps.map(value => value.slice(0, 10)));
+    const times = new Set(timestamps.map(value => value.slice(11, 16)));
+    if ((text.match(/\b\d{4}-\d{2}-\d{2}\b/g) || []).some(value => !dates.has(value)) ||
+      (text.match(/\b\d{2}:\d{2}\b/g) || []).some(value => !times.has(value))) return "Use only recorded dates and times from the verified review.";
+    const source = JSON.stringify(facts);
+    const knownNumbers = new Set(source.match(/\d+/g) || []);
+    const prose = text.replace(/^\s*\d+[.)]\s+/gm, "");
+    if ((prose.match(/\d+/g) || []).some(number => !knownNumbers.has(number))) return "Remove invented numbers, dates, and times. Use only the verified order review.";
+    if (/[$€£]|\b(?:price|cost|margin|revenue)\b/i.test(text)) return "Order-delay advice must not include invented prices or financial records.";
+    if (/\b(?:is|are|confirmed|definitely)\s+(?:late|delayed|overdue)\b/i.test(text)) return "Elapsed time does not prove a delay without a promised completion time. Suggest checking progress instead.";
+    if (/\bwill\b.{0,45}\b(?:ready|arrive|finish|deliver)\b/i.test(text)) return "Do not promise completion or delivery times that are not provided.";
   }
   if (request.purpose === "customer-message" && request.customerMessageFacts) {
     const facts = request.customerMessageFacts;
