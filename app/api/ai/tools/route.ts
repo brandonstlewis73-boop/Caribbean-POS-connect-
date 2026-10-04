@@ -1,3 +1,4 @@
+import { hasPermission } from "@/lib/permissions";
 import { NextRequest } from "next/server";
 import { fail, ok } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
@@ -25,11 +26,15 @@ export async function POST(request: NextRequest) {
   const parsed = aiBusinessToolSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return fail("Invalid AI request", 422, parsed.error.flatten());
 
+  if (parsed.data.selectedProductId && !hasPermission(auth.user.role, "inventory:read")) {
+    return fail("You do not have permission to use product records.", 403);
+  }
   try {
     const result = await runAiBusinessTool(auth.user, {
       toolId: parsed.data.toolId as AiBusinessToolId,
       prompt: parsed.data.prompt,
-      extraContext: parsed.data.extraContext
+      extraContext: parsed.data.extraContext,
+      selectedProductId: parsed.data.selectedProductId
     });
     return ok(result);
   } catch (error) {

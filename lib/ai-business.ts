@@ -1,4 +1,5 @@
 import "server-only";
+import { hasPermission } from "./permissions";
 import { workflowRecordContext } from "./ai-workflows";
 import { LOCAL_AI_MODEL, localAiEnabled } from "./local-ai-config";
 import { AI_BUSINESS_TOOLS, getAiBusinessTool, type AiBusinessToolId } from "./ai-business-config";
@@ -9,6 +10,7 @@ import {
   assertFeatureAccess,
   assertUsageLimit,
   getBusinessSettings,
+  getProduct,
   getDashboardData,
   getPlanUsageSummary,
   listCustomers,
@@ -23,6 +25,7 @@ type AiToolRunInput = {
   toolId: AiBusinessToolId;
   prompt: string;
   extraContext?: string | null;
+  selectedProductId?: string;
 };
 
 type BusinessAiContext = {
@@ -218,9 +221,20 @@ export async function runAiBusinessTool(user: User, input: AiToolRunInput) {
   assertToolPlan(usage.planId, tool.requiredPlan);
 
   const context = await getBusinessAiContext(businessId);
+  if (input.selectedProductId && !hasPermission(user.role, "inventory:read")) throw new Error("You do not have permission to use product records.");
+  const selectedProduct = input.selectedProductId ? await getProduct(input.selectedProductId, businessId) : null;
+  if (input.selectedProductId && !selectedProduct) throw new Error("The selected product is not available in this business.");
+  const selectedProductText = selectedProduct
+    ? `Selected product (use this product only):\n${redactSensitiveText([
+        selectedProduct.name, `Category: ${selectedProduct.category}`,
+        `Price: ${money(selectedProduct.selling_price, context.settings.currency)}`,
+        `Stock: ${selectedProduct.stock_quantity}`,
+        `Existing description: ${selectedProduct.description || "Not provided"}`
+      ].join("\n")).slice(0, 1200)}\n\n`
+    : "";
   const cleanPrompt = redactSensitiveText(input.prompt);
   const cleanExtra = redactSensitiveText(input.extraContext || "");
-  const inputText = `User request:\n${cleanPrompt.slice(0, 1800)}\n\nExtra context:\n${cleanExtra.slice(0, 600)}\n\nBusiness context (selected records):\n${redactSensitiveText(buildContextBlock(context, input.toolId)).slice(0, 3500)}`;
+  const inputText = `User request:\n${cleanPrompt.slice(0, 1800)}\n\nExtra context:\n${cleanExtra.slice(0, 600)}\n\n${selectedProductText}Business context (selected records):\n${redactSensitiveText(selectedProduct ? `Business: ${context.settings.business_name}\nCountry: ${context.settings.business_country}\nCurrency: ${context.settings.currency}` : buildContextBlock(context, input.toolId)).slice(0, 3500)}`;
   const configured = false;
   const output = aiEnabled() ? "Local generation prepared. The draft is generated on your device and is not stored in server logs." : redactSensitiveText(fallbackOutput(input.toolId, cleanPrompt, context));
 
