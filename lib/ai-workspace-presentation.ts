@@ -26,6 +26,11 @@ export function workflowStarters(id: AiBusinessToolId) {
     { label: "Improve the existing description", prompt: "Improve the selected product's existing description. Preserve all verified facts and make it easier to read. If no description exists, write one using only the provided product facts." },
     { label: "Create a shorter version", prompt: "Write a one-sentence description for the selected product, using only verified facts." }
   ];
+  if (id === "promo_generator") return [
+    { label: "Write a short WhatsApp promotion", prompt: "Write two short sentences promoting the selected product at its saved price. Invite customers to message us." },
+    { label: "Make it warm and welcoming", prompt: "Write a friendly promotion for the selected product. Include its saved price and invite customers to message us." },
+    { label: "Keep it direct", prompt: "Write a concise promotion naming the selected product and its saved price. End with an invitation to message us." }
+  ];
   const guide = getWorkflowGuide(id);
   return [
     { label: `Start with ${workflowName(id).toLowerCase()}`, prompt: guide.goal },

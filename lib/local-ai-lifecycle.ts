@@ -1,3 +1,6 @@
+export class LocalRepetitionError extends Error {
+  constructor() { super("Local AI started repeating itself. The repeated response was stopped."); this.name = "LocalRepetitionError"; }
+}
 export function waitForWorkerReady(worker: Worker, timeoutMs = 15000): Promise<void> {
   return new Promise((resolve, reject) => {
     const finish = (error?: Error) => {
@@ -47,7 +50,7 @@ export async function collectLocalDraft(
     for (const sentence of sentences) {
       const normalized = sentence.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
       if (normalized.length < 35) continue;
-      if (seen.has(normalized)) throw new Error("Local AI started repeating itself. Try a shorter, more specific request.");
+      if (seen.has(normalized)) throw new LocalRepetitionError();
       seen.add(normalized);
     }
     onDraft(draft);

@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { DeviceAiPicker } from "./DeviceAiPicker";
 import { ChevronRight, ArrowUp, Square, Sparkles, Package, RotateCcw, UserRound } from "lucide-react";
 import type { PlanUsageSummary } from "@/lib/plan-gating";
 import { money } from "@/lib/constants";
@@ -40,14 +41,16 @@ export function AiBusinessOSClient({usage,aiStatus,userName}: {
             {isPristine?<div className="aw-welcome"><div className="aw-welcome-heading"><span className="aw-ai-avatar"><Sparkles size={23}/></span><div><h3>What would you like to get done?</h3><p>Choose a workflow and tell me your goal.</p></div></div><div className="aw-starters">{workflowStarters(ai.toolId).map(starter=><button type="button" key={starter.label} disabled={ai.saving||ai.busy} onClick={()=>ai.startWith(starter.prompt)}><span>{starter.label}</span><ChevronRight size={17}/></button>)}</div></div>:null}
             {ai.thread.requests.slice(-3).map((request,index)=><div className="aw-user-row" key={`${index}-${request}`}><span className="aw-user-avatar" aria-hidden="true">{userName?userName.split(/\s+/).map(part=>part[0]).slice(0,2).join(""):<UserRound size={17}/>}</span><div className="aw-user-message">{request}</div></div>)}
             {ai.thread.review?<AiOrderDelayReview review={ai.thread.review} onDownload={ai.download}/>:null}
-            {(ai.thread.output||ai.busy)?<AiWorkspaceResult workflowId={ai.toolId} title={ai.toolId==="order_delay_detector"?"Suggested next steps":workflowName(ai.toolId)} text={ai.thread.output} completed={ai.thread.completed} busy={ai.busy} saving={ai.saving} saved={ai.thread.saved} canSave={canSave} productName={ai.product?.name} onEdit={ai.setOutput} onSave={ai.saveProduct} onCopy={ai.copy} onDownload={ai.download}/>:null}
+            {(ai.thread.output||ai.busy)?<AiWorkspaceResult workflowId={ai.toolId} source={ai.thread.source} title={ai.toolId==="order_delay_detector"?"Suggested next steps":workflowName(ai.toolId)} text={ai.thread.output} completed={ai.thread.completed} busy={ai.busy} saving={ai.saving} saved={ai.thread.saved} canSave={canSave} productName={ai.product?.name} onEdit={ai.setOutput} onSave={ai.saveProduct} onCopy={ai.copy} onDownload={ai.download}/>:null}
           </div>
           <div className="aw-composer-area">
+            <DeviceAiPicker disabled={ai.busy||ai.saving}/>
             {ai.locked?<div className="aw-access-notice">{workflowName(ai.toolId)} is available on {ai.tool.requiredPlan}. <Link href="/subscription">View plans</Link></div>:null}
             {!aiStatus.enabled?<div className="aw-access-notice">AI is currently unavailable for this business.</div>:null}
             {ai.error?<div role="alert" className="aw-error">{ai.error}{ai.recordConflict?<button type="button" className="aw-reload-action" disabled={ai.loadingResources||ai.saving} onClick={ai.reloadAfterConflict}><RotateCcw size={14}/>{ai.loadingResources?"Reloading…":"Reload current product"}</button>:null}</div>:null}
             {ai.recordsReloaded&&ai.product?<details open className="aw-current-description"><summary>Current saved description</summary><p>{ai.product.description||"No description saved yet."}</p></details>:null}
             {ai.status?<p role="status" aria-live="polite" className="aw-status">{ai.status}</p>:null}
+            {ai.toolId==="promo_generator"&&ai.product?<button type="button" className="aw-reload-action" disabled={ai.blocked||ai.busy||ai.saving} onClick={()=>void ai.useSavedDetails()}><Package size={16}/>Use saved product details</button>:null}
             <form className="aw-composer" onSubmit={event=>{event.preventDefault();void ai.run();}}>
               <label className="aw-sr-only" htmlFor="ai-workspace-request">Message your assistant</label>
               <textarea id="ai-workspace-request" ref={ai.composer} value={ai.thread.input} onChange={event=>ai.setInput(event.target.value)} placeholder={ai.thread.completed?"Tell me what to change…":"Tell me what you need…"} rows={3} maxLength={1800} disabled={ai.busy||ai.saving} />

@@ -1,47 +1,51 @@
 "use client";
-import { LOCAL_AI_MODEL, type LocalGeneration } from "./local-ai-config";
+import { localModelId, readLocalModelChoice, type LocalModelChoice, type LocalGeneration } from "./local-ai-config";
 import { abortError, collectLocalDraft, guardLocalTask, waitForWorkerReady } from "./local-ai-lifecycle";
-import { checkedLocalDraft, localDraftInstructions } from "./local-ai-quality";
+import { checkedLocalDraft, localDraftInstructions, LocalDraftQualityError } from "./local-ai-quality";
 import type { WebWorkerMLCEngine } from "@mlc-ai/web-llm";
 let engine: WebWorkerMLCEngine | null = null;
+let loadedChoice: LocalModelChoice | null = null;
 let initialization: Promise<WebWorkerMLCEngine> | null = null;
 let worker: Worker | null = null;
 let queue: Promise<unknown> = Promise.resolve();
-function resetEngine() { worker?.terminate(); worker = null; engine = null; initialization = null; }
+function resetEngine() { worker?.terminate(); worker = null; engine = null; initialization = null; loadedChoice = null; }
 export function assertLocalAiSupport() {
   if (typeof window === "undefined" || !window.isSecureContext || !(navigator as Navigator & { gpu?: unknown }).gpu) {
-    throw new Error("Local AI needs a browser with WebGPU over HTTPS. Try an updated Chrome or Edge browser on a compatible computer. No paid AI service will be used.");
+    throw new Error("Local AI needs a browser with WebGPU over HTTPS. On iPhone, use Safari on iOS 26 or newer and open this site directly in Safari. On a computer, use updated Chrome or Edge. No paid AI service will be used.");
   }
 }
-async function loadEngine(progress: (text: string) => void, signal?: AbortSignal) {
+async function loadEngine(progress: (text: string) => void, signal: AbortSignal | undefined, choice: LocalModelChoice) {
   assertLocalAiSupport();
   if (signal?.aborted) throw abortError();
-  if (engine) return engine;
+  if (engine && loadedChoice === choice) return engine;
+  if (engine) resetEngine();
   try {
     progress("Checking device GPU…");
-    const gpu = (navigator as Navigator & { gpu: { requestAdapter(): Promise<unknown> } }).gpu;
+    const gpu = (navigator as Navigator & { gpu: { requestAdapter(): Promise<{ features?: { has(name: string): boolean } } | null> } }).gpu;
     const adapter = await guardLocalTask(gpu.requestAdapter(), null, signal, 15000, "GPU check timed out. Close other tabs and try again.");
-    if (!adapter) throw new Error("This browser cannot access a compatible GPU. Try updated Chrome or Edge with hardware acceleration enabled.");
+    if (!adapter) throw new Error("This browser cannot access a compatible GPU. On iPhone, open the site directly in Safari on iOS 26 or newer. Close other tabs and apps, then try again.");
     progress("Starting local AI…");
     const { CreateWebWorkerMLCEngine } = await guardLocalTask(import("@mlc-ai/web-llm"), null, signal, 30000, "Local AI files could not load. Check your connection and try again.");
     // Next.js emits a classic worker whose chunk loader uses importScripts.
     worker = new Worker(new URL("../workers/local-ai.worker.ts", import.meta.url));
     await guardLocalTask(waitForWorkerReady(worker), worker, signal, 16000, "Local AI startup timed out. Refresh the page and try again.");
-    progress("Loading model files. First use downloads about 300 MB; you can stop at any time.");
-    initialization = CreateWebWorkerMLCEngine(worker, LOCAL_AI_MODEL, { initProgressCallback: report => progress(report.text) });
+    const modelId = localModelId(choice, adapter.features?.has("shader-f16") === true);
+    progress(`Loading model files. First use downloads about ${choice === "quality" ? "870" : "300"} MB; you can stop at any time.`);
+    initialization = CreateWebWorkerMLCEngine(worker, modelId, { initProgressCallback: report => progress(report.text) });
     engine = await guardLocalTask(initialization, worker, signal, 15 * 60 * 1000, "The model download timed out. Check your connection and try again.");
+    loadedChoice = choice;
     return engine;
   } catch (error) {
     resetEngine();
     throw error instanceof Error ? error : new Error("The local model could not load. Check your connection, device memory, and GPU support.");
   }
 }
-export function generateLocalDraft(request: LocalGeneration, progress: (text: string) => void = () => {}, signal?: AbortSignal, onDraft: (text: string) => void = () => {}) {
+export function generateLocalDraft(request: LocalGeneration, progress: (text: string) => void = () => {}, signal?: AbortSignal, onDraft: (text: string) => void = () => {}, choice: LocalModelChoice = readLocalModelChoice()) {
   const run = async () => {
     if (signal?.aborted) throw abortError();
     try {
       progress("Loading local AI. The first run downloads the model; this may take several minutes.");
-      const local = await loadEngine(progress, signal);
+      const local = await loadEngine(progress, signal, choice);
       progress("Writing your draft on this device…");
       const text = await checkedLocalDraft(request, async repair => {
         return guardLocalTask((async () => {
@@ -50,7 +54,7 @@ export function generateLocalDraft(request: LocalGeneration, progress: (text: st
               { role: "system", content: localDraftInstructions(request) },
               { role: "user", content: request.input.slice(0, 6000) + (repair ? "\nCorrection: " + repair + " Output only the completed draft." : "") }
             ],
-            stream: true, max_tokens: 256, temperature: 0.3, repetition_penalty: 1.1, frequency_penalty: 0.3
+            stream: true, max_tokens: 256, temperature: 0.2, repetition_penalty: 1.12, frequency_penalty: 0.3
           });
           return collectLocalDraft(stream, draft => {
             onDraft(draft);
@@ -58,12 +62,13 @@ export function generateLocalDraft(request: LocalGeneration, progress: (text: st
           }, signal);
         })(), worker, signal, 180000, "Local generation timed out. Try a shorter request or a device with more free GPU memory.");
       }, () => {
+        local.interruptGenerate();
         onDraft("");
         progress("The first draft missed the request. Trying one correction…");
       });
       return text;
     } catch (error) {
-      resetEngine();
+      if (!(error instanceof LocalDraftQualityError)) resetEngine();
       throw error instanceof Error ? error : new Error("Local AI could not finish this draft. No paid AI service was used.");
     }
   };

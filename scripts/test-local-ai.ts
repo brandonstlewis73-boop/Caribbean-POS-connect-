@@ -1,13 +1,18 @@
 import { buildOrderDelayReview, prepareOrderDelayAdvice, orderDelayReviewText } from "../lib/ai-order-delays";
 import { prepareCustomerMessage } from "../lib/ai-customer-message";
 import { prepareProductDescription } from "../lib/ai-product-description";
-import { prepareProductPromotion } from "../lib/ai-promotion";
+import { promotionFromSavedDetails, prepareProductPromotion } from "../lib/ai-promotion";
+import { LocalRepetitionError } from "../lib/local-ai-lifecycle";
 import { checkedLocalDraft, localDraftInstructions, localDraftIssue } from "../lib/local-ai-quality";
 import assert from "node:assert/strict";
 import { generateSupportAnswer, generateTicketSummary, aiSupportStatus } from "../lib/ai-support";
-import { LOCAL_AI_MODEL } from "../lib/local-ai-config";
+import { LOCAL_AI_MODEL, localModelId, readLocalModelChoice } from "../lib/local-ai-config";
 import { assertLocalAiSupport } from "../lib/local-ai";
 async function main() {
+  assert.equal(readLocalModelChoice(), "quality");
+  assert.equal(localModelId("quality", true), "Qwen2.5-1.5B-Instruct-q4f16_1-MLC");
+  assert.equal(localModelId("quality", false), LOCAL_AI_MODEL);
+  assert.equal(localModelId("light", true), "Qwen2.5-0.5B-Instruct-q4f32_1-MLC");
   const promotion = { instructions: "Draft a promotion.", input: "Write a short WhatsApp promotion for a Caribbean bakery lunch special. Use placeholders for prices." };
   const badScreenshot = "Sure, I can draft a promotion. Hey there! I'll send you the details of our new [Lunch Special] when we have them ready. Let me know and I'll get you an update on the price points.";
   assert(localDraftIssue(promotion, badScreenshot));
@@ -34,6 +39,16 @@ async function main() {
   attempts = 0;
   assert.equal(await checkedLocalDraft(promotion, async () => { attempts++; return good; }, () => {}), good);
   assert.equal(attempts, 1);
+  attempts = 0;
+  assert.equal(await checkedLocalDraft(promotion, async repair => {
+    attempts++;
+    if (!repair) throw new LocalRepetitionError();
+    assert.match(repair, /once/);
+    return good;
+  }, () => {}), good);
+  assert.equal(attempts, 2);
+  await assert.rejects(checkedLocalDraft(promotion, async () => { throw new LocalRepetitionError(); }, () => {}), /repeated its response twice/);
+  await assert.rejects(checkedLocalDraft(promotion, async () => { throw new Error("Device lost"); }, () => {}), /Device lost/);
   const selectedPromotion = prepareProductPromotion(
     "Write a short WhatsApp promotion. Use saved prices or [PRICE] when a price is missing.",
     { productName: "Strawberry Swirl Brownie", priceText: "TT$60.00", businessName: "Baker buds", available: true }
@@ -42,6 +57,17 @@ async function main() {
   const customerCopy = "Treat yourself to a Strawberry Swirl Brownie for TT$60.00! Message us to order.";
   assert(localDraftIssue(selectedPromotion, stockSummary), "the screenshot's stock report is not a promotion");
   assert.equal(localDraftIssue(selectedPromotion, customerCopy), null);
+  for (const price of ["TT$60", "TT$ 60.0", "TTD 60.00"]) {
+    assert.equal(localDraftIssue(selectedPromotion, `Strawberry Swirl Brownie for ${price}. Message us to order.`), null, price);
+  }
+  for (const price of ["TT$600", "TT$60.01", "USD 60", "US$60", "$60", "TT$60.00 and TT$600"]) {
+    assert(localDraftIssue(selectedPromotion, `Strawberry Swirl Brownie for ${price}. Message us to order.`), price);
+  }
+  const groupedPrice = prepareProductPromotion("Promote it", { productName: "Cake", priceText: "TT$1,060.00", businessName: "Bakery", available: true });
+  assert.equal(localDraftIssue(groupedPrice, "Cake for TT$1060. Message us to order."), null);
+  assert.equal(promotionFromSavedDetails({ productName: "Triple chocolate", priceText: "TT$60.00", available: true }), "Triple chocolate is available for TT$60.00. Message us to order.");
+  assert.match(promotionFromSavedDetails({ productName: "Triple chocolate", priceText: "TT$60.00", available: false }), /currently unavailable/);
+
   assert(localDraftIssue(selectedPromotion, "Strawberry Swirl Brownie for TT$[PRICE]. Message us to order."));
   assert(localDraftIssue(selectedPromotion, "Strawberry Swirl Brownie for TT$99.00. Message us to order."));
   assert(localDraftIssue(selectedPromotion, "Strawberry Swirl Brownie for TT$60.00 or TT$40.00. Message us to order."));

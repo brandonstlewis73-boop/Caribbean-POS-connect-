@@ -1,4 +1,28 @@
 import type { LocalGeneration } from "./local-ai-config";
+import { LocalRepetitionError } from "./local-ai-lifecycle";
+import { CARIBBEAN_CURRENCIES } from "./constants";
+
+const escapePattern = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const currencyAliases = CARIBBEAN_CURRENCIES.flatMap(currency => [
+  { text: currency.symbol.trim(), code: currency.code },
+  { text: currency.code, code: currency.code }
+]);
+const pricePattern = new RegExp(`(?<![a-z])(${[...new Set(currencyAliases.map(alias => alias.text)), "$", "€", "£"].sort((a,b) => b.length-a.length).map(escapePattern).join("|")})\\s*(\\d+(?:,\\d{3})*(?:\\.\\d+)?)`, "gi");
+function pricesIn(text: string) {
+  return [...text.matchAll(pricePattern)].map(match => ({
+    currency: currencyAliases.find(alias => alias.text.toLowerCase() === match[1].toLowerCase())?.code || match[1],
+    amount: Number(match[2].replace(/,/g, ""))
+  }));
+}
+function samePrice(a: ReturnType<typeof pricesIn>[number], b: ReturnType<typeof pricesIn>[number]) {
+  return a.currency === b.currency && a.amount === b.amount;
+}
+export class LocalDraftQualityError extends Error {
+  constructor(public readonly reason: string) {
+    super(`The local model's response did not pass the check: ${reason} No usable draft was produced.`);
+    this.name = "LocalDraftQualityError";
+  }
+}
 
 export function localDraftInstructions(request: LocalGeneration) {
   if (request.purpose === "product-promotion" || request.purpose === "product-description" || request.purpose === "customer-message" || request.purpose === "order-delay") {
@@ -75,7 +99,9 @@ export function localDraftIssue(request: LocalGeneration, text: string): string 
       return "Rewrite this as two short customer-facing sentences, not a labeled stock or price report. Include the product, saved price, and invitation to reply.";
     }
     if (!compact(text).includes(compact(facts.productName))) return "Include the exact selected product name in the message.";
-    if (!compact(text).includes(compact(facts.priceText))) return `Use the saved price ${facts.priceText}, not a different price or a placeholder.`;
+    const savedPrice = pricesIn(facts.priceText)[0];
+    const monetaryValues = pricesIn(text);
+    if (!savedPrice || !monetaryValues.some(value => samePrice(value, savedPrice))) return `Use the saved price ${facts.priceText}, not a different price or a placeholder.`;
     if (/\[(?:PRICE|CURRENCY)\]/i.test(text)) return "The price is known. Use the saved price instead of a price or currency placeholder.";
     if (!/\b(?:reply|message|contact|whatsapp|order|shop|visit)\b/i.test(text) && !/\b(?:no|without|omit|remove)\b.{0,25}(?:call to action|cta)/i.test(request.input)) {
       return "End the customer-facing promotion with a clear invitation to reply or message the business.";
@@ -84,8 +110,7 @@ export function localDraftIssue(request: LocalGeneration, text: string): string 
     if (/\b(?:discount|sale|free|limited(?:[- ]time)?|selling fast|hurry|last chance|today only)\b|\d+\s*%|\b\d+\s*(?:left|remaining|in stock)\b/i.test(claims)) {
       return "Do not invent discounts, scarcity, deadlines, or include internal stock counts. Use only the selected product and saved price.";
     }
-    const monetaryValues = text.match(/[a-z]{0,3}\s*[$€£]\s*\d+(?:[.,]\d+)*/gi) || [];
-    if (monetaryValues.some(value => compact(value) !== compact(facts.priceText))) return `Include only the saved price ${facts.priceText}. Do not add another price.`;
+    if (monetaryValues.some(value => !samePrice(value, savedPrice))) return `Include only the saved price ${facts.priceText}. Do not add another price.`;
     if (facts.available && /\b(?:unavailable|out of stock|not available)\b/i.test(text)) return "The selected product is available. Do not claim it is out of stock.";
     if (!facts.available && !/\b(?:unavailable|out of stock|not available)\b/i.test(text)) return "The product is currently unavailable. Say so clearly; invite a message about availability, not an immediate order.";
   }
@@ -109,13 +134,22 @@ export async function checkedLocalDraft(
   generate: (repair?: string) => Promise<string>,
   onRepair: () => void
 ) {
-  const first = await generate();
-  const issue = localDraftIssue(request, first);
+  let first = "";
+  let issue: string | null;
+  try { first = await generate(); issue = localDraftIssue(request, first); }
+  catch (error) {
+    if (!(error instanceof LocalRepetitionError)) throw error;
+    issue = "Write a shorter response. Each sentence must appear only once. End when the requested message is complete.";
+  }
   if (!issue) return first;
   onRepair();
-  const repaired = await generate(issue);
-  if (localDraftIssue(request, repaired)) {
-    throw new Error("This local model could not follow the request reliably. Try a simpler request. No usable draft was produced.");
+  let repaired: string;
+  try { repaired = await generate(issue); }
+  catch (error) {
+    if (!(error instanceof LocalRepetitionError)) throw error;
+    throw new LocalDraftQualityError("The model repeated its response twice. Choose Higher quality in Device AI, or use saved product details for a promotion.");
   }
+  const remainingIssue = localDraftIssue(request, repaired);
+  if (remainingIssue) throw new LocalDraftQualityError(remainingIssue);
   return repaired;
 }
