@@ -27,7 +27,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         business_id: business.id,
         storefront_slug: slug,
         status: "new",
-        payment_status: parsed.data.payment_method === "Pay on delivery" ? "unpaid" : parsed.data.payment_status || "unpaid",
+        // Public checkout cannot establish that payment has been collected.
+        payment_status: "unpaid",
         created_by: undefined
       },
       undefined
