@@ -14,7 +14,7 @@ export function AiWorkspaceResult({ workflowId, title, source, text, completed, 
   return <div className="aw-answer-row"><span className="aw-ai-avatar" aria-hidden="true"><Sparkles size={20}/></span>
     <article className="aw-result" aria-label="Assistant result">
       <div className="aw-result-heading"><h3>{title}</h3>{saved?<span className="aw-saved"><Check size={14}/>Saved</span>:null}</div>
-      {source==="catalog"?<p className="aw-save-caption">From saved product details · No AI used</p>:null}
+      {source==="catalog"?<p className="aw-save-caption">Prepared from saved business details</p>:null}
       {editing?<label className="aw-edit-label">Edit response<textarea ref={editor} value={text} onChange={event=>onEdit(event.target.value)} rows={8} maxLength={4000}/></label>:<div className="aw-result-text">{text||"Working on your request…"}</div>}
       {completed?<div className="aw-result-actions">
         <button type="button" disabled={busy||saving} onClick={()=>setEditing(!editing)}><Pencil size={16}/>{editing?"Done editing":"Edit"}</button>

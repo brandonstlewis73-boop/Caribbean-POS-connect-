@@ -1,4 +1,5 @@
 "use client";
+import { userMessage } from "@/lib/user-messages";
 import {Pagination,usePagination} from "@/components/workspace/Pagination";
 import {Workspace,WorkspaceSection} from "@/components/workspace/Workspace";
 
@@ -264,7 +265,7 @@ export function SettingsClient({
       });
       setLocationMessage("Address added. Review it before saving.");
     } catch (error) {
-      setLocationMessage(error instanceof Error ? error.message : "Location could not be detected. Enter the address manually.");
+      setLocationMessage(userMessage(error, "Location could not be detected. Enter the address manually."));
     } finally {
       setLocating(false);
     }
@@ -291,7 +292,7 @@ export function SettingsClient({
       }));
       setMessage("Logo ready. Save changes to apply it to this business only.");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Logo could not be prepared.");
+      setMessage(userMessage(error, "Logo could not be prepared."));
     } finally {
       setPreparingLogo(false);
     }
@@ -316,7 +317,7 @@ export function SettingsClient({
   }
 
   async function sendWhatsAppTest(testMode = false) {
-    setWhatsappTestMessage(testMode ? "Validating Twilio WhatsApp setup..." : "Sending test WhatsApp message...");
+    setWhatsappTestMessage(testMode ? "Checking automatic WhatsApp…" : "Sending test WhatsApp message...");
     setBusyId(testMode ? "whatsapp-test-mode" : "whatsapp-test-send");
     try {
       const response = await fetch("/api/whatsapp/test", {
@@ -333,7 +334,7 @@ export function SettingsClient({
         setWhatsappTestMessage(payload.error || "WhatsApp test failed.");
         return;
       }
-      setWhatsappTestMessage(payload.data?.result?.message || "WhatsApp test completed.");
+      setWhatsappTestMessage(userMessage(payload.data?.result?.message, "WhatsApp check completed."));
     } catch {
       setWhatsappTestMessage("WhatsApp test failed. Check the server connection and try again.");
     } finally {
@@ -701,8 +702,8 @@ export function SettingsClient({
           </div></WorkspaceSection><WorkspaceSection id="connection" title="Connection check" icon="settings"><Button type="button" onClick={() => sendWhatsAppTest(true)} disabled={Boolean(busyId)} className="w-full sm:w-auto">
               {busyId === "whatsapp-test-mode" ? "Validating..." : "Check configuration"}
             </Button><Button type="button" onClick={() => sendWhatsAppTest(false)} disabled={Boolean(busyId) || !draft.whatsapp_business_number.trim()} className="w-full sm:w-auto">
-              {busyId === "whatsapp-test-send" ? "Sending..." : "Send Twilio test · may incur fees"}
-            </Button><p className="text-sm leading-6 text-teal-50/70">Sandbox testing: each recipient must join the Twilio sandbox and send your sender a WhatsApp message within the last 24 hours. Membership expires after three days. Production order updates outside the 24-hour window require an approved utility template. A queued test is not a delivery confirmation; check Twilio Messaging Logs.</p>{whatsappTestMessage ? (
+              {busyId === "whatsapp-test-send" ? "Sending..." : "Send automatic test · may incur fees"}
+            </Button><p className="text-sm leading-6 text-teal-50/70">Automatic messages may incur fees. A queued message is awaiting delivery; delivered or read confirms receipt. If a test fails, contact support or send the update yourself in WhatsApp.</p>{whatsappTestMessage ? (
             <p className="rounded-card border border-white/10 bg-black/20 p-3 text-sm font-bold text-teal-50/70">{whatsappTestMessage}</p>
           ) : null}</WorkspaceSection></Workspace><div className="workspace-form-actions"><Button type="button" variant="primary" onClick={() => saveSettings("Notification settings saved.")} disabled={saving || preparingLogo} className="w-full sm:w-auto">
               <Save className="h-4 w-4" />

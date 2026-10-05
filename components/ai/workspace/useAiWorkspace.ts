@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { userMessage } from "@/lib/user-messages";
 import { money } from "@/lib/constants";
 import { descriptionFromSavedDetails } from "@/lib/ai-product-description";
 import { promotionFromSavedDetails } from "@/lib/ai-promotion";
@@ -50,7 +51,7 @@ export function useAiWorkspace(usage: PlanUsageSummary, enabled: boolean) {
       if (!response.ok || !payload.data) throw new Error(payload.error || "Product records could not be loaded.");
       if (mounted.current && !signal?.aborted) { setResources(payload.data); return payload.data; }
     } catch (e) {
-      if (mounted.current && !signal?.aborted) setResourceMessage(e instanceof Error ? e.message : "Product records could not be loaded.");
+      if (mounted.current && !signal?.aborted) setResourceMessage(userMessage(e, "Products could not be loaded. Try again."));
       return false;
     } finally { if (mounted.current && !signal?.aborted) setLoadingResources(false); }
   }, []);
@@ -93,15 +94,18 @@ export function useAiWorkspace(usage: PlanUsageSummary, enabled: boolean) {
     setBusy(true); setError(""); setStatus("Connecting your business context…");
     changeThread(id, { source: "ai", input: "", output: "", review: null, completed: false, saved: false, requests: [...thread.requests, input] });
     try {
-      if (id !== "order_delay_detector") assertLocalAiSupport();
       const response = await fetch("/api/ai/tools", {
         method: "POST", signal: controller.signal, headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ toolId: id, selectedProductId: product?.id,
           prompt: previous.completed ? workflowRevisionPrompt(previous.goal, previous.output, input) : input })
       });
-      const payload = await readApiPayload<{ generation?: LocalGeneration; orderReview?: OrderDelayReview }>(response);
+      const payload = await readApiPayload<{ generation?: LocalGeneration; orderReview?: OrderDelayReview; preparedReply?: string }>(response);
       if (!response.ok || !payload.data) throw new Error(payload.error || "Your assistant could not start this request.");
       if (!current()) return;
+      if (payload.data.preparedReply) {
+        changeThread(id, { source: "catalog", output: payload.data.preparedReply, completed: true, goal: previous.goal || input, resultProductId: "" });
+        setStatus(""); return;
+      }
       freshReview = payload.data.orderReview || null;
       if (freshReview) {
         changeThread(id, { review: freshReview });
@@ -112,7 +116,7 @@ export function useAiWorkspace(usage: PlanUsageSummary, enabled: boolean) {
         setStatus("Order review updated."); return;
       }
       if (!payload.data.generation) throw new Error("Your assistant could not prepare this request.");
-      if (id === "order_delay_detector") assertLocalAiSupport();
+      assertLocalAiSupport();
       const output = await generateLocalDraft(payload.data.generation,
         text => { if (current()) setStatus(friendlyAiProgress(text)); }, controller.signal,
         text => { if (current()) changeThread(id, { output: text }); });
@@ -122,7 +126,7 @@ export function useAiWorkspace(usage: PlanUsageSummary, enabled: boolean) {
     } catch (e) {
       if (!current()) return;
       changeThread(id, { ...previous, input, review: previous.completed ? previous.review : freshReview });
-      setError(controller.signal.aborted ? "Request stopped. Your previous response is still available." : e instanceof Error ? e.message : "Your assistant could not complete the request.");
+      setError(controller.signal.aborted ? "Request stopped. Your previous response is still available." : userMessage(e, "Your assistant could not complete the request."));
       setStatus("");
     } finally {
       if (current()) { active.current = null; pending.current = null; setBusy(false); }
@@ -172,7 +176,7 @@ export function useAiWorkspace(usage: PlanUsageSummary, enabled: boolean) {
       setResources(current => current ? { ...current, products: current.products.map(item => item.id === product.id ? { ...item, description: payload.data!.product.description } : item) } : current);
       changeThread(toolId, { output: payload.data.product.description, saved: true }); setRecordsReloaded(false);
       setStatus(`Description saved to ${product.name}.`);
-    } catch (e) { if (mounted.current) { setStatus(""); setError(e instanceof Error ? e.message : "This description could not be saved."); } }
+    } catch (e) { if (mounted.current) { setStatus(""); setError(userMessage(e, "This description could not be saved.")); } }
     finally { if (mounted.current) setSaving(false); }
   }
   async function reloadAfterConflict() {

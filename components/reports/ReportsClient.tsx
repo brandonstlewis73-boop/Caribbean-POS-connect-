@@ -155,7 +155,7 @@ export function ReportsClient({ data }: { data: DashboardData }) {
         </a>
         <a href="/api/backup" className="inline-flex min-h-10 items-center gap-2 rounded-card border border-caribbean-line bg-white px-3 py-2 text-sm font-black leading-tight dark:border-slate-700 dark:bg-slate-900">
           <HardDriveDownload className="h-4 w-4" />
-          Backup database
+          Download business backup
         </a>
       </div>
 </WorkspaceSection>

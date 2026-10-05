@@ -1,5 +1,6 @@
+import { userMessage, developerInstructions } from "../lib/user-messages";
 import { buildOrderDelayReview, prepareOrderDelayAdvice, orderDelayReviewText } from "../lib/ai-order-delays";
-import { prepareCustomerMessage } from "../lib/ai-customer-message";
+import { customerReplyFromCatalog, prepareCustomerMessage } from "../lib/ai-customer-message";
 import { prepareProductDescription, descriptionFromSavedDetails } from "../lib/ai-product-description";
 import { promotionFromSavedDetails, prepareProductPromotion } from "../lib/ai-promotion";
 import { LocalRepetitionError } from "../lib/local-ai-lifecycle";
@@ -9,6 +10,20 @@ import { generateSupportAnswer, generateTicketSummary, aiSupportStatus } from ".
 import { LOCAL_AI_MODEL, localModelId, readLocalModelChoice, defaultLocalModelChoice } from "../lib/local-ai-config";
 import { assertLocalAiSupport } from "../lib/local-ai";
 async function main() {
+  assert.equal(userMessage("Enter a valid email address."),"Enter a valid email address.");
+  assert(!userMessage("Run db/product_images_storage.sql in Supabase SQL Editor").includes("Supabase"));
+  assert(!userMessage("The local model's response did not pass the check: secret instructions. No usable draft.").includes("secret instructions"));
+  assert(developerInstructions("Add TWILIO_ACCOUNT_SID in Vercel"));
+  assert(!developerInstructions("Choose your product and save changes."));
+
+  const facts = {products:[{name:"Strawberry Swirl Brownie",priceText:"TT$60.00"}],pickupEnabled:true,deliveryEnabled:false,catalogRequested:true};
+  const reply = customerReplyFromCatalog(facts);
+  assert(reply.includes("Strawberry Swirl Brownie — TT$60.00"));
+  assert(reply.includes("Which items would you like?"));
+  assert(!reply.includes("Delivery is offered"));
+  assert.equal(localDraftIssue(prepareCustomerMessage("What is available?",{...facts,businessName:"Baker buds"}),reply),null);
+  assert(!customerReplyFromCatalog({...facts,products:[]}).includes("TT$60"));
+
   assert.equal(readLocalModelChoice(), "quality");
   assert.equal(defaultLocalModelChoice("Mozilla/5.0 (iPhone; CPU iPhone OS 26_0)"), "light");
   assert.equal(defaultLocalModelChoice("Mozilla/5.0 (Windows NT 10.0)"), "quality");

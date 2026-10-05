@@ -12,7 +12,7 @@ const workspaces: Record<AiBusinessToolCategory, { href: string; label: string }
 };
 
 const goals: Record<AiBusinessToolId, string> = {
-  whatsapp_ordering_assistant: "Draft a reply to a customer asking what is available for pickup today. Use saved products and prices, and ask which items they want.",
+  whatsapp_ordering_assistant: "Reply to a customer asking what is available for pickup. Include products and prices, then ask which items they want.",
   missed_call_responder: "Draft a short WhatsApp reply to a missed customer call asking how we can help. Do not promise a callback time.",
   product_description_writer: "Write a short storefront description for one available product. Use saved facts only and placeholders for missing details.",
   promo_generator: "Write a short WhatsApp promotion for an available product. Use saved prices or [PRICE] when a price is missing. Do not invent discounts or opening hours.",

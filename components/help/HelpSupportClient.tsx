@@ -1,21 +1,21 @@
 "use client";
+import { userMessage, developerInstructions } from "@/lib/user-messages";
 import {Pagination,usePagination} from "@/components/workspace/Pagination";
 import {Workspace,WorkspaceSection} from "@/components/workspace/Workspace";
 
+import { friendlyAiProgress } from "@/lib/ai-workspace-presentation";
 import { assertLocalAiSupport, generateLocalDraft } from "@/lib/local-ai";
 import type { LocalGeneration } from "@/lib/local-ai-config";
 import { useMemo, useState, type ChangeEvent } from "react";
 import {
   ArrowLeft,
   ChevronRight,
-  AlertTriangle,
   Bot,
   ClipboardList,
   MessageCircle,
   PackagePlus,
   Search,
   Send,
-  Settings as SettingsIcon,
   ShoppingCart,
   Store,
   Tags,
@@ -91,14 +91,6 @@ const guideCards: GuideCard[] = [
     steps: ["Open Settings → Notifications → WhatsApp updates and choose Use free WhatsApp to disable paid automatic sends.", "Open Orders, select the order, then choose Notifications.", "Review the customer message and select Open customer WhatsApp.", "Tap Send in WhatsApp. Check its ticks for delivery confirmation."]
   },
   {
-    id: "whatsapp-sandbox",
-    title: "Why WhatsApp sandbox messages fail",
-    description: "Fix the common Twilio sandbox issue where the receiving phone has not joined.",
-    category: "Troubleshooting",
-    icon: AlertTriangle,
-    steps: ["Open Twilio WhatsApp Sandbox.", "Join the sandbox from the receiving phone.", "Use whatsapp:+countrycode format.", "Try the test message again."]
-  },
-  {
     id: "storefront",
     title: "How to customize the storefront",
     description: "Update store name, logo, hours, pickup, delivery, and storefront link.",
@@ -130,58 +122,16 @@ const guideCards: GuideCard[] = [
     icon: Bot,
     steps: ["Open AI tools.", "Choose the business task.", "Review the generated answer.", "Edit before saving, sending, or applying."]
   },
-  {
-    id: "missing-env",
-    title: "How to fix missing environment variables",
-    description: "Use the health check to see which production settings are missing.",
-    category: "Troubleshooting",
-    icon: SettingsIcon,
-    steps: ["Open /api/health.", "Read only the safe missing-variable names.", "Add values in Vercel Production.", "Redeploy before testing again."]
-  }
 ];
 
 const troubleshootingCards = [
-  { title: "Free WhatsApp message not sent", description: "Opening WhatsApp prepares a message; it does not send it.", fix: "Open Orders → order details → Notifications. Check the customer phone number, open customer WhatsApp, then tap Send. A customer who opted out cannot receive these updates." },
-  {
-    title: "Twilio Error 63015",
-    description: "The receiving WhatsApp number has not joined the Twilio sandbox or the sender is not approved.",
-    fix: "Join the sandbox from the receiving phone, confirm TWILIO_WHATSAPP_FROM uses whatsapp:+number, then send a test message."
-  },
-  {
-    title: "Local AI cannot load",
-    description: "The browser needs WebGPU, sufficient free memory, and an initial model download.",
-    fix: "Use a WebGPU-compatible browser, check available memory, and allow the initial model download."
-  },
-  {
-    title: "Missing Twilio environment variables",
-    description: "WhatsApp or SMS messages cannot send without provider credentials.",
-    fix: "Add TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_FROM, and TWILIO_PHONE_NUMBER if SMS is used."
-  },
-  {
-    title: "Storefront items not showing",
-    description: "Products may be inactive, uncategorized, out of stock, or tied to a different business.",
-    fix: "Check Inventory product status, category visibility, storefront status, and business account selection."
-  },
-  {
-    title: "Orders not saving",
-    description: "This is usually database connectivity, validation, or a missing customer/order field.",
-    fix: "Open /api/health, confirm database connected, then test one small checkout with customer name and phone."
-  },
-  {
-    title: "Customer notifications failing",
-    description: "Notification preferences, provider credentials, phone formatting, or plan limits may block sends.",
-    fix: "Check Settings notification toggles, WhatsApp test message, customer phone format, and subscription limits."
-  },
-  {
-    title: "Categories not updating",
-    description: "POS and storefront depend on saved active categories for the current business.",
-    fix: "Rename or add the category in Settings, keep it active, then refresh POS/storefront if needed."
-  },
-  {
-    title: "Build or deployment issues",
-    description: "Production changes require a fresh Vercel deployment and valid Production environment variables.",
-    fix: "Check Vercel build logs, confirm env vars are in Production, and redeploy the latest main branch."
-  }
+  {title: "WhatsApp message not sent", description: "Opening WhatsApp prepares your message.", fix: "Check the customer number in Orders → Notifications, open customer WhatsApp, then tap Send. Respect the customer's notification preferences."},
+  {title: "On-device writing unavailable", description: "Some phones cannot run the writing assistant reliably.", fix: "Availability replies still work from saved products. For other writing tasks, update your browser, close other apps, or try another device."},
+  {title: "Storefront items not showing", description: "Check the product's availability.", fix: "Open Inventory and confirm the product is active and in stock. Save changes and refresh the storefront."},
+  {title: "Checkout not completing", description: "An order may need more information.", fix: "Check the items, stock, customer details and payment choice. If it still fails, submit a support request."},
+  {title: "Automatic notifications failing", description: "An automatic message can fail even when the order is saved.", fix: "Use Orders → Notifications to send the update in WhatsApp yourself. Contact support if automatic updates remain unavailable."},
+  {title: "Categories not updating", description: "Categories organize your products.", fix: "Save the category, assign your products to it, then refresh POS and the storefront."},
+  {title: "Photo upload unavailable", description: "Your photo could not be saved.", fix: "Try a smaller photo and check your connection. If uploads remain unavailable, submit a support request."}
 ];
 
 const priorityTone: Record<SupportTicketPriority, "neutral" | "amber" | "coral" | "red"> = {
@@ -218,8 +168,7 @@ export function HelpSupportClient({
   user,
   settings,
   canManage,
-  aiStatus,
-  systemStatus
+  aiStatus
 }: {
   articles: HelpArticle[];
   tickets: SupportTicket[];
@@ -279,7 +228,7 @@ export function HelpSupportClient({
     return initialArticles.filter((article) => {
       const categoryMatch = selectedCategory === "All" || article.category === selectedCategory;
       const searchMatch = !needle || [article.title, article.category, article.content, ...article.tags].join(" ").toLowerCase().includes(needle);
-      return categoryMatch && searchMatch;
+      return categoryMatch && searchMatch && !developerInstructions(article.title + " " + article.content);
     });
   }, [initialArticles, search, selectedCategory]);
 
@@ -311,12 +260,12 @@ export function HelpSupportClient({
       });
       const payload = await readApiPayload<{ answer: string; configured: boolean; model: string; generation?: LocalGeneration }>(response);
       if (!response.ok || !payload.data) throw new Error(payload.error || "Support chat could not answer.");
-      const answer = payload.data.generation ? await generateLocalDraft(payload.data.generation, setLocalProgress) : payload.data.answer;
+      const answer = payload.data.generation ? await generateLocalDraft(payload.data.generation, text => setLocalProgress(friendlyAiProgress(text))) : payload.data.answer;
       setChatMessages((current) => [...current, { role: "assistant", content: answer, configured: Boolean(payload.data!.generation) || payload.data!.configured }]);
     } catch (error) {
       setChatMessages((current) => [
         ...current,
-        { role: "assistant", content: error instanceof Error ? error.message : "Support chat could not answer. Submit a support request for help." }
+        { role: "assistant", content: userMessage(error, "Support chat could not answer. Submit a support request for help.") }
       ]);
     } finally {
       setChatBusy(false);
@@ -344,7 +293,7 @@ export function HelpSupportClient({
       setTicketDraft((current) => ({ ...current, message: "", screenshot_url: "" }));
       setTicketMessage({ tone: "success", text: `Support request ${payload.data.ticket.ticket_number} submitted.` });
     } catch (error) {
-      setTicketMessage({ tone: "error", text: error instanceof Error ? error.message : "Support request could not be submitted." });
+      setTicketMessage({ tone: "error", text: userMessage(error, "Support request could not be submitted.") });
     } finally {
       setBusy("");
     }
@@ -365,7 +314,7 @@ export function HelpSupportClient({
       setTickets((current) => current.map((ticket) => (ticket.id === id ? payload.data!.ticket : ticket)));
       setTicketUpdateMessage({ tone: "success", text: `Request ${payload.data.ticket.ticket_number} updated.` });
     } catch (error) {
-      setTicketUpdateMessage({ tone: "error", text: error instanceof Error ? error.message : "Request could not be updated. Try again." });
+      setTicketUpdateMessage({ tone: "error", text: userMessage(error, "Request could not be updated. Try again.") });
     } finally {
       setBusy("");
     }
@@ -415,10 +364,9 @@ export function HelpSupportClient({
           <SelectField label="Issue" value={activeTrouble} onChange={event => setActiveTrouble(event.target.value)}>{troubleshootingCards.map(card => <option key={card.title}>{card.title}</option>)}</SelectField>
           <div className="help-resolution"><h3>{activeTroubleshooting.title}</h3><p>{activeTroubleshooting.description}</p><p>{activeTroubleshooting.fix}</p></div>
           <details className="help-article"><summary><strong>Business setup checklist</strong><ChevronRight size={18}/></summary><ol className="help-checklist">{GETTING_STARTED_CHECKLIST.map(item => <li key={item}>{item}</li>)}</ol></details>
-          <details className="help-article"><summary><strong>Connection status</strong><ChevronRight size={18}/></summary><p>{systemStatus.databaseConfigured ? "Database connection settings are present. This does not confirm a live connection." : "Database connection settings are missing. Contact your administrator."}</p></details>
         </div></Panel>
       </WorkspaceSection>
-      <WorkspaceSection id="assistant" title="Ask a question" icon="ai"><Panel><PanelHeader title="Support assistant" description="On-device help. A compatible WebGPU browser and an initial model download are required." />
+      <WorkspaceSection id="assistant" title="Ask a question" icon="ai"><Panel><PanelHeader title="Support assistant" description="Ask about using your business tools. Writing assistance may require a download on supported devices." />
             <div className="grid gap-4 p-5 sm:p-6">
               {!aiStatus.enabled ? (
                 <p className="rounded-card border border-amber-200/20 bg-amber-300/10 p-3 text-sm font-bold leading-6 text-amber-50">
