@@ -408,8 +408,8 @@ function SecondaryMenu({
         {businessLogoUrl ? (
           <img
             src={businessLogoUrl}
-            alt=""
-            className="h-12 w-12 shrink-0 rounded-2xl bg-white object-cover"
+            alt={`${businessName || "Business"} logo`}
+            className="h-16 w-16 shrink-0 rounded-2xl border border-slate-200 bg-white object-contain p-1.5"
           />
         ) : (
           <Image
