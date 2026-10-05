@@ -2635,6 +2635,25 @@ th {
 
 /* Readable business text, including compact phone controls. */
 .business-shell { color-scheme:light; font-size:16px; }
+.business-shell .subscription-checkout-message { color:#173c50; background:#e9f3f8; border:1px solid #bcd3df; border-radius:14px; padding:16px; font-size:15px; font-weight:600; line-height:1.5; overflow-wrap:anywhere; }
+@media(max-width:767px){
+ .business-shell .kyte-plan-stage { width:100%; min-width:0; padding:14px; background:#fff; border:1px solid #dce4ec; }
+ .business-shell .subscription-plan-picker { display:grid; gap:8px; margin-bottom:16px; color:#42576a; font-size:14px; font-weight:650; }
+ .business-shell .subscription-plan-picker select { width:100%; min-width:0; min-height:48px; border:1px solid #dce4ec; border-radius:12px; padding:10px; background:#f8fafc; color:#17283b; }
+ .business-shell .kyte-plan-carousel { display:block; padding:0; overflow:visible; }
+ .business-shell .kyte-plan-card { width:100%; min-width:0; padding:18px; border:1px solid #dce4ec; border-radius:14px; box-shadow:none; }
+ .business-shell .kyte-plan-card.highlighted { border-color:#087e80; box-shadow:none; }
+ .business-shell .kyte-plan-popular { position:static; transform:none; align-self:flex-start; margin-bottom:10px; padding:5px 10px; background:#e5f4f3; color:#07696b; }
+ .business-shell .kyte-plan-card>p:first-of-type { color:#07696b; }
+ .business-shell .kyte-plan-card h2 { font-size:24px; text-transform:none; }
+ .business-shell .kyte-plan-price { margin-top:16px; flex-wrap:wrap; }
+ .business-shell .kyte-plan-price strong { font-size:36px; line-height:1.15; }
+ .business-shell .kyte-plan-card ul { gap:12px; margin:20px 0; }
+ .business-shell .kyte-plan-card li { font-size:15px; font-weight:600; }
+ .business-shell .kyte-plan-card li svg { color:#087e80; flex-shrink:0; }
+ .business-shell .kyte-plan-button { min-height:48px; padding:10px; font-size:16px; font-weight:700; background:#087e80; color:#fff; }
+ .business-shell .kyte-plan-button:disabled { background:#e5ebf0; color:#526579; cursor:default; }
+}
 .business-shell .app-shell-main .text-xs { font-size:14px; line-height:1.5; }
 .business-shell .app-shell-main .text-sm { font-size:15px; line-height:1.5; }
 .business-shell .ui-panel .text-slate-400 { color:#526579; }

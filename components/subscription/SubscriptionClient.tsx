@@ -34,6 +34,7 @@ export function SubscriptionClient({
   paypalEnvironment?: string | null;
 }) {
   const [current, setCurrent] = useState(subscription);
+  const [mobilePlanId, setMobilePlanId] = useState(selectedPlan || "starter");
   const [message, setMessage] = useState(paypalResult === "success" ? "PayPal subscription confirmed." : paypalResult === "pending" ? "PayPal approval is processing. Your plan activates after payment confirmation." : paypalResult === "cancelled" ? "PayPal checkout was cancelled. Your current plan is unchanged." : paypalResult === "error" ? "We could not confirm this PayPal subscription. Please contact support." : "");
   const [loadingPlan, setLoadingPlan] = useState<SubscriptionPlanId | null>(null);
   const currentPlanId = current?.status === "cancelled" || current?.status === "paused" || current?.status === "past_due" ? "trial" : normalizePlanId(current?.plan_id);
@@ -197,9 +198,14 @@ export function SubscriptionClient({
           ))}
         </div>
       </Panel></WorkspaceSection><WorkspaceSection id="plans" title="Choose a plan" icon="options"><div className="md:hidden"><section className="kyte-plan-stage">
-        <p className="mb-6 text-center text-sm font-semibold text-white">Monthly billing</p>
+        <div className="subscription-plan-picker">
+          <label htmlFor="subscription-mobile-plan">Monthly plan</label>
+          <select id="subscription-mobile-plan" value={pricingPlans.some(plan => plan.id === mobilePlanId) ? mobilePlanId : pricingPlans[0]?.id} onChange={event => setMobilePlanId(event.target.value)}>
+            {pricingPlans.map(plan => <option key={plan.id} value={plan.id}>{plan.name} — {planPrice(plan)}/month</option>)}
+          </select>
+        </div>
         <div className="kyte-plan-carousel">
-          {pricingPlans.map((plan) => {
+          {pricingPlans.filter(plan => plan.id === (pricingPlans.some(item => item.id === mobilePlanId) ? mobilePlanId : pricingPlans[0]?.id)).map((plan) => {
             const active = currentPlanId === plan.id;
             const highlighted = plan.id === "premium";
             return (
@@ -232,11 +238,7 @@ export function SubscriptionClient({
             );
           })}
         </div>
-        <div className="kyte-plan-dots" aria-hidden>
-          <span />
-          <span className="active" />
-          <span />
-        </div>
+
       </section></div><div className="hidden md:block"><section className="relative overflow-hidden rounded-[34px] border border-cyan-200/12 bg-[radial-gradient(circle_at_50%_0%,rgba(18,214,223,0.18),transparent_34%),linear-gradient(135deg,rgba(6,23,42,0.98),rgba(9,31,50,0.96)_48%,rgba(5,14,27,0.99))] p-5 shadow-[0_28px_90px_rgba(0,0,0,0.28)] sm:p-7">
         <div className="pointer-events-none absolute -right-24 top-10 h-64 w-64 rounded-full bg-cyan-400/10 blur-3xl" />
         <div className="pointer-events-none absolute -left-20 bottom-0 h-56 w-56 rounded-full bg-amber-300/10 blur-3xl" />
@@ -332,6 +334,6 @@ export function SubscriptionClient({
             </div>
           ))}
         </div>
-      </section></WorkspaceSection></Workspace>{message ? <p className="rounded-card border border-white/10 bg-white/[0.06] p-3 text-sm font-black text-teal-50">{message}</p> : null}</div>
+      </section></WorkspaceSection></Workspace>{message ? <p role="status" className="subscription-checkout-message">{message}</p> : null}</div>
   );
 }
