@@ -1,4 +1,5 @@
 import "server-only";
+import { callbackUrl, normalizeTwilioStatus, startWhatsAppAttempt, twilioDeliveryHelp, updateWhatsAppAttempt } from "./twilio-delivery";
 import { formatTwilioWhatsAppNumber, isValidWhatsAppE164, normalizeWhatsAppNumber } from "./whatsapp";
 
 export type WhatsAppConfigStatus = {
@@ -37,11 +38,14 @@ type WhatsAppSendOptions = {
   orderId?: string | null;
   customerId?: string | null;
   status?: string;
+  contentSid?: string;
+  contentVariables?: Record<string,string>;
+  notificationId?: string;
   testMode?: boolean;
   dedupeKey?: string | null;
 };
 
-type WhatsAppAttemptStatus = "queued" | "sent" | "skipped" | "failed";
+type WhatsAppAttemptStatus = "queued" | "sending" | "sent" | "delivered" | "read" | "undelivered" | "skipped" | "failed";
 
 function readSecretEnv(name: string) {
   const raw = process.env[name] || "";
@@ -148,7 +152,8 @@ function twilioErrorMessage(error: Awaited<ReturnType<typeof getProviderError>>)
   if (error.code === "63007") {
     return `Twilio rejected the WhatsApp sender.${suffix} Set TWILIO_WHATSAPP_FROM to an approved WhatsApp sender such as whatsapp:+14155238886 for the sandbox.`;
   }
-  if (error.code === "63015" || error.code === "63016") {
+  if (error.code === "63016" || error.code === "63055") return twilioDeliveryHelp(error.code);
+  if (error.code === "63015") {
     return `Twilio rejected the recipient WhatsApp number.${suffix} If using the Twilio sandbox, the recipient phone must join the sandbox before it can receive messages.`;
   }
   return `WhatsApp send failed through Twilio (HTTP ${error.status}).${suffix} ${error.message}`;
@@ -159,6 +164,7 @@ export async function sendWhatsAppMessage(
   message: string,
   options: WhatsAppSendOptions = {}
 ) {
+  message = message.replace(/\\n/g, "\n");
   const formattedTo = toE164Digits(to || "", options.defaultCountryCode);
   const config = whatsappConfigStatus();
   const provider = "twilio";
@@ -183,7 +189,7 @@ export async function sendWhatsAppMessage(
     return { ok: false, skipped: true, message: config.message, status: config, dedupeKey };
   }
 
-  if (wasWhatsAppRecentlySent(dedupeKey)) {
+  if (!options.notificationId && wasWhatsAppRecentlySent(dedupeKey)) {
     await logWhatsAppAttempt({ ...options, provider, destination, message, deliveryStatus: "skipped", errorMessage: "Duplicate WhatsApp send prevented.", dedupeKey });
     return { ok: true, skipped: true, message: "Duplicate WhatsApp send prevented.", dedupeKey };
   }
@@ -193,6 +199,9 @@ export async function sendWhatsAppMessage(
     return { ok: true, skipped: true, message: "Test mode passed. Twilio credentials and phone number format look valid. No real message was sent.", status: config, dedupeKey };
   }
 
+  if (options.contentSid && !/^HX[a-fA-F0-9]{32}$/.test(options.contentSid)) {
+    return {ok:false,skipped:true,message:"The approved WhatsApp Content SID must start with HX and contain 34 characters.",dedupeKey};
+  }
   const accountSid = readSecretEnv("TWILIO_ACCOUNT_SID").value;
   const authToken = readSecretEnv("TWILIO_AUTH_TOKEN").value;
   const from = readSecretEnv("TWILIO_WHATSAPP_FROM").value;
@@ -201,32 +210,46 @@ export async function sendWhatsAppMessage(
     return { ok: false, skipped: true, message: config.message, status: config, dedupeKey };
   }
 
+  let attemptId: string | null = null;
   try {
+    if (!options.businessId) throw new Error("WhatsApp message requires a business context.");
+    const started = await startWhatsAppAttempt({businessId:options.businessId,orderId:options.orderId,customerId:options.customerId,notificationId:options.notificationId,to:formattedTo,message,status:options.status});
+    attemptId=started.attempt.id;
+    if(started.duplicate)return {ok:true,skipped:true,message:"Duplicate WhatsApp send prevented.",providerMessageSid:started.attempt.provider_message_sid,dedupeKey};
     const body = new URLSearchParams({
       From: formatTwilioWhatsAppNumber(from, options.defaultCountryCode),
       To: `whatsapp:${formattedTo}`,
-      Body: message
+      StatusCallback: callbackUrl(attemptId)
     });
+    if(options.contentSid){body.set("ContentSid",options.contentSid);body.set("ContentVariables",JSON.stringify(options.contentVariables||{}));}
+    else body.set("Body",message);
     const response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`, {
       method: "POST",
       headers: {
         Authorization: `Basic ${Buffer.from(`${accountSid}:${authToken}`).toString("base64")}`,
         "Content-Type": "application/x-www-form-urlencoded"
       },
-      body
+      body,
+      signal: AbortSignal.timeout(15000)
     });
     if (!response.ok) {
       const providerError = await getProviderError(response);
       const safeError = twilioErrorMessage(providerError);
+      await updateWhatsAppAttempt(attemptId,null,"failed",providerError.code);
       console.warn("WhatsApp send failed", { provider: "twilio", error: providerError, dedupeKey });
       await logWhatsAppAttempt({ ...options, provider, destination, message, deliveryStatus: "failed", errorMessage: safeError, dedupeKey });
       return { ok: false, skipped: false, message: safeError, providerError, dedupeKey };
     }
-    const payload = await response.json().catch(() => ({})) as { sid?: string; status?: string };
+    const payload = await response.json().catch(() => ({})) as { sid?: string; status?: string; error_code?: number };
+    if (!payload.sid || !/^(?:SM|MM)[a-fA-F0-9]{32}$/.test(payload.sid)) throw new Error("Twilio did not return a message identifier.");
+    const deliveryStatus=normalizeTwilioStatus(payload.status||"queued");
+    if(!deliveryStatus)throw new Error("Twilio returned an unknown message status.");
+    await updateWhatsAppAttempt(attemptId,payload.sid,deliveryStatus,payload.error_code?String(payload.error_code):null);
     rememberWhatsAppSent(dedupeKey);
-    await logWhatsAppAttempt({ ...options, provider, destination, message, deliveryStatus: "sent", errorMessage: payload.sid ? `Twilio ${payload.status || "queued"} ${payload.sid}` : null, dedupeKey });
-    return { ok: true, skipped: false, message: `WhatsApp ${payload.status || "queued"}.`, providerMessageSid: payload.sid || null, dedupeKey };
+    await logWhatsAppAttempt({ ...options, provider, destination, message, deliveryStatus, errorMessage: null, dedupeKey });
+    return { ok: !["failed","undelivered"].includes(deliveryStatus), skipped: false, deliveryStatus, message: ["failed","undelivered"].includes(deliveryStatus) ? twilioDeliveryHelp(payload.error_code?String(payload.error_code):null) : `WhatsApp ${deliveryStatus}. ${deliveryStatus === "queued" ? "Queued does not confirm delivery." : "Check delivery for the latest result."}`, providerMessageSid: payload.sid || null, dedupeKey };
   } catch (error) {
+    if (attemptId) await updateWhatsAppAttempt(attemptId,null,"failed").catch(() => undefined);
     const safeError = "Network/API error while sending WhatsApp through Twilio. Check connectivity and Twilio service status.";
     console.warn("WhatsApp send failed", { provider: "twilio", error: error instanceof Error ? error.message : "Unknown error", dedupeKey });
     await logWhatsAppAttempt({ ...options, provider, destination, message, deliveryStatus: "failed", errorMessage: safeError, dedupeKey });
@@ -290,7 +313,7 @@ async function logWhatsAppAttempt({
     status: status || null,
     delivery_status: deliveryStatus,
     error_message: errorMessage || null,
-    message_preview: message.slice(0, 160),
+    message_length: message.length,
     dedupe_key: dedupeKey
   });
 }

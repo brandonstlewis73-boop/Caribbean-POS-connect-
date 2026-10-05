@@ -65,6 +65,8 @@ import {
   buildWhatsAppLink,
   cleanWhatsAppNumber
 } from "./whatsapp";
+import { twilioSecret } from "./twilio-delivery";
+import { customerWhatsAppEnabled } from "./whatsapp-status-policy";
 import { sendWhatsAppMessage } from "./whatsapp-server";
 
 type DbClient = PoolClient;
@@ -2215,7 +2217,10 @@ async function createCustomerStatusNotifications(
   status: Order["status"],
   settings: Settings
 ) {
-  const message = renderCustomerStatusMessage(order, status, settings);
+  const message = status === "new" ? buildCustomerConfirmationMessage(order, settings)
+    : status === "completed" ? buildCustomerReceiptWhatsAppMessage(order, settings)
+    : status === "out_for_delivery" ? buildCustomerOutForDeliveryWhatsAppMessage(order, settings)
+    : renderCustomerStatusMessage(order, status, settings);
   const whatsappAllowed = await canUseWhatsAppForBusiness(order.business_id || settings.active_business_id);
   const wantsWhatsApp = order.customer_snapshot.notification_whatsapp !== false;
   const wantsSms = Boolean(order.customer_snapshot.notification_sms);
@@ -2229,7 +2234,7 @@ async function createCustomerStatusNotifications(
       error_message: null
     }
   ];
-  if (settings.notification_whatsapp_enabled && wantsWhatsApp) {
+  if (customerWhatsAppEnabled(status, settings) && wantsWhatsApp) {
     channels.push({
       channel: "whatsapp",
       destination: order.customer_snapshot.phone || null,
@@ -2281,6 +2286,32 @@ async function createCustomerStatusNotifications(
       client
     ).catch(() => undefined);
   }
+}
+
+export async function dispatchCustomerStatusNotification(order: Order, settings: Settings) {
+  const pending = await query<{id:string; message:string; destination:string}>(
+    "SELECT id,message,destination FROM customer_notifications WHERE order_id=$1 AND business_id=$2 AND channel='whatsapp' AND status=$3 AND delivery_status='queued' ORDER BY created_at DESC LIMIT 1",
+    [order.id,order.business_id,order.status]);
+  const notification=pending.rows[0]; if(!notification)return;
+  const result=await sendWhatsAppMessage(notification.destination,notification.message,{
+    businessId:order.business_id,orderId:order.id,customerId:order.customer_id,notificationId:notification.id,
+    status:order.status === "completed" ? "customer_receipt" : `customer_${order.status}`,
+    contentSid:twilioSecret("TWILIO_CUSTOMER_ORDER_STATUS_CONTENT_SID")||undefined,
+    contentVariables:{"1":order.customer_snapshot.name||"Customer","2":settings.business_name,"3":order.order_number,"4":orderStatusLabel(order.status),"5":orderTrackingLink(order)},
+    defaultCountryCode:settings.whatsapp_country_code
+  });
+  if(!result.ok)await query("UPDATE customer_notifications SET delivery_status=$2,error_message=$3 WHERE id=$1 AND business_id=$4",[notification.id,result.skipped?"skipped":"failed",result.message,order.business_id]);
+}
+
+export async function retryCustomerWhatsApp(order: Order, settings: Settings) {
+  if(!customerWhatsAppEnabled(order.status,settings) || order.customer_snapshot.notification_whatsapp === false)
+    throw new Error("Customer WhatsApp updates are disabled for this order.");
+  const reset=await query<{id:string}>(`UPDATE customer_notifications SET delivery_status='queued',error_message=NULL
+    WHERE id=(SELECT id FROM customer_notifications WHERE order_id=$1 AND business_id=$2 AND channel='whatsapp' AND status=$3
+      AND delivery_status IN ('failed','undelivered','skipped') ORDER BY created_at DESC LIMIT 1 FOR UPDATE SKIP LOCKED)
+    RETURNING id`,[order.id,order.business_id,order.status]);
+  if(!reset.rows.length)throw new Error("There is no failed customer update to retry. Check delivery first.");
+  await dispatchCustomerStatusNotification(order,settings);
 }
 
 async function notifyOwnerOfNewOrder(order: Order, settings: Settings) {
@@ -2677,15 +2708,12 @@ export async function createOrder(payload: CheckoutPayload, userId?: string) {
     return order;
   });
   await notifyOwnerOfNewOrder(order, settings);
-  await notifyCustomerOrderConfirmation(order, settings);
+  await dispatchCustomerStatusNotification(order, settings);
   if (order.assigned_driver_id && order.delivery_status !== "not_required") {
     await notifyCustomerDriverAssigned(order, settings);
     await notifyDriverOfAssignment(order, settings);
   }
-  if (order.delivery_status === "out_for_delivery") {
-    await notifyCustomerOutForDelivery(order, settings);
-  }
-  if (order.status === "completed") await notifyCustomerReceipt(order, settings);
+  // The status notification above covers the customer receipt/delivery update.
   return order;
 }
 
@@ -2833,7 +2861,7 @@ export async function updateDeliveryStatus(orderId: string, status: Order["deliv
 export async function updateOrder(id: string, input: Partial<Order>, userId?: string) {
   const businessId = await getBusinessIdForUser(userId);
   const settings = await getBusinessSettings(businessId);
-  let shouldNotifyCustomerReceipt = false;
+  let shouldDispatchStatus = false;
   let shouldNotifyDriverAssigned = false;
   let shouldNotifyOutForDelivery = false;
   const updatedOrder: Order | null = await transaction(async (client) => {
@@ -2927,7 +2955,7 @@ export async function updateOrder(id: string, input: Partial<Order>, userId?: st
           [buildWhatsAppLink(completed.customer_snapshot.phone, receiptMessage, settings.whatsapp_country_code), id],
           client
         );
-        shouldNotifyCustomerReceipt = true;
+        // The completed status notification includes the receipt.
       }
     }
 
@@ -2937,6 +2965,7 @@ export async function updateOrder(id: string, input: Partial<Order>, userId?: st
 
     const orderAfterUpdate = await readOrderById(client, id, businessId);
     if (orderAfterUpdate && existing.status !== nextStatus) {
+      shouldDispatchStatus = true;
       await recordOrderStatusHistory(
         client,
         id,
@@ -2964,9 +2993,7 @@ export async function updateOrder(id: string, input: Partial<Order>, userId?: st
     }
     return orderAfterUpdate;
   });
-  if (updatedOrder && shouldNotifyCustomerReceipt) {
-    await notifyCustomerReceipt(updatedOrder, settings);
-  }
+  if (updatedOrder && shouldDispatchStatus) await dispatchCustomerStatusNotification(updatedOrder, settings);
   let orderForNotifications: Order | null = updatedOrder;
   if (orderForNotifications && shouldNotifyDriverAssigned) {
     orderForNotifications = await updateCustomerWhatsAppLink(
@@ -2986,9 +3013,7 @@ export async function updateOrder(id: string, input: Partial<Order>, userId?: st
     await notifyCustomerDriverAssigned(orderForNotifications, settings);
     await notifyDriverOfAssignment(orderForNotifications, settings);
   }
-  if (orderForNotifications && shouldNotifyOutForDelivery) {
-    await notifyCustomerOutForDelivery(orderForNotifications, settings);
-  }
+  // Customer out-for-delivery notification is dispatched with the status change.
   return orderForNotifications;
 }
 

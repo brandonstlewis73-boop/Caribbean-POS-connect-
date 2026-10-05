@@ -766,6 +766,7 @@ export function SettingsClient({
               {busyId === "whatsapp-test-send" ? "Sending..." : "Send test message"}
             </Button>
           </div>
+          <p className="text-sm leading-6 text-teal-50/70">Sandbox testing: each recipient must join the Twilio sandbox and send your sender a WhatsApp message within the last 24 hours. Membership expires after three days. Production order updates outside the 24-hour window require an approved utility template. A queued test is not a delivery confirmation; check Twilio Messaging Logs.</p>
           {whatsappTestMessage ? (
             <p className="rounded-card border border-white/10 bg-black/20 p-3 text-sm font-bold text-teal-50/70">{whatsappTestMessage}</p>
           ) : null}
