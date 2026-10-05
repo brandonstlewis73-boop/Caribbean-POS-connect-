@@ -1,3 +1,4 @@
+import { readBoundedJson } from "@/lib/request-security";
 import { NextRequest } from "next/server";
 import { fail, ok } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
@@ -9,9 +10,12 @@ export const runtime = "nodejs";
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireUser(request, "staff:manage");
   if (!auth.user) return fail(auth.error, auth.status);
-  const parsed = staffUserSchema.safeParse(await request.json().catch(() => null));
+  const parsed = staffUserSchema.safeParse(await readBoundedJson(request, 512 * 1024));
   if (!parsed.success) return fail("Invalid staff profile", 422, parsed.error.flatten());
   const { id } = await params;
+  if (id === auth.user.id && (parsed.data.role !== auth.user.role || !parsed.data.active)) {
+    return fail("You cannot change your own role or deactivate your signed-in profile.", 400);
+  }
   try {
     const staff = await updateStaffUser(id, parsed.data, auth.user.id);
     return staff ? ok({ staff }) : fail("Staff profile not found.", 404);

@@ -76,7 +76,9 @@ export function OrderTrackingClient() {
     if (order) setOrderNumber(order);
     if (phoneParam) setPhone(phoneParam);
     if (order && phoneParam) void lookup(order, phoneParam);
-  }, [lookup]);
+    // Only perform the initial deep-link lookup when the page mounts.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const currentIndex = useMemo(() => {
     if (!tracking?.order) return -1;

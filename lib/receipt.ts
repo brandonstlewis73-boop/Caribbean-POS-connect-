@@ -1,5 +1,4 @@
-import { readFile } from "fs/promises";
-import path from "path";
+import { createLogoBuffer } from "./receipt-logo";
 import PDFDocument from "pdfkit";
 import QRCode from "qrcode";
 import { money } from "./constants";
@@ -8,7 +7,6 @@ import { getBusinessSettings, getReceiptNumber } from "./data";
 import { buildAddress } from "./waze";
 import type { CustomerInput, Order, Settings } from "./types";
 
-const MAX_RECEIPT_LOGO_BYTES = 2 * 1024 * 1024;
 
 function pdfToBuffer(doc: PDFKit.PDFDocument) {
   const chunks: Buffer[] = [];
@@ -31,39 +29,6 @@ async function createQrBuffer(value?: string | null, width = 110) {
       margin: 4,
       errorCorrectionLevel: "M"
     });
-  } catch {
-    return null;
-  }
-}
-
-async function createLogoBuffer(logoUrl?: string | null) {
-  const value = logoUrl?.trim();
-  if (!value || value.toLowerCase().endsWith(".svg")) return null;
-
-  if (value.startsWith("data:image/")) {
-    const [metadata, base64Data] = value.split(",", 2);
-    if (!base64Data || !/^data:image\/(png|jpe?g);base64$/i.test(metadata)) return null;
-    const buffer = Buffer.from(base64Data.replace(/\s/g, ""), "base64");
-    return buffer.length <= MAX_RECEIPT_LOGO_BYTES ? buffer : null;
-  }
-
-  if (value.startsWith("/") && /\.(png|jpe?g)$/i.test(value)) {
-    try {
-      const buffer = await readFile(path.join(process.cwd(), "public", value));
-      return buffer.length <= MAX_RECEIPT_LOGO_BYTES ? buffer : null;
-    } catch {
-      return null;
-    }
-  }
-  if (!/^https?:\/\//i.test(value)) return null;
-  try {
-    const response = await fetch(value);
-    if (!response.ok) return null;
-    const contentType = response.headers.get("content-type") || "";
-    if (!/^image\/(png|jpe?g)$/i.test(contentType)) return null;
-    const arrayBuffer = await response.arrayBuffer();
-    if (arrayBuffer.byteLength > MAX_RECEIPT_LOGO_BYTES) return null;
-    return Buffer.from(arrayBuffer);
   } catch {
     return null;
   }

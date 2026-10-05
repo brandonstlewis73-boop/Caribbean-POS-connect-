@@ -92,11 +92,13 @@ export function StaffClient({ staff }: { staff: User[] }) {
   const [draft, setDraft] = useState<User>(staff[0] || emptyDraft());
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
+  const [password, setPassword] = useState("");
 
   const activeCount = useMemo(() => items.filter((user) => user.active).length, [items]);
 
   function selectStaff(user: User) {
     setWorkspaceView("editor");
+    setPassword("");
     setSelectedId(user.id);
     setDraft({ ...user });
     setMessage("");
@@ -104,6 +106,7 @@ export function StaffClient({ staff }: { staff: User[] }) {
 
   function startNew() {
     setWorkspaceView("editor");
+    setPassword("");
     const next = emptyDraft();
     setSelectedId("new");
     setDraft(next);
@@ -126,13 +129,17 @@ export function StaffClient({ staff }: { staff: User[] }) {
       setMessage("Staff name and email are required.");
       return;
     }
+    if (selectedId === "new" && password.length < 12) {
+      setMessage("Set a password with at least 12 characters for this staff member.");
+      return;
+    }
     setSaving(true);
     try {
       const isNew = selectedId === "new";
       const response = await fetch(isNew ? "/api/staff" : `/api/staff/${selectedId}`, {
         method: isNew ? "POST" : "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(toPayload(draft))
+        body: JSON.stringify({ ...toPayload(draft), ...(password ? { password } : {}) })
       });
       const payload = await readApiPayload<{ staff: User }>(response);
       if (!response.ok || !payload.data?.staff) {
@@ -141,6 +148,7 @@ export function StaffClient({ staff }: { staff: User[] }) {
       }
       setSelectedId(payload.data.staff.id);
       await refreshStaff(payload.data.staff.id);
+      setPassword("");
       setMessage("Staff profile saved.");
     } catch {
       setMessage("Staff profile could not be saved. Check your connection and try again.");
@@ -237,6 +245,7 @@ export function StaffClient({ staff }: { staff: User[] }) {
               <Field label="Phone" value={draft.phone || ""} onChange={(event) => setDraft({ ...draft, phone: event.target.value })} />
               <Field label="Email" type="email" value={draft.email} onChange={(event) => setDraft({ ...draft, email: event.target.value })} />
             </div>
+            <Field label={selectedId === "new" ? "Staff password (at least 12 characters)" : "New password (leave blank to keep current)"} type="password" autoComplete="new-password" minLength={12} maxLength={72} value={password} onChange={(event) => setPassword(event.target.value)} />
             <div className="grid gap-3 md:grid-cols-2">
               <SelectField label="Role" value={draft.role === "admin" ? "owner" : draft.role} onChange={(event) => setDraft({ ...draft, role: event.target.value as Role })}>
                 {STAFF_ROLES.map((role) => (

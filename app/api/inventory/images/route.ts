@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
   const form = await request.formData().catch(() => null);
   const file = form?.get("file");
   const productId = String(form?.get("productId") || "").trim();
-  const oldImageUrl = String(form?.get("oldImageUrl") || "").trim();
+
 
   if (!productId) return fail("Save the product before uploading a photo.", 422);
   if (!(file instanceof File)) return fail("Choose a product photo to upload.", 422);
@@ -51,8 +51,8 @@ export async function POST(request: NextRequest) {
 
     await updateProduct(productId, { image_url: uploaded.publicUrl }, auth.user.id);
 
-    if (oldImageUrl && oldImageUrl !== uploaded.publicUrl) {
-      await deleteProductImageFromStorage(oldImageUrl).catch(() => null);
+    if (product.image_url && product.image_url !== uploaded.publicUrl) {
+      await deleteProductImageFromStorage(product.image_url, { businessId: auth.user.business_id!, productId }).catch(() => null);
     }
 
     return ok({ imageUrl: uploaded.publicUrl, path: uploaded.path });
@@ -66,15 +66,15 @@ export async function DELETE(request: NextRequest) {
   if (!auth.user) return fail(auth.error, auth.status);
   const body = await request.json().catch(() => null) as { productId?: string; imageUrl?: string } | null;
   const productId = String(body?.productId || "").trim();
-  const imageUrl = String(body?.imageUrl || "").trim();
+
 
   if (!productId) return fail("Product ID is required to remove a photo.", 422);
   const product = await getProduct(productId, auth.user.business_id);
   if (!product) return fail("Product not found for this business.", 404);
 
   try {
-    const targetUrl = imageUrl || product.image_url || "";
-    await deleteProductImageFromStorage(targetUrl).catch((error) => {
+    const targetUrl = product.image_url || "";
+    await deleteProductImageFromStorage(targetUrl, { businessId: auth.user.business_id!, productId }).catch((error) => {
       const message = error instanceof Error ? error.message : "";
       if (message.includes("not configured")) throw error;
     });

@@ -63,8 +63,8 @@ db/supabase_schema_seed.sql
 The initial owner/admin account for a fresh seeded database is:
 
 ```text
-Email: admin@caribbeanpos.test
-Password: Admin123!
+Create an owner account at /signup. No default administrator password is created.
+For controlled local bootstrap only, set BOOTSTRAP_ADMIN_PASSWORD to a unique password of at least 12 characters.
 ```
 
 Change seeded passwords before real production use.
@@ -112,3 +112,22 @@ Business users can manage orders through New, Accepted, Preparing, Ready, Out fo
 ## Current Checkpoint
 
 `CHECKPOINT.md` records the final known-good Supabase QA checkpoint for this version.
+
+
+## Security upgrade rollout (October 2026)
+
+Apply `db/security_rate_limits.sql` with the trusted backend database role **before** deploying this branch. Missing counters intentionally return 503 for login/signup/tracking/public order/geocoding requests rather than silently disabling protection. The backend role must own the table or have the required access; the table has RLS and no public grants. Configure a daily database maintenance job to delete expired rows as shown in the migration.
+
+Set `SESSION_SECRET` to a cryptographically random value of at least 32 bytes (for example, `openssl rand -base64 48`). Keep it server-only. The new JWT format invalidates prior cookies, so users must sign in again. Password changes now invalidate existing sessions immediately. Reset any existing staff account that was created with the old shared password; the staff editor accepts a new password. Audit existing bootstrap administrator accounts and reset or disable them. No administrator is automatically created unless `BOOTSTRAP_ADMIN_PASSWORD` is explicitly configured.
+
+Confirm `NEXT_PUBLIC_APP_URL` is the correct public origin. Vercel preview and branch origins supplied by Vercel are also allowed for same-site browser writes. Signature-verified PayPal/Stripe webhooks remain exempt from browser origin checks.
+
+Supply the Supabase server root certificate as `PGSSL_CA` (PEM, either real newlines or escaped `\n`) to enable certificate and hostname verification. Download it from your project's Database settings. Existing Supabase/no-verify connections retain the compatibility fallback until this certificate is configured; encryption alone does not authenticate the database server. Validate with authenticated `/api/health?details=1`. Anonymous `/api/health` is liveness only, not a database readiness check.
+
+Receipt logos uploaded in Settings continue to use inline data. Remote receipt logos must use the configured Supabase hostname or an explicitly trusted hostname in the server-only comma-separated `RECEIPT_LOGO_ALLOWED_HOSTS`. Redirects, credentials in URLs, insecure HTTP, and unapproved hosts are rejected; missing logos never block receipt generation.
+
+Validate signup/login, staff creation and password rotation, tenant boundaries, POS checkout, storefront ordering, receipt printing, subscription return flows and real webhooks on a preview with a test database before merging. Password recovery still has no email delivery or reset-token flow and requires a separate implementation. Review Supabase RLS/storage policies, deployment environment secrets, and Vercel WAF/access controls in the connected production services; repository tests cannot verify their live state.
+
+Dependency audit after the upgrade: zero reported production vulnerabilities. Seven high advisories remain in development tooling (`braces` and affected Tailwind 3/glob/Next ESLint dependencies); they require a Tailwind/tooling migration. Keep untrusted glob patterns out of build inputs. CI gates production dependency advisories and Dependabot checks npm and Actions weekly.
+
+Validation completed locally: optimized build, typecheck, lint (two existing unused-function warnings), security regressions, Postgres-engine atomic rate limits/session revocation, billing, tenant isolation, POS, backup, local AI and map links. Browser QA is pending: no Browser plugin was available and Playwright's Chromium download returned an empty/truncated archive in this environment. No successful rendered UI check is claimed.

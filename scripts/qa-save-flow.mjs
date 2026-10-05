@@ -49,8 +49,8 @@ const login = await request("/api/auth/login", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({
-    email: process.env.QA_LOGIN_EMAIL || "admin@caribbeanpos.test",
-    password: process.env.QA_LOGIN_PASSWORD || "Admin123!"
+    email: process.env.QA_LOGIN_EMAIL || "",
+    password: process.env.QA_LOGIN_PASSWORD || ""
   })
 });
 assertOk(login.status === 200, `Login failed with status ${login.status}: ${login.text}`);

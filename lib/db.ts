@@ -151,6 +151,10 @@ function sslConfigForDatabase({
     return false;
   }
 
+  if (process.env.PGSSL_CA) {
+    return { ca: process.env.PGSSL_CA.replace(/\\n/g, "\n"), rejectUnauthorized: true };
+  }
+
   if (
     sslMode === "no-verify" ||
     usesSupabasePooler ||
@@ -622,7 +626,10 @@ async function seedInitialData() {
 
   const userCount = Number((await rawQuery<{ count: string }>("SELECT COUNT(*) AS count FROM users")).rows[0]?.count || 0);
   if (!userCount) {
-    const passwordHash = await bcrypt.hash("Admin123!", 12);
+    const password = process.env.BOOTSTRAP_ADMIN_PASSWORD;
+    if (!password) return; // Owners create their accounts through signup.
+    if (password.length < 12 || Buffer.byteLength(password) > 72) throw new Error("BOOTSTRAP_ADMIN_PASSWORD must be between 12 characters and 72 bytes.");
+    const passwordHash = await bcrypt.hash(password, 12);
     const users = [["Store Owner", "admin@caribbeanpos.test", "admin", ""]];
     for (const [name, email, role, phone] of users) {
       await rawQuery(

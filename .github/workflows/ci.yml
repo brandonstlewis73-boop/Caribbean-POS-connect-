@@ -5,9 +5,17 @@ on:
     branches: ["main"]
   pull_request:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     services:
       postgres:
         image: postgres:16
@@ -33,7 +41,22 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
+
+      - name: Production dependency audit
+        run: npm run audit:production
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Security regression checks
+        run: npm run test:security && npm run test:rate-limit
+
+      - name: Tenant isolation and production hardening
+        run: npm run test:tenant-isolation && npm run test:production-hardening
+
+      - name: POS and backup boundaries
+        run: npm run test:pos && npm run test:backup
 
       - name: Prepare database
         run: npm run db:setup

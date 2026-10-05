@@ -6,7 +6,7 @@ export function ok<T>(data: T, init?: ResponseInit) {
 }
 
 export function fail(message: string, status = 400, details?: unknown) {
-  const safeMessage = userMessage(message);
+  const safeMessage = status >= 500 ? "This service is temporarily unavailable. Please try again later." : userMessage(message);
   return NextResponse.json({ error: safeMessage, details: safeMessage === message ? details : undefined }, { status });
 }
 

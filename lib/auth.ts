@@ -1,12 +1,13 @@
+import { createHmac } from "node:crypto";
 import { cookies } from "next/headers";
-import { SignJWT, jwtVerify } from "jose";
+import { SESSION_COOKIE_NAME, signSession, verifySessionClaims, sessionSecretKey } from "./session";
 import bcrypt from "bcryptjs";
 import type { NextRequest } from "next/server";
 import { query } from "./db";
 import type { Role, User } from "./types";
 import { hasPermission, type Permission } from "./permissions";
 
-const COOKIE_NAME = "cpc_session";
+const COOKIE_NAME = SESSION_COOKIE_NAME;
 
 type RequireUserResult =
   | { user: User; error: null; status: 200 }
@@ -14,6 +15,7 @@ type RequireUserResult =
 
 type AuthUserRow = {
   id: string;
+  password_hash: string;
   business_id?: string | null;
   name: string;
   email: string;
@@ -26,12 +28,6 @@ type LoginUserRow = AuthUserRow & {
   password_hash: string;
 };
 
-function secretKey() {
-  return new TextEncoder().encode(
-    process.env.SESSION_SECRET || "dev-secret-change-me-caribbean-pos-connect"
-  );
-}
-
 export async function hashPassword(password: string) {
   return bcrypt.hash(password, 12);
 }
@@ -41,17 +37,9 @@ export async function verifyPassword(password: string, hash: string) {
 }
 
 export async function createSession(user: User) {
-  return new SignJWT({
-    sub: user.id,
-    role: user.role,
-    businessId: user.business_id,
-    name: user.name,
-    email: user.email
-  })
-    .setProtectedHeader({ alg: "HS256" })
-    .setIssuedAt()
-    .setExpirationTime("12h")
-    .sign(secretKey());
+  const current = await getActiveUserById(user.id);
+  if (!current || !current.user.business_id) throw new Error("Active business account required");
+  return signSession(user.id, current.authVersion);
 }
 
 function isMissingUsersRelation(error: unknown) {
@@ -61,20 +49,28 @@ function isMissingUsersRelation(error: unknown) {
   return code === "42P01" || message.includes('relation "users" does not exist');
 }
 
+function sessionIdentity(row: AuthUserRow) {
+  const { password_hash, ...user } = row;
+  return {
+    user: { ...user, active: Boolean(user.active) },
+    authVersion: createHmac("sha256", sessionSecretKey()).update(password_hash).digest("hex")
+  };
+}
+
 export async function getActiveUserById(id: string) {
   try {
     const result = await query<AuthUserRow>(
-      "SELECT id, business_id, name, email, role, phone, active FROM users WHERE id = $1 AND active = TRUE",
+      "SELECT id, business_id, name, email, password_hash, role, phone, active FROM users WHERE id = $1 AND active = TRUE",
       [id]
     );
-    return result.rows[0] ? { ...result.rows[0], active: Boolean(result.rows[0].active) } : null;
+    return result.rows[0] ? sessionIdentity(result.rows[0]) : null;
   } catch (error) {
     if (!isMissingUsersRelation(error)) throw error;
     const result = await query<AuthUserRow>(
-      "SELECT id, business_id, name, email, role, phone, active FROM staff_users WHERE id = $1 AND active = TRUE",
+      "SELECT id, business_id, name, email, password_hash, role, phone, active FROM staff_users WHERE id = $1 AND active = TRUE",
       [id]
     );
-    return result.rows[0] ? { ...result.rows[0], active: Boolean(result.rows[0].active) } : null;
+    return result.rows[0] ? sessionIdentity(result.rows[0]) : null;
   }
 }
 
@@ -101,10 +97,12 @@ export async function getSessionUserFromRequest(request?: NextRequest): Promise<
   if (!token) return null;
 
   try {
-    const verified = await jwtVerify(token, secretKey());
-    const id = verified.payload.sub;
-    if (!id) return null;
-    return getActiveUserById(id);
+    const { id, authVersion } = await verifySessionClaims(token);
+    const current = await getActiveUserById(id);
+    if (!current || current.authVersion !== authVersion) return null;
+    const user = current.user;
+    // Missing business context must never reach unscoped list/query helpers.
+    return user?.business_id ? user : null;
   } catch {
     return null;
   }

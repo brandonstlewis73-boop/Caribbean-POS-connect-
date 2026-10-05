@@ -885,7 +885,10 @@ export async function listUsers(role?: string, includeInactive = false, business
 
 export async function createStaffUser(input: StaffInput, userId?: string) {
   const id = createId("usr");
-  const passwordHash = await bcrypt.hash("ChangeMe123!", 12);
+  if (!input.password || input.password === "ChangeMe123!" || input.password.length < 12 || Buffer.byteLength(input.password) > 72) {
+    throw new Error("Set a staff password between 12 characters and 72 bytes.");
+  }
+  const passwordHash = await bcrypt.hash(input.password, 12);
   return transaction(async (client) => {
     const businessId = await getBusinessIdForUser(userId, client);
     await query(
@@ -904,7 +907,7 @@ export async function createStaffUser(input: StaffInput, userId?: string) {
       client
     );
     await saveStaffAvatar(id, input, client);
-    await auditLog("staff:create", "user", id, { ...input, avatar_url: input.avatar_url ? "[stored image]" : null }, userId, client);
+    await auditLog("staff:create", "user", id, { ...input, password: undefined, avatar_url: input.avatar_url ? "[stored image]" : null }, userId, client);
     const avatars = await getStaffAvatarMap(client);
     const rows = await query<any>("SELECT id, business_id, name, email, role, phone, active FROM users WHERE id = $1", [id], client);
     return rows.rows[0] ? rowToUser(rows.rows[0], avatars[id]) : null;
@@ -942,7 +945,11 @@ export async function updateStaffUser(id: string, input: StaffInput, userId?: st
       client
     );
     await saveStaffAvatar(id, input, client);
-    await auditLog("staff:update", "user", id, { ...input, avatar_url: input.avatar_url ? "[stored image]" : null }, userId, client);
+    if (input.password) {
+      if (input.password === "ChangeMe123!" || input.password.length < 12 || Buffer.byteLength(input.password) > 72) throw new Error("Choose a password between 12 characters and 72 bytes.");
+      await query("UPDATE users SET password_hash = $1 WHERE id = $2 AND business_id = $3", [await bcrypt.hash(input.password, 12), id, businessId], client);
+    }
+    await auditLog("staff:update", "user", id, { ...input, password: undefined, avatar_url: input.avatar_url ? "[stored image]" : null }, userId, client);
     const avatars = await getStaffAvatarMap(client);
     const rows = await query<any>("SELECT id, business_id, name, email, role, phone, active FROM users WHERE id = $1", [id], client);
     return rows.rows[0] ? rowToUser(rows.rows[0], avatars[id]) : null;
@@ -2757,7 +2764,7 @@ export async function getOrder(id: string, businessId?: string | null) {
 
 export async function getPublicOrderTracking(orderNumber: string, phone: string) {
   const normalizedPhone = cleanWhatsAppNumber(phone);
-  if (!orderNumber?.trim() || !normalizedPhone) return null;
+  if (typeof orderNumber !== "string" || !orderNumber.trim() || orderNumber.length > 128 || typeof phone !== "string" || normalizedPhone.length < 7 || normalizedPhone.length > 15) return null;
   const row = await query<any>(
     `SELECT o.*, u.name AS assigned_driver_name, u.phone AS assigned_driver_phone, completed_user.name AS completed_by_name
      FROM orders o

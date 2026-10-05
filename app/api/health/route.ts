@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { requireUser } from "@/lib/auth";
 import {
   databaseConfigStatus,
   databaseConnectionDiagnostics,
@@ -163,7 +164,12 @@ function billingReadiness() {
   };
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  if (request.nextUrl.searchParams.get("details") !== "1") {
+    return NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
+  }
+  const auth = await requireUser(request, "settings:write");
+  if (!auth.user) return NextResponse.json({ error: auth.error }, { status: auth.status });
   const config = databaseConfigStatus();
   const diagnostics = databaseConnectionDiagnostics();
   const deployment = deploymentStatus();
