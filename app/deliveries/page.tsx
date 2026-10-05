@@ -3,6 +3,7 @@ import { DeliveriesClient } from "@/components/deliveries/DeliveriesClient";
 import { UpgradeRequired } from "@/components/subscription/UpgradeRequired";
 import { getBusinessSettings, getDeliveries, getSubscriptionPlanId } from "@/lib/data";
 import { requirePagePermission } from "@/lib/page-auth";
+import { hasPermission } from "@/lib/permissions";
 import { canUseFeature } from "@/lib/plan-gating";
 
 export default async function DeliveriesPage() {
@@ -24,7 +25,7 @@ export default async function DeliveriesPage() {
   const [deliveries, settings] = await Promise.all([getDeliveries(user), getBusinessSettings(user.business_id)]);
   return (
     <AppShell active="Deliveries" title="Deliveries" user={user} settings={settings}>
-      <DeliveriesClient deliveries={deliveries} currency={settings.currency} />
+      <DeliveriesClient deliveries={deliveries} currency={settings.currency} canEditDetails={hasPermission(user.role, "orders:update")} origin={settings.business_latitude != null && settings.business_longitude != null ? { latitude: settings.business_latitude, longitude: settings.business_longitude } : null} />
     </AppShell>
   );
 }

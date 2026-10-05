@@ -123,8 +123,8 @@ export function ReportsClient({ data }: { data: DashboardData }) {
           <div className="divide-y divide-caribbean-line dark:divide-slate-800">
             {data.bestSellers.map((item) => (
               <div key={item.name} className="flex min-w-0 justify-between gap-3 px-4 py-3 text-sm">
-                <span className="min-w-0 font-bold">{item.name}</span>
-                <span className="font-black">{formatMoney(item.total)}</span>
+                <span className="min-w-0 flex-1 font-bold">{item.name}</span>
+                <span className="shrink-0 whitespace-nowrap font-black">{formatMoney(item.total)}</span>
               </div>
             ))}
           </div>
@@ -134,8 +134,8 @@ export function ReportsClient({ data }: { data: DashboardData }) {
           <div className="divide-y divide-caribbean-line dark:divide-slate-800">
             {data.topCustomers.map((item) => (
               <div key={item.name} className="flex min-w-0 justify-between gap-3 px-4 py-3 text-sm">
-                <span className="min-w-0 font-bold">{item.name}</span>
-                <span className="font-black">{formatMoney(item.total_spent)}</span>
+                <span className="min-w-0 flex-1 font-bold">{item.name}</span>
+                <span className="shrink-0 whitespace-nowrap font-black">{formatMoney(item.total_spent)}</span>
               </div>
             ))}
           </div>
@@ -145,7 +145,7 @@ export function ReportsClient({ data }: { data: DashboardData }) {
           <div className="divide-y divide-caribbean-line dark:divide-slate-800">
             {data.cashierPerformance.map((item) => (
               <div key={item.name} className="flex min-w-0 justify-between gap-3 px-4 py-3 text-sm">
-                <span className="min-w-0 font-bold">{item.name}</span>
+                <span className="min-w-0 flex-1 font-bold">{item.name}</span>
                 <span className="font-black">{item.count} orders</span>
               </div>
             ))}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Bike, CheckCircle2, Clock, MapPinned, Navigation, PackageCheck, Phone, Route, Save } from "lucide-react";
+import { Bike, CheckCircle2, Clock, MapPinned, PackageCheck, Phone, Route, Save, Search, ChevronDown } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Field, TextAreaField } from "@/components/ui/Field";
@@ -19,11 +19,23 @@ function localDateTimeValue(value?: string | null) {
   return new Date(date.getTime() - offset * 60_000).toISOString().slice(0, 16);
 }
 
-export function DeliveriesClient({ deliveries, currency }: { deliveries: Order[]; currency: string }) {
+export function DeliveriesClient({ deliveries, currency, canEditDetails = true, origin = null }: { deliveries: Order[]; currency: string; canEditDetails?: boolean; origin?: { latitude: number; longitude: number } | null }) {
   const [items, setItems] = useState(deliveries);
   const [drafts, setDrafts] = useState<Record<string, { driver_notes: string; estimated_delivery_at: string }>>({});
   const [message, setMessage] = useState("");
-  const routeStops = useMemo(() => suggestDeliveryRoute(items), [items]);
+  const [view, setView] = useState("active");
+  const [driver, setDriver] = useState("all");
+  const [query, setQuery] = useState("");
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [confirm, setConfirm] = useState<string | null>(null);
+  const active = items.filter(order => ["pending", "assigned", "out_for_delivery"].includes(order.delivery_status) && order.status !== "cancelled");
+  const drivers = Array.from(new Map(items.filter(order => order.assigned_driver_id).map(order => [order.assigned_driver_id!, order.assigned_driver_name || "Assigned driver"])).entries());
+  const filtered = items.filter(order => (driver === "all" || (order.assigned_driver_id || "unassigned") === driver) && (view === "all" || (view === "active" ? active.some(entry => entry.id === order.id) : order.delivery_status === "delivered")) && `${order.order_number} ${order.customer_snapshot.name} ${order.customer_snapshot.street_address || ""} ${order.customer_snapshot.city || ""}`.toLowerCase().includes(query.toLowerCase()));
+  const mixedDrivers = new Set(filtered.filter(order => active.some(entry => entry.id === order.id)).map(order => order.assigned_driver_id || "unassigned")).size > 1;
+  const routeStops = useMemo(() => suggestDeliveryRoute(filtered, origin), [filtered, origin]);
+  const displayed = view === "active" && !mixedDrivers ? routeStops.map(stop => stop.order) : filtered;
+
   const formatMoney = (value: number | string | null | undefined) => money(value, currency);
 
   function draftFor(order: Order) {
@@ -55,6 +67,8 @@ export function DeliveriesClient({ deliveries, currency }: { deliveries: Order[]
   }
 
   async function saveDriverDetails(order: Order) {
+    if (busy) return;
+    setBusy(order.id);
     setMessage("");
     const draft = draftFor(order);
     try {
@@ -65,82 +79,55 @@ export function DeliveriesClient({ deliveries, currency }: { deliveries: Order[]
       setMessage(`Delivery #${order.order_number} details saved.`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Delivery details could not be saved.");
-    }
+    } finally { setBusy(null); }
   }
 
   async function setStatus(orderId: string, status: Order["delivery_status"]) {
+    if (busy) return;
+    setBusy(orderId);
     setMessage("");
-    const response = await fetch(`/api/deliveries/${orderId}/status`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status })
-    });
-    const payload = await readApiPayload<{ order: Order }>(response);
-    if (response.ok) {
-      const updated = payload.data?.order;
-      if (!updated) return;
-      setItems((current) => current.map((order) => (order.id === orderId ? updated : order)));
+    try {
+      const response = await fetch(`/api/deliveries/${orderId}/status`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
+      const payload = await readApiPayload<{ order: Order }>(response);
+      if (!response.ok || !payload.data?.order) throw new Error(payload.error || "Delivery status could not be updated.");
+      const updated = payload.data.order;
+      setItems(current => current.map(order => order.id === orderId ? updated : order));
+      setConfirm(null);
       setMessage(`Delivery #${updated.order_number} marked ${status.replaceAll("_", " ")}.`);
-    } else {
-      setMessage(payload.error || "Delivery status could not be updated.");
-    }
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Connection failed. Your delivery status has not been confirmed. Try again.");
+    } finally { setBusy(null); }
   }
 
   return (
-    <div className="grid min-w-0 gap-4">
-      {message ? <p className="rounded-card bg-teal-50 p-3 text-sm font-black text-teal-800 dark:bg-teal-400/10 dark:text-teal-100">{message}</p> : null}
+    <div className="delivery-workspace grid min-w-0 gap-4">
+      {message ? <p role="status" className="rounded-card bg-teal-50 p-3 text-sm font-black text-teal-800 dark:bg-teal-400/10 dark:text-teal-100">{message}</p> : null}
 
-      <Panel>
-        <PanelHeader
-          title="AI route assistance"
-          description="Suggested delivery sequence using coordinates first, then address area. No paid map API required."
-          action={<Badge tone="teal">{routeStops.length} active</Badge>}
-        />
-        <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">
-          {routeStops.map((stop) => (
-            <article key={stop.order.id} className="rounded-card border border-caribbean-line bg-white p-3 shadow-soft dark:border-slate-800 dark:bg-slate-900">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-sm font-black text-caribbean-teal">Stop {stop.sequence}</p>
-                  <p className="mt-1 font-black">#{stop.order.order_number} - {stop.order.customer_snapshot.name}</p>
-                </div>
-                <Badge tone={stop.addressNeedsReview ? "amber" : "green"}>{stop.hasCoordinates ? "GPS" : "Address"}</Badge>
-              </div>
-              <p className="mt-2 text-sm font-semibold text-slate-500">{stop.addressNeedsReview ? "Address needs review." : stop.address}</p>
-              <p className="mt-2 text-xs font-bold text-slate-400">{stop.routeReason}</p>
-              <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                {stop.wazeLink ? (
-                  <a href={stop.wazeLink} target="_blank" rel="noreferrer" className="inline-flex min-h-10 items-center justify-center gap-2 rounded-card bg-caribbean-teal px-3 py-2 text-center text-sm font-black text-white">
-                    <Route className="h-4 w-4" />
-                    Open in Waze
-                  </a>
-                ) : null}
-                {stop.googleMapsLink ? (
-                  <a href={stop.googleMapsLink} target="_blank" rel="noreferrer" className="inline-flex min-h-10 items-center justify-center gap-2 rounded-card border border-caribbean-line bg-white px-3 py-2 text-center text-sm font-black dark:border-slate-700 dark:bg-slate-900">
-                    <Navigation className="h-4 w-4" />
-                    Google Maps
-                  </a>
-                ) : null}
-              </div>
-            </article>
-          ))}
-          {!routeStops.length ? (
-            <p className="rounded-card border border-caribbean-line bg-white p-4 text-sm font-bold text-slate-500 dark:border-slate-800 dark:bg-slate-900 md:col-span-2 xl:col-span-3">
-              No active delivery route to optimize right now.
-            </p>
-          ) : null}
+      <section className="dispatch-hero">
+        <div className="dispatch-eyebrow"><Route size={16}/> DELIVERY OPERATIONS</div>
+        <h2>Your next stop, clearly.</h2>
+        <p>Manage the handoff, stay in touch, and keep every delivery moving.</p>
+        <div className="dispatch-metrics">
+          <div><strong>{active.length}</strong><span>Active deliveries</span></div>
+          <div><strong>{active.filter(order => order.delivery_status === "out_for_delivery").length}</strong><span>On the road</span></div>
+          <div><strong>{active.filter(order => !order.assigned_driver_id).length}</strong><span>Unassigned</span></div>
+          <div><strong>{items.filter(order => order.delivery_status === "delivered").length}</strong><span>Delivered</span></div>
         </div>
-      </Panel>
-
+      </section>
+      <section className="dispatch-toolbar" aria-label="Delivery filters">
+        <div className="dispatch-tabs" role="group" aria-label="Delivery status">{["active", "delivered", "all"].map(value => <button key={value} aria-pressed={view === value} onClick={() => { setView(value); setConfirm(null); }}>{value === "all" ? "All deliveries" : value[0].toUpperCase() + value.slice(1)}</button>)}</div>
+        <div className="dispatch-filters"><label><Search size={18}/><input aria-label="Search deliveries" placeholder="Search order, customer or area" value={query} onChange={event => setQuery(event.target.value)}/></label><select aria-label="Filter by driver" value={driver} onChange={event => setDriver(event.target.value)}><option value="all">All drivers</option><option value="unassigned">Unassigned</option>{drivers.map(([id,name]) => <option key={id} value={id}>{name}</option>)}</select></div>
+      </section>
+      {view === "active" && displayed.length ? <div className="dispatch-route-note"><MapPinned size={20}/><div><strong>{mixedDrivers ? "Choose a driver to plan a single delivery run" : origin ? "Route starts from your saved business location" : "Route starts with the oldest GPS stop"}</strong><p>GPS stops use straight-line distance; address-only stops follow by area. Confirm the sequence in your navigation app for roads and traffic.</p></div></div> : null}
       <div className="grid min-w-0 gap-4 xl:grid-cols-2">
-        {items.map((order) => {
-          const stop = routeStops.find((entry) => entry.order.id === order.id);
+        {displayed.map((order, index) => {
+          const stop = suggestDeliveryRoute([{...order, status: "new", delivery_status: "assigned"}])[0];
           const draft = draftFor(order);
           const addressText = stop?.address || "Address needs review.";
           return (
             <Panel key={order.id}>
               <PanelHeader
-                title={`Delivery #${order.order_number}`}
+                title={`${view === "active" && !mixedDrivers ? `Stop ${index + 1} · ` : ""}#${order.order_number}`}
                 description={`${order.assigned_driver_name || "Unassigned"} - ${new Date(order.created_at).toLocaleString()}`}
                 action={<Badge tone={order.delivery_status === "delivered" ? "green" : "amber"}>{order.delivery_status.replaceAll("_", " ")}</Badge>}
               />
@@ -155,7 +142,8 @@ export function DeliveriesClient({ deliveries, currency }: { deliveries: Order[]
                     <p className="text-slate-600 dark:text-slate-300">{order.customer_snapshot.delivery_notes}</p>
                   ) : null}
                 </div>
-                <div className="grid gap-3 sm:grid-cols-2">
+                <button className="dispatch-expand" aria-expanded={expanded === order.id} onClick={() => setExpanded(expanded === order.id ? null : order.id)}>Order details & driver notes <ChevronDown size={18}/></button>
+                {expanded === order.id ? <div className="grid gap-4">                {canEditDetails ? <><div className="grid gap-3 sm:grid-cols-2">
                   <TextAreaField
                     label="Driver notes"
                     value={draft.driver_notes}
@@ -169,10 +157,10 @@ export function DeliveriesClient({ deliveries, currency }: { deliveries: Order[]
                     onChange={(event) => updateDraft(order.id, { estimated_delivery_at: event.target.value })}
                   />
                 </div>
-                <Button variant="secondary" onClick={() => saveDriverDetails(order)}>
+                <Button disabled={Boolean(busy)} variant="secondary" onClick={() => saveDriverDetails(order)}>
                   <Save className="h-4 w-4" />
-                  Save driver details
-                </Button>
+                  {busy === order.id ? "Saving…" : "Save driver details"}
+                </Button></> : order.driver_notes ? <p className="text-sm">Driver notes: {order.driver_notes}</p> : null}
                 <div className="grid min-w-0 gap-2">
                   {order.items.map((item) => (
                     <div key={item.id} className="flex min-w-0 justify-between gap-3 text-sm">
@@ -191,6 +179,7 @@ export function DeliveriesClient({ deliveries, currency }: { deliveries: Order[]
                     <p className="font-black">{formatMoney(order.total)}</p>
                   </div>
                 </div>
+</div> : null}
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {stop?.wazeLink ? (
                     <a href={stop.wazeLink} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-card bg-caribbean-teal px-3 py-2 text-center text-sm font-black leading-tight text-white">
@@ -210,7 +199,7 @@ export function DeliveriesClient({ deliveries, currency }: { deliveries: Order[]
                     </a>
                   ) : null}
                   {order.customer_snapshot.phone ? (
-                    <a href={`tel:${order.customer_snapshot.phone}`} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-card border border-caribbean-line bg-white px-3 py-2 text-center text-sm font-black leading-tight dark:border-slate-700 dark:bg-slate-900">
+                    <a href={`tel:${order.customer_snapshot.phone.replace(/[^+\d]/g, "")}`} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-card border border-caribbean-line bg-white px-3 py-2 text-center text-sm font-black leading-tight dark:border-slate-700 dark:bg-slate-900">
                       <Phone className="h-4 w-4" />
                       Call customer
                     </a>
@@ -219,14 +208,15 @@ export function DeliveriesClient({ deliveries, currency }: { deliveries: Order[]
                     <PackageCheck className="h-4 w-4" />
                     Label
                   </a>
-                  <Button variant="secondary" onClick={() => setStatus(order.id, "out_for_delivery")}>
+                  {active.some(entry => entry.id === order.id) ? <><Button disabled={Boolean(busy) || order.delivery_status === "out_for_delivery"} variant="secondary" onClick={() => setStatus(order.id, "out_for_delivery")}>
                     <Bike className="h-4 w-4" />
                     Out for delivery
                   </Button>
-                  <Button variant="success" onClick={() => setStatus(order.id, "delivered")}>
+                  <Button disabled={Boolean(busy)} variant="success" onClick={() => setConfirm(order.id)}>
                     <CheckCircle2 className="h-4 w-4" />
-                    Delivered
-                  </Button>
+                    Mark delivered
+                  </Button></> : null}
+                  {confirm === order.id ? <div className="dispatch-confirm sm:col-span-2"><strong>Confirm delivery to {order.customer_snapshot.name}?</strong><p>This updates delivery status only. Payment remains {order.payment_status}.</p><div><Button disabled={Boolean(busy)} variant="success" onClick={() => setStatus(order.id, "delivered")}>{busy === order.id ? "Updating…" : "Confirm delivered"}</Button><Button disabled={Boolean(busy)} onClick={() => setConfirm(null)}>Cancel</Button></div></div> : null}
                   {order.estimated_delivery_at ? (
                     <p className="inline-flex min-h-11 items-center justify-center gap-2 rounded-card border border-caribbean-line px-3 py-2 text-sm font-black dark:border-slate-800">
                       <Clock className="h-4 w-4" />
@@ -238,9 +228,9 @@ export function DeliveriesClient({ deliveries, currency }: { deliveries: Order[]
             </Panel>
           );
         })}
-        {!items.length ? (
+        {!displayed.length ? (
           <Panel className="grid min-h-80 place-items-center xl:col-span-2">
-            <p className="font-bold text-slate-500">No assigned deliveries right now.</p>
+            <p className="font-bold text-slate-500">{query ? "No deliveries match your search." : view === "delivered" ? "No delivered orders in this view yet." : "No deliveries in this view. Choose another status or driver."}</p>
           </Panel>
         ) : null}
       </div>

@@ -188,8 +188,17 @@ export function AppShellClient({
 
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") setMenuOpen(false); };
+    window.addEventListener("keydown", closeOnEscape);
+    const desktop = window.matchMedia("(min-width: 768px)");
+    const closeOnDesktop = () => { if (desktop.matches) setMenuOpen(false); };
+    desktop.addEventListener("change", closeOnDesktop);
+    closeOnDesktop();
 
     return () => {
+      window.removeEventListener("keydown", closeOnEscape);
+      desktop.removeEventListener("change", closeOnDesktop);
+      document.querySelector<HTMLButtonElement>(".app-shell-menu-button")?.focus();
       document.body.style.overflow = previousOverflow;
     };
   }, [menuOpen]);
@@ -212,9 +221,10 @@ export function AppShellClient({
       <aside
         className={cn(
           "app-mobile-drawer fixed inset-y-0 left-0 z-50 w-[82vw] max-w-[320px] overflow-y-auto bg-[#354050] px-5 text-white shadow-[18px_0_70px_rgba(0,0,0,0.36)] transition-transform duration-300 ease-out md:hidden",
-          menuOpen ? "translate-x-0" : "-translate-x-full"
+          menuOpen ? "translate-x-0" : "-translate-x-full shadow-none"
         )}
         aria-hidden={!menuOpen}
+        inert={!menuOpen}
       >
         <div className="mb-4 flex items-center justify-between gap-3">
           <span className="text-xs font-black uppercase tracking-[0.18em] text-cyan-100/60">
@@ -260,7 +270,7 @@ export function AppShellClient({
               </div>
             </div>
 
-            <div className="grid min-w-0 max-w-full gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-end">
+            <div className="app-shell-actions grid min-w-0 max-w-full gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-end">
               {actions}
             </div>
           </div>
