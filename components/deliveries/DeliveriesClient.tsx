@@ -1,4 +1,5 @@
 "use client";
+import {Pagination,usePagination} from "@/components/workspace/Pagination";
 
 import { useMemo, useState } from "react";
 import { Bike, CheckCircle2, Clock, MapPinned, PackageCheck, Phone, Route, Save, Search, ChevronDown } from "lucide-react";
@@ -99,6 +100,7 @@ export function DeliveriesClient({ deliveries, currency, canEditDetails = true, 
     } finally { setBusy(null); }
   }
 
+  const recordPage=usePagination(displayed,view+"|"+driver+"|"+query,3);
   return (
     <div className="delivery-workspace grid min-w-0 gap-4">
       {message ? <p role="status" className="rounded-card bg-teal-50 p-3 text-sm font-black text-teal-800 dark:bg-teal-400/10 dark:text-teal-100">{message}</p> : null}
@@ -119,15 +121,16 @@ export function DeliveriesClient({ deliveries, currency, canEditDetails = true, 
         <div className="dispatch-filters"><label><Search size={18}/><input aria-label="Search deliveries" placeholder="Search order, customer or area" value={query} onChange={event => setQuery(event.target.value)}/></label><select aria-label="Filter by driver" value={driver} onChange={event => setDriver(event.target.value)}><option value="all">All drivers</option><option value="unassigned">Unassigned</option>{drivers.map(([id,name]) => <option key={id} value={id}>{name}</option>)}</select></div>
       </section>
       {view === "active" && displayed.length ? <div className="dispatch-route-note"><MapPinned size={20}/><div><strong>{mixedDrivers ? "Choose a driver to plan a single delivery run" : origin ? "Route starts from your saved business location" : "Route starts with the oldest GPS stop"}</strong><p>GPS stops use straight-line distance; address-only stops follow by area. Confirm the sequence in your navigation app for roads and traffic.</p></div></div> : null}
+      <Pagination {...recordPage}/>
       <div className="grid min-w-0 gap-4 xl:grid-cols-2">
-        {displayed.map((order, index) => {
+        {recordPage.items.map((order, index) => {
           const stop = suggestDeliveryRoute([{...order, status: "new", delivery_status: "assigned"}])[0];
           const draft = draftFor(order);
           const addressText = stop?.address || "Address needs review.";
           return (
             <Panel key={order.id}>
               <PanelHeader
-                title={`${view === "active" && !mixedDrivers ? `Stop ${index + 1} · ` : ""}#${order.order_number}`}
+                title={`${view === "active" && !mixedDrivers ? `Stop ${(recordPage.page-1)*recordPage.pageSize+index + 1} · ` : ""}#${order.order_number}`}
                 description={`${order.assigned_driver_name || "Unassigned"} - ${new Date(order.created_at).toLocaleString()}`}
                 action={<Badge tone={order.delivery_status === "delivered" ? "green" : "amber"}>{order.delivery_status.replaceAll("_", " ")}</Badge>}
               />

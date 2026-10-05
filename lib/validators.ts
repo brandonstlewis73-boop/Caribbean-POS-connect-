@@ -111,6 +111,7 @@ export const checkoutSchema = z.object({
   payment_status: z.enum(["paid", "unpaid", "partial"]).optional(),
   status: orderStatusSchema.optional(),
   discount_amount: z.coerce.number().min(0).optional().default(0),
+  expected_total: z.coerce.number().min(0).optional(),
   service_fee: z.coerce.number().min(0).optional(),
   delivery_fee: z.coerce.number().min(0).optional(),
   notes: optionalText,

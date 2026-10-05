@@ -1,4 +1,5 @@
 "use client";
+import {Workspace,WorkspaceSection} from "@/components/workspace/Workspace";
 
 import { ReceiptTemplateTools } from "@/components/receipts/ReceiptTemplateTools";
 import { useState } from "react";
@@ -76,15 +77,18 @@ export function PrinterSettingsClient({ settings, canEdit = false }: { settings:
   }
 
   return (
-    <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
-      <ReceiptTemplateTools settings={settings} canEdit={canEdit} />
-      <Panel>
-        <PanelHeader title="Printer & Receipts" description="Receipt, kitchen ticket, email, and WhatsApp receipt workflow" action={<Badge tone="teal">Ready</Badge>} />
+    <Workspace label="printer sections"  hash>
+<WorkspaceSection id="receipt-templates" title="Receipt design" icon="receipts">
+<ReceiptTemplateTools settings={settings} canEdit={canEdit} />
+</WorkspaceSection>
+<WorkspaceSection id="printer" title="Printer setup" icon="printer">
+<Panel>
+        <PanelHeader title="Printer & Receipts" description="Receipt, kitchen ticket, email, and WhatsApp receipt workflow" action={<Badge tone="teal">PDF & browser print</Badge>} />
         <div className="grid gap-4 p-4 md:grid-cols-2">
           <div className="rounded-card border border-white/10 bg-black/25 p-4">
             <Printer className="h-8 w-8 text-cyan-200" />
             <p className="mt-4 text-lg font-black">Receipt printer status</p>
-            <p className="mt-1 text-sm font-semibold text-teal-50/60">Browser print and PDF receipts are available. Bluetooth/network printer adapters can be connected next.</p>
+            <p className="mt-1 text-sm font-semibold text-teal-50/60">Choose a printer in your device’s print dialog, or download a PDF receipt.</p>
           </div>
           <div className="grid gap-3">
             <Toggle
@@ -110,8 +114,9 @@ export function PrinterSettingsClient({ settings, canEdit = false }: { settings:
           </div>
         </div>
       </Panel>
-
-      <Panel className="self-start">
+</WorkspaceSection>
+<WorkspaceSection id="actions" title="Print & share" icon="messages">
+<Panel className="self-start">
         <PanelHeader title="Receipt actions" />
         <div className="grid gap-3 p-4">
           <Button variant="primary" onClick={save} disabled={saving}>
@@ -137,6 +142,7 @@ export function PrinterSettingsClient({ settings, canEdit = false }: { settings:
           {message ? <p className="rounded-card bg-cyan-300/10 p-3 text-sm font-black text-cyan-100">{message}</p> : null}
         </div>
       </Panel>
-    </div>
+</WorkspaceSection>
+</Workspace>
   );
 }

@@ -427,6 +427,8 @@ export type CheckoutPayload = {
   payment_status?: "paid" | "unpaid" | "partial";
   status?: Order["status"];
   discount_amount?: number;
+  expected_total?: number;
+  idempotency_key?: string;
   service_fee?: number;
   delivery_fee?: number;
   notes?: string | null;

@@ -1,7 +1,8 @@
 "use client";
+import {Workspace,WorkspaceSection} from "@/components/workspace/Workspace";
 
 import { useState } from "react";
-import { CheckCircle2, CreditCard, ShieldCheck, Sparkles, X } from "lucide-react";
+import { CheckCircle2, CreditCard, ShieldCheck, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Panel, PanelHeader } from "@/components/ui/Panel";
@@ -135,27 +136,67 @@ export function SubscriptionClient({
   ];
 
   return (
-    <>
-    {requestedPlan ? <section className="mb-4 rounded-card border border-cyan-200/30 bg-[#0b1d2e] p-4 text-white">
+    <div>{requestedPlan ? <section className="mb-4 rounded-card border border-cyan-200/30 bg-[#0b1d2e] p-4 text-white">
       <p className="font-bold">Selected: {requestedPlan.name} - {planPrice(requestedPlan)}/mo</p>
       <p className="mt-2 text-sm text-slate-200">Review your plan, then continue to billing to confirm.</p>
       <button type="button" onClick={() => choosePlan(requestedPlan.id)} disabled={loadingPlan !== null || currentPlanId === requestedPlan.id} className="mt-3 min-h-11 rounded-lg bg-cyan-300 px-4 font-bold text-slate-950 disabled:opacity-60">{loadingPlan === requestedPlan.id ? "Loading..." : currentPlanId === requestedPlan.id ? "Current plan" : "Continue with PayPal"}</button>
-    </section> : null}
-    <section className="mb-4 rounded-card border border-cyan-200/30 p-4 text-sm">
+    </section> : null}<Workspace label="Subscription sections" initialValue={requestedPlan?'plans':'account'}><WorkspaceSection id="account" title="Current subscription" icon="pricing"><Panel>
+        <PanelHeader
+          title="Subscription"
+          description="Manage your Caribbean POS Connect plan, trial status, and payment provider readiness"
+          action={current ? <Badge tone={current.status === "active" ? "green" : "amber"}>{current.status}</Badge> : null}
+        />
+        <div className="grid gap-5 p-5 md:grid-cols-3 sm:p-6">
+          <div className="rounded-3xl border border-cyan-200/12 bg-slate-950/35 p-5 shadow-[0_16px_45px_rgba(0,0,0,0.20)]">
+            <p className="text-sm font-bold text-teal-50/60">Current plan</p>
+            <p className="mt-2 text-2xl font-black">{current?.plan_name || "No plan selected"}</p>
+          </div>
+          <div className="rounded-3xl border border-cyan-200/12 bg-slate-950/35 p-5 shadow-[0_16px_45px_rgba(0,0,0,0.20)]">
+            <p className="text-sm font-bold text-teal-50/60">Trial status</p>
+            <p className="mt-2 text-sm font-black">
+              {current?.trial_ends_at ? `Trial ends ${new Date(current.trial_ends_at).toLocaleDateString()}` : "Trial available"}
+            </p>
+          </div>
+          <div className="rounded-3xl border border-cyan-200/12 bg-slate-950/35 p-5 shadow-[0_16px_45px_rgba(0,0,0,0.20)]">
+            <p className="text-sm font-bold text-teal-50/60">Payment checkout</p>
+            <p className="mt-2 text-sm font-black">{hasPaymentProvider ? "PayPal subscription checkout" : "PayPal checkout is being set up"}</p>
+            {canManageStripe ? (
+              <Button type="button" variant="secondary" className="mt-3 w-full" onClick={openBillingPortal} disabled={loadingPlan !== null}>
+                <CreditCard className="h-4 w-4" />
+                Manage billing
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      </Panel><section className="mb-4 rounded-card border border-cyan-200/30 p-4 text-sm">
       <p>Subscriptions are billed monthly in USD through PayPal. Confirm the amount and recurring payment on PayPal before subscribing.</p>
       {paypalEnvironment === "sandbox" ? <p className="mt-2 font-bold">Test checkout only — no live payments.</p> : null}
       {canManagePayPal ? <a className="mt-2 inline-block underline" href={paypalEnvironment === "sandbox" ? "https://www.sandbox.paypal.com/myaccount/autopay/" : "https://www.paypal.com/myaccount/autopay/"} target="_blank" rel="noopener noreferrer">Manage or cancel your PayPal subscription</a> : null}
       {canManageStripe ? <Button className="mt-2" onClick={openBillingPortal}>Manage existing subscription</Button> : null}
-    </section>
-    <div className="kyte-plan-screen md:hidden">
-      <section className="kyte-plan-header">
-        <h1>Choose your plan</h1>
-        <button type="button" aria-label="Close plan picker" onClick={() => window.history.back()}>
-          <X className="h-5 w-5" />
-        </button>
-      </section>
-
-      <section className="kyte-plan-stage">
+    </section></WorkspaceSection><WorkspaceSection id="usage" title="Plan usage" icon="reports"><Panel>
+        <PanelHeader
+          title="Usage this month"
+          description="Plan limits are enforced in the dashboard and API so locked features show upgrade options instead of breaking."
+        />
+        <div className="grid gap-5 p-5 sm:grid-cols-2 xl:grid-cols-3 sm:p-6">
+          {usageSummary.meters.map((meter) => (
+            <div key={meter.key} className="rounded-3xl border border-cyan-200/12 bg-slate-950/35 p-5 shadow-[0_16px_45px_rgba(0,0,0,0.18)]">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-black text-white">{meter.label}</p>
+                  <p className="mt-1 text-xs font-bold text-teal-50/55">
+                    {meter.locked ? "Locked on this plan" : meter.limit === null ? `${meter.used} used` : `${meter.used} / ${meter.limit}`}
+                  </p>
+                </div>
+                {meter.locked ? <Badge tone="amber">Upgrade</Badge> : meter.limit === null ? <Badge tone="green">Unlimited</Badge> : null}
+              </div>
+              <div className="mt-3 h-2 rounded-full bg-white/10">
+                <div className="h-2 rounded-full bg-cyan-300" style={{ width: `${meter.limit === null ? 100 : meter.percent}%` }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </Panel></WorkspaceSection><WorkspaceSection id="plans" title="Choose a plan" icon="options"><div className="md:hidden"><section className="kyte-plan-stage">
         <p className="mb-6 text-center text-sm font-semibold text-white">Monthly billing</p>
         <div className="kyte-plan-carousel">
           {pricingPlans.map((plan) => {
@@ -196,90 +237,7 @@ export function SubscriptionClient({
           <span className="active" />
           <span />
         </div>
-      </section>
-
-      <section className="kyte-compare-plans">
-        <div className="kyte-compare-title">
-          <h2>Compare plans</h2>
-          <span />
-        </div>
-        <div className="kyte-compare-table">
-          <div className="kyte-compare-row header">
-            <span>Features</span>
-            <strong>Starter</strong>
-            <strong>Business</strong>
-            <strong>Pro</strong>
-          </div>
-          {planCompareRows.map((row) => (
-            <div key={row.label} className="kyte-compare-row">
-              <span>{row.label}</span>
-              <strong>{row.starter ? <CheckCircle2 className="h-5 w-5" /> : "-"}</strong>
-              <strong>{row.premium ? <CheckCircle2 className="h-5 w-5" /> : "-"}</strong>
-              <strong>{row.pro ? <CheckCircle2 className="h-5 w-5" /> : "-"}</strong>
-            </div>
-          ))}
-        </div>
-      </section>
-      {message ? <p className="kyte-mobile-notice">{message}</p> : null}
-    </div>
-
-    <div className="hidden min-w-0 gap-4 md:grid">
-      <Panel>
-        <PanelHeader
-          title="Subscription"
-          description="Manage your Caribbean POS Connect plan, trial status, and payment provider readiness"
-          action={current ? <Badge tone={current.status === "active" ? "green" : "amber"}>{current.status}</Badge> : null}
-        />
-        <div className="grid gap-5 p-5 md:grid-cols-3 sm:p-6">
-          <div className="rounded-3xl border border-cyan-200/12 bg-slate-950/35 p-5 shadow-[0_16px_45px_rgba(0,0,0,0.20)]">
-            <p className="text-sm font-bold text-teal-50/60">Current plan</p>
-            <p className="mt-2 text-2xl font-black">{current?.plan_name || "No plan selected"}</p>
-          </div>
-          <div className="rounded-3xl border border-cyan-200/12 bg-slate-950/35 p-5 shadow-[0_16px_45px_rgba(0,0,0,0.20)]">
-            <p className="text-sm font-bold text-teal-50/60">Trial status</p>
-            <p className="mt-2 text-sm font-black">
-              {current?.trial_ends_at ? `Trial ends ${new Date(current.trial_ends_at).toLocaleDateString()}` : "Trial available"}
-            </p>
-          </div>
-          <div className="rounded-3xl border border-cyan-200/12 bg-slate-950/35 p-5 shadow-[0_16px_45px_rgba(0,0,0,0.20)]">
-            <p className="text-sm font-bold text-teal-50/60">Payment checkout</p>
-            <p className="mt-2 text-sm font-black">{hasPaymentProvider ? "PayPal subscription checkout" : "PayPal checkout is being set up"}</p>
-            {canManageStripe ? (
-              <Button type="button" variant="secondary" className="mt-3 w-full" onClick={openBillingPortal} disabled={loadingPlan !== null}>
-                <CreditCard className="h-4 w-4" />
-                Manage billing
-              </Button>
-            ) : null}
-          </div>
-        </div>
-      </Panel>
-
-      <Panel>
-        <PanelHeader
-          title="Usage this month"
-          description="Plan limits are enforced in the dashboard and API so locked features show upgrade options instead of breaking."
-        />
-        <div className="grid gap-5 p-5 sm:grid-cols-2 xl:grid-cols-3 sm:p-6">
-          {usageSummary.meters.map((meter) => (
-            <div key={meter.key} className="rounded-3xl border border-cyan-200/12 bg-slate-950/35 p-5 shadow-[0_16px_45px_rgba(0,0,0,0.18)]">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-black text-white">{meter.label}</p>
-                  <p className="mt-1 text-xs font-bold text-teal-50/55">
-                    {meter.locked ? "Locked on this plan" : meter.limit === null ? `${meter.used} used` : `${meter.used} / ${meter.limit}`}
-                  </p>
-                </div>
-                {meter.locked ? <Badge tone="amber">Upgrade</Badge> : meter.limit === null ? <Badge tone="green">Unlimited</Badge> : null}
-              </div>
-              <div className="mt-3 h-2 rounded-full bg-white/10">
-                <div className="h-2 rounded-full bg-cyan-300" style={{ width: `${meter.limit === null ? 100 : meter.percent}%` }} />
-              </div>
-            </div>
-          ))}
-        </div>
-      </Panel>
-
-      <section className="relative overflow-hidden rounded-[34px] border border-cyan-200/12 bg-[radial-gradient(circle_at_50%_0%,rgba(18,214,223,0.18),transparent_34%),linear-gradient(135deg,rgba(6,23,42,0.98),rgba(9,31,50,0.96)_48%,rgba(5,14,27,0.99))] p-5 shadow-[0_28px_90px_rgba(0,0,0,0.28)] sm:p-7">
+      </section></div><div className="hidden md:block"><section className="relative overflow-hidden rounded-[34px] border border-cyan-200/12 bg-[radial-gradient(circle_at_50%_0%,rgba(18,214,223,0.18),transparent_34%),linear-gradient(135deg,rgba(6,23,42,0.98),rgba(9,31,50,0.96)_48%,rgba(5,14,27,0.99))] p-5 shadow-[0_28px_90px_rgba(0,0,0,0.28)] sm:p-7">
         <div className="pointer-events-none absolute -right-24 top-10 h-64 w-64 rounded-full bg-cyan-400/10 blur-3xl" />
         <div className="pointer-events-none absolute -left-20 bottom-0 h-56 w-56 rounded-full bg-amber-300/10 blur-3xl" />
         <div className="relative mb-7 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
@@ -353,10 +311,27 @@ export function SubscriptionClient({
           );
           })}
         </div>
-      </section>
-
-      {message ? <p className="rounded-card border border-white/10 bg-white/[0.06] p-3 text-sm font-black text-teal-50">{message}</p> : null}
-    </div>
-    </>
+      </section></div></WorkspaceSection><WorkspaceSection id="compare" title="Compare features" icon="catalog"><section className="kyte-compare-plans">
+        <div className="kyte-compare-title">
+          <h2>Compare plans</h2>
+          <span />
+        </div>
+        <div className="kyte-compare-table">
+          <div className="kyte-compare-row header">
+            <span>Features</span>
+            <strong>Starter</strong>
+            <strong>Business</strong>
+            <strong>Pro</strong>
+          </div>
+          {planCompareRows.map((row) => (
+            <div key={row.label} className="kyte-compare-row">
+              <span>{row.label}</span>
+              <strong>{row.starter ? <CheckCircle2 className="h-5 w-5" /> : "-"}</strong>
+              <strong>{row.premium ? <CheckCircle2 className="h-5 w-5" /> : "-"}</strong>
+              <strong>{row.pro ? <CheckCircle2 className="h-5 w-5" /> : "-"}</strong>
+            </div>
+          ))}
+        </div>
+      </section></WorkspaceSection></Workspace>{message ? <p className="rounded-card border border-white/10 bg-white/[0.06] p-3 text-sm font-black text-teal-50">{message}</p> : null}</div>
   );
 }

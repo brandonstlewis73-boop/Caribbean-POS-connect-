@@ -1,4 +1,5 @@
 ﻿"use client";
+import {Workspace,WorkspaceSection} from "@/components/workspace/Workspace";
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -112,7 +113,7 @@ export function DashboardHome({ data }: { data: DashboardData }) {
     { label: "Today sales", value: formatMoney(data.dailySales), icon: DollarSign },
     { label: "New orders", value: String(liveNewOrders), icon: ReceiptText },
     { label: "Pending", value: String(data.pendingOrders), icon: AlertTriangle },
-    { label: "WhatsApp", value: data.whatsappConfigured ? "Ready" : "Setup", icon: MessageCircle }
+    { label: "WhatsApp", value: data.whatsappConfigured ? "Configured" : "Setup", icon: MessageCircle }
   ];
 
   const quickStats = [
@@ -143,9 +144,88 @@ export function DashboardHome({ data }: { data: DashboardData }) {
   }
 
   return (
-    <div className="dashboard-home mx-auto grid w-full max-w-[1200px] gap-6">
-      <section className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
-        <div className="rounded-3xl border border-[var(--dashboard-border)] dashboard-surface p-6 shadow-[0_20px_70px_rgba(0,0,0,0.28)] sm:p-7">
+    <div className="dashboard-home"><Workspace label="Dashboard sections"><WorkspaceSection id="overview" title="Business overview" icon="overview"><div className="dashboard-stats grid grid-cols-2 gap-3 sm:gap-5">
+          {topStats.map((stat) => {
+            const Icon = stat.icon;
+            return (
+              <div key={stat.label} className="rounded-3xl border border-[var(--dashboard-border)] dashboard-surface p-5 shadow-[0_16px_45px_rgba(0,0,0,0.22)]">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-bold text-[color:var(--dashboard-muted)]">{stat.label}</p>
+                  <span className="grid h-9 w-9 place-items-center rounded-card bg-cyan-300/10 text-[color:var(--dashboard-accent)]">
+                    <Icon className="h-4 w-4" />
+                  </span>
+                </div>
+                <p className="mt-4 text-2xl font-black text-[color:var(--dashboard-ink)]">{stat.value}</p>
+              </div>
+            );
+          })}
+        </div><div className="grid gap-5 lg:grid-cols-2">
+            <Panel>
+              <PanelHeader title="Recent orders" description="Latest storefront and POS orders" action={<Link href="/orders" className="text-sm font-black text-[color:var(--dashboard-accent)] hover:text-[color:var(--dashboard-ink)]">View all</Link>} />
+              <div className="divide-y divide-white/10">
+                {recentOrders.length ? (
+                  recentOrders.slice(0,4).map((order) => (
+                    <div key={order.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-black text-[color:var(--dashboard-ink)]">#{order.order_number} - {order.customer_snapshot.name || "Walk-in customer"}</p>
+                        <p className="mt-1 text-xs font-semibold text-[color:var(--dashboard-muted)]">{order.order_type.replaceAll("_", " ")} / {formatMoney(order.total)}</p>
+                      </div>
+                      <Badge tone={orderStatusTone(order.status)}>{orderStatusLabel(order.status)}</Badge>
+                    </div>
+                  ))
+                ) : (
+                  <div className="flex items-center gap-3 px-4 py-6 text-sm font-semibold text-[color:var(--dashboard-muted)]">
+                    <ShoppingCart className="h-4 w-4" />
+                    No orders yet.
+                  </div>
+                )}
+              </div>
+            </Panel>
+
+            <Panel>
+              <PanelHeader title="Low stock products" description="Items at or below reorder level" action={<Link href="/inventory" className="text-sm font-black text-[color:var(--dashboard-accent)] hover:text-[color:var(--dashboard-ink)]">Inventory</Link>} />
+              <div className="divide-y divide-white/10">
+                {data.lowStock.length ? (
+                  data.lowStock.slice(0, 4).map((product) => (
+                    <div key={product.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-black text-[color:var(--dashboard-ink)]">{product.name}</p>
+                        <p className="mt-1 text-xs font-semibold text-[color:var(--dashboard-muted)]">{product.sku || product.barcode || "No SKU"}</p>
+                      </div>
+                      <Badge tone={product.stock_quantity <= 5 ? "red" : "amber"}>{product.stock_quantity} left</Badge>
+                    </div>
+                  ))
+                ) : (
+                  <div className="flex items-center gap-3 px-4 py-6 text-sm font-semibold text-[color:var(--dashboard-muted)]">
+                    <PackageCheck className="h-4 w-4" />
+                    Inventory is comfortably stocked.
+                  </div>
+                )}
+              </div>
+            </Panel>
+          </div></WorkspaceSection><WorkspaceSection id="sales" title="Sales insights" icon="reports"><div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+            {quickStats.map((stat) => {
+              const Icon = stat.icon;
+              return (
+                <div key={stat.label} className="rounded-3xl border border-[var(--dashboard-border)] dashboard-surface p-5">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-bold text-[color:var(--dashboard-muted)]">{stat.label}</p>
+                    <Icon className="h-4 w-4 text-[color:var(--dashboard-accent)]" />
+                  </div>
+                  <p className="mt-3 text-xl font-black text-[color:var(--dashboard-ink)]">{stat.value}</p>
+                </div>
+              );
+            })}
+          </div><Panel>
+            <PanelHeader title="Sales trend" description={`Last 30 days in ${data.currency}`} />
+            <div className="h-56 p-4 sm:h-64">
+              <SalesBars series={data.salesSeries} currency={data.currency} />
+            </div>
+          </Panel><div className="grid gap-5 lg:grid-cols-3">
+            <CompactList title="Best sellers" items={data.bestSellers.map((item) => ({ label: item.name, value: `${item.quantity} sold` }))} />
+            <CompactList title="Payment methods" items={data.paymentBreakdown.map((item) => ({ label: item.method, value: formatMoney(item.total) }))} />
+            <CompactList title="Cashier performance" items={data.cashierPerformance.map((item) => ({ label: item.name, value: formatMoney(item.total) }))} />
+          </div></WorkspaceSection><WorkspaceSection id="storefront" title="Storefront" icon="store"><div className="rounded-3xl border border-[var(--dashboard-border)] dashboard-surface p-6 shadow-[0_20px_70px_rgba(0,0,0,0.28)] sm:p-7">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
               <p className="text-sm font-bold text-[color:var(--dashboard-muted)]">Business storefront</p>
@@ -157,7 +237,7 @@ export function DashboardHome({ data }: { data: DashboardData }) {
                 {!hasStorefront ? "Setup needed" : data.business?.active === false ? "Offline" : "Live"}
               </Badge>
               <Badge tone={data.whatsappConfigured ? "green" : "amber"}>
-                {data.whatsappConfigured ? "WhatsApp ready" : "WhatsApp setup"}
+                {data.whatsappConfigured ? "WhatsApp configured" : "WhatsApp setup"}
               </Badge>
               {data.subscription ? <Badge tone="teal">{data.subscription.plan_name} / {data.subscription.status}</Badge> : null}
             </div>
@@ -188,105 +268,7 @@ export function DashboardHome({ data }: { data: DashboardData }) {
             </div>
           )}
           {copyMessage ? <p className="mt-3 text-sm font-bold text-[color:var(--dashboard-accent)]">{copyMessage}</p> : null}
-        </div>
-
-        <div className="dashboard-stats grid grid-cols-2 gap-3 sm:gap-5">
-          {topStats.map((stat) => {
-            const Icon = stat.icon;
-            return (
-              <div key={stat.label} className="rounded-3xl border border-[var(--dashboard-border)] dashboard-surface p-5 shadow-[0_16px_45px_rgba(0,0,0,0.22)]">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-bold text-[color:var(--dashboard-muted)]">{stat.label}</p>
-                  <span className="grid h-9 w-9 place-items-center rounded-card bg-cyan-300/10 text-[color:var(--dashboard-accent)]">
-                    <Icon className="h-4 w-4" />
-                  </span>
-                </div>
-                <p className="mt-4 text-2xl font-black text-[color:var(--dashboard-ink)]">{stat.value}</p>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
-        <div className="grid min-w-0 gap-5">
-          <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-            {quickStats.map((stat) => {
-              const Icon = stat.icon;
-              return (
-                <div key={stat.label} className="rounded-3xl border border-[var(--dashboard-border)] dashboard-surface p-5">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-sm font-bold text-[color:var(--dashboard-muted)]">{stat.label}</p>
-                    <Icon className="h-4 w-4 text-[color:var(--dashboard-accent)]" />
-                  </div>
-                  <p className="mt-3 text-xl font-black text-[color:var(--dashboard-ink)]">{stat.value}</p>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="grid gap-5 lg:grid-cols-2">
-            <Panel>
-              <PanelHeader title="Recent orders" description="Latest storefront and POS orders" action={<Link href="/orders" className="hidden text-sm font-black text-[color:var(--dashboard-accent)] hover:text-[color:var(--dashboard-ink)] lg:inline">View all</Link>} />
-              <div className="divide-y divide-white/10">
-                {recentOrders.length ? (
-                  recentOrders.map((order) => (
-                    <div key={order.id} className="flex items-center justify-between gap-3 px-4 py-3">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-black text-[color:var(--dashboard-ink)]">#{order.order_number} - {order.customer_snapshot.name || "Walk-in customer"}</p>
-                        <p className="mt-1 text-xs font-semibold text-[color:var(--dashboard-muted)]">{order.order_type.replaceAll("_", " ")} / {formatMoney(order.total)}</p>
-                      </div>
-                      <Badge tone={orderStatusTone(order.status)}>{orderStatusLabel(order.status)}</Badge>
-                    </div>
-                  ))
-                ) : (
-                  <div className="flex items-center gap-3 px-4 py-6 text-sm font-semibold text-[color:var(--dashboard-muted)]">
-                    <ShoppingCart className="h-4 w-4" />
-                    No orders yet.
-                  </div>
-                )}
-              </div>
-            </Panel>
-
-            <Panel>
-              <PanelHeader title="Low stock products" description="Items at or below reorder level" action={<Link href="/inventory" className="text-sm font-black text-[color:var(--dashboard-accent)] hover:text-[color:var(--dashboard-ink)]">Inventory</Link>} />
-              <div className="divide-y divide-white/10">
-                {data.lowStock.length ? (
-                  data.lowStock.slice(0, 6).map((product) => (
-                    <div key={product.id} className="flex items-center justify-between gap-3 px-4 py-3">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-black text-[color:var(--dashboard-ink)]">{product.name}</p>
-                        <p className="mt-1 text-xs font-semibold text-[color:var(--dashboard-muted)]">{product.sku || product.barcode || "No SKU"}</p>
-                      </div>
-                      <Badge tone={product.stock_quantity <= 5 ? "red" : "amber"}>{product.stock_quantity} left</Badge>
-                    </div>
-                  ))
-                ) : (
-                  <div className="flex items-center gap-3 px-4 py-6 text-sm font-semibold text-[color:var(--dashboard-muted)]">
-                    <PackageCheck className="h-4 w-4" />
-                    Inventory is comfortably stocked.
-                  </div>
-                )}
-              </div>
-            </Panel>
-          </div>
-
-          <Panel>
-            <PanelHeader title="Sales trend" description={`Last 30 days in ${data.currency}`} />
-            <div className="h-56 p-4 sm:h-64">
-              <SalesBars series={data.salesSeries} currency={data.currency} />
-            </div>
-          </Panel>
-
-          <div className="grid gap-5 lg:grid-cols-3">
-            <CompactList title="Best sellers" items={data.bestSellers.map((item) => ({ label: item.name, value: `${item.quantity} sold` }))} />
-            <CompactList title="Payment methods" items={data.paymentBreakdown.map((item) => ({ label: item.method, value: formatMoney(item.total) }))} />
-            <CompactList title="Cashier performance" items={data.cashierPerformance.map((item) => ({ label: item.name, value: formatMoney(item.total) }))} />
-          </div>
-        </div>
-
-        <aside className="grid min-w-0 gap-5 self-start">
-          {incompleteSetup.length ? (
+        </div></WorkspaceSection><WorkspaceSection id="setup" title="Business setup" icon="settings">{incompleteSetup.length ? (
           <Panel>
             <PanelHeader title="Setup checklist" description={`${completedChecklist} of ${totalChecklist} completed`} />
             <div className="p-4">
@@ -316,9 +298,7 @@ export function DashboardHome({ data }: { data: DashboardData }) {
               </div>
             </div>
           </Panel>
-          ) : null}
-
-          <Panel>
+          ) : null}{!incompleteSetup.length?<div className="workspace-empty"><PackageCheck size={28}/><h2>Business setup complete</h2><p>Manage your profile and preferences in Settings.</p><Link href="/settings">Open Settings</Link></div>:null}</WorkspaceSection><WorkspaceSection id="actions" title="Quick actions" icon="orders"><Panel>
             <PanelHeader title="Quick actions" />
             <div className="grid gap-2 p-4">
               <Link href="/inventory" className="inline-flex min-h-11 items-center gap-2 rounded-card border border-[var(--dashboard-border)] bg-[var(--dashboard-subtle)] px-3 text-sm font-black text-[color:var(--dashboard-ink)] hover:bg-white/[0.12]">
@@ -336,10 +316,7 @@ export function DashboardHome({ data }: { data: DashboardData }) {
                 </Link>
               ) : null}
             </div>
-          </Panel>
-        </aside>
-      </section>
-    </div>
+          </Panel></WorkspaceSection></Workspace></div>
   );
 }
 

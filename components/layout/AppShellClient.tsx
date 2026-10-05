@@ -109,7 +109,8 @@ const mobileDrawerGroups: { label: string; items: NavItem[] }[] = [
       { label: "AI Tools", href: "/ai", icon: BrainCircuit },
       { label: "Staff", href: "/staff", icon: UserCog },
       { label: "Subscription", href: "/subscription", icon: CreditCard },
-      { label: "Settings", href: "/settings", icon: Settings }
+      { label: "Settings", href: "/settings", icon: Settings },
+      { label: "Printers", href: "/printer", icon: Printer }
     ]
   },
   {
@@ -161,17 +162,18 @@ export function AppShellClient({
   );
 
   useEffect(() => {
-    const storedCount = Number(window.localStorage.getItem(orderCountStorageKey) || 0);
+    let storedCount=0;
+    try {storedCount=Number(window.localStorage.getItem(orderCountStorageKey)||0)} catch {/* Private browsing can disable storage. */}
     if (storedCount > 0 && active !== "Orders") setNewOrderCount(storedCount);
     function handleNewOrder() {
       setNewOrderCount((current) => {
         const next = current + 1;
-        window.localStorage.setItem(orderCountStorageKey, String(next));
+        try {window.localStorage.setItem(orderCountStorageKey, String(next))} catch {/* Alerts still work without storage. */}
         return next;
       });
     }
     function clearNewOrders() {
-      window.localStorage.removeItem(orderCountStorageKey);
+      try {window.localStorage.removeItem(orderCountStorageKey)} catch {/* Alerts still work without storage. */}
       setNewOrderCount(0);
     }
     window.addEventListener("caribbean:new-order", handleNewOrder as EventListener);
@@ -204,8 +206,8 @@ export function AppShellClient({
   }, [menuOpen]);
 
   return (
-    <div className="min-h-dvh overflow-x-hidden text-caribbean-ink">
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-sidebar overflow-y-auto border-r border-white/10 bg-[#041211]/95 px-3 py-4 shadow-soft backdrop-blur-xl md:block">
+    <div className="business-shell min-h-dvh overflow-x-hidden text-caribbean-ink">
+      <aside className="app-desktop-sidebar fixed inset-y-0 left-0 z-30 hidden w-sidebar overflow-y-auto border-r border-white/10 bg-[#041211]/95 px-3 py-4 shadow-soft backdrop-blur-xl md:block">
         <SidebarContent active={active} currency={currency} newOrderCount={newOrderCount} includeSecondary />
       </aside>
 
@@ -228,7 +230,7 @@ export function AppShellClient({
       >
         <div className="mb-4 flex items-center justify-between gap-3">
           <span className="text-xs font-black uppercase tracking-[0.18em] text-cyan-100/60">
-            More
+            Workspace
           </span>
           <button
             type="button"
@@ -336,7 +338,7 @@ function SidebarContent({
         />
         <span className="min-w-0">
           <span className="block text-sm font-black leading-tight text-white">{APP_NAME}</span>
-          <span className="text-xs font-bold text-cyan-200/70">Live POS / {currency}</span>
+          <span className="text-xs font-bold text-cyan-200/70">Business workspace / {currency}</span>
         </span>
       </Link>
 
@@ -353,6 +355,7 @@ function SidebarContent({
                 <Link
                   key={item.href}
                   href={item.href}
+                  aria-current={selected ? "page" : undefined}
                   onClick={onNavigate}
                   className={cn(
                     "group flex min-h-10 min-w-0 items-center gap-2.5 rounded-card px-3 text-sm font-black transition duration-200",
@@ -419,7 +422,7 @@ function SecondaryMenu({
         )}
         <span className="min-w-0 flex-1">
           <span className="block text-sm font-black leading-tight text-white">{businessName || APP_NAME}</span>
-          <span className="text-xs font-bold text-cyan-200/70">Business menu</span>
+          <span className="text-xs font-bold text-cyan-200/70">Business management</span>
         </span>
         <ChevronRight className="h-5 w-5 text-cyan-100/65" />
       </Link>
@@ -441,6 +444,7 @@ function SecondaryMenu({
                 <Link
                   key={item.href}
                   href={item.href}
+                  aria-current={selected ? "page" : undefined}
                   onClick={onNavigate}
                   className={cn(
                     "group flex min-h-12 min-w-0 items-center gap-4 rounded-2xl px-3 text-[15px] font-black transition duration-200",
@@ -467,8 +471,8 @@ function SecondaryMenu({
           className="flex items-center justify-between gap-3 rounded-none bg-teal-300 px-4 py-4 text-base font-black text-slate-800 shadow-[0_-12px_30px_rgba(20,184,166,0.16)]"
         >
           <span>
-            <span className="block">Upgrade plan</span>
-            <span className="block text-sm font-bold text-slate-700/80">Tools to help you grow</span>
+            <span className="block">Billing & plans</span>
+            <span className="block text-sm font-bold text-slate-700/80">Subscription and usage</span>
           </span>
           <ChevronRight className="h-6 w-6" />
         </Link>
@@ -510,6 +514,7 @@ function BottomNavigation({ active, hidden, newOrderCount }: { active: string; h
             <Link
               key={item.href}
               href={item.href}
+              aria-current={selected ? "page" : undefined}
               className={cn(
                 "grid min-h-12 place-items-center gap-0.5 rounded-card px-1 text-[11px] font-black leading-tight transition",
                 selected ? "bg-cyan-300 text-slate-950 shadow-glow" : "text-teal-50/75 hover:bg-white/[0.08]"

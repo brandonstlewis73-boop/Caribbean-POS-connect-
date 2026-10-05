@@ -1,10 +1,11 @@
 "use client";
+import {Pagination,usePagination} from "@/components/workspace/Pagination";
+import {Workspace,WorkspaceSection} from "@/components/workspace/Workspace";
 
 import Image from "next/image";
 import { MAX_LOGO_IMAGE_BYTES, optimizePhoto, photoType, validateSourcePhoto } from "@/lib/photo-upload";
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useMemo, useRef, useState, type ChangeEvent } from "react";
 import {
-  AlertTriangle,
   Bell,
   Building2,
   Copy,
@@ -69,25 +70,6 @@ const notificationTemplates = {
 };
 
 type CategoryDeleteMode = "move_to_uncategorized" | "delete_category_only";
-type SettingsSection = "business" | "storefront" | "operations" | "payments" | "account";
-
-const SETTINGS_SECTIONS: Array<{ key: SettingsSection; label: string }> = [
-  { key: "business", label: "Business" },
-  { key: "storefront", label: "Storefront" },
-  { key: "operations", label: "Operations" },
-  { key: "payments", label: "Payments" },
-  { key: "account", label: "Account" }
-];
-
-function settingsSectionFromHash(hash: string): SettingsSection {
-  const value = hash.replace(/^#/, "").toLowerCase();
-  if (["storefront", "three-d-storefront", "3d"].includes(value)) return "storefront";
-  if (["whatsapp", "staff", "categories", "delivery", "operations"].includes(value)) return "operations";
-  if (["payments", "billing"].includes(value)) return "payments";
-  if (value === "account") return "account";
-  return "business";
-}
-
 function Toggle({
   label,
   checked,
@@ -208,7 +190,6 @@ export function SettingsClient({
   const [locationMessage, setLocationMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [preparingLogo, setPreparingLogo] = useState(false);
-  const [activeSettingsSection, setActiveSettingsSection] = useState<SettingsSection>("business");
   const [locating, setLocating] = useState(false);
   const [busyId, setBusyId] = useState("");
   const activeBusiness = businessItems.find((business) => business.id === draft.active_business_id) || null;
@@ -222,18 +203,6 @@ export function SettingsClient({
     if (typeof window === "undefined") return storefrontUrl;
     return new URL(storefrontUrl, window.location.origin).toString();
   }, [storefrontSlug, storefrontUrl]);
-
-  useEffect(() => {
-    const syncSectionFromHash = () => setActiveSettingsSection(settingsSectionFromHash(window.location.hash));
-    syncSectionFromHash();
-    window.addEventListener("hashchange", syncSectionFromHash);
-    return () => window.removeEventListener("hashchange", syncSectionFromHash);
-  }, []);
-
-  function selectSettingsSection(section: SettingsSection) {
-    setActiveSettingsSection(section);
-    window.history.replaceState(null, "", `#${section}`);
-  }
 
   function update<K extends keyof Settings>(key: K, value: Settings[K]) {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -591,41 +560,10 @@ export function SettingsClient({
     }
   }
 
-  function resetDanger(action: string) {
-    if (!window.confirm(`${action}? This action needs confirmation.`)) return;
-    setMessage(`${action} is not automated from this screen yet. Contact support before changing live business data.`);
-  }
-
+  const staffPage=usePagination(staffItems,"staff");
+  const categoryPage=usePagination(categoryItems,"categories");
   return (
-    <div className="settings-page mx-auto grid w-full max-w-[1180px] gap-5 pb-4">
-      <section className="settings-page-intro rounded-card border border-white/10 bg-white/[0.05] p-5 shadow-soft sm:p-6">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <h2 className="text-2xl font-black text-white">Settings</h2>
-            <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-teal-50/65 sm:text-base">
-              Manage your business, storefront, team, payments, notifications, and subscription.
-            </p>
-          </div>
-          {message ? <p className="rounded-card border border-cyan-200/20 bg-cyan-300/10 px-3 py-2 text-sm font-black text-cyan-100">{message}</p> : null}
-        </div>
-      </section>
-
-      <nav className="settings-section-nav flex gap-2 overflow-x-auto pb-1" aria-label="Settings sections">
-        {SETTINGS_SECTIONS.map((section) => (
-          <button
-            key={section.key}
-            type="button"
-            onClick={() => selectSettingsSection(section.key)}
-            aria-pressed={activeSettingsSection === section.key}
-            className={`settings-section-tab min-h-10 shrink-0 rounded-card border px-4 text-sm font-black transition ${activeSettingsSection === section.key ? "border-cyan-200/35 bg-cyan-300 text-slate-950" : "border-white/10 bg-white/[0.055] text-teal-50/75 hover:bg-white/[0.1]"}`}
-          >
-            {section.label}
-          </button>
-        ))}
-      </nav>
-
-      <div className="grid gap-5 xl:grid-cols-2">
-        <SettingsCard id="business" className={activeSettingsSection === "business" ? undefined : "hidden"} icon={Building2} title="Business Profile" description="Core business details used on the dashboard, storefront, receipts, and orders.">
+    <div className="settings-page">{message?<p role="status" className="workspace-save-message">{message}</p>:null}<Workspace label="Settings sections" hash><WorkspaceSection id="business" title="Business profile" icon="store"><SettingsCard id="business"  icon={Building2} title="Business Profile" description="Core business details used on the dashboard, storefront, receipts, and orders.">
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Business name" value={draft.business_name} onChange={(event) => update("business_name", event.target.value)} />
             <SelectField label="Business type" value={draft.business_type || "retail"} onChange={(event) => update("business_type", event.target.value)}>
@@ -657,9 +595,7 @@ export function SettingsClient({
             </Button>
           </div>
           {locationMessage ? <p className="text-sm font-bold text-teal-50/60">{locationMessage}</p> : null}
-        </SettingsCard>
-
-        <SettingsCard id="storefront" className={activeSettingsSection === "storefront" ? undefined : "hidden"} icon={Store} title="Storefront Settings" description="Public storefront identity, order channels, and customer-facing controls.">
+        </SettingsCard></WorkspaceSection><WorkspaceSection id="storefront" title="Storefront" icon="store"><SettingsCard id="storefront"  icon={Store} title="Storefront Settings" description="Public storefront identity, order channels, and customer-facing controls.">
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Storefront name" value={draft.business_name} onChange={(event) => update("business_name", event.target.value)} />
             <Field label="Storefront slug/link" value={storefrontSlug || suggestedStorefrontSlug || "Complete business profile first"} readOnly />
@@ -686,9 +622,7 @@ export function SettingsClient({
               Save
             </Button>
           </div>
-        </SettingsCard>
-
-        <SettingsCard id="three-d-storefront" className={activeSettingsSection === "storefront" ? undefined : "hidden"} icon={Store} title="3D Storefront" description="Premium virtual storefront mode for customers who want an immersive product view.">
+        </SettingsCard></WorkspaceSection><WorkspaceSection id="three-d-storefront" title="Store experience" icon="store"><SettingsCard id="three-d-storefront"  icon={Store} title="3D Storefront" description="Premium virtual storefront mode for customers who want an immersive product view.">
           <div className="grid gap-4">
             <div className="rounded-card border border-cyan-200/15 bg-cyan-300/[0.06] p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
@@ -736,9 +670,7 @@ export function SettingsClient({
               {!threeDGate.allowed ? <a href="/subscription" className="inline-flex min-h-10 items-center justify-center rounded-card bg-amber-300 px-4 text-sm font-black text-slate-950">Upgrade plan</a> : null}
             </div>
           </div>
-        </SettingsCard>
-        <SettingsCard id="whatsapp" className={activeSettingsSection === "operations" ? undefined : "hidden"} icon={Bell} title="Order Notifications" description="Automatic customer updates connected to order status changes.">
-                    <div className="grid gap-3 rounded-card border border-cyan-200/15 bg-cyan-300/[0.06] p-3">
+        </SettingsCard></WorkspaceSection><WorkspaceSection id="whatsapp" title="Notifications" icon="messages"><SettingsCard id="whatsapp"  icon={Bell} title="Order Notifications" description="Automatic customer updates connected to order status changes."><Workspace label="Notification sections" initialValue="updates"><WorkspaceSection id="alerts" title="Order alerts" icon="orders"><div className="grid gap-3 rounded-card border border-cyan-200/15 bg-cyan-300/[0.06] p-3">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-100/65">Admin new order alerts</p>
             <Toggle label="Enable new order alerts" checked={draft.new_order_alerts_enabled !== false} onChange={(value) => update("new_order_alerts_enabled", value)} />
             <Toggle label="Play sound for new orders" checked={draft.new_order_sound_enabled !== false} onChange={(value) => update("new_order_sound_enabled", value)} />
@@ -750,38 +682,27 @@ export function SettingsClient({
             {notificationTestMessage ? (
               <p className="rounded-card border border-white/10 bg-black/20 p-3 text-sm font-bold text-teal-50/70">{notificationTestMessage}</p>
             ) : null}
-          </div><div className="grid gap-3">
+          </div></WorkspaceSection><WorkspaceSection id="updates" title="WhatsApp updates" icon="messages"><div className="grid gap-3">
             <Toggle label="Send WhatsApp message when order is received" checked={draft.whatsapp_customer_confirmations_enabled} onChange={(value) => update("whatsapp_customer_confirmations_enabled", value)} />
             <Toggle label="Send message when order is accepted" checked={draft.notification_whatsapp_enabled} onChange={(value) => update("notification_whatsapp_enabled", value)} />
             <Toggle label="Send message when order is preparing" checked={draft.notification_whatsapp_enabled} onChange={(value) => update("notification_whatsapp_enabled", value)} />
             <Toggle label="Send message when order is out for delivery" checked={draft.whatsapp_out_for_delivery_enabled} onChange={(value) => update("whatsapp_out_for_delivery_enabled", value)} />
             <Toggle label="Send message when order is completed" checked={draft.whatsapp_customer_receipts_enabled} onChange={(value) => update("whatsapp_customer_receipts_enabled", value)} />
             <Toggle label="Send message when order is cancelled" checked={draft.notification_whatsapp_enabled} onChange={(value) => update("notification_whatsapp_enabled", value)} />
-          </div>
-          <div className="grid gap-4">
+          </div></WorkspaceSection><WorkspaceSection id="templates" title="Message templates" icon="editor"><div className="grid gap-4">
             <TextAreaField label="Order received template" value={draft.whatsapp_customer_confirmation_template || notificationTemplates.received} onChange={(event) => update("whatsapp_customer_confirmation_template", event.target.value)} />
             <TextAreaField label="Preparing / delivery template" value={draft.whatsapp_out_for_delivery_template || notificationTemplates.outForDelivery} onChange={(event) => update("whatsapp_out_for_delivery_template", event.target.value)} />
             <TextAreaField label="Completed receipt template" value={draft.whatsapp_customer_receipt_template || notificationTemplates.completed} onChange={(event) => update("whatsapp_customer_receipt_template", event.target.value)} />
-          </div>
-          <div className="grid gap-3 sm:flex sm:flex-wrap">
-            <Button type="button" variant="primary" onClick={() => saveSettings("Notification settings saved.")} disabled={saving || preparingLogo} className="w-full sm:w-auto">
+          </div></WorkspaceSection><WorkspaceSection id="connection" title="Connection check" icon="settings"><Button type="button" onClick={() => sendWhatsAppTest(true)} disabled={Boolean(busyId)} className="w-full sm:w-auto">
+              {busyId === "whatsapp-test-mode" ? "Validating..." : "Check configuration"}
+            </Button><Button type="button" onClick={() => sendWhatsAppTest(false)} disabled={Boolean(busyId) || !draft.whatsapp_business_number.trim()} className="w-full sm:w-auto">
+              {busyId === "whatsapp-test-send" ? "Sending..." : "Send test message"}
+            </Button><p className="text-sm leading-6 text-teal-50/70">Sandbox testing: each recipient must join the Twilio sandbox and send your sender a WhatsApp message within the last 24 hours. Membership expires after three days. Production order updates outside the 24-hour window require an approved utility template. A queued test is not a delivery confirmation; check Twilio Messaging Logs.</p>{whatsappTestMessage ? (
+            <p className="rounded-card border border-white/10 bg-black/20 p-3 text-sm font-bold text-teal-50/70">{whatsappTestMessage}</p>
+          ) : null}</WorkspaceSection></Workspace><div className="workspace-form-actions"><Button type="button" variant="primary" onClick={() => saveSettings("Notification settings saved.")} disabled={saving || preparingLogo} className="w-full sm:w-auto">
               <Save className="h-4 w-4" />
               Save notifications
-            </Button>
-            <Button type="button" onClick={() => sendWhatsAppTest(true)} disabled={Boolean(busyId)} className="w-full sm:w-auto">
-              {busyId === "whatsapp-test-mode" ? "Validating..." : "Test mode"}
-            </Button>
-            <Button type="button" onClick={() => sendWhatsAppTest(false)} disabled={Boolean(busyId) || !draft.whatsapp_business_number.trim()} className="w-full sm:w-auto">
-              {busyId === "whatsapp-test-send" ? "Sending..." : "Send test message"}
-            </Button>
-          </div>
-          <p className="text-sm leading-6 text-teal-50/70">Sandbox testing: each recipient must join the Twilio sandbox and send your sender a WhatsApp message within the last 24 hours. Membership expires after three days. Production order updates outside the 24-hour window require an approved utility template. A queued test is not a delivery confirmation; check Twilio Messaging Logs.</p>
-          {whatsappTestMessage ? (
-            <p className="rounded-card border border-white/10 bg-black/20 p-3 text-sm font-bold text-teal-50/70">{whatsappTestMessage}</p>
-          ) : null}
-        </SettingsCard>
-
-        <SettingsCard id="staff" className={activeSettingsSection === "operations" ? undefined : "hidden"} icon={UserCog} title="Team / Staff" description="Add, edit, and remove staff accounts for this business.">
+            </Button></div></SettingsCard></WorkspaceSection><WorkspaceSection id="staff" title="Team" icon="people"><SettingsCard id="staff"  icon={UserCog} title="Team / Staff" description="Add, edit, and remove staff accounts for this business.">
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Staff name" value={staffDraft.name} onChange={(event) => setStaffDraft((current) => ({ ...current, name: event.target.value }))} />
             <SelectField label="Staff role" value={staffDraft.role} onChange={(event) => setStaffDraft((current) => ({ ...current, role: event.target.value }))}>
@@ -799,7 +720,7 @@ export function SettingsClient({
           </Button>
           {staffMessage ? <p className="text-sm font-bold text-teal-50/60">{staffMessage}</p> : null}
           <div className="grid gap-3">
-            {staffItems.map((member) => (
+            <Pagination {...staffPage}/>{staffPage.items.map((member) => (
               <div key={member.id} className="grid gap-3 rounded-card border border-white/10 bg-black/20 p-3 sm:flex sm:items-center sm:justify-between">
                 <div className="min-w-0">
                   <p className="font-black text-white">{member.name}</p>
@@ -816,9 +737,7 @@ export function SettingsClient({
               </div>
             ))}
           </div>
-        </SettingsCard>
-
-        <SettingsCard id="categories" className={activeSettingsSection === "operations" ? undefined : "hidden"} icon={Tags} title="Categories" description="Manage POS and storefront item groups. Changes update products, POS filters, item forms, and storefront categories.">
+        </SettingsCard></WorkspaceSection><WorkspaceSection id="categories" title="Categories" icon="options"><SettingsCard id="categories"  icon={Tags} title="Categories" description="Manage POS and storefront item groups. Changes update products, POS filters, item forms, and storefront categories.">
           <div className="grid gap-4 sm:grid-cols-[1fr_80px_120px]">
             <Field label="Category name" value={categoryDraft.name} onChange={(event) => setCategoryDraft((current) => ({ ...current, name: event.target.value }))} />
             <Field label="Icon" value={categoryDraft.icon} onChange={(event) => setCategoryDraft((current) => ({ ...current, icon: event.target.value }))} />
@@ -843,7 +762,7 @@ export function SettingsClient({
                 No categories yet. Add one above to use it in POS, inventory, and storefront.
               </p>
             ) : null}
-            {categoryItems.map((category) => (
+            <Pagination {...categoryPage}/>{categoryPage.items.map((category) => (
               <div key={category.id} className="grid gap-3 rounded-card border border-white/10 bg-black/20 p-3 sm:flex sm:items-center sm:justify-between">
                 <div className="flex min-w-0 items-center gap-3">
                   <GripVertical className="h-4 w-4 text-teal-50/35" />
@@ -900,9 +819,7 @@ export function SettingsClient({
               </div>
             </div>
           ) : null}
-        </SettingsCard>
-
-        <SettingsCard id="payments" className={activeSettingsSection === "payments" ? undefined : "hidden"} icon={CreditCard} title="Currency & Payments" description="Store currency, customer conversion display, accepted methods, and payment instructions.">
+        </SettingsCard></WorkspaceSection><WorkspaceSection id="payments" title="Payments" icon="pricing"><SettingsCard id="payments"  icon={CreditCard} title="Currency & Payments" description="Store currency, customer conversion display, accepted methods, and payment instructions.">
           <div className="grid gap-3 sm:grid-cols-2">
             <Toggle label="Cash" checked={draft.payment_cash_enabled} onChange={(value) => update("payment_cash_enabled", value)} />
             <Toggle label="Card" checked={draft.payment_card_enabled} onChange={(value) => update("payment_card_enabled", value)} />
@@ -929,9 +846,7 @@ export function SettingsClient({
             <Save className="h-4 w-4" />
             Save payments
           </Button>
-        </SettingsCard>
-
-        <SettingsCard id="delivery" className={activeSettingsSection === "operations" ? undefined : "hidden"} icon={Truck} title="Delivery / Waze" description="Delivery pricing and navigation settings for drivers.">
+        </SettingsCard></WorkspaceSection><WorkspaceSection id="delivery" title="Delivery" icon="orders"><SettingsCard id="delivery"  icon={Truck} title="Delivery / Waze" description="Delivery pricing and navigation settings for drivers.">
           <div className="grid gap-4 sm:grid-cols-2">
             <Toggle label="Enable delivery" checked={draft.delivery_enabled !== false} onChange={(value) => update("delivery_enabled", value)} />
             <Field label="Default delivery fee" type="number" value={draft.delivery_fee} onChange={(event) => update("delivery_fee", Number(event.target.value))} />
@@ -954,9 +869,7 @@ export function SettingsClient({
             <Save className="h-4 w-4" />
             Save delivery
           </Button>
-        </SettingsCard>
-
-        <SettingsCard id="billing" className={activeSettingsSection === "payments" ? undefined : "hidden"} icon={CreditCard} title="Subscription / Billing" description="Plan controls for selling Caribbean POS Connect as a SaaS product.">
+        </SettingsCard></WorkspaceSection><WorkspaceSection id="billing" title="Subscription" icon="pricing"><SettingsCard id="billing"  icon={CreditCard} title="Subscription & billing" description="Manage your subscription and current usage.">
           <div className="grid gap-3">
             <div className="rounded-card border border-white/10 bg-black/20 p-4">
               <p className="text-sm font-bold text-teal-50/60">Current plan</p>
@@ -993,13 +906,11 @@ export function SettingsClient({
             </div>
             <div className="grid gap-3 sm:flex sm:flex-wrap">
               <a href="/subscription" className="inline-flex min-h-10 items-center justify-center rounded-card bg-cyan-300 px-4 text-sm font-black text-slate-950">Upgrade plan</a>
-              <Button type="button" variant="danger" onClick={() => resetDanger("Cancel subscription")} className="w-full sm:w-auto">Cancel subscription</Button>
+              <a href="/subscription" className="workspace-data-action">Manage recurring payment</a>
             </div>
-            <p className="rounded-card border border-white/10 bg-black/20 p-3 text-sm font-semibold text-teal-50/60">Billing history will appear here when payment processing is connected.</p>
+            <p className="rounded-card border border-white/10 bg-black/20 p-3 text-sm font-semibold text-teal-50/60">Manage your plan and recurring payments from Subscription.</p>
           </div>
-        </SettingsCard>
-
-        <SettingsCard id="branding" className={activeSettingsSection === "business" ? undefined : "hidden"} icon={ImageIcon} title="Appearance / Branding" description="Customize storefront, receipt, and business visuals.">
+        </SettingsCard></WorkspaceSection><WorkspaceSection id="branding" title="Branding" icon="photo"><SettingsCard id="branding"  icon={ImageIcon} title="Appearance / Branding" description="Customize storefront, receipt, and business visuals.">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="rounded-card border border-white/10 bg-black/20 p-4">
               <Image
@@ -1037,25 +948,9 @@ export function SettingsClient({
             <Save className="h-4 w-4" />
             Save branding
           </Button>
-        </SettingsCard>
-
-        <SettingsCard id="account" className={activeSettingsSection === "account" ? undefined : "hidden"} icon={ShieldAlert} title="Danger Zone" description="High-risk business data actions. Confirmation is required.">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <Button type="button" variant="danger" onClick={() => resetDanger("Delete test data")} className="w-full">
-              <Trash2 className="h-4 w-4" />
-              Delete test data
-            </Button>
-            <Button type="button" variant="danger" onClick={() => resetDanger("Reset business account")} className="w-full">
-              <AlertTriangle className="h-4 w-4" />
-              Reset business
-            </Button>
-            <Button type="button" variant="danger" onClick={() => resetDanger("Delete business")} className="w-full">
-              <Trash2 className="h-4 w-4" />
-              Delete business
-            </Button>
-          </div>
-        </SettingsCard>
-      </div>
-    </div>
+        </SettingsCard></WorkspaceSection><WorkspaceSection id="account" title="Data controls" icon="settings"><SettingsCard id="account" icon={ShieldAlert} title="Business data" description="Export your records or contact support about account changes.">
+          <div className="grid gap-3 sm:grid-cols-2"><a href="/api/backup" className="workspace-data-action"><Save size={18}/>Download business backup</a><a href="/help#requests" className="workspace-data-action"><UserCog size={18}/>Request an account change</a></div>
+          <p className="text-sm leading-6 text-teal-50/70">For data removal or an account reset, submit a support request with the business name and the change you need.</p>
+        </SettingsCard></WorkspaceSection></Workspace></div>
   );
 }

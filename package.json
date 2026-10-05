@@ -22,7 +22,10 @@
     "qa:save-flow": "node scripts/qa-save-flow.mjs",
     "db:ai-logs": "node scripts/apply-ai-business-logs.mjs",
     "db:setup": "tsx scripts/setup-db.ts",
-    "db:backup": "tsx scripts/backup-db.ts"
+    "db:backup": "tsx scripts/backup-db.ts",
+    "test:dashboard": "node scripts/test-dashboard-runner.mjs",
+    "test:pos": "node --import tsx scripts/test-pos-checkout.ts && node scripts/test-pos-idempotency.cjs",
+    "test:backup": "node --import tsx scripts/test-business-backup.ts"
   },
   "dependencies": {
     "@mlc-ai/web-llm": "^0.2.85",
@@ -44,7 +47,8 @@
     "tailwind-merge": "^2.5.5",
     "three": "^0.184.0",
     "zod": "^3.24.1",
-    "heic-to": "1.6.5"
+    "heic-to": "1.6.5",
+    "@zxing/browser": "0.1.5"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.0",
