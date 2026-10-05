@@ -221,7 +221,7 @@ export function SettingsClient({
     });
   }
 
-  async function saveSettings(successMessage = "Settings saved.") {
+  async function saveSettings(successMessage = "Settings saved.", patch: Partial<Settings> = {}) {
     if (preparingLogo) return;
     setMessage("");
     setSaving(true);
@@ -229,7 +229,7 @@ export function SettingsClient({
       const response = await fetch("/api/settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(draft)
+        body: JSON.stringify({ ...draft, ...patch })
       });
       const payload = await readApiPayload<{ settings: Settings; businesses?: Business[] }>(response);
       if (!response.ok || !payload.data?.settings) {
@@ -670,7 +670,7 @@ export function SettingsClient({
               {!threeDGate.allowed ? <a href="/subscription" className="inline-flex min-h-10 items-center justify-center rounded-card bg-amber-300 px-4 text-sm font-black text-slate-950">Upgrade plan</a> : null}
             </div>
           </div>
-        </SettingsCard></WorkspaceSection><WorkspaceSection id="whatsapp" title="Notifications" icon="messages"><SettingsCard id="whatsapp"  icon={Bell} title="Order Notifications" description="Automatic customer updates connected to order status changes."><Workspace label="Notification sections" initialValue="updates"><WorkspaceSection id="alerts" title="Order alerts" icon="orders"><div className="grid gap-3 rounded-card border border-cyan-200/15 bg-cyan-300/[0.06] p-3">
+        </SettingsCard></WorkspaceSection><WorkspaceSection id="whatsapp" title="Notifications" icon="messages"><SettingsCard id="whatsapp"  icon={Bell} title="Order Notifications" description="Free messages you send in WhatsApp, or paid automatic order updates."><Workspace label="Notification sections" initialValue="updates"><WorkspaceSection id="alerts" title="Order alerts" icon="orders"><div className="grid gap-3 rounded-card border border-cyan-200/15 bg-cyan-300/[0.06] p-3">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-100/65">Admin new order alerts</p>
             <Toggle label="Enable new order alerts" checked={draft.new_order_alerts_enabled !== false} onChange={(value) => update("new_order_alerts_enabled", value)} />
             <Toggle label="Play sound for new orders" checked={draft.new_order_sound_enabled !== false} onChange={(value) => update("new_order_sound_enabled", value)} />
@@ -682,7 +682,12 @@ export function SettingsClient({
             {notificationTestMessage ? (
               <p className="rounded-card border border-white/10 bg-black/20 p-3 text-sm font-bold text-teal-50/70">{notificationTestMessage}</p>
             ) : null}
-          </div></WorkspaceSection><WorkspaceSection id="updates" title="WhatsApp updates" icon="messages"><div className="grid gap-3">
+          </div></WorkspaceSection><WorkspaceSection id="updates" title="WhatsApp updates" icon="messages"><div className="grid gap-3"><div className="grid gap-3 rounded-card border border-caribbean-line bg-white p-4">
+              <h3 className="font-bold">Free WhatsApp Business</h3>
+              <p className="text-sm text-slate-300">Open an order’s Notifications section to review its message and send it in WhatsApp. No API fees or sandbox registration. You tap Send yourself.</p>
+              <Button type="button" disabled={saving || preparingLogo} onClick={() => void saveSettings("Free WhatsApp is ready. Automatic paid WhatsApp updates are disabled. Open an order to send its message.", { whatsapp_enabled: false, notification_whatsapp_enabled: false, whatsapp_customer_confirmations_enabled: false, whatsapp_customer_receipts_enabled: false, receipt_whatsapp_enabled: false, whatsapp_owner_alerts_enabled: false, whatsapp_driver_assignment_enabled: false, whatsapp_driver_alerts_enabled: false, whatsapp_out_for_delivery_enabled: false })}>Use free WhatsApp · turn off automatic sends</Button>
+              <p className="text-xs text-slate-300">Automatic WhatsApp notifications below use Twilio and can incur fees.</p>
+            </div>
             <Toggle label="Send WhatsApp message when order is received" checked={draft.whatsapp_customer_confirmations_enabled} onChange={(value) => update("whatsapp_customer_confirmations_enabled", value)} />
             <Toggle label="Send message when order is accepted" checked={draft.notification_whatsapp_enabled} onChange={(value) => update("notification_whatsapp_enabled", value)} />
             <Toggle label="Send message when order is preparing" checked={draft.notification_whatsapp_enabled} onChange={(value) => update("notification_whatsapp_enabled", value)} />
@@ -696,7 +701,7 @@ export function SettingsClient({
           </div></WorkspaceSection><WorkspaceSection id="connection" title="Connection check" icon="settings"><Button type="button" onClick={() => sendWhatsAppTest(true)} disabled={Boolean(busyId)} className="w-full sm:w-auto">
               {busyId === "whatsapp-test-mode" ? "Validating..." : "Check configuration"}
             </Button><Button type="button" onClick={() => sendWhatsAppTest(false)} disabled={Boolean(busyId) || !draft.whatsapp_business_number.trim()} className="w-full sm:w-auto">
-              {busyId === "whatsapp-test-send" ? "Sending..." : "Send test message"}
+              {busyId === "whatsapp-test-send" ? "Sending..." : "Send Twilio test · may incur fees"}
             </Button><p className="text-sm leading-6 text-teal-50/70">Sandbox testing: each recipient must join the Twilio sandbox and send your sender a WhatsApp message within the last 24 hours. Membership expires after three days. Production order updates outside the 24-hour window require an approved utility template. A queued test is not a delivery confirmation; check Twilio Messaging Logs.</p>{whatsappTestMessage ? (
             <p className="rounded-card border border-white/10 bg-black/20 p-3 text-sm font-bold text-teal-50/70">{whatsappTestMessage}</p>
           ) : null}</WorkspaceSection></Workspace><div className="workspace-form-actions"><Button type="button" variant="primary" onClick={() => saveSettings("Notification settings saved.")} disabled={saving || preparingLogo} className="w-full sm:w-auto">
