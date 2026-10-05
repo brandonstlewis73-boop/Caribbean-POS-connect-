@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import {Workspace,WorkspaceSection} from "@/components/workspace/Workspace";
 import {Pagination,usePagination} from "@/components/workspace/Pagination";
 
@@ -6,6 +6,7 @@ import {Pagination,usePagination} from "@/components/workspace/Pagination";
 
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { Bike, CheckCircle2, CreditCard, ExternalLink, MessageCircle, PackageCheck, Search, Trash2, XCircle } from "lucide-react";
+import { FreeWhatsApp } from "./FreeWhatsApp";
 import { WhatsAppDelivery } from "./WhatsAppDelivery";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -566,7 +567,7 @@ export function OrdersClient({
               >
                 {pendingAction === "notes" ? "Saving notes..." : "Save notes"}
               </Button>
-            </div></WorkspaceSection><WorkspaceSection id="notifications" title="Notifications" icon="messages"><WhatsAppDelivery key={selected.id} orderId={selected.id} canRetry={canUpdateOrders} onRefresh={order=>setItems(current=>current.map(item=>item.id===order.id?order:item))}/>{selected.customer_notifications?.length ? (
+            </div></WorkspaceSection><WorkspaceSection id="notifications" title="Notifications" icon="messages"><FreeWhatsApp key={`${selected.id}-${selected.status}`} order={selected} currency={currency}/><WhatsAppDelivery key={selected.id} orderId={selected.id} canRetry={canUpdateOrders} onRefresh={order=>setItems(current=>current.map(item=>item.id===order.id?order:item))}/>{selected.customer_notifications?.length ? (
               <div className="grid gap-2 rounded-card border border-white/10 bg-black/20 p-3">
                 <p className="text-xs font-black uppercase tracking-normal text-cyan-100/55">Customer notifications</p>
                 {selected.customer_notifications.slice(-5).map((notification) => (
