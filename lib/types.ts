@@ -287,7 +287,7 @@ export type CustomerNotification = {
   message: string;
   destination?: string | null;
   provider?: string | null;
-  delivery_status: "queued" | "sent" | "skipped" | "failed";
+  delivery_status: "queued" | "sending" | "sent" | "delivered" | "read" | "undelivered" | "skipped" | "failed";
   error_message?: string | null;
   sent_at?: string | null;
   created_at: string;
