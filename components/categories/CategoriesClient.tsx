@@ -1,4 +1,6 @@
 "use client";
+import {Pagination,usePagination} from "@/components/workspace/Pagination";
+import {Workspace,WorkspaceSection} from "@/components/workspace/Workspace";
 
 import { useDeferredValue, useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, Eye, EyeOff, Palette, Plus, Search, Trash2 } from "lucide-react";
@@ -24,9 +26,10 @@ function emptyCategory(nextOrder: number) {
 }
 
 export function CategoriesClient({ categories }: { categories: Category[] }) {
+  const [workspaceView,setWorkspaceView]=useState("catalog");
   const [items, setItems] = useState(categories);
   const [query, setQuery] = useState("");
-  const [selectedId, setSelectedId] = useState(categories[0]?.id || "");
+  const [selectedId, setSelectedId] = useState("");
   const [draft, setDraft] = useState(emptyCategory(categories.length + 1));
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
@@ -45,6 +48,7 @@ export function CategoriesClient({ categories }: { categories: Category[] }) {
   }, [items, deferredQuery]);
 
   function edit(category: Category) {
+    setWorkspaceView("editor");
     setSelectedId(category.id);
     setDraft({
       name: category.name,
@@ -134,10 +138,13 @@ export function CategoriesClient({ categories }: { categories: Category[] }) {
     setMessage("Category order saved.");
   }
 
+  const recordPage=usePagination(filtered,query);
   return (
-    <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(320px,380px)]">
-      <Panel>
+    <Workspace label="categories sections" value={workspaceView} onValueChange={setWorkspaceView}>
+<WorkspaceSection id="catalog" title="Categories" icon="options">
+<Panel>
         <PanelHeader title="Categories" description="Add, edit, hide, delete, and reorder item sections for this business." />
+        <Pagination {...recordPage}/>
         <div className="border-b border-white/10 p-4">
           <label className="relative block min-w-0">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-cyan-100/45" />
@@ -150,7 +157,7 @@ export function CategoriesClient({ categories }: { categories: Category[] }) {
           </label>
         </div>
         <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
-          {filtered.map((category) => (
+          {recordPage.items.map((category) => (
             <article key={category.id} className="rounded-card border border-white/10 bg-black/20 p-3">
               <button onClick={() => edit(category)} className="flex w-full min-w-0 items-start gap-3 text-left">
                 <span className="grid h-12 w-12 shrink-0 place-items-center rounded-card text-lg font-black text-slate-950" style={{ background: category.color || "#14b8a6" }}>
@@ -183,8 +190,9 @@ export function CategoriesClient({ categories }: { categories: Category[] }) {
           ) : null}
         </div>
       </Panel>
-
-      <Panel className="self-start">
+</WorkspaceSection>
+<WorkspaceSection id="editor" title="Category editor" icon="editor">
+<Panel className="self-start">
         <PanelHeader title={selected ? "Edit category" : "Add category"} description="Use icons and colors to make POS sections easy to scan." />
         <div className="grid gap-3 p-4">
           <Field label="Name" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} placeholder="Food, Drinks, Specials" />
@@ -213,6 +221,7 @@ export function CategoriesClient({ categories }: { categories: Category[] }) {
           </div>
         </div>
       </Panel>
-    </div>
+</WorkspaceSection>
+</Workspace>
   );
 }

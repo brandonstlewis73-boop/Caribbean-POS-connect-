@@ -1,4 +1,6 @@
 ﻿"use client";
+import {Workspace,WorkspaceSection} from "@/components/workspace/Workspace";
+import {Pagination,usePagination} from "@/components/workspace/Pagination";
 
 /* eslint-disable @next/next/no-img-element */
 
@@ -50,6 +52,7 @@ export function OrdersClient({
   canUpdateOrders: boolean;
   currency: string;
 }) {
+  const [workspaceView,setWorkspaceView]=useState("orders");
   const [items, setItems] = useState(orders);
   const [highlightedIds, setHighlightedIds] = useState<Set<string>>(() => new Set());
   const [query, setQuery] = useState("");
@@ -83,6 +86,7 @@ export function OrdersClient({
   }, []);
 
   function viewOrder(orderId: string) {
+    setWorkspaceView("details");
     setSelectedId(orderId);
     setHighlightedIds((current) => {
       if (!current.has(orderId)) return current;
@@ -99,6 +103,7 @@ export function OrdersClient({
     const requested = new URLSearchParams(window.location.search).get("order");
     if (requested && items.some((order) => order.id === requested)) {
       setSelectedId(requested);
+      setWorkspaceView("details");
     }
   }, [items]);
 
@@ -263,13 +268,16 @@ export function OrdersClient({
     await patchOrder(selected.id, { notes: notesDraft }, "notes");
   }
 
+  const recordPage=usePagination(filtered,query+"|"+statusFilter+"|"+type+"|"+dateFilter);
   return (
-    <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(360px,420px)]">
-      <Panel>
+    <Workspace label="orders sections" value={workspaceView} onValueChange={setWorkspaceView}>
+<WorkspaceSection id="orders" title="Order queue" icon="orders">
+<Panel>
         <PanelHeader
           title="Orders"
-          description="In-store, pickup, delivery, online, draft, completed, and cancelled orders"
+          description="Manage sales, fulfillment, and payment status"
         />
+        <Pagination {...recordPage}/>
         <div className="grid min-w-0 gap-3 border-b border-caribbean-line p-4 dark:border-slate-800 sm:grid-cols-2 2xl:grid-cols-[minmax(0,1fr)_160px_180px_160px]">
           <label className="relative min-w-0 sm:col-span-2 2xl:col-span-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -342,7 +350,7 @@ export function OrdersClient({
           ))}
         </div>
         <div className="grid gap-3 p-4 md:hidden">
-          {filtered.map((order) => (
+          {recordPage.items.map((order) => (
             <button
               key={order.id}
               onClick={() => viewOrder(order.id)}
@@ -382,7 +390,7 @@ export function OrdersClient({
               </tr>
             </thead>
             <tbody className="divide-y divide-caribbean-line dark:divide-slate-800">
-              {filtered.map((order) => (
+              {recordPage.items.map((order) => (
                 <tr
                   key={order.id}
                   onClick={() => viewOrder(order.id)}
@@ -423,12 +431,12 @@ export function OrdersClient({
           </table>
         </div>
       </Panel>
-
-      {selected ? (
+</WorkspaceSection>
+<WorkspaceSection id="details" title="Order details" icon="editor">
+{selected ? (
         <Panel>
           <PanelHeader title={`Order #${selected.order_number}`} description={new Date(selected.created_at).toLocaleString()} />
-          <div className="grid min-w-0 gap-4 p-4">
-            {message ? (
+          <div className="grid min-w-0 gap-4 p-4">{message ? (
               <p className={`rounded-card p-3 text-sm font-bold ${
                 message.includes("could not") || message.includes("Only ")
                   ? "bg-red-50 text-red-700"
@@ -436,8 +444,7 @@ export function OrdersClient({
               }`}>
                 {message}
               </p>
-            ) : null}
-            <div className="rounded-card bg-caribbean-cloud p-3 text-sm dark:bg-slate-950">
+            ) : null}<Workspace key={selected.id} label="Order detail sections"><WorkspaceSection id="summary" title="Summary" icon="receipts"><div className="rounded-card bg-caribbean-cloud p-3 text-sm dark:bg-slate-950">
               <p className="font-black">{selected.customer_snapshot.name || "Walk-in customer"}</p>
               <p className="font-semibold text-slate-500">{selected.customer_snapshot.phone || "No phone"}</p>
               <p className="mt-2 text-slate-600 dark:text-slate-300">
@@ -445,42 +452,13 @@ export function OrdersClient({
                   .filter(Boolean)
                   .join(", ")}
               </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
+            </div><div className="flex flex-wrap gap-2">
               <Badge tone={statusTone(selected.status)}>Order {selected.status}</Badge>
               <Badge tone={statusTone(selected.payment_status)}>Payment {selected.payment_status}</Badge>
               <Badge tone={statusTone(selected.delivery_status)}>
                 Delivery {selected.delivery_status.replaceAll("_", " ")}
               </Badge>
-            </div>
-            <div className="grid gap-2 rounded-card border border-white/10 bg-black/20 p-3">
-              <p className="text-xs font-black uppercase tracking-normal text-cyan-100/55">Status timeline</p>
-              {(selected.status_history?.length ? selected.status_history : [{ id: selected.id, status: selected.status, note: "Current status", created_at: selected.created_at }]).map((history) => (
-                <div key={history.id} className="grid grid-cols-[12px_1fr] gap-3 text-sm">
-                  <span className="mt-1.5 h-3 w-3 rounded-full bg-cyan-300" />
-                  <span>
-                    <span className="block font-black text-white">{String(history.status).replaceAll("_", " ")}</span>
-                    <span className="block text-xs font-semibold text-teal-50/55">{history.note || "Status updated"} Â· {new Date(history.created_at).toLocaleString()}</span>
-                  </span>
-                </div>
-              ))}
-            </div>
-            <WhatsAppDelivery key={selected.id} orderId={selected.id} canRetry={canUpdateOrders} onRefresh={order=>setItems(current=>current.map(item=>item.id===order.id?order:item))}/>
-            {selected.customer_notifications?.length ? (
-              <div className="grid gap-2 rounded-card border border-white/10 bg-black/20 p-3">
-                <p className="text-xs font-black uppercase tracking-normal text-cyan-100/55">Customer notifications</p>
-                {selected.customer_notifications.slice(-5).map((notification) => (
-                  <div key={notification.id} className="flex min-w-0 items-start justify-between gap-3 text-sm">
-                    <span className="min-w-0 flex-1 break-words">
-                      <span className="block font-bold capitalize">{notification.channel}</span>
-                      <span className="block text-xs font-semibold text-teal-50/55">{notification.message}</span>{notification.error_message?<span className="mt-1 block text-xs text-red-100">{notification.error_message}</span>:null}
-                    </span>
-                    <Badge tone={["sent","delivered","read"].includes(notification.delivery_status) ? "green" : ["failed","undelivered"].includes(notification.delivery_status) ? "red" : "neutral"}>{notification.delivery_status}</Badge>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-            <div className="grid min-w-0 gap-2">
+            </div><div className="grid min-w-0 gap-2">
               {selected.items.map((item) => (
                 <div key={item.id} className="flex min-w-0 items-center justify-between gap-3 text-sm">
                   <div className="flex min-w-0 items-center gap-3">
@@ -494,14 +472,12 @@ export function OrdersClient({
                   <span className="shrink-0 font-black">{formatMoney(item.line_total)}</span>
                 </div>
               ))}
-            </div>
-            <div className="grid gap-1 border-t border-caribbean-line pt-3 text-sm dark:border-slate-800">
+            </div><div className="grid gap-1 border-t border-caribbean-line pt-3 text-sm dark:border-slate-800">
               <div className="flex justify-between"><span>Subtotal</span><strong>{formatMoney(selected.subtotal)}</strong></div>
               <div className="flex justify-between"><span>Tax/Fee</span><strong>{formatMoney(selected.tax_total)}</strong></div>
               <div className="flex justify-between"><span>Delivery</span><strong>{formatMoney(selected.delivery_fee)}</strong></div>
               <div className="flex justify-between text-lg font-black"><span>Total</span><span>{formatMoney(selected.total)}</span></div>
-            </div>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-2">
+            </div></WorkspaceSection><WorkspaceSection id="fulfillment" title="Fulfillment" icon="orders"><div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-2">
               {workflowStatuses.map((status) => (
                 <Button
                   key={status.value}
@@ -545,13 +521,11 @@ export function OrdersClient({
                 <Trash2 className="h-4 w-4" />
                 {pendingAction === "delete" ? "Deleting..." : "Delete order"}
               </Button>
-            </div>
-            {!canUpdateOrders ? (
+            </div>{!canUpdateOrders ? (
               <p className="text-xs font-semibold text-slate-500">
                 Your role can view orders, but only admins and managers can cancel or update them.
               </p>
-            ) : null}
-            {selected.order_type === "delivery" ? (
+            ) : null}{selected.order_type === "delivery" ? (
               <div className="grid gap-3">
                 <SelectField
                   label="Assigned driver"
@@ -579,8 +553,7 @@ export function OrdersClient({
                   {pendingAction === "delivery-failed" ? "Updating..." : "Mark delivery failed"}
                 </Button>
               </div>
-            ) : null}
-            <div className="grid gap-2">
+            ) : null}<div className="grid gap-2">
               <TextAreaField
                 label="Order notes"
                 value={notesDraft}
@@ -593,8 +566,31 @@ export function OrdersClient({
               >
                 {pendingAction === "notes" ? "Saving notes..." : "Save notes"}
               </Button>
-            </div>
-            <div className="grid gap-2">
+            </div></WorkspaceSection><WorkspaceSection id="notifications" title="Notifications" icon="messages"><WhatsAppDelivery key={selected.id} orderId={selected.id} canRetry={canUpdateOrders} onRefresh={order=>setItems(current=>current.map(item=>item.id===order.id?order:item))}/>{selected.customer_notifications?.length ? (
+              <div className="grid gap-2 rounded-card border border-white/10 bg-black/20 p-3">
+                <p className="text-xs font-black uppercase tracking-normal text-cyan-100/55">Customer notifications</p>
+                {selected.customer_notifications.slice(-5).map((notification) => (
+                  <div key={notification.id} className="flex min-w-0 items-start justify-between gap-3 text-sm">
+                    <span className="min-w-0 flex-1 break-words">
+                      <span className="block font-bold capitalize">{notification.channel}</span>
+                      <span className="block text-xs font-semibold text-teal-50/55">{notification.message}</span>{notification.error_message?<span className="mt-1 block text-xs text-red-100">{notification.error_message}</span>:null}
+                    </span>
+                    <Badge tone={["sent","delivered","read"].includes(notification.delivery_status) ? "green" : ["failed","undelivered"].includes(notification.delivery_status) ? "red" : "neutral"}>{notification.delivery_status}</Badge>
+                  </div>
+                ))}
+              </div>
+            ) : null}</WorkspaceSection><WorkspaceSection id="history" title="History & documents" icon="receipts"><div className="grid gap-2 rounded-card border border-white/10 bg-black/20 p-3">
+              <p className="text-xs font-black uppercase tracking-normal text-cyan-100/55">Status timeline</p>
+              {(selected.status_history?.length ? selected.status_history : [{ id: selected.id, status: selected.status, note: "Current status", created_at: selected.created_at }]).map((history) => (
+                <div key={history.id} className="grid grid-cols-[12px_1fr] gap-3 text-sm">
+                  <span className="mt-1.5 h-3 w-3 rounded-full bg-cyan-300" />
+                  <span>
+                    <span className="block font-black text-white">{String(history.status).replaceAll("_", " ")}</span>
+                    <span className="block text-xs font-semibold text-teal-50/55">{history.note || "Status updated"} Â· {new Date(history.created_at).toLocaleString()}</span>
+                  </span>
+                </div>
+              ))}
+            </div><div className="grid gap-2">
               {selected.waze_link ? (
                 <a href={selected.waze_link} target="_blank" rel="noreferrer" className="inline-flex min-h-10 items-center justify-center gap-2 rounded-card border border-caribbean-line bg-white px-3 py-2 text-center text-sm font-black leading-tight dark:border-slate-700 dark:bg-slate-900">
                   <ExternalLink className="h-4 w-4" />
@@ -632,10 +628,10 @@ export function OrdersClient({
                 <PackageCheck className="h-4 w-4" />
                 Print shipping label
               </a>
-            </div>
-          </div>
+            </div></WorkspaceSection></Workspace></div>
         </Panel>
       ) : null}
-    </div>
+</WorkspaceSection>
+</Workspace>
   );
 }

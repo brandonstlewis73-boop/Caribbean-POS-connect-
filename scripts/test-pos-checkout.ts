@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import {saleTotals,saleUnitPrice,availableSaleStock,normalizeSalePhone,paymentMethodEnabled} from '../lib/pos-checkout';
+import type {Settings} from '../lib/types';
+const settings={tax_enabled:true,tax_rate:10,service_fee_enabled:true,service_fee_rate:5,payment_cash_enabled:true,payment_card_enabled:false} as Settings;
+assert.equal(saleUnitPrice({selling_price:60,discount_price:50}),50);
+assert.equal(saleUnitPrice({selling_price:60,discount_price:0}),0);
+assert.equal(saleUnitPrice({selling_price:60,discount_price:65}),60);
+assert.equal(saleUnitPrice({selling_price:60,discount_price:-1}),60);
+assert.deepEqual(saleTotals([{selling_price:60,discount_price:50,quantity:2,discount:0}],settings,0,25),{subtotal:100,discountTotal:0,taxable:100,tax:10,serviceFee:5,total:140});
+assert.equal(saleTotals([{selling_price:0.1,quantity:3,discount:0}],{...settings,tax_enabled:false,service_fee_enabled:false},0,0).total,0.3);
+assert.equal(saleTotals([{selling_price:60,quantity:2,discount:5}],settings,15,0).total,115);
+assert.equal(availableSaleStock({stock_quantity:-5}),0);assert.equal(availableSaleStock({stock_quantity:2}),2);
+assert.equal(normalizeSalePhone('+1 (443) 758-2368'),'14437582368');assert.notEqual(normalizeSalePhone('14437582368'),normalizeSalePhone('18687582368'));
+assert.equal(paymentMethodEnabled('Cash',settings),true);assert.equal(paymentMethodEnabled('Card',settings),false);assert.equal(paymentMethodEnabled('Split Payment',settings),false);assert.equal(paymentMethodEnabled('Unknown',settings),false);
+console.log('POS pricing, totals, stock, full phone matching and payment method checks passed.');

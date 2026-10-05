@@ -1,3 +1,5 @@
+import { saleUnitPrice, paymentMethodEnabled } from "./pos-checkout";
+import { claimCheckoutRequest } from "./pos-checkout-request";
 function startOfDay(date: Date) {
   const next = new Date(date);
   next.setHours(0, 0, 0, 0);
@@ -1989,11 +1991,12 @@ function initialOrderStatus(payload: CheckoutPayload): Order["status"] {
 async function applyCompletedOrderEffects(client: DbClient, order: Order, userId?: string | null) {
   for (const item of order.items) {
     if (!item.product_id) continue;
-    await query(
-      "UPDATE products SET stock_quantity = stock_quantity - $1, updated_at = NOW() WHERE id = $2 AND business_id = $3",
+    const stockUpdate = await query(
+      "UPDATE products SET stock_quantity = stock_quantity - $1, updated_at = NOW() WHERE id = $2 AND business_id = $3 AND stock_quantity >= $1 RETURNING id",
       [item.quantity, item.product_id, order.business_id ?? null],
       client
     );
+    if(!stockUpdate.rows.length)throw new Error("Insufficient stock to complete this order. Refresh inventory.");
     await query(
       "INSERT INTO stock_movements (id, business_id, product_id, type, quantity_delta, reason, reference_id, user_id) VALUES ($1, $2, $3, 'sale', $4, $5, $6, $7)",
       [createId("mov"), order.business_id ?? null, item.product_id, -item.quantity, `Completed order #${order.order_number}`, order.id, userId ?? null],
@@ -2421,7 +2424,16 @@ export async function createOrder(payload: CheckoutPayload, userId?: string) {
   const businessId = await resolveBusinessId({ businessId: payload.business_id, userId });
   const settings = await getBusinessSettings(businessId);
 
+  let reusedCheckout=false;
   const order = await transaction(async (client) => {
+    const request=payload.idempotency_key&&userId&&businessId?await claimCheckoutRequest(client,businessId,userId,payload.idempotency_key,payload):null;
+    if(request?.existingOrderId){const existing=await readOrderById(client,request.existingOrderId,businessId);if(existing){reusedCheckout=true;return existing;}}
+
+    if(payload.idempotency_key){
+      if(!paymentMethodEnabled(payload.payment_method,settings))throw new Error("This payment method is disabled. Refresh POS.");
+      if(payload.payment_method==="Pay on delivery"&&(payload.order_type!=="delivery"||payload.payment_status!=="unpaid"))throw new Error("Pay on delivery requires a delivery order with unpaid status.");
+    }
+
     const orderId = createId("ord");
     const orderFloor = await getMaxNumericValue(client, "orders", "order_number", 1024);
     const orderNumber = String(await getCounter(client, "order_counter", 1024, orderFloor));
@@ -2486,16 +2498,17 @@ export async function createOrder(payload: CheckoutPayload, userId?: string) {
         };
 
     const lineItems = [];
+    const lockedProducts=await query<any>("SELECT * FROM products WHERE id=ANY($1::text[]) AND active=TRUE AND business_id=$2 ORDER BY id FOR UPDATE",[payload.items.map(item=>item.product_id),businessId],client);
+    const stockRequested=new Map<string,number>();
     for (const item of payload.items) {
-      const productRow = await query<any>(
-        "SELECT * FROM products WHERE id = $1 AND active = TRUE AND business_id = $2",
-        [item.product_id, businessId],
-        client
-      );
-      const product = productRow.rows[0];
-      if (!product) throw new Error("Product not found");
+      const savedProduct=lockedProducts.rows.find(product=>product.id===item.product_id);
+      if(!savedProduct)throw new Error("Product not found or no longer active. Refresh the catalog.");
+      const product={...savedProduct,selling_price:saleUnitPrice(savedProduct)};
       const quantity = Number(item.quantity);
+      const requested=(stockRequested.get(product.id)||0)+quantity;stockRequested.set(product.id,requested);
+      if(requested>Number(product.stock_quantity))throw new Error(`${product.name}: only ${product.stock_quantity} in stock. Refresh the catalog.`);
       const lineDiscount = Number(item.discount || 0);
+      if(lineDiscount>quantity*product.selling_price)throw new Error("Item discount exceeds its subtotal.");
       const lineTotal = roundMoney(quantity * Number(product.selling_price) - lineDiscount);
       lineItems.push({
         id: createId("itm"),
@@ -2511,18 +2524,21 @@ export async function createOrder(payload: CheckoutPayload, userId?: string) {
     );
     const itemDiscount = lineItems.reduce((sum, item) => sum + item.lineDiscount, 0);
     const discountTotal = roundMoney(itemDiscount + Number(payload.discount_amount || 0));
+    if(discountTotal>subtotal)throw new Error("Discount exceeds the subtotal.");
     const taxableBase = Math.max(0, subtotal - discountTotal);
-    const serviceFee =
-      payload.service_fee ??
-      (settings.service_fee_enabled ? taxableBase * (Number(settings.service_fee_rate) / 100) : 0);
-    const deliveryFee =
-      payload.order_type === "delivery" || payload.order_type === "online"
+    const configuredServiceFee=settings.service_fee_enabled ? taxableBase * (Number(settings.service_fee_rate) / 100) : 0;
+    const serviceFee=payload.idempotency_key ? configuredServiceFee : payload.service_fee ?? configuredServiceFee;
+    const configuredDeliveryFee=settings.free_delivery_minimum && taxableBase>=settings.free_delivery_minimum ? 0 : getDeliveryFeeForRegion(settings,customerSnapshot.region);
+    const deliveryFee=payload.idempotency_key
+      ? payload.order_type==="delivery" ? configuredDeliveryFee : 0
+      : payload.order_type === "delivery" || payload.order_type === "online"
         ? payload.delivery_fee ?? getDeliveryFeeForRegion(settings, customerSnapshot.region)
         : Number(payload.delivery_fee || 0);
     const taxTotal = settings.tax_enabled
       ? roundMoney(taxableBase * (Number(settings.tax_rate) / 100))
       : 0;
     const total = roundMoney(taxableBase + taxTotal + Number(serviceFee || 0) + Number(deliveryFee || 0));
+    if(payload.expected_total!==undefined&&roundMoney(payload.expected_total)!==total)throw new Error("Prices or fees changed. Refresh the catalog and review the total before retrying.");
     const pointsEarned =
       shouldCompleteNow && settings.loyalty_enabled && customer
         ? Math.floor(total * Number(settings.loyalty_points_per_ttd || 0))
@@ -2704,9 +2720,10 @@ export async function createOrder(payload: CheckoutPayload, userId?: string) {
 
     await recordOrderStatusHistory(client, orderId, orderStatus, "Order created", payload.created_by || userId || null);
     await createCustomerStatusNotifications(client, order, orderStatus, settings);
-    await auditLog("order:create", "order", orderId, { order_number: orderNumber, total }, userId, client);
+    await auditLog("order:create", "order", orderId, { order_number: orderNumber, total, ...(request?{request_key:request.request_key,request_hash:request.request_hash}:{}) }, userId, client);
     return order;
   });
+  if(reusedCheckout)return order;
   await notifyOwnerOfNewOrder(order, settings);
   await dispatchCustomerStatusNotification(order, settings);
   if (order.assigned_driver_id && order.delivery_status !== "not_required") {

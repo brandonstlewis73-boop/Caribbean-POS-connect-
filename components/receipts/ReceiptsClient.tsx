@@ -1,4 +1,5 @@
 "use client";
+import {Pagination,usePagination} from "@/components/workspace/Pagination";
 
 import { useDeferredValue, useMemo, useState } from "react";
 import { MessageCircle, Printer, ReceiptText, Search } from "lucide-react";
@@ -76,10 +77,12 @@ export function ReceiptsClient({
     }
   }
 
+  const recordPage=usePagination(filtered,query);
   return (
     <div className="grid min-w-0 gap-4">
       <Panel>
         <PanelHeader title="Receipts" description="Search, print, and resend customer receipts" action={<a href="/printer#receipt-templates" className="inline-flex min-h-11 items-center rounded-card border border-white/15 px-3 text-sm font-bold">Receipt templates</a>} />
+        <Pagination {...recordPage}/>
         <div className="border-b border-caribbean-line p-4 dark:border-slate-800">
           <label className="relative min-w-0">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -99,7 +102,7 @@ export function ReceiptsClient({
         ) : null}
 
         <div className="grid gap-3 p-4 md:hidden">
-          {filtered.map((receipt) => (
+          {recordPage.items.map((receipt) => (
             <div key={receipt.id} className="rounded-card border border-caribbean-line bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
               <div className="flex min-w-0 items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -144,7 +147,7 @@ export function ReceiptsClient({
               </tr>
             </thead>
             <tbody className="divide-y divide-caribbean-line dark:divide-slate-800">
-              {filtered.map((receipt) => (
+              {recordPage.items.map((receipt) => (
                 <tr key={receipt.id}>
                   <td className="px-4 py-3">
                     <p className="font-black">#{receipt.receipt_number}</p>

@@ -1,4 +1,5 @@
 "use client";
+import {Workspace,WorkspaceSection} from "@/components/workspace/Workspace";
 
 import { Download, HardDriveDownload } from "lucide-react";
 import { Panel, PanelHeader } from "@/components/ui/Panel";
@@ -79,18 +80,9 @@ function PaymentBreakdown({ items, currency }: { items: DashboardData["paymentBr
 export function ReportsClient({ data }: { data: DashboardData }) {
   const formatMoney = (value: number | string | null | undefined) => money(value, data.currency);
   return (
-    <div className="grid gap-4">
-      <div className="flex flex-wrap gap-2">
-        <a href="/api/exports/sales" className="inline-flex min-h-10 items-center gap-2 rounded-card bg-caribbean-teal px-3 py-2 text-sm font-black leading-tight text-white">
-          <Download className="h-4 w-4" />
-          Export sales CSV
-        </a>
-        <a href="/api/backup" className="inline-flex min-h-10 items-center gap-2 rounded-card border border-caribbean-line bg-white px-3 py-2 text-sm font-black leading-tight dark:border-slate-700 dark:bg-slate-900">
-          <HardDriveDownload className="h-4 w-4" />
-          Backup database
-        </a>
-      </div>
-      <div className="grid gap-4 lg:grid-cols-4">
+    <Workspace label="reports sections" >
+<WorkspaceSection id="overview" title="Overview" icon="overview">
+<div className="grid gap-4 lg:grid-cols-4">
         {[
           ["Daily sales", data.dailySales],
           ["Weekly sales", data.weeklySales],
@@ -103,8 +95,9 @@ export function ReportsClient({ data }: { data: DashboardData }) {
           </div>
         ))}
       </div>
-
-      <div className="grid gap-4 xl:grid-cols-2">
+</WorkspaceSection>
+<WorkspaceSection id="sales" title="Sales & payments" icon="reports">
+<div className="grid gap-4 xl:grid-cols-2">
         <Panel>
           <PanelHeader title="Sales by day" />
           <div className="h-80 p-4">
@@ -116,8 +109,9 @@ export function ReportsClient({ data }: { data: DashboardData }) {
           <PaymentBreakdown items={data.paymentBreakdown} currency={data.currency} />
         </Panel>
       </div>
-
-      <div className="grid gap-4 xl:grid-cols-3">
+</WorkspaceSection>
+<WorkspaceSection id="performance" title="Performance" icon="people">
+<div className="grid gap-4 xl:grid-cols-3">
         <Panel>
           <PanelHeader title="Best sellers" />
           <div className="divide-y divide-caribbean-line dark:divide-slate-800">
@@ -152,6 +146,19 @@ export function ReportsClient({ data }: { data: DashboardData }) {
           </div>
         </Panel>
       </div>
-    </div>
+</WorkspaceSection>
+<WorkspaceSection id="exports" title="Exports & backup" icon="receipts">
+<div className="flex flex-wrap gap-2">
+        <a href="/api/exports/sales" className="inline-flex min-h-10 items-center gap-2 rounded-card bg-caribbean-teal px-3 py-2 text-sm font-black leading-tight text-white">
+          <Download className="h-4 w-4" />
+          Export sales CSV
+        </a>
+        <a href="/api/backup" className="inline-flex min-h-10 items-center gap-2 rounded-card border border-caribbean-line bg-white px-3 py-2 text-sm font-black leading-tight dark:border-slate-700 dark:bg-slate-900">
+          <HardDriveDownload className="h-4 w-4" />
+          Backup database
+        </a>
+      </div>
+</WorkspaceSection>
+</Workspace>
   );
 }

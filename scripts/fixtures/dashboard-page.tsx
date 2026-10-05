@@ -1,0 +1,32 @@
+import {AppShellClient} from '@/components/layout/AppShellClient';
+import {DashboardHome} from '@/components/dashboard/DashboardHome';
+import {InventoryClient} from '@/components/inventory/InventoryClient';
+import {CategoriesClient} from '@/components/categories/CategoriesClient';
+import {StaffClient} from '@/components/staff/StaffClient';
+import {OrdersClient} from '@/components/orders/OrdersClient';
+import {CustomersClient} from '@/components/customers/CustomersClient';
+import {ReceiptsClient} from '@/components/receipts/ReceiptsClient';
+import {DeliveriesClient} from '@/components/deliveries/DeliveriesClient';
+import {ReportsClient} from '@/components/reports/ReportsClient';
+import {PrinterSettingsClient} from '@/components/printer/PrinterSettingsClient';
+import {SettingsClient} from '@/components/settings/SettingsClient';
+import {SubscriptionClient} from '@/components/subscription/SubscriptionClient';
+import {HelpSupportClient} from '@/components/help/HelpSupportClient';
+import {AiBusinessOSClient} from '@/components/ai/AiBusinessOSClient';
+import {defaultSettings} from '@/lib/data';
+import {PLAN_CONFIG} from '@/lib/plan-gating';
+import type {DashboardData,Product,Category,User,Order,Customer,Receipt,SubscriptionPlan} from '@/lib/types';
+export default async function Page({searchParams}:{searchParams:Promise<{screen?:string}>}){
+ const screen=(await searchParams).screen||'dashboard';const settings={...defaultSettings,currency:'TTD',business_name:'Baker Buds',active_business_id:'qa',tax_enabled:true};
+ const categories=[{id:'c1',name:'Brownies',slug:'brownies',is_active:true,sort_order:0},{id:'c2',name:'Drinks',slug:'drinks',is_active:true,sort_order:1}] as Category[];
+ const products=Array.from({length:14},(_,i)=>({id:`p${i}`,name:`Chocolate brownie ${i+1}`,sku:`SKU-${i+1}`,category_id:'c1',category:'Brownies',cost_price:30,selling_price:60,stock_quantity:20,low_stock_alert:5,active:true,description:'',variations:[],add_ons:[]})) as Product[];
+ const staff=Array.from({length:8},(_,i)=>({id:`u${i}`,name:`Team member ${i+1}`,email:`staff${i}@example.test`,phone:'',role:'cashier',active:true,permissions:[]})) as User[];
+ const customers=Array.from({length:14},(_,i)=>({id:`cust${i}`,name:`Customer ${i+1}`,phone:`186855500${String(i).padStart(2,'0')}`,email:'',tags:[],total_spent:60,orders_count:1})) as unknown as Customer[];
+ const orders=Array.from({length:14},(_,i)=>({id:`o${i}`,order_number:String(1000+i),status:'new',order_type:'delivery',payment_status:'unpaid',payment_method:'Cash',created_at:'2026-10-05T10:00:00Z',customer_snapshot:customers[i],delivery_status:'assigned',subtotal:60,discount_total:0,tax_total:0,service_fee:0,delivery_fee:25,total:85,items:[{id:`oi${i}`,product_id:'p0',product_name:'Chocolate brownie',quantity:1,unit_price:60,line_total:60}],status_history:[],customer_notifications:[]})) as unknown as Order[];
+ const receipts=orders.map((o,i)=>({id:`r${i}`,order_id:o.id,receipt_number:`R-${i}`,order_number:o.order_number,customer_name:o.customer_snapshot.name,total:o.total,created_at:o.created_at,payment_status:o.payment_status,payment_method:o.payment_method,customer_snapshot:o.customer_snapshot,items:o.items})) as unknown as Receipt[];
+ const data={currency:'TTD',business:{name:'Baker Buds',slug:'baker-buds',active:true},storefrontUrl:'/store/baker-buds',dailySales:360,weeklySales:1800,monthlySales:4800,newOrders:2,pendingOrders:3,completedOrders:6,deliveryOrderCount:4,profitEstimate:2400,recentCustomers:customers,recentOrders:orders.slice(0,8),lowStock:[],bestSellers:[{name:'Chocolate brownie',quantity:60,total:3600}],topCustomers:[],paymentBreakdown:[{method:'Cash',total:360,count:6}],cashierPerformance:[],salesSeries:[{date:'2026-10-05',total:360}],setupChecklist:[{key:'logo',label:'Business logo',complete:false}],whatsappConfigured:false} as unknown as DashboardData;
+ const usage={planId:'pro' as const,planName:'Pro',usage:{products:14,staff:8,locations:1,aiGenerations:0,whatsappMessages:0},meters:[]};
+ const plans=Object.values(PLAN_CONFIG).map(p=>({id:p.id,name:p.name,audience:p.audience,monthly_price:p.monthlyPrice,currency:p.currency,features:p.featureList})) as SubscriptionPlan[];
+ const views:Record<string,React.ReactNode>={dashboard:<DashboardHome data={data}/>,inventory:<InventoryClient products={products} categories={categories} currency="TTD"/>,categories:<CategoriesClient categories={categories}/>,staff:<StaffClient staff={staff}/>,orders:<OrdersClient orders={orders} drivers={[]} canUpdateOrders currency="TTD"/>,customers:<CustomersClient customers={customers} currency="TTD"/>,receipts:<ReceiptsClient receipts={receipts} currency="TTD" canResend/>,deliveries:<DeliveriesClient deliveries={orders} currency="TTD"/>,reports:<ReportsClient data={data}/>,printer:<PrinterSettingsClient settings={settings} canEdit/>,settings:<SettingsClient settings={settings} staff={staff} categories={categories} businesses={[]} subscription={null} planUsage={usage}/>,subscription:<SubscriptionClient plans={plans} subscription={null} usageSummary={usage} paymentProvidersReady={{paypal:false}}/>,help:<HelpSupportClient articles={[]} tickets={[]} user={staff[0]} settings={settings} canManage aiStatus={{enabled:true,message:'',model:'Device AI'}} systemStatus={{databaseConfigured:true,vercelEnv:null,nodeEnv:'test'}}/>,ai:<AiBusinessOSClient usage={usage} aiStatus={{enabled:true,hasApiKey:false,model:'Device AI'}}/>};
+ return <AppShellClient active={screen==='inventory'?'Inventory':screen[0].toUpperCase()+screen.slice(1)} title={screen==='dashboard'?'Business overview':screen[0].toUpperCase()+screen.slice(1)} businessId="qa" businessName="Baker Buds" currency="TTD" market="Trinidad and Tobago" orderAlertsEnabled={false} orderAlertSoundEnabled={false} orderBrowserNotificationsEnabled={false} orderAlertPreviewEnabled={false}>{views[screen]}</AppShellClient>;
+}

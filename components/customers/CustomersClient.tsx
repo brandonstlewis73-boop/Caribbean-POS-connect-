@@ -1,4 +1,6 @@
 "use client";
+import {Workspace,WorkspaceSection} from "@/components/workspace/Workspace";
+import {Pagination,usePagination} from "@/components/workspace/Pagination";
 
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { ChevronRight, History, LocateFixed, MessageCircle, Plus, PlusCircle, Search, Trash2, UserRound, X } from "lucide-react";
@@ -81,6 +83,7 @@ function usefulError(payloadError?: string, details?: unknown) {
 }
 
 export function CustomersClient({ customers, currency }: { customers: Customer[]; currency: string }) {
+  const [workspaceView,setWorkspaceView]=useState("customers");
   const [items, setItems] = useState(customers);
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState(customers[0]?.id || "");
@@ -121,6 +124,7 @@ export function CustomersClient({ customers, currency }: { customers: Customer[]
   }, [selectedId]);
 
   function startNewCustomer() {
+    setWorkspaceView("profile");
     setSelectedId("new");
     setProfile(null);
     setDraft(emptyCustomerDraft(currency));
@@ -241,6 +245,7 @@ export function CustomersClient({ customers, currency }: { customers: Customer[]
       ? `https://wa.me/${cleanWhatsAppNumber(draft.phone)}?text=${encodeURIComponent(whatsAppMessage)}`
       : null;
 
+  const recordPage=usePagination(filtered,query);
   return (
     <>
     <div className="kyte-mobile-screen kyte-customers-screen md:hidden">
@@ -258,8 +263,9 @@ export function CustomersClient({ customers, currency }: { customers: Customer[]
         </button>
       </section>
 
+      <Pagination {...recordPage}/>
       <section className="kyte-customer-list" aria-label="Customers">
-        {filtered.map((customer) => {
+        {recordPage.items.map((customer) => {
           const whatsappHref = customer.phone
             ? `https://wa.me/${cleanWhatsAppNumber(customer.phone)}`
             : "";
@@ -371,8 +377,7 @@ export function CustomersClient({ customers, currency }: { customers: Customer[]
       ) : null}
     </div>
 
-    <div className="hidden min-w-0 gap-4 md:grid xl:grid-cols-[minmax(320px,380px)_minmax(0,1fr)]">
-      <Panel>
+    <div className="hidden md:block"><Workspace label="Customer sections" value={workspaceView} onValueChange={setWorkspaceView}><WorkspaceSection id="customers" title="Customer directory" icon="people"><Panel>
         <PanelHeader
           title="Customers"
           description="Search by phone, email, name, or city"
@@ -383,6 +388,7 @@ export function CustomersClient({ customers, currency }: { customers: Customer[]
             </Button>
           }
         />
+        <Pagination {...recordPage}/>
         <div className="border-b border-caribbean-line p-4 dark:border-slate-800">
           <label className="relative min-w-0">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -395,10 +401,10 @@ export function CustomersClient({ customers, currency }: { customers: Customer[]
           </label>
         </div>
         <div className="max-h-[calc(100vh-240px)] overflow-auto">
-          {filtered.map((customer) => (
+          {recordPage.items.map((customer) => (
             <button
               key={customer.id}
-              onClick={() => setSelectedId(customer.id)}
+              onClick={() => {setSelectedId(customer.id);setWorkspaceView("profile");}}
               className={`grid w-full gap-1 border-b border-caribbean-line px-4 py-3 text-left dark:border-slate-800 ${
                 selectedId === customer.id ? "bg-teal-50 dark:bg-teal-950/30" : "hover:bg-caribbean-cloud dark:hover:bg-slate-950"
               }`}
@@ -412,9 +418,7 @@ export function CustomersClient({ customers, currency }: { customers: Customer[]
             <div className="p-4 text-sm font-semibold text-slate-500">No customers match this search.</div>
           ) : null}
         </div>
-      </Panel>
-
-      {draft ? (
+      </Panel></WorkspaceSection><WorkspaceSection id="profile" title="Customer profile" icon="editor">{draft ? (
         <div className="grid min-w-0 gap-4">
           <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-card border border-caribbean-line bg-white p-4 shadow-soft dark:border-slate-800 dark:bg-slate-900">
@@ -568,8 +572,7 @@ export function CustomersClient({ customers, currency }: { customers: Customer[]
             </Button>
           </div>
         </Panel>
-      )}
-    </div>
+      )}</WorkspaceSection></Workspace></div>
     </>
   );
 }

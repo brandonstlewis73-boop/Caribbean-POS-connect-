@@ -1,4 +1,6 @@
 "use client";
+import {Pagination,usePagination} from "@/components/workspace/Pagination";
+import {Workspace,WorkspaceSection} from "@/components/workspace/Workspace";
 
 /* eslint-disable @next/next/no-img-element */
 
@@ -84,6 +86,7 @@ function toPayload(user: User): StaffInput {
 }
 
 export function StaffClient({ staff }: { staff: User[] }) {
+  const [workspaceView,setWorkspaceView]=useState("people");
   const [items, setItems] = useState(staff);
   const [selectedId, setSelectedId] = useState(staff[0]?.id || "new");
   const [draft, setDraft] = useState<User>(staff[0] || emptyDraft());
@@ -93,12 +96,14 @@ export function StaffClient({ staff }: { staff: User[] }) {
   const activeCount = useMemo(() => items.filter((user) => user.active).length, [items]);
 
   function selectStaff(user: User) {
+    setWorkspaceView("editor");
     setSelectedId(user.id);
     setDraft({ ...user });
     setMessage("");
   }
 
   function startNew() {
+    setWorkspaceView("editor");
     const next = emptyDraft();
     setSelectedId("new");
     setDraft(next);
@@ -180,9 +185,11 @@ export function StaffClient({ staff }: { staff: User[] }) {
     reader.readAsDataURL(file);
   }
 
+  const recordPage=usePagination(items,"staff");
   return (
-    <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(320px,390px)_minmax(0,1fr)]">
-      <Panel>
+    <Workspace label="staff sections" value={workspaceView} onValueChange={setWorkspaceView}>
+<WorkspaceSection id="people" title="Team directory" icon="people">
+<Panel>
         <PanelHeader
           title="Staff"
           description={`${activeCount} active of ${items.length} profiles`}
@@ -193,8 +200,9 @@ export function StaffClient({ staff }: { staff: User[] }) {
             </Button>
           }
         />
+        <Pagination {...recordPage}/>
         <div className="divide-y divide-white/10">
-          {items.map((user) => {
+          {recordPage.items.map((user) => {
             const Icon = roleIcons[user.role] || CircleUserRound;
             return (
               <button
@@ -219,42 +227,11 @@ export function StaffClient({ staff }: { staff: User[] }) {
           })}
         </div>
       </Panel>
-
-      <Panel>
+</WorkspaceSection>
+<WorkspaceSection id="editor" title="Staff profile" icon="editor">
+<Panel>
         <PanelHeader title={selectedId === "new" ? "New staff profile" : "Staff profile"} />
-        <div className="grid gap-5 p-4 lg:grid-cols-[260px_minmax(0,1fr)]">
-          <div className="grid content-start gap-4">
-            <div className="rounded-card border border-white/10 bg-black/25 p-4">
-              <Avatar user={draft} />
-              <p className="mt-3 text-sm font-black">{draft.name || "Staff profile"}</p>
-              <p className="text-xs font-semibold text-teal-50/55">{ROLE_LABELS[draft.role] || draft.role}</p>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              {STAFF_AVATAR_OPTIONS.map((avatar) => (
-                <button
-                  key={avatar.key}
-                  type="button"
-                  onClick={() => setDraft({ ...draft, avatar_key: avatar.key, avatar_url: null })}
-                  className={cn(
-                    "grid gap-2 rounded-card border p-3 text-left text-xs font-black",
-                    draft.avatar_key === avatar.key && !draft.avatar_url ? "border-cyan-300 bg-cyan-300/10" : "border-white/10 bg-black/20"
-                  )}
-                >
-                  <span className={cn("grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br text-slate-950", avatar.gradient)}>
-                    {avatar.initials}
-                  </span>
-                  {avatar.label}
-                </button>
-              ))}
-            </div>
-            <label className="inline-flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-card border border-white/10 bg-white/[0.07] px-3 text-sm font-black text-white hover:bg-white/[0.12]">
-              <Upload className="h-4 w-4" />
-              Upload Photo
-              <input className="sr-only" type="file" accept="image/*" onChange={(event) => uploadAvatar(event.target.files?.[0])} />
-            </label>
-          </div>
-
-          <div className="grid content-start gap-3">
+        <div className="p-4"><Workspace label="Staff profile sections"><WorkspaceSection id="details" title="Contact & access" icon="people"><div className="grid content-start gap-3">
             <Field label="Name" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} />
             <div className="grid gap-3 md:grid-cols-2">
               <Field label="Phone" value={draft.phone || ""} onChange={(event) => setDraft({ ...draft, phone: event.target.value })} />
@@ -283,9 +260,38 @@ export function StaffClient({ staff }: { staff: User[] }) {
               ) : null}
             </div>
             {message ? <p className="rounded-card bg-cyan-300/10 p-3 text-sm font-black text-cyan-100">{message}</p> : null}
-          </div>
-        </div>
+          </div></WorkspaceSection><WorkspaceSection id="photo" title="Profile appearance" icon="photo"><div className="grid content-start gap-4">
+            <div className="rounded-card border border-white/10 bg-black/25 p-4">
+              <Avatar user={draft} />
+              <p className="mt-3 text-sm font-black">{draft.name || "Staff profile"}</p>
+              <p className="text-xs font-semibold text-teal-50/55">{ROLE_LABELS[draft.role] || draft.role}</p>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {STAFF_AVATAR_OPTIONS.map((avatar) => (
+                <button
+                  key={avatar.key}
+                  type="button"
+                  onClick={() => setDraft({ ...draft, avatar_key: avatar.key, avatar_url: null })}
+                  className={cn(
+                    "grid gap-2 rounded-card border p-3 text-left text-xs font-black",
+                    draft.avatar_key === avatar.key && !draft.avatar_url ? "border-cyan-300 bg-cyan-300/10" : "border-white/10 bg-black/20"
+                  )}
+                >
+                  <span className={cn("grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br text-slate-950", avatar.gradient)}>
+                    {avatar.initials}
+                  </span>
+                  {avatar.label}
+                </button>
+              ))}
+            </div>
+            <label className="inline-flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-card border border-white/10 bg-white/[0.07] px-3 text-sm font-black text-white hover:bg-white/[0.12]">
+              <Upload className="h-4 w-4" />
+              Upload Photo
+              <input className="sr-only" type="file" accept="image/*" onChange={(event) => uploadAvatar(event.target.files?.[0])} />
+            </label>
+          </div></WorkspaceSection></Workspace></div>
       </Panel>
-    </div>
+</WorkspaceSection>
+</Workspace>
   );
 }

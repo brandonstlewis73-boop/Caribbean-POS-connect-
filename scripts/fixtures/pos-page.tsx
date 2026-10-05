@@ -1,0 +1,4 @@
+import {POSClient} from '@/components/pos/POSClient';
+import {defaultSettings} from '@/lib/data';
+import type {Product,Category} from '@/lib/types';
+export default function Page(){return <POSClient products={[{id:'p1',name:'Test brownie',selling_price:60,discount_price:50,stock_quantity:2,active:true,sku:'TEST-01',barcode:'12345678',category_id:'c1',category:'Brownies'},{id:'p2',name:'Sold out cookie',selling_price:25,stock_quantity:0,active:true,category_id:'c1',category:'Brownies'}] as Product[]} categories={[{id:'c1',name:'Brownies',is_active:true},{id:'c2',name:'Vapes',is_active:true}] as Category[]} customers={[]} drivers={[]} settings={{...defaultSettings,currency:'TTD',tax_enabled:true,tax_rate:10,service_fee_enabled:true,service_fee_rate:5,payment_cash_enabled:true,payment_card_enabled:true,payment_pod_enabled:true}}/>}

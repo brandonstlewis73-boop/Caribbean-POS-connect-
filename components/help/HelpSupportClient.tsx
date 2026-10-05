@@ -1,4 +1,6 @@
 "use client";
+import {Pagination,usePagination} from "@/components/workspace/Pagination";
+import {Workspace,WorkspaceSection} from "@/components/workspace/Workspace";
 
 import { assertLocalAiSupport, generateLocalDraft } from "@/lib/local-ai";
 import type { LocalGeneration } from "@/lib/local-ai-config";
@@ -386,27 +388,11 @@ export function HelpSupportClient({
     setTicketMessage({ tone: "success", text: "Screenshot attached." });
   }
 
+  const guidePage=usePagination(filteredGuideCards,search+"|"+selectedCategory,4);
+  const articlePage=usePagination(filteredArticles,search+"|"+selectedCategory);
+  const ticketPage=usePagination(tickets,"tickets");
   return (
-    <div className="grid min-w-0 gap-6 pb-24 lg:pb-6">
-      <section className="grid gap-4 rounded-3xl border border-cyan-200/12 bg-[#0B1D2E]/88 p-5 shadow-[0_20px_70px_rgba(0,0,0,0.26)] sm:p-6">
-        <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-          <div className="min-w-0">
-            <p className="text-sm font-black uppercase tracking-wide text-cyan-100/70">Help & Support</p>
-            <h1 className="mt-2 text-2xl font-black text-white sm:text-3xl">Get help running your POS</h1>
-            <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-teal-50/70">
-              Search guides, troubleshoot setup issues, ask AI Support, or submit a support request tied to your business account.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Badge tone={systemStatus.databaseConfigured ? "green" : "red"}>{systemStatus.databaseConfigured ? "Database ready" : "Database not configured"}</Badge>
-            <Badge tone={aiStatus.enabled ? "green" : "amber"}>{aiStatus.enabled ? "Local browser AI" : "AI disabled"}</Badge>
-          </div>
-        </div>
-      </section>
-
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
-        <div className="grid min-w-0 gap-6">
-          <Panel>
+    <div className="support-workspace"><Workspace label="Support sections" hash><WorkspaceSection id="guides" title="Guides & articles" icon="help"><Panel>
             <PanelHeader title="Search Help Articles" description="Find setup guides and troubleshooting steps for real POS workflows." />
             <div className="grid gap-4 p-5 sm:p-6">
               <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
@@ -450,13 +436,11 @@ export function HelpSupportClient({
                 ))}
               </div>
             </div>
-          </Panel>
-
-          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+          </Panel><div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
             <Panel>
-              <PanelHeader title="Useful Guides" description="Practical help cards for common setup and daily operations." action={<Badge tone="teal">{filteredGuideCards.length}</Badge>} />
+              <Pagination {...guidePage}/><PanelHeader title="Useful Guides" description="Practical help cards for common setup and daily operations." action={<Badge tone="teal">{filteredGuideCards.length}</Badge>} />
               <div className="grid gap-5 p-5 sm:p-6 md:grid-cols-2">
-                {filteredGuideCards.map((card) => {
+                {guidePage.items.map((card) => {
                   const Icon = card.icon;
                   return (
                     <article key={card.id} className="grid min-w-0 gap-3 rounded-card border border-white/10 bg-black/20 p-4">
@@ -494,15 +478,13 @@ export function HelpSupportClient({
                 </Button>
               </div>
             </Panel>
-          </div>
-
-          <Panel>
-            <PanelHeader title="Knowledge Base" description="Saved help articles available to your role." action={<Badge tone="teal">{filteredArticles.length}</Badge>} />
+          </div><Panel>
+            <Pagination {...articlePage}/><PanelHeader title="Knowledge Base" description="Saved help articles available to your role." action={<Badge tone="teal">{filteredArticles.length}</Badge>} />
             <div className="grid gap-5 p-5 sm:p-6 md:grid-cols-2">
               {filteredArticles.length === 0 ? (
                 <p className="rounded-card bg-black/20 p-3 text-sm font-bold text-teal-50/72 md:col-span-2">No articles match that search.</p>
               ) : null}
-              {filteredArticles.map((article) => (
+              {articlePage.items.map((article) => (
                 <article key={article.id} className="grid gap-3 rounded-3xl border border-cyan-200/12 bg-slate-950/35 p-5 shadow-[0_16px_45px_rgba(0,0,0,0.18)]">
                   <div className="flex min-w-0 items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -520,9 +502,7 @@ export function HelpSupportClient({
                 </article>
               ))}
             </div>
-          </Panel>
-
-          <div className="grid gap-6 lg:grid-cols-2">
+          </Panel></WorkspaceSection><WorkspaceSection id="setup" title="Setup & troubleshooting" icon="settings"><p className="workspace-health">{systemStatus.databaseConfigured?"Database configured":"Database configuration required"}</p><div className="grid gap-6 lg:grid-cols-2">
             <Panel>
               <PanelHeader title="Setup Checklist" description="Use these steps when setting up a business account." />
               <div className="grid gap-2 p-4 sm:p-5">
@@ -559,11 +539,7 @@ export function HelpSupportClient({
                 </div>
               </div>
             </Panel>
-          </div>
-        </div>
-
-        <aside className="grid min-w-0 gap-6 self-start xl:sticky xl:top-24">
-          <Panel>
+          </div></WorkspaceSection><WorkspaceSection id="assistant" title="Support assistant" icon="ai"><Panel>
             <PanelHeader title="Ask AI Support" description="Runs on your device. First use downloads roughly 1 GB; WebGPU is required. Asking a question starts the download." action={<Badge tone={aiStatus.enabled ? "green" : "amber"}>{aiStatus.enabled ? aiStatus.model : "Not configured"}</Badge>} />
             <div className="grid gap-4 p-5 sm:p-6">
               {!aiStatus.enabled ? (
@@ -598,9 +574,7 @@ export function HelpSupportClient({
                 </Button>
               </div>
             </div>
-          </Panel>
-
-          <Panel>
+          </Panel></WorkspaceSection><WorkspaceSection id="requests" title="Support requests" icon="messages"><Panel>
             <PanelHeader title="Contact Support" description="Submit a real support request for this business." action={<LifeBuoy className="h-5 w-5 text-cyan-100" />} />
             <div className="grid gap-4 p-5 sm:p-6">
               <Field id="support-name" name="supportName" label="Name" value={ticketDraft.name} onChange={(event) => setTicketDraft({ ...ticketDraft, name: event.target.value })} />
@@ -631,15 +605,13 @@ export function HelpSupportClient({
                 {busy === "ticket" ? "Submitting..." : "Submit support request"}
               </Button>
             </div>
-          </Panel>
-
-          <Panel>
-            <PanelHeader title="Support Requests" description={canManage ? "Tickets for this business" : "Your submitted tickets"} action={<Badge tone="teal">{tickets.length}</Badge>} />
+          </Panel><Panel>
+            <Pagination {...ticketPage}/><PanelHeader title="Support Requests" description={canManage ? "Tickets for this business" : "Your submitted tickets"} action={<Badge tone="teal">{tickets.length}</Badge>} />
             <div className="grid max-h-[520px] gap-4 overflow-y-auto p-5 sm:p-6">
               {tickets.length === 0 ? (
                 <p className="rounded-card bg-black/20 p-3 text-sm font-bold text-teal-50/72">No support requests yet.</p>
               ) : null}
-              {tickets.map((ticket) => (
+              {ticketPage.items.map((ticket) => (
                 <article key={ticket.id} className="grid gap-3 rounded-3xl border border-cyan-200/12 bg-slate-950/35 p-4">
                   <div className="flex min-w-0 items-start justify-between gap-2">
                     <div className="min-w-0">
@@ -673,18 +645,13 @@ export function HelpSupportClient({
                 </article>
               ))}
             </div>
-          </Panel>
-
-          <Panel>
+          </Panel><Panel>
             <PanelHeader title="Support Safety" />
             <div className="grid gap-2 p-4 text-sm font-semibold leading-6 text-teal-50/75 sm:p-5">
               <p className="flex gap-2"><FileQuestion className="mt-1 h-4 w-4 shrink-0 text-cyan-100" /> AI answers use app help context and your logged-in role.</p>
               <p className="flex gap-2"><AlertTriangle className="mt-1 h-4 w-4 shrink-0 text-amber-100" /> Secrets, API keys, database URLs, and private tenant data are never shown in support chat.</p>
               <p className="flex gap-2"><CreditCard className="mt-1 h-4 w-4 shrink-0 text-cyan-100" /> Billing help explains setup steps; payment credentials stay in Stripe and Vercel.</p>
             </div>
-          </Panel>
-        </aside>
-      </div>
-    </div>
+          </Panel></WorkspaceSection></Workspace></div>
   );
 }

@@ -1,4 +1,6 @@
 "use client";
+import {Pagination,usePagination} from "@/components/workspace/Pagination";
+import {Workspace,WorkspaceSection} from "@/components/workspace/Workspace";
 
 /* eslint-disable @next/next/no-img-element */
 
@@ -122,6 +124,7 @@ function usefulProductError(payloadError?: string, details?: unknown) {
 }
 
 export function InventoryClient({ products, categories, currency }: { products: Product[]; categories: Category[]; currency: string }) {
+  const [workspaceView,setWorkspaceView]=useState("catalog");
   const [items, setItems] = useState(products);
   const [categoryItems, setCategoryItems] = useState(categories);
   const [query, setQuery] = useState("");
@@ -225,6 +228,7 @@ export function InventoryClient({ products, categories, currency }: { products: 
   }
 
   function editProduct(product: Product) {
+    setWorkspaceView("editor");
     setEditingId(product.id);
     setDraft({
       name: product.name,
@@ -408,10 +412,13 @@ export function InventoryClient({ products, categories, currency }: { products: 
     }
   }
 
+  const recordPage=usePagination(filtered,query+"|"+categoryFilter);
   return (
-    <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(340px,380px)]">
-      <Panel>
+    <Workspace label="inventory sections" value={workspaceView} onValueChange={setWorkspaceView}>
+<WorkspaceSection id="catalog" title="Product catalog" icon="catalog">
+<Panel>
         <PanelHeader title="Inventory" description="Products, categories, stock, suppliers, and low-stock alerts" />
+        <Pagination {...recordPage}/>
         <div className="grid gap-3 border-b border-caribbean-line p-4 dark:border-slate-800 md:grid-cols-[minmax(0,1fr)_220px]">
           <label className="relative min-w-0">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -434,7 +441,7 @@ export function InventoryClient({ products, categories, currency }: { products: 
           </select>
         </div>
         <div className="grid gap-3 p-4 md:hidden">
-          {filtered.map((product) => (
+          {recordPage.items.map((product) => (
             <div key={product.id} className="rounded-card border border-caribbean-line bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
               <div className="flex min-w-0 gap-3">
                 {product.image_url ? (
@@ -493,7 +500,7 @@ export function InventoryClient({ products, categories, currency }: { products: 
               </tr>
             </thead>
             <tbody className="divide-y divide-caribbean-line dark:divide-slate-800">
-              {filtered.map((product) => (
+              {recordPage.items.map((product) => (
                 <tr key={product.id} className={product.active ? "" : "opacity-45"}>
                   <td className="px-4 py-3">
                     <div className="flex min-w-0 items-center gap-3">
@@ -564,39 +571,34 @@ export function InventoryClient({ products, categories, currency }: { products: 
           </table>
         </div>
       </Panel>
-
-      <Panel className="self-start">
+</WorkspaceSection>
+<WorkspaceSection id="editor" title="Product editor" icon="editor">
+<Panel className="self-start">
         <PanelHeader title={editingId ? "Edit product" : "Add product"} description="Create products with pricing, images, stock, variations, and add-ons" />
-        <div className="grid gap-3 p-4">
-          <Field label="Product name" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} />
-          <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 p-4"><Workspace label="Product editor sections"><WorkspaceSection id="details" title="Details" icon="editor"><Field label="Product name" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /><div className="grid gap-3 sm:grid-cols-2">
             <Field label="SKU optional" value={draft.sku} onChange={(event) => setDraft({ ...draft, sku: event.target.value })} />
             <Field label="Barcode" value={draft.barcode} onChange={(event) => setDraft({ ...draft, barcode: event.target.value })} />
-          </div>
-          <SelectField label="Category" value={draft.category_id} onChange={(event) => selectCategory(event.target.value)}>
+          </div><SelectField label="Category" value={draft.category_id} onChange={(event) => selectCategory(event.target.value)}>
             {!categoryItems.length ? <option value="">Uncategorized</option> : null}
             {categoryItems
               .filter((category) => category.is_active !== false && category.active !== false)
               .map((category) => <option key={category.id} value={category.id}>{category.icon ? `${category.icon} ` : ""}{category.name}</option>)}
-          </SelectField>
-          <div className="grid gap-2 rounded-card border border-caribbean-line bg-caribbean-cloud p-3 dark:border-slate-800 dark:bg-slate-950 sm:grid-cols-[1fr_auto]">
+          </SelectField><div className="grid gap-2 rounded-card border border-caribbean-line bg-caribbean-cloud p-3 dark:border-slate-800 dark:bg-slate-950 sm:grid-cols-[1fr_auto]">
             <Field label="+ Add new category" value={newCategoryName} onChange={(event) => setNewCategoryName(event.target.value)} placeholder="Example: Drinks" />
             <Button type="button" onClick={createQuickCategory} disabled={savingCategory || !newCategoryName.trim()} className="self-end">
               {savingCategory ? "Adding..." : "Add category"}
             </Button>
             {categoryMessage ? <p className="text-sm font-bold text-slate-600 dark:text-slate-300 sm:col-span-2">{categoryMessage}</p> : null}
-          </div>
-          <Field label="Description" value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} placeholder="Short menu or item description" />
-          <div className="grid gap-3 sm:grid-cols-2">
+          </div><Field label="Description" value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} placeholder="Short menu or item description" /><label className="flex items-center gap-3 rounded-card border border-white/10 bg-black/20 p-3 text-sm font-black text-white">
+            <input type="checkbox" checked={draft.active} onChange={(event) => setDraft({ ...draft, active: event.target.checked })} />
+            Available in POS and storefront
+          </label></WorkspaceSection><WorkspaceSection id="pricing" title="Pricing & stock" icon="pricing"><div className="grid gap-3 sm:grid-cols-2">
             <Field label="Cost price" type="number" value={draft.cost_price} onChange={(event) => setDraft({ ...draft, cost_price: Number(event.target.value) })} />
             <Field label="Selling price" type="number" value={draft.selling_price} onChange={(event) => setDraft({ ...draft, selling_price: Number(event.target.value) })} />
-          </div>
-          <Field label="Discount price optional" type="number" value={draft.discount_price} onChange={(event) => setDraft({ ...draft, discount_price: event.target.value })} />
-          <div className="grid gap-3 sm:grid-cols-2">
+          </div><Field label="Discount price optional" type="number" value={draft.discount_price} onChange={(event) => setDraft({ ...draft, discount_price: event.target.value })} /><div className="grid gap-3 sm:grid-cols-2">
             <Field label="Stock quantity" type="number" value={draft.stock_quantity} onChange={(event) => setDraft({ ...draft, stock_quantity: Number(event.target.value) })} />
             <Field label="Low stock alert" type="number" value={draft.low_stock_alert} onChange={(event) => setDraft({ ...draft, low_stock_alert: Number(event.target.value) })} />
-          </div>
-          <div className="grid gap-3 rounded-card border border-white/10 bg-black/20 p-3">
+          </div></WorkspaceSection><WorkspaceSection id="photos" title="Product photos" icon="photo"><div className="grid gap-3 rounded-card border border-white/10 bg-black/20 p-3">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-black text-white">Product photo</p>
@@ -642,27 +644,16 @@ export function InventoryClient({ products, categories, currency }: { products: 
                 setDraft({ ...draft, image_url: nextUrl });
               }}
             />
-          </div>
-          <Field label="Variations" value={draft.variationsText} onChange={(event) => setDraft({ ...draft, variationsText: event.target.value })} placeholder="Small:0, Medium:8, Large:15" />
-          <Field label="Add-ons / extras" value={draft.addOnsText} onChange={(event) => setDraft({ ...draft, addOnsText: event.target.value })} placeholder="Extra sauce:3, Cheese:5" />
-          <Field label="Supplier" value={draft.supplier_name} onChange={(event) => setDraft({ ...draft, supplier_name: event.target.value })} />
-          <Field label="Supplier phone" value={draft.supplier_phone} onChange={(event) => setDraft({ ...draft, supplier_phone: event.target.value })} />
-          <label className="flex items-center gap-3 rounded-card border border-white/10 bg-black/20 p-3 text-sm font-black text-white">
-            <input type="checkbox" checked={draft.active} onChange={(event) => setDraft({ ...draft, active: event.target.checked })} />
-            Available in POS and storefront
-          </label>
-          {message ? <p className="rounded-card bg-caribbean-cloud p-3 text-sm font-bold text-slate-700 dark:bg-slate-950 dark:text-slate-200">{message}</p> : null}
-          <Button variant="primary" onClick={saveProduct} disabled={saving || preparingPhoto}>
+          </div></WorkspaceSection><WorkspaceSection id="options" title="Options & supplier" icon="options"><Field label="Variations" value={draft.variationsText} onChange={(event) => setDraft({ ...draft, variationsText: event.target.value })} placeholder="Small:0, Medium:8, Large:15" /><Field label="Add-ons / extras" value={draft.addOnsText} onChange={(event) => setDraft({ ...draft, addOnsText: event.target.value })} placeholder="Extra sauce:3, Cheese:5" /><Field label="Supplier" value={draft.supplier_name} onChange={(event) => setDraft({ ...draft, supplier_name: event.target.value })} /><Field label="Supplier phone" value={draft.supplier_phone} onChange={(event) => setDraft({ ...draft, supplier_phone: event.target.value })} /></WorkspaceSection></Workspace><div className="workspace-form-actions">{message ? <p className="rounded-card bg-caribbean-cloud p-3 text-sm font-bold text-slate-700 dark:bg-slate-950 dark:text-slate-200">{message}</p> : null}<Button variant="primary" onClick={saveProduct} disabled={saving || preparingPhoto}>
             <PackagePlus className="h-4 w-4" />
             {saving ? "Saving..." : editingId ? "Save product changes" : "Save product"}
-          </Button>
-          {editingId ? (
+          </Button>{editingId ? (
             <Button variant="secondary" onClick={() => { resetProductForm(categoryItems); setMessage(""); }}>
               Add a new product instead
             </Button>
-          ) : null}
-        </div>
+          ) : null}</div></div>
       </Panel>
-    </div>
+</WorkspaceSection>
+</Workspace>
   );
 }
