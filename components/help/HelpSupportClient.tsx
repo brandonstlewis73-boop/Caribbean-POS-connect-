@@ -6,13 +6,11 @@ import { assertLocalAiSupport, generateLocalDraft } from "@/lib/local-ai";
 import type { LocalGeneration } from "@/lib/local-ai-config";
 import { useMemo, useState, type ChangeEvent } from "react";
 import {
+  ArrowLeft,
+  ChevronRight,
   AlertTriangle,
   Bot,
-  CheckCircle2,
   ClipboardList,
-  CreditCard,
-  FileQuestion,
-  LifeBuoy,
   MessageCircle,
   PackagePlus,
   Search,
@@ -25,7 +23,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { Field, SelectField, TextAreaField } from "@/components/ui/Field";
+import { Field, SelectField } from "@/components/ui/Field";
 import { Panel, PanelHeader } from "@/components/ui/Panel";
 import { readApiPayload } from "@/lib/client-response";
 import { GETTING_STARTED_CHECKLIST, HELP_CATEGORIES } from "@/lib/support-context";
@@ -58,13 +56,15 @@ type GuideCard = {
 };
 
 const guideCards: GuideCard[] = [
+  { id: "billing", title: "Manage your subscription", description: "Review your plan and PayPal checkout status.", category: "Billing & Subscriptions", icon: Tags, steps: ["Open Subscription & Billing.", "Choose Current subscription to review the saved plan status.", "Open Choose a plan and select the plan you need.", "Complete PayPal approval when checkout is configured. A pending approval does not activate the plan until payment is confirmed."] },
+  { id: "receipt-design", title: "Customize your receipts", description: "Choose a receipt template and preview it before printing.", category: "Orders & Checkout", icon: ClipboardList, steps: ["Open Printers and choose Receipt design.", "Choose a template and update the receipt details.", "Save the design, then preview the PDF.", "Use Print & share to open the browser print dialog and select your printer."] },
   {
     id: "add-product",
     title: "How to add a product",
     description: "Create products with price, stock, image, SKU, barcode, and category.",
     category: "Products & Categories",
     icon: PackagePlus,
-    steps: ["Open Inventory.", "Select Add product.", "Enter product details and category.", "Save and confirm the item appears in POS and storefront."]
+    steps: ["Open Inventory.", "Choose Product editor, then open the product details section.", "Enter product details and category.", "Save and confirm the item appears in POS and storefront."]
   },
   {
     id: "create-categories",
@@ -80,15 +80,15 @@ const guideCards: GuideCard[] = [
     description: "Move orders from New to Accepted, Preparing, Ready, Out for Delivery, Completed, or Cancelled.",
     category: "Orders & Checkout",
     icon: ClipboardList,
-    steps: ["Open Orders.", "Select the order.", "Use the status action button.", "Confirm the customer notification if enabled."]
+    steps: ["Open Orders.", "Select the order.", "Use the status action button.", "Open Notifications to send the customer a WhatsApp update when needed."]
   },
   {
-    id: "twilio-whatsapp",
-    title: "How to connect Twilio/WhatsApp",
-    description: "Set Twilio credentials in Vercel and enable business WhatsApp settings.",
+    id: "free-whatsapp",
+    title: "Send a free WhatsApp order update",
+    description: "Prepare the update in Orders, then send it in WhatsApp.",
     category: "WhatsApp/SMS Notifications",
     icon: MessageCircle,
-    steps: ["Add Twilio env vars in Vercel Production.", "Redeploy the app.", "Open Settings and add the business WhatsApp number.", "Send a test message."]
+    steps: ["Open Settings → Notifications → WhatsApp updates and choose Use free WhatsApp to disable paid automatic sends.", "Open Orders, select the order, then choose Notifications.", "Review the customer message and select Open customer WhatsApp.", "Tap Send in WhatsApp. Check its ticks for delivery confirmation."]
   },
   {
     id: "whatsapp-sandbox",
@@ -140,21 +140,8 @@ const guideCards: GuideCard[] = [
   }
 ];
 
-const supportSections = [
-  "Search help articles",
-  "Getting Started",
-  "Orders & Checkout",
-  "Products & Categories",
-  "Customers",
-  "Storefront Setup",
-  "WhatsApp/SMS Notifications",
-  "AI Features",
-  "Billing & Subscriptions",
-  "Troubleshooting",
-  "Contact Support"
-];
-
 const troubleshootingCards = [
+  { title: "Free WhatsApp message not sent", description: "Opening WhatsApp prepares a message; it does not send it.", fix: "Open Orders → order details → Notifications. Check the customer phone number, open customer WhatsApp, then tap Send. A customer who opted out cannot receive these updates." },
   {
     title: "Twilio Error 63015",
     description: "The receiving WhatsApp number has not joined the Twilio sandbox or the sender is not approved.",
@@ -243,9 +230,11 @@ export function HelpSupportClient({
   systemStatus: { databaseConfigured: boolean; vercelEnv: string | null; nodeEnv: string };
 }) {
   const [tickets, setTickets] = useState(initialTickets);
+  const [supportView, setSupportView] = useState("guides");
+  const [requestStep, setRequestStep] = useState("issue");
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
-  const [activeGuideId, setActiveGuideId] = useState(guideCards[0].id);
+  const [activeGuideId, setActiveGuideId] = useState<string | null>(null);
   const [activeTrouble, setActiveTrouble] = useState(troubleshootingCards[0].title);
   const [chatInput, setChatInput] = useState("");
   const [chatBusy, setChatBusy] = useState(false);
@@ -337,6 +326,7 @@ export function HelpSupportClient({
     const validation = validateTicket();
     setTicketMessage(null);
     if (validation) {
+      setRequestStep(validation === "Enter your name." || validation === "Enter a valid email address." ? "contact" : "issue");
       setTicketMessage({ tone: "error", text: validation });
       return;
     }
@@ -388,170 +378,53 @@ export function HelpSupportClient({
     setTicketMessage({ tone: "success", text: "Screenshot attached." });
   }
 
-  const guidePage=usePagination(filteredGuideCards,search+"|"+selectedCategory,4);
-  const articlePage=usePagination(filteredArticles,search+"|"+selectedCategory);
-  const ticketPage=usePagination(tickets,"tickets");
-  return (
-    <div className="support-workspace"><Workspace label="Support sections" hash><WorkspaceSection id="guides" title="Guides & articles" icon="help"><Panel>
-            <PanelHeader title="Search Help Articles" description="Find setup guides and troubleshooting steps for real POS workflows." />
-            <div className="grid gap-4 p-5 sm:p-6">
-              <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
-                <label htmlFor="help-search" className="relative block min-w-0">
-                  <span className="sr-only">Search help articles</span>
-                  <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-cyan-100/55" />
-                  <input
-                    id="help-search"
-                    name="helpSearch"
-                    value={search}
-                    onChange={(event) => setSearch(event.target.value)}
-                    className="min-h-11 w-full min-w-0 rounded-card border border-white/10 bg-slate-950/45 pl-9 pr-3 text-sm font-semibold text-white outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20"
-                    placeholder="Search products, orders, WhatsApp, billing, storefront..."
-                  />
-                </label>
-                <div className="grid gap-1">
-                  <label htmlFor="help-category-filter" className="sr-only">Select support category</label>
-                  <select
-                    id="help-category-filter"
-                    name="supportCategory"
-                    value={selectedCategory}
-                  onChange={(event) => setSelectedCategory(event.target.value)}
-                  className="min-h-11 w-full rounded-card border border-white/10 bg-slate-950/45 px-3 text-sm font-semibold text-white outline-none focus:border-cyan-300"
-                >
-                  <option>All</option>
-                  {HELP_CATEGORIES.map((category) => <option key={category}>{category}</option>)}
-                  </select>
-                </div>
-              </div>
-
-              <div className="flex gap-2 overflow-x-auto pb-1">
-                {supportSections.map((section) => (
-                  <button
-                    key={section}
-                    type="button"
-                    onClick={() => setSelectedCategory(section === "Search help articles" || section === "Contact Support" ? "All" : section)}
-                    className="min-h-9 shrink-0 rounded-card border border-white/10 bg-white/[0.06] px-3 text-sm font-black text-teal-50 hover:bg-white/[0.1]"
-                  >
-                    {section}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </Panel><div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
-            <Panel>
-              <Pagination {...guidePage}/><PanelHeader title="Useful Guides" description="Practical help cards for common setup and daily operations." action={<Badge tone="teal">{filteredGuideCards.length}</Badge>} />
-              <div className="grid gap-5 p-5 sm:p-6 md:grid-cols-2">
-                {guidePage.items.map((card) => {
-                  const Icon = card.icon;
-                  return (
-                    <article key={card.id} className="grid min-w-0 gap-3 rounded-card border border-white/10 bg-black/20 p-4">
-                      <div className="flex items-start gap-3">
-                        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-card bg-cyan-300/12 text-cyan-100">
-                          <Icon className="h-5 w-5" />
-                        </span>
-                        <div className="min-w-0">
-                          <h2 className="text-sm font-black leading-tight text-white">{card.title}</h2>
-                          <p className="mt-1 text-xs font-bold text-cyan-100/60">{card.category}</p>
-                        </div>
-                      </div>
-                      <p className="text-sm font-semibold leading-6 text-teal-50/72">{card.description}</p>
-                      <Button type="button" variant={activeGuideId === card.id ? "primary" : "secondary"} onClick={() => setActiveGuideId(card.id)} className="w-full sm:w-auto">
-                        View guide
-                      </Button>
-                    </article>
-                  );
-                })}
-              </div>
-            </Panel>
-
-            <Panel>
-              <PanelHeader title={activeGuide.title} description={activeGuide.category} />
-              <div className="grid gap-4 p-5 sm:p-6">
-                {activeGuide.steps.map((step, index) => (
-                  <p key={step} className="flex gap-3 rounded-card bg-white/[0.055] p-3 text-sm font-semibold leading-6 text-teal-50/78">
-                    <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-cyan-300 text-xs font-black text-slate-950">{index + 1}</span>
-                    {step}
-                  </p>
-                ))}
-                <Button type="button" variant="ghost" onClick={() => askSupport(`Help me with: ${activeGuide.title}`)}>
-                  <Bot className="h-4 w-4" />
-                  Ask AI about this
-                </Button>
-              </div>
-            </Panel>
-          </div><Panel>
-            <Pagination {...articlePage}/><PanelHeader title="Knowledge Base" description="Saved help articles available to your role." action={<Badge tone="teal">{filteredArticles.length}</Badge>} />
-            <div className="grid gap-5 p-5 sm:p-6 md:grid-cols-2">
-              {filteredArticles.length === 0 ? (
-                <p className="rounded-card bg-black/20 p-3 text-sm font-bold text-teal-50/72 md:col-span-2">No articles match that search.</p>
-              ) : null}
-              {articlePage.items.map((article) => (
-                <article key={article.id} className="grid gap-3 rounded-3xl border border-cyan-200/12 bg-slate-950/35 p-5 shadow-[0_16px_45px_rgba(0,0,0,0.18)]">
-                  <div className="flex min-w-0 items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <h2 className="text-sm font-black leading-tight text-white">{article.title}</h2>
-                      <p className="mt-1 text-xs font-bold text-cyan-100/60">{article.category}</p>
-                    </div>
-                    <Badge tone={article.visibility === "admin" ? "amber" : article.visibility === "public" ? "green" : "teal"}>{article.visibility}</Badge>
-                  </div>
-                  <p className="text-sm font-semibold leading-6 text-teal-50/72">{article.content}</p>
-                  {article.tags.length ? (
-                    <div className="flex flex-wrap gap-1.5">
-                      {article.tags.map((tag) => <span key={tag} className="rounded-full bg-white/10 px-2 py-1 text-[11px] font-black text-cyan-100/75">{tag}</span>)}
-                    </div>
-                  ) : null}
-                </article>
-              ))}
-            </div>
-          </Panel></WorkspaceSection><WorkspaceSection id="setup" title="Setup & troubleshooting" icon="settings"><p className="workspace-health">{systemStatus.databaseConfigured?"Database configured":"Database configuration required"}</p><div className="grid gap-6 lg:grid-cols-2">
-            <Panel>
-              <PanelHeader title="Setup Checklist" description="Use these steps when setting up a business account." />
-              <div className="grid gap-2 p-4 sm:p-5">
-                {GETTING_STARTED_CHECKLIST.map((item) => (
-                  <p key={item} className="flex min-w-0 items-center gap-2 rounded-card bg-white/[0.055] px-3 py-2 text-sm font-bold text-teal-50/82">
-                    <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-200" />
-                    {item}
-                  </p>
-                ))}
-              </div>
-            </Panel>
-
-            <Panel>
-              <PanelHeader title="Troubleshooting" description="Quick fixes for common production issues." />
-              <div className="grid gap-4 p-5 sm:p-6">
-                <div className="grid gap-2">
-                  {troubleshootingCards.map((card) => (
-                    <button
-                      key={card.title}
-                      type="button"
-                      onClick={() => setActiveTrouble(card.title)}
-                      className={`rounded-card border px-3 py-2 text-left text-sm font-black transition ${
-                        activeTrouble === card.title ? "border-cyan-300/50 bg-cyan-300/12 text-white" : "border-white/10 bg-black/20 text-teal-50/78 hover:bg-white/[0.08]"
-                      }`}
-                    >
-                      {card.title}
-                    </button>
-                  ))}
-                </div>
-                <div className="rounded-card border border-white/10 bg-black/25 p-3">
-                  <p className="font-black text-white">{activeTroubleshooting.title}</p>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-teal-50/72">{activeTroubleshooting.description}</p>
-                  <p className="mt-3 rounded-card bg-white/[0.06] p-3 text-sm font-bold leading-6 text-cyan-50">{activeTroubleshooting.fix}</p>
-                </div>
-              </div>
-            </Panel>
-          </div></WorkspaceSection><WorkspaceSection id="assistant" title="Support assistant" icon="ai"><Panel>
-            <PanelHeader title="Ask AI Support" description="Runs on your device. First use downloads roughly 1 GB; WebGPU is required. Asking a question starts the download." action={<Badge tone={aiStatus.enabled ? "green" : "amber"}>{aiStatus.enabled ? aiStatus.model : "Not configured"}</Badge>} />
+  const guidePage=usePagination(filteredGuideCards,search+"|"+selectedCategory,3);
+  const articlePage=usePagination(filteredArticles,search+"|"+selectedCategory,3);
+  const ticketPage=usePagination(tickets,"tickets",3);
+  const searchControls = (id: string) => <div className="help-search-controls">
+    <div className="relative min-w-0"><Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4" /><label className="sr-only" htmlFor={`${id}-search`}>Search help articles</label><input id={`${id}-search`} value={search} onChange={event => setSearch(event.target.value)} placeholder="Search help…" className="min-h-11 w-full pl-9 pr-3" /></div>
+    <SelectField label="Topic" value={selectedCategory} onChange={event => setSelectedCategory(event.target.value)}><option>All</option>{HELP_CATEGORIES.map(category => <option key={category}>{category}</option>)}</SelectField>
+  </div>;
+  return <div className="support-workspace">
+    <Workspace label="Support sections" value={supportView} onValueChange={setSupportView} hash>
+      <WorkspaceSection id="guides" title="Quick guides" icon="help">
+        <Panel><PanelHeader title={activeGuideId ? activeGuide.title : "How can we help?"} description={activeGuideId ? activeGuide.category : "Find a guide or choose a topic."} />
+          {activeGuideId ? <div className="help-panel-body">
+            <Button variant="secondary" onClick={() => setActiveGuideId(null)}><ArrowLeft size={18} />All guides</Button>
+            <ol className="help-guide-steps">{activeGuide.steps.map((step,index) => <li key={step}><span>{index+1}</span><p>{step}</p></li>)}</ol>
+            <Button variant="secondary" onClick={() => { setChatInput(`Help me with: ${activeGuide.title}`); setSupportView("assistant"); }}><Bot size={18} />Ask about this guide</Button>
+          </div> : <><div className="help-panel-body">{searchControls("guides")}
+            <div className="help-guide-list">{guidePage.items.map(card => { const Icon=card.icon; return <button key={card.id} type="button" className="help-guide-row" onClick={() => setActiveGuideId(card.id)}><span className="help-guide-icon"><Icon className="h-5 w-5" /></span><span><strong>{card.title}</strong><small>{card.category}</small></span><ChevronRight size={18} /></button>; })}</div>
+            {!filteredGuideCards.length ? <p className="help-muted">No guides match. Try another topic or search.</p> : null}
+          </div><Pagination {...guidePage}/></>}
+        </Panel>
+      </WorkspaceSection>
+      <WorkspaceSection id="articles" title="Help articles" icon="catalog">
+        <Panel><PanelHeader title="Help articles" description="Open an article to read its instructions." /><div className="help-panel-body">{searchControls("articles")}
+          {articlePage.items.map(article => <details className="help-article" key={article.id}><summary><span><strong>{article.title}</strong><small>{article.category}</small></span><ChevronRight size={18} /></summary><p>{article.content}</p></details>)}
+          {!filteredArticles.length ? <p className="help-muted">No articles match. Quick guides remain available.</p> : null}
+        </div><Pagination {...articlePage}/></Panel>
+      </WorkspaceSection>
+      <WorkspaceSection id="setup" title="Resolve an issue" icon="settings">
+        <Panel><PanelHeader title="Troubleshooting" description="Choose the issue to see its next steps." /><div className="help-panel-body">
+          <SelectField label="Issue" value={activeTrouble} onChange={event => setActiveTrouble(event.target.value)}>{troubleshootingCards.map(card => <option key={card.title}>{card.title}</option>)}</SelectField>
+          <div className="help-resolution"><h3>{activeTroubleshooting.title}</h3><p>{activeTroubleshooting.description}</p><p>{activeTroubleshooting.fix}</p></div>
+          <details className="help-article"><summary><strong>Business setup checklist</strong><ChevronRight size={18}/></summary><ol className="help-checklist">{GETTING_STARTED_CHECKLIST.map(item => <li key={item}>{item}</li>)}</ol></details>
+          <details className="help-article"><summary><strong>Connection status</strong><ChevronRight size={18}/></summary><p>{systemStatus.databaseConfigured ? "Database connection settings are present. This does not confirm a live connection." : "Database connection settings are missing. Contact your administrator."}</p></details>
+        </div></Panel>
+      </WorkspaceSection>
+      <WorkspaceSection id="assistant" title="Ask a question" icon="ai"><Panel><PanelHeader title="Support assistant" description="On-device help. A compatible WebGPU browser and an initial model download are required." />
             <div className="grid gap-4 p-5 sm:p-6">
               {!aiStatus.enabled ? (
                 <p className="rounded-card border border-amber-200/20 bg-amber-300/10 p-3 text-sm font-bold leading-6 text-amber-50">
                   Local AI is disabled. Help articles and support tickets remain available.
                 </p>
               ) : null}
-              <div className="grid max-h-80 gap-3 overflow-y-auto rounded-3xl border border-cyan-200/12 bg-slate-950/40 p-4">
+              <div className="support-chat-scroll grid gap-3 overflow-y-auto rounded-3xl border border-cyan-200/12 bg-slate-950/40 p-4">
                 {chatMessages.map((message, index) => (
                   <div
                     key={`${message.role}-${index}`}
-                    className={message.role === "user" ? "ml-auto max-w-[92%] rounded-card bg-cyan-300 px-3 py-2 text-sm font-bold text-slate-950" : "mr-auto max-w-[94%] rounded-card bg-white/[0.08] px-3 py-2 text-sm font-semibold text-teal-50"}
+                    className={message.role === "user" ? "ml-auto max-w-[92%] rounded-card bg-cyan-300 px-3 py-2 text-sm font-bold text-slate-950" : "mr-auto max-w-[94%] rounded-card bg-white/[0.08] px-3 py-2 text-sm font-semibold text-teal-50/85"}
                   >
                     <p className="whitespace-pre-wrap leading-6">{message.content}</p>
                   </div>
@@ -566,7 +439,7 @@ export function HelpSupportClient({
                   value={chatInput}
                   onChange={(event) => setChatInput(event.target.value)}
                   className="min-h-24 w-full rounded-card border border-white/10 bg-slate-950/45 px-3 py-3 text-sm font-semibold text-white outline-none focus:border-cyan-300"
-                  placeholder="Ask about products, orders, customers, storefront, Twilio, AI features, or billing."
+                  placeholder="Ask about products, orders, WhatsApp, or billing."
                 />
                 <Button type="button" variant="primary" onClick={() => askSupport()} disabled={chatBusy || !chatInput.trim()}>
                   <Send className="h-4 w-4" />
@@ -574,12 +447,10 @@ export function HelpSupportClient({
                 </Button>
               </div>
             </div>
-          </Panel></WorkspaceSection><WorkspaceSection id="requests" title="Support requests" icon="messages"><Panel>
-            <PanelHeader title="Contact Support" description="Submit a real support request for this business." action={<LifeBuoy className="h-5 w-5 text-cyan-100" />} />
-            <div className="grid gap-4 p-5 sm:p-6">
-              <Field id="support-name" name="supportName" label="Name" value={ticketDraft.name} onChange={(event) => setTicketDraft({ ...ticketDraft, name: event.target.value })} />
-              <Field id="support-email" name="supportEmail" label="Email" type="email" value={ticketDraft.email} onChange={(event) => setTicketDraft({ ...ticketDraft, email: event.target.value })} />
-              <Field id="support-business-name" name="supportBusinessName" label="Business name" value={ticketDraft.business_name} onChange={(event) => setTicketDraft({ ...ticketDraft, business_name: event.target.value })} />
+      </Panel></WorkspaceSection>
+      <WorkspaceSection id="requests" title="Contact support" icon="messages"><Panel><PanelHeader title="New support request" description="Describe the issue, confirm your contact details, then submit." /><div className="help-panel-body">
+        <Workspace label="Request steps" value={requestStep} onValueChange={setRequestStep}>
+          <WorkspaceSection id="issue" title="1. Describe the issue" icon="editor"><div className="grid gap-3">
               <SelectField id="support-issue-category" name="supportIssueCategory" label="Issue category" value={ticketDraft.issue_category} onChange={(event) => setTicketDraft({ ...ticketDraft, issue_category: event.target.value })}>
                 {HELP_CATEGORIES.map((category) => <option key={category}>{category}</option>)}
               </SelectField>
@@ -589,31 +460,32 @@ export function HelpSupportClient({
                 <option value="high">High</option>
                 <option value="urgent">Urgent</option>
               </SelectField>
-              <TextAreaField id="support-message" name="supportMessage" label="Message" value={ticketDraft.message} onChange={(event) => setTicketDraft({ ...ticketDraft, message: event.target.value })} placeholder="Tell us what happened and what you already tried." />
+              <div className="grid gap-2"><label htmlFor="support-message" className="text-sm font-semibold">Message</label><textarea id="support-message" name="supportMessage" className="min-h-28 w-full p-3" value={ticketDraft.message} onChange={(event) => setTicketDraft({ ...ticketDraft, message: event.target.value })} placeholder="Tell us what happened and what you already tried." /></div>
+          </div></WorkspaceSection>
+          <WorkspaceSection id="contact" title="2. Contact details" icon="people"><div className="grid gap-3">
+              <Field id="support-name" name="supportName" label="Name" value={ticketDraft.name} onChange={(event) => setTicketDraft({ ...ticketDraft, name: event.target.value })} />
+              <Field id="support-email" name="supportEmail" label="Email" type="email" value={ticketDraft.email} onChange={(event) => setTicketDraft({ ...ticketDraft, email: event.target.value })} />
+              <Field id="support-business-name" name="supportBusinessName" label="Business name" value={ticketDraft.business_name} onChange={(event) => setTicketDraft({ ...ticketDraft, business_name: event.target.value })} />
+          </div></WorkspaceSection>
+          <WorkspaceSection id="attachment" title="3. Screenshot (optional)" icon="photo"><div className="grid gap-3"><p className="help-muted">Attach a PNG or JPEG screenshot under 650 KB. Exclude passwords and payment credentials.</p>
               <label htmlFor="support-screenshot" className="grid gap-2 text-sm font-bold text-teal-50">
                 <span className="text-teal-50/86">Screenshot upload</span>
                 <input id="support-screenshot" name="supportScreenshot" type="file" accept="image/png,image/jpeg" onChange={handleScreenshot} className="rounded-card border border-white/10 bg-slate-950/45 px-3 py-2 text-sm font-semibold text-white" />
               </label>
               {ticketDraft.screenshot_url ? <Badge tone="green">Screenshot attached</Badge> : null}
-              {ticketMessage ? (
-                <p className={`rounded-card p-3 text-sm font-bold leading-6 ${ticketMessage.tone === "success" ? "bg-emerald-300/12 text-emerald-50" : "bg-red-400/12 text-red-50"}`}>
-                  {ticketMessage.text}
-                </p>
-              ) : null}
-              <Button type="button" variant="primary" onClick={submitTicket} disabled={busy === "ticket"}>
-                <MessageCircle className="h-4 w-4" />
-                {busy === "ticket" ? "Submitting..." : "Submit support request"}
-              </Button>
-            </div>
-          </Panel><Panel>
-            <Pagination {...ticketPage}/><PanelHeader title="Support Requests" description={canManage ? "Tickets for this business" : "Your submitted tickets"} action={<Badge tone="teal">{tickets.length}</Badge>} />
-            <div className="grid max-h-[520px] gap-4 overflow-y-auto p-5 sm:p-6">
+          </div></WorkspaceSection>
+        </Workspace>
+        {ticketMessage ? <p role={ticketMessage.tone === "error" ? "alert" : "status"} className={`help-request-feedback ${ticketMessage.tone}`}>{ticketMessage.text}</p> : null}
+        <Button onClick={submitTicket} disabled={busy === "ticket"}><Send size={18}/>{busy === "ticket" ? "Submitting…" : "Submit support request"}</Button>
+      </div></Panel></WorkspaceSection>
+      <WorkspaceSection id="history" title="Your requests" icon="orders"><Panel><PanelHeader title="Support requests" description={canManage ? "Requests for this business." : "Your submitted requests."} action={<Badge tone="teal">{tickets.length}</Badge>}/>
+            <div className="grid gap-3 p-5 sm:p-6">
               {tickets.length === 0 ? (
                 <p className="rounded-card bg-black/20 p-3 text-sm font-bold text-teal-50/72">No support requests yet.</p>
               ) : null}
               {ticketPage.items.map((ticket) => (
-                <article key={ticket.id} className="grid gap-3 rounded-3xl border border-cyan-200/12 bg-slate-950/35 p-4">
-                  <div className="flex min-w-0 items-start justify-between gap-2">
+                <details key={ticket.id} className="help-article">
+                  <summary>
                     <div className="min-w-0">
                       <p className="font-black leading-tight text-white">{ticket.ticket_number}</p>
                       <p className="text-xs font-bold text-cyan-100/60">{ticket.issue_category}</p>
@@ -622,7 +494,7 @@ export function HelpSupportClient({
                       <Badge tone={priorityTone[ticket.priority]}>{ticket.priority}</Badge>
                       <Badge tone={statusTone[ticket.status]}>{labelize(ticket.status)}</Badge>
                     </div>
-                  </div>
+                  </summary>
                   <p className="text-sm font-semibold leading-6 text-teal-50/75">{ticket.message}</p>
                   {ticket.ai_summary ? (
                     <p className="rounded-card bg-white/[0.06] p-2 text-xs font-bold leading-5 text-cyan-100/72">
@@ -631,8 +503,8 @@ export function HelpSupportClient({
                     </p>
                   ) : null}
                   {canManage ? (
-                    <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
-                      <label htmlFor={`ticket-status-${ticket.id}`} className="sr-only">Select issue type for {ticket.ticket_number}</label>
+                    <div className="grid gap-2 p-4 sm:grid-cols-2 xl:grid-cols-1">
+                      <label htmlFor={`ticket-status-${ticket.id}`} className="sr-only">Select status for {ticket.ticket_number}</label>
                       <select id={`ticket-status-${ticket.id}`} name={`ticketStatus-${ticket.id}`} value={ticket.status} onChange={(event) => updateTicket(ticket.id, { status: event.target.value as SupportTicketStatus })} disabled={busy === ticket.id} className="min-h-9 rounded-card border border-white/10 bg-slate-950/45 px-2 text-xs font-bold text-white">
                         {["new", "open", "waiting_on_customer", "resolved", "closed"].map((status) => <option key={status} value={status}>{labelize(status)}</option>)}
                       </select>
@@ -642,16 +514,11 @@ export function HelpSupportClient({
                       </select>
                     </div>
                   ) : null}
-                </article>
+                </details>
               ))}
             </div>
-          </Panel><Panel>
-            <PanelHeader title="Support Safety" />
-            <div className="grid gap-2 p-4 text-sm font-semibold leading-6 text-teal-50/75 sm:p-5">
-              <p className="flex gap-2"><FileQuestion className="mt-1 h-4 w-4 shrink-0 text-cyan-100" /> AI answers use app help context and your logged-in role.</p>
-              <p className="flex gap-2"><AlertTriangle className="mt-1 h-4 w-4 shrink-0 text-amber-100" /> Secrets, API keys, database URLs, and private tenant data are never shown in support chat.</p>
-              <p className="flex gap-2"><CreditCard className="mt-1 h-4 w-4 shrink-0 text-cyan-100" /> Billing help explains setup steps; payment credentials stay in Stripe and Vercel.</p>
-            </div>
-          </Panel></WorkspaceSection></Workspace></div>
-  );
+        <Pagination {...ticketPage}/>
+      </Panel></WorkspaceSection>
+    </Workspace>
+  </div>;
 }
