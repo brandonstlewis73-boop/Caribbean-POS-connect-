@@ -1,4 +1,5 @@
 "use client";
+import { userMessage } from "@/lib/user-messages";
 import {Pagination,usePagination} from "@/components/workspace/Pagination";
 import {Workspace,WorkspaceSection} from "@/components/workspace/Workspace";
 
@@ -279,7 +280,7 @@ export function InventoryClient({ products, categories, currency }: { products: 
     } catch (error) {
       setPreviewFile(null);
       setUploadStatus("");
-      setMessage(error instanceof Error ? error.message : "Product photo could not be prepared.");
+      setMessage(userMessage(error, "Product photo could not be prepared."));
     } finally {
       setPreparingPhoto(false);
     }
@@ -364,7 +365,7 @@ export function InventoryClient({ products, categories, currency }: { products: 
       resetProductForm(categoryItems);
       setMessage(editingId ? "Product updated successfully." : "Product saved successfully.");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Product could not be saved. Check your connection and try again.");
+      setMessage(userMessage(error, "Product could not be saved. Check your connection and try again."));
       setUploadStatus("");
     } finally {
       setSaving(false);

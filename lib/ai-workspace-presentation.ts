@@ -43,5 +43,5 @@ export function friendlyAiProgress(text: string) {
   if (/fetch|download|cache|loading model/i.test(text)) return percent ? `Preparing AI on this device · ${Math.round(Number(percent[1]))}%` : "Preparing AI on this device…";
   if (/writing|draft.*checking/i.test(text)) return "Working on your request…";
   if (/correction|first draft/i.test(text)) return "Refining the response…";
-  return /GPU|starting|local AI files/i.test(text) ? "Starting your assistant…" : text;
+  return /GPU|starting|local AI files/i.test(text) ? "Starting your assistant…" : "Preparing your assistant…";
 }

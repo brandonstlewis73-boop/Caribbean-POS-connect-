@@ -1,4 +1,5 @@
 'use client';
+import {userMessage} from '@/lib/user-messages';
 import {useEffect,useState} from 'react';
 import {Check,Eye,Save} from 'lucide-react';
 import {Panel,PanelHeader} from '@/components/ui/Panel';
@@ -23,7 +24,7 @@ export function ReceiptTemplateTools({settings,canEdit}:{settings:Settings;canEd
    if(!response.ok)throw Error(payload.error||'Receipt preferences could not be saved.');
    if(!payload.data?.settings)throw Error('No saved preferences were returned. Refresh before trying again.');
    const next={receipt_template:receiptTemplate(payload.data.settings.receipt_template),receipt_show_logo:payload.data.settings.receipt_show_logo!==false,receipt_message:payload.data.settings.receipt_message||''};setSaved(next);setDraft(next);setMessage('Receipt design saved for this business. New PDF downloads use this design.');
-  }catch(error){setMessage(error instanceof Error?error.message:'Request failed. Check your connection and try again.');}finally{setBusy('');}
+  }catch(error){setMessage(userMessage(error, 'Request failed. Check your connection and try again.'));}finally{setBusy('');}
  }
  return <section id="receipt-templates" className="min-w-0 scroll-mt-24 xl:col-span-2"><Panel><PanelHeader title="Receipt templates" description="Give your receipts a look that fits your business."/><div className="grid min-w-0 gap-5 p-4 sm:p-6">
   <div className="grid min-w-0 gap-3 md:grid-cols-3" role="group" aria-label="Receipt template">

@@ -1,4 +1,5 @@
 "use client";
+import { userMessage } from "@/lib/user-messages";
 import {Pagination,usePagination} from "@/components/workspace/Pagination";
 
 import { useMemo, useState } from "react";
@@ -79,7 +80,7 @@ export function DeliveriesClient({ deliveries, currency, canEditDetails = true, 
       } as Partial<Order>);
       setMessage(`Delivery #${order.order_number} details saved.`);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Delivery details could not be saved.");
+      setMessage(userMessage(error, "Delivery details could not be saved."));
     } finally { setBusy(null); }
   }
 
@@ -96,7 +97,7 @@ export function DeliveriesClient({ deliveries, currency, canEditDetails = true, 
       setConfirm(null);
       setMessage(`Delivery #${updated.order_number} marked ${status.replaceAll("_", " ")}.`);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Connection failed. Your delivery status has not been confirmed. Try again.");
+      setMessage(userMessage(error, "Connection failed. Your delivery status has not been confirmed. Try again."));
     } finally { setBusy(null); }
   }
 

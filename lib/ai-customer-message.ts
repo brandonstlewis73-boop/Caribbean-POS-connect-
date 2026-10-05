@@ -1,5 +1,17 @@
 import type { LocalGeneration } from './local-ai-config';
 
+export function customerReplyFromCatalog(facts: NonNullable<LocalGeneration['customerMessageFacts']>) {
+  const products = facts.products.slice(0, 5);
+  if (!products.length) return "We need to check what’s available before confirming your order. Which items are you interested in?";
+  return [
+    "Here are some available items:",
+    ...products.map(product => `• ${product.name} — ${product.priceText}`),
+    facts.pickupEnabled ? "Pickup is offered." : null,
+    facts.deliveryEnabled ? "Delivery is offered." : null,
+    "Which items would you like?"
+  ].filter(Boolean).join("\n");
+}
+
 export function prepareCustomerMessage(prompt: string, facts: {
   businessName: string;
   products: { name: string; priceText: string }[];

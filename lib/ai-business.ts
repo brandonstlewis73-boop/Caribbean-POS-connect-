@@ -1,11 +1,11 @@
 import "server-only";
 import { ACTIVE_ORDER_STATUSES, buildOrderDelayReview, prepareOrderDelayAdvice } from "./ai-order-delays";
-import { prepareCustomerMessage } from "./ai-customer-message";
+import { customerReplyFromCatalog, prepareCustomerMessage } from "./ai-customer-message";
 import { prepareProductDescription } from "./ai-product-description";
 import { prepareProductPromotion } from "./ai-promotion";
 import { hasPermission } from "./permissions";
 import { workflowRecordContext } from "./ai-workflows";
-import { LOCAL_AI_MODEL, localAiEnabled } from "./local-ai-config";
+import { LOCAL_AI_MODEL, localAiEnabled, type LocalGeneration } from "./local-ai-config";
 import { AI_BUSINESS_TOOLS, getAiBusinessTool, type AiBusinessToolId } from "./ai-business-config";
 import { money } from "./constants";
 import { createId, query } from "./db";
@@ -266,9 +266,7 @@ export async function runAiBusinessTool(user: User, input: AiToolRunInput) {
     configured
   });
 
-  return {
-    tool,
-    generation: aiEnabled() ? (input.toolId === "promo_generator" && selectedProduct
+  const generation: LocalGeneration | null = aiEnabled() ? (input.toolId === "promo_generator" && selectedProduct
       ? prepareProductPromotion(cleanPrompt + (cleanExtra ? `\nAdditional instructions: ${cleanExtra}` : ""), {
           productName: redactSensitiveText(selectedProduct.name),
           priceText: money(selectedProduct.selling_price, context.settings.currency),
@@ -289,9 +287,16 @@ export async function runAiBusinessTool(user: User, input: AiToolRunInput) {
                 .map(product => ({ name: redactSensitiveText(product.name), priceText: money(product.selling_price, context.settings.currency) })) : [],
               pickupEnabled: context.settings.pickup_enabled === true,
               deliveryEnabled: context.settings.delivery_enabled === true,
-              catalogRequested: input.toolId === "whatsapp_ordering_assistant" && /\b(?:available|availability|menu|catalog)\b/i.test(cleanPrompt)
+              catalogRequested: input.toolId === "whatsapp_ordering_assistant" && /\b(?:available|availability|menu|catalog|in stock|what do you have|what can I order)\b/i.test(cleanPrompt)
             })
-          : { instructions: toolInstructions(input.toolId), input: inputText }) : null,
+          : { instructions: toolInstructions(input.toolId), input: inputText }) : null;
+  const preparedReply = !/^Revise this draft\./i.test(cleanPrompt) && generation?.purpose === "customer-message" && generation.customerMessageFacts?.catalogRequested
+    ? customerReplyFromCatalog(generation.customerMessageFacts) : null;
+
+  return {
+    tool,
+    generation: preparedReply ? null : generation,
+    preparedReply,
     output,
     configured,
     model: aiModel(),

@@ -1,3 +1,4 @@
+import { userMessage } from "./user-messages";
 export type ApiPayload<T = unknown> = {
   data?: T;
   error?: string;
@@ -10,16 +11,18 @@ export async function readApiPayload<T = unknown>(response: Response): Promise<A
   if (!text.trim()) {
     return response.ok
       ? { data: undefined }
-      : { error: `Request failed with status ${response.status}.` };
+      : { error: "We couldn’t complete that request. Please try again." };
   }
 
   try {
-    return JSON.parse(text) as ApiPayload<T>;
+    const payload = JSON.parse(text) as ApiPayload<T>;
+    if (payload && typeof payload.error === "string") payload.error = userMessage(payload.error);
+    return payload;
   } catch {
     return {
       error: response.ok
-        ? "The server returned a response this page could not read."
-        : "The server returned an unexpected error response."
+        ? "We couldn’t open that response. Please try again."
+        : "We couldn’t complete that request. Please try again."
     };
   }
 }
