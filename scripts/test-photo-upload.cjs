@@ -9,7 +9,7 @@ const assert = require('node:assert/strict');
   try {
     const page = await browser.newPage();
     await page.goto('about:blank');
-    const code = ts.transpileModule(fs.readFileSync(path.join(__dirname,'../lib/photo-upload.ts'),'utf8'), {compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+    const code = ts.transpileModule(fs.readFileSync(path.join(__dirname,'../lib/photo-upload.ts'),'utf8').replace('import.meta.url', '"https://test.invalid/photo-upload.js"'), {compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
     await page.addScriptTag({content:`{const exports={}; ${code}; window.photoTest=exports;}`});
 const result=await page.evaluate(async()=>{const {optimizePhoto,validateSourcePhoto,photoType}=window.photoTest;const canvas=document.createElement('canvas');canvas.width=2200;canvas.height=1800;const ctx=canvas.getContext('2d');const pixels=ctx.createImageData(canvas.width,canvas.height);let seed=123;for(let i=0;i<pixels.data.length;i+=4){seed=(1664525*seed+1013904223)>>>0;pixels.data[i]=seed&255;pixels.data[i+1]=(seed>>>8)&255;pixels.data[i+2]=(seed>>>16)&255;pixels.data[i+3]=255;}ctx.putImageData(pixels,0,0);const blob=await new Promise(r=>canvas.toBlob(r,'image/jpeg',1));const source=new File([blob],'IMG_1234.JPG',{type:'image/jpeg'});const optimized=await optimizePhoto(source,{maxBytes:750*1024,maxDimension:1200});const image=new Image();const url=URL.createObjectURL(optimized);image.src=url;await image.decode();const dims=[image.naturalWidth,image.naturalHeight];URL.revokeObjectURL(url);
 return {source:source.size,output:optimized.size,type:optimized.type,dims, productSize:(await optimizePhoto(source,{maxBytes:3*1024*1024,maxDimension:1600})).size, tooLarge:validateSourcePhoto({name:'photo.jpg',type:'image/jpeg',size:31*1024*1024}), empty:validateSourcePhoto({name:'photo.jpg',type:'image/jpeg',size:0}), heic:validateSourcePhoto({name:'IMG.HEIC',type:'',size:5*1024*1024}), inferred:photoType({name:'IMG.HEIC',type:'application/octet-stream'}), html:validateSourcePhoto({name:'photo.html',type:'text/html',size:500})};});
@@ -20,6 +20,21 @@ await page.evaluate(async()=>{
   catch(error) { if(error.message.includes('could not be opened')) return; throw error; }
   throw new Error('Corrupt photo was accepted');
 });
-console.log('PASS: 11MB source, logo/product byte budgets, dimensions, PNG alpha, MIME inference, HEIC source validation, corrupt/empty/oversize/unsupported file rejection. Native HEIC decoding requires a real Safari-device check.');
+await page.evaluate(async()=>{
+  const OriginalWorker=window.Worker;
+  const canvas=document.createElement('canvas');canvas.width=40;canvas.height=20;canvas.getContext('2d').fillRect(0,0,40,20);
+  const jpeg=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg'));
+  let terminated=0;
+  try {
+    window.Worker=class {postMessage(){setTimeout(()=>this.onmessage({data:{blob:jpeg}}),0)}terminate(){terminated++}};
+    const output=await window.photoTest.optimizePhoto(new File(['unsupported-native-heic'],'IMG.HEIC',{type:'image/heic'}),{maxBytes:750*1024,maxDimension:1200});
+    if(output.type!=='image/jpeg'||terminated!==1)throw Error('HEIC fallback output/cleanup failed');
+    window.Worker=class {postMessage(){setTimeout(()=>this.onmessage({data:{error:'Unsupported photo'}}),0)}terminate(){terminated++}};
+    try {await window.photoTest.optimizePhoto(new File(['bad'],'IMG.HEIC',{type:'image/heic'}),{maxBytes:750*1024,maxDimension:1200});throw Error('Corrupt HEIC accepted');}
+    catch(error){if(error.message!=='Unsupported photo')throw error;}
+    if(terminated!==2)throw Error('Failed HEIC worker was not released');
+  } finally {window.Worker=OriginalWorker;}
+});
+console.log('PASS: 11MB source, logo/product byte budgets, dimensions, PNG alpha, MIME inference, HEIC source validation, corrupt/empty/oversize/unsupported file rejection. HEIC fallback and worker cleanup checked with mocks; physical iPhone verification remains.');
   } finally { await browser.close(); }
 })().catch(error=>{console.error(error);process.exitCode=1});

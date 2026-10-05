@@ -6,9 +6,15 @@ export function localModelId(choice: LocalModelChoice, supportsFloat16: boolean)
   return choice === "light" ? "Qwen2.5-0.5B-Instruct-q4f32_1-MLC"
     : supportsFloat16 ? "Qwen2.5-1.5B-Instruct-q4f16_1-MLC" : LOCAL_AI_MODEL;
 }
+export function defaultLocalModelChoice(userAgent = ""): LocalModelChoice {
+  return /iPhone|iPad|iPod|Android/i.test(userAgent) ? "light" : "quality";
+}
 export function readLocalModelChoice(): LocalModelChoice {
-  try { return typeof window !== "undefined" && window.localStorage.getItem(LOCAL_MODEL_STORAGE_KEY) === "light" ? "light" : "quality"; }
-  catch { return "quality"; }
+  const fallback = defaultLocalModelChoice(typeof navigator !== "undefined" ? navigator.userAgent : "");
+  try {
+    const saved = typeof window !== "undefined" ? window.localStorage.getItem(LOCAL_MODEL_STORAGE_KEY) : null;
+    return saved === "light" || saved === "quality" ? saved : fallback;
+  } catch { return fallback; }
 }
 export function saveLocalModelChoice(choice: LocalModelChoice) {
   try { window.localStorage.setItem(LOCAL_MODEL_STORAGE_KEY, choice); } catch { /* Storage is optional. */ }

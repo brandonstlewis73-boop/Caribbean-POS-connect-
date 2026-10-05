@@ -2,10 +2,12 @@
 export const MAX_SOURCE_PHOTO_BYTES = 30 * 1024 * 1024;
 export const MAX_LOGO_IMAGE_BYTES = 750 * 1024;
 export const MAX_PRODUCT_PHOTO_BYTES = 3 * 1024 * 1024;
-const PHOTO_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']);
+const PHOTO_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'image/heic-sequence', 'image/heif-sequence']);
 
 export function photoType(file: Pick<File, 'name' | 'type'>) {
   const type = file.type.toLowerCase();
+  if (type === 'image/heic-sequence') return 'image/heic';
+  if (type === 'image/heif-sequence') return 'image/heif';
   if (type === 'image/jpg') return 'image/jpeg';
   if (type && type !== 'application/octet-stream') return type;
   const extension = file.name.split('.').pop()?.toLowerCase();
@@ -37,10 +39,39 @@ function loadPhoto(file: File) {
   });
 }
 
+// Keep decoding off the UI thread and release it even after failures or timeouts.
+function convertHeicPhoto(file: File) {
+  return new Promise<File>((resolve, reject) => {
+    let worker: Worker;
+    try { worker = new Worker(new URL('../workers/heic-photo.worker.ts', import.meta.url)); }
+    catch { reject(new Error('This browser could not start photo conversion. Open the app in Safari and try again.')); return; }
+    const finish = () => { clearTimeout(timer); worker.terminate(); };
+    const timer = setTimeout(() => { finish(); reject(new Error('Photo conversion took too long. Choose a smaller photo and try again.')); }, 90000);
+    worker.onmessage = (event: MessageEvent<{blob?: Blob; error?: string}>) => {
+      finish();
+      if (!event.data.blob?.size || event.data.blob.type !== 'image/jpeg') {
+        reject(new Error(event.data.error || 'This iPhone photo could not be converted. Choose another photo.')); return;
+      }
+      resolve(new File([event.data.blob], file.name.replace(/\.[^.]+$/, '') + '.jpg', {type: 'image/jpeg'}));
+    };
+    worker.onerror = () => { finish(); reject(new Error('Photo conversion could not finish on this device. Close other tabs and try again with a smaller photo.')); };
+    worker.onmessageerror = () => { finish(); reject(new Error('The converted photo could not be read. Try again.')); };
+    try { worker.postMessage({file}); }
+    catch { finish(); reject(new Error('The photo could not be sent to the converter. Choose it again.')); }
+  });
+}
+
 export async function optimizePhoto(file: File, options: {maxBytes:number;maxDimension:number}) {
   const error = validateSourcePhoto(file);
   if (error) throw new Error(error);
-  const image = await loadPhoto(file);
+  let image: HTMLImageElement;
+  try {
+    image = await loadPhoto(file);
+  } catch (nativeError) {
+    if (!photoType(file).startsWith('image/hei')) throw nativeError;
+    const converted = await convertHeicPhoto(file);
+    image = await loadPhoto(converted);
+  }
   if (!image.naturalWidth || !image.naturalHeight) throw new Error('The photo has no image dimensions. Choose another photo.');
   const scale = Math.min(1, options.maxDimension / Math.max(image.naturalWidth,image.naturalHeight));
   let width = Math.max(1,Math.round(image.naturalWidth*scale));
