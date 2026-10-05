@@ -1,5 +1,6 @@
 "use client";
 
+import { ReceiptTemplateTools } from "@/components/receipts/ReceiptTemplateTools";
 import { useState } from "react";
 import { Mail, MessageCircle, Printer, ReceiptText, Save } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -33,7 +34,7 @@ function Toggle({
   );
 }
 
-export function PrinterSettingsClient({ settings }: { settings: Settings }) {
+export function PrinterSettingsClient({ settings, canEdit = false }: { settings: Settings; canEdit?: boolean }) {
   const [draft, setDraft] = useState<ReceiptSettings>({
     receipt_print_customer_enabled: settings.receipt_print_customer_enabled,
     receipt_print_kitchen_enabled: settings.receipt_print_kitchen_enabled,
@@ -75,7 +76,8 @@ export function PrinterSettingsClient({ settings }: { settings: Settings }) {
   }
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+    <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <ReceiptTemplateTools settings={settings} canEdit={canEdit} />
       <Panel>
         <PanelHeader title="Printer & Receipts" description="Receipt, kitchen ticket, email, and WhatsApp receipt workflow" action={<Badge tone="teal">Ready</Badge>} />
         <div className="grid gap-4 p-4 md:grid-cols-2">

@@ -79,7 +79,7 @@ export function ReceiptsClient({
   return (
     <div className="grid min-w-0 gap-4">
       <Panel>
-        <PanelHeader title="Receipts" description="Search, print, and resend customer receipts" />
+        <PanelHeader title="Receipts" description="Search, print, and resend customer receipts" action={<a href="/printer#receipt-templates" className="inline-flex min-h-11 items-center rounded-card border border-white/15 px-3 text-sm font-bold">Receipt templates</a>} />
         <div className="border-b border-caribbean-line p-4 dark:border-slate-800">
           <label className="relative min-w-0">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
