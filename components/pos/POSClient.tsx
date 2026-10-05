@@ -89,6 +89,10 @@ export function POSClient({
   const [customers, setCustomers] = useState(initialCustomers);
   const [categories, setCategories] = useState(initialCategories);
   const [query, setQuery] = useState("");
+  const [productView,setProductView] = useState<"list"|"grid">("list");
+  const [barcodeEntryOpen,setBarcodeEntryOpen] = useState(false);
+  const [addQuantity,setAddQuantity] = useState(1);
+  const scannerControls=useRef<{stop:()=>void}|null>(null);
   const [category, setCategory] = useState("all");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [customer, setCustomer] = useState(() => emptyCustomer(settings.currency));
@@ -179,10 +183,7 @@ export function POSClient({
     async function startScanner() {
       setScannerError("");
       const Detector = (window as unknown as { BarcodeDetector?: BarcodeDetectorConstructor }).BarcodeDetector;
-      if (!Detector) {
-        setScannerError("Camera barcode scanning is not supported in this browser. Use manual barcode entry or a USB scanner.");
-        return;
-      }
+
       if (!navigator.mediaDevices?.getUserMedia) {
         setScannerError("Camera access is not available in this browser.");
         return;
@@ -192,10 +193,17 @@ export function POSClient({
           video: { facingMode: "environment" },
           audio: false
         });
+        if(stopped||!videoRef.current){stream.getTracks().forEach(track=>track.stop());return;}
         scannerStreamRef.current = stream;
-        if (!videoRef.current) return;
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
+        if(!Detector){
+          const {BrowserMultiFormatReader}=await import('@zxing/browser');
+          if(stopped){stream.getTracks().forEach(track=>track.stop());return;}
+          const controls=await new BrowserMultiFormatReader().decodeFromStream(stream,videoRef.current,(result)=>{if(!stopped&&result&&addProductByBarcodeRef.current(result.getText()))setScannerOpen(false);});
+          if(stopped)controls.stop();else scannerControls.current=controls;
+          return;
+        }
         const detector = new Detector({
           formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "code_39", "qr_code"]
         });
@@ -215,28 +223,30 @@ export function POSClient({
         };
         scan();
       } catch {
-        setScannerError("Camera permission was denied or the camera is unavailable.");
+        setScannerError("Allow camera access in your browser to scan products, or use Barcode to enter the code yourself.");
       }
     }
 
     startScanner();
     return () => {
       stopped = true;
+      scannerControls.current?.stop();scannerControls.current=null;
       scannerStreamRef.current?.getTracks().forEach((track) => track.stop());
       scannerStreamRef.current = null;
     };
   }, [scannerOpen]);
 
   function addProduct(product: Product) {
-    setCart((current) => {
-      const existing = current.find((item) => item.id === product.id);
-      if (existing) {
-        return current.map((item) =>
-          item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
-        );
-      }
-      return [...current, { ...product, quantity: 1, discount: 0 }];
-    });
+    if (isSaving) return false;
+    const stock=Math.max(0,Math.floor(Number(product.stock_quantity)||0));
+    const quantity=cart.find(item=>item.id===product.id)?.quantity||0;
+    if(product.active===false || quantity+addQuantity>stock){
+      setError(`${product.name}: only ${stock} in stock. Reduce the quantity or refresh inventory.`);
+      return false;
+    }
+    setError("");
+    setCart(current=>{const existing=current.find(item=>item.id===product.id);return existing?current.map(item=>item.id===product.id?{...item,quantity:Math.min(stock,item.quantity+addQuantity)}:item):[...current,{...product,quantity:addQuantity,discount:0}];});
+    return true;
   }
 
   function normalizeBarcode(value: string) {
@@ -278,7 +288,7 @@ export function POSClient({
       setError(`Barcode ${rawCode.trim()} was not found in inventory.`);
       return false;
     }
-    addProduct(product);
+    if (!addProduct(product)) return false;
     playScanBeep();
     setError("");
     setBarcodeInput("");
@@ -428,7 +438,7 @@ export function POSClient({
 
   return (
     <>
-    <div className="kyte-mobile-screen md:hidden">
+    <div className="kyte-mobile-screen pos-register md:hidden">
       <section className="kyte-mobile-toolbar">
         <label className="kyte-mobile-search">
           <Search className="h-6 w-6 text-slate-500" />
@@ -439,26 +449,26 @@ export function POSClient({
           />
         </label>
         <div className="kyte-mobile-tools" aria-label="POS tools">
-          <button type="button" onClick={() => mobileBarcodeInputRef.current?.focus()} aria-label="Scan barcode">
-            <Barcode className="h-5 w-5" />
+          <button type="button" onClick={() => {setBarcodeEntryOpen(!barcodeEntryOpen);setTimeout(()=>mobileBarcodeInputRef.current?.focus(),0)}} aria-label="Enter barcode" aria-expanded={barcodeEntryOpen}>
+            <Barcode className="h-5 w-5" /><small>Barcode</small>
           </button>
           <button type="button" onClick={() => setScannerOpen(true)} aria-label="Open camera scanner">
-            <Camera className="h-5 w-5" />
+            <Camera className="h-5 w-5" /><small>Camera</small>
           </button>
-          <button type="button" aria-label="Grid view">
-            <Grid2X2 className="h-5 w-5" />
+          <button type="button" onClick={()=>setProductView(productView==='grid'?'list':'grid')} aria-label="Toggle product view" aria-pressed={productView==='grid'}>
+            <Grid2X2 className="h-5 w-5" /><small>{productView==='grid'?'Grid':'List'}</small>
           </button>
-          <button type="button" aria-label="Quantity multiplier" className="kyte-tool-pill">
-            1X
+          <button type="button" onClick={()=>setAddQuantity(value=>value===1?2:value===2?5:1)} aria-label="Quantity to add" className="kyte-tool-pill">
+            <span>{addQuantity}×</span><small>Per tap</small>
           </button>
         </div>
-        <form onSubmit={submitBarcode} className="sr-only">
+        <form onSubmit={submitBarcode} className={barcodeEntryOpen?"pos-barcode-entry":"hidden"}>
           <input
             ref={mobileBarcodeInputRef}
             value={barcodeInput}
             onChange={(event) => setBarcodeInput(event.target.value)}
-            aria-label="Barcode"
-          />
+            aria-label="Barcode" placeholder="Type or scan barcode"
+          /><button type="submit">Add item</button>
         </form>
       </section>
 
@@ -489,7 +499,7 @@ export function POSClient({
       ) : null}
       {error ? <p className="kyte-mobile-notice error">{error}</p> : null}
 
-      <section className="kyte-product-list" aria-label="Products">
+      <section className={`kyte-product-list ${productView==='grid'?'pos-product-grid':''}`} aria-label="Products">
         {filteredProducts.map((product) => {
           const price = product.discount_price || product.selling_price;
           return (
@@ -498,6 +508,7 @@ export function POSClient({
               key={product.id}
               onClick={() => addProduct(product)}
               className="kyte-product-row"
+              disabled={product.active===false || Number(product.stock_quantity)<=0}
             >
               {product.image_url ? (
                 <img src={product.image_url} alt={product.name} loading="lazy" />
@@ -1004,3 +1015,4 @@ export function POSClient({
     </>
   );
 }
+
