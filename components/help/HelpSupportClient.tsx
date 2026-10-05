@@ -260,6 +260,7 @@ export function HelpSupportClient({
   });
   const [ticketMessage, setTicketMessage] = useState<{ tone: "success" | "error"; text: string } | null>(null);
   const [busy, setBusy] = useState("");
+  const [ticketUpdateMessage, setTicketUpdateMessage] = useState<{ tone: "success" | "error"; text: string } | null>(null);
 
   const activeGuide = guideCards.find((guide) => guide.id === activeGuideId) || guideCards[0];
   const activeTroubleshooting = troubleshootingCards.find((card) => card.title === activeTrouble) || troubleshootingCards[0];
@@ -352,6 +353,7 @@ export function HelpSupportClient({
   async function updateTicket(id: string, patch: Partial<SupportTicket>) {
     if (!canManage) return;
     setBusy(id);
+    setTicketUpdateMessage(null);
     try {
       const response = await fetch(`/api/help/tickets/${id}`, {
         method: "PATCH",
@@ -361,6 +363,9 @@ export function HelpSupportClient({
       const payload = await readApiPayload<{ ticket: SupportTicket }>(response);
       if (!response.ok || !payload.data?.ticket) throw new Error(payload.error || "Ticket update failed.");
       setTickets((current) => current.map((ticket) => (ticket.id === id ? payload.data!.ticket : ticket)));
+      setTicketUpdateMessage({ tone: "success", text: `Request ${payload.data.ticket.ticket_number} updated.` });
+    } catch (error) {
+      setTicketUpdateMessage({ tone: "error", text: error instanceof Error ? error.message : "Request could not be updated. Try again." });
     } finally {
       setBusy("");
     }
@@ -478,7 +483,7 @@ export function HelpSupportClient({
         {ticketMessage ? <p role={ticketMessage.tone === "error" ? "alert" : "status"} className={`help-request-feedback ${ticketMessage.tone}`}>{ticketMessage.text}</p> : null}
         <Button onClick={submitTicket} disabled={busy === "ticket"}><Send size={18}/>{busy === "ticket" ? "Submitting…" : "Submit support request"}</Button>
       </div></Panel></WorkspaceSection>
-      <WorkspaceSection id="history" title="Your requests" icon="orders"><Panel><PanelHeader title="Support requests" description={canManage ? "Requests for this business." : "Your submitted requests."} action={<Badge tone="teal">{tickets.length}</Badge>}/>
+      <WorkspaceSection id="history" title="Your requests" icon="orders"><Panel>{ticketUpdateMessage ? <p role={ticketUpdateMessage.tone === "error" ? "alert" : "status"} className={`help-request-feedback ${ticketUpdateMessage.tone}`}>{ticketUpdateMessage.text}</p> : null}<PanelHeader title="Support requests" description={canManage ? "Requests for this business." : "Your submitted requests."} action={<Badge tone="teal">{tickets.length}</Badge>}/>
             <div className="grid gap-3 p-5 sm:p-6">
               {tickets.length === 0 ? (
                 <p className="rounded-card bg-black/20 p-3 text-sm font-bold text-teal-50/72">No support requests yet.</p>
