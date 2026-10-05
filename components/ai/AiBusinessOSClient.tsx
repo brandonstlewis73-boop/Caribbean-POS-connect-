@@ -50,7 +50,7 @@ export function AiBusinessOSClient({usage,aiStatus,userName}: {
             {ai.error?<div role="alert" className="aw-error">{ai.error}{ai.recordConflict?<button type="button" className="aw-reload-action" disabled={ai.loadingResources||ai.saving} onClick={ai.reloadAfterConflict}><RotateCcw size={14}/>{ai.loadingResources?"Reloading…":"Reload current product"}</button>:null}</div>:null}
             {ai.recordsReloaded&&ai.product?<details open className="aw-current-description"><summary>Current saved description</summary><p>{ai.product.description||"No description saved yet."}</p></details>:null}
             {ai.status?<p role="status" aria-live="polite" className="aw-status">{ai.status}</p>:null}
-            {ai.toolId==="promo_generator"&&ai.product?<button type="button" className="aw-reload-action" disabled={ai.blocked||ai.busy||ai.saving} onClick={()=>void ai.useSavedDetails()}><Package size={16}/>Use saved product details</button>:null}
+            {["promo_generator","product_description_writer"].includes(ai.toolId)&&ai.product?<button type="button" className="aw-reload-action" disabled={ai.blocked||ai.busy||ai.saving} onClick={()=>void ai.useSavedDetails()}><Package size={16}/>Use saved product details</button>:null}
             <form className="aw-composer" onSubmit={event=>{event.preventDefault();void ai.run();}}>
               <label className="aw-sr-only" htmlFor="ai-workspace-request">Message your assistant</label>
               <textarea id="ai-workspace-request" ref={ai.composer} value={ai.thread.input} onChange={event=>ai.setInput(event.target.value)} placeholder={ai.thread.completed?"Tell me what to change…":"Tell me what you need…"} rows={3} maxLength={1800} disabled={ai.busy||ai.saving} />

@@ -1,3 +1,4 @@
+import { descriptionFromSavedDetails } from "./ai-product-description";
 import type { LocalGeneration } from "./local-ai-config";
 import { LocalRepetitionError } from "./local-ai-lifecycle";
 import { CARIBBEAN_CURRENCIES } from "./constants";
@@ -19,7 +20,7 @@ function samePrice(a: ReturnType<typeof pricesIn>[number], b: ReturnType<typeof 
 }
 export class LocalDraftQualityError extends Error {
   constructor(public readonly reason: string) {
-    super(`The local model's response did not pass the check: ${reason} No usable draft was produced.`);
+    super(`The local model's response did not pass the check: ${reason} No usable draft was produced.${/saved product facts|storefront description|selected product name/i.test(reason) ? " Choose Use saved product details to create a simple description without AI, or add verified details to the product first." : ""}`);
     this.name = "LocalDraftQualityError";
   }
 }
@@ -31,6 +32,20 @@ export function localDraftInstructions(request: LocalGeneration) {
   return request.instructions.slice(0, 5000) + "\nFollow the user request directly. Output the requested draft, without an introduction or explanation. Use bracketed placeholders for facts the user has not provided. When price placeholders are requested, include [PRICE] in the actual promotion. Do not ask for missing details when placeholders are requested. Never promise to send messages, look up prices, or perform actions. Write each sentence once." +
     (request.purpose !== "product-promotion" && /\b(?:promo|promotion|promotions|advertisement)\b/i.test(request.input.split("Business context")[0])
       ? "\nExample of a promotion with placeholders: Lunch is ready at [BUSINESS NAME]! Enjoy [LUNCH SPECIAL] for [CURRENCY][PRICE]. Available [TIME]. Message us to order. Adapt to the user's request." : "");
+}
+
+// On repair, do not repeat a broad request (or a previous hallucinated draft).
+// Give the model the verified fields and a conservative, valid example instead.
+export function localDraftInput(request: LocalGeneration, repair?: string) {
+  if (repair && request.purpose === "product-description" && request.descriptionFacts) {
+    const facts = request.descriptionFacts;
+    return `Write only a short storefront description using these saved facts:
+${JSON.stringify(facts)}
+Do not add any other product claims. Do not interpret a name as a recipe, layer count, or ingredient list.
+A valid minimal description is: ${descriptionFromSavedDetails(facts)}
+Use that minimal wording if additional detail cannot be supported by the saved description.`;
+  }
+  return request.input.slice(0, 6000) + (repair ? "\nCorrection: " + repair + " Output only the completed draft." : "");
 }
 
 export function localDraftIssue(request: LocalGeneration, text: string): string | null {
@@ -87,7 +102,7 @@ export function localDraftIssue(request: LocalGeneration, text: string): string 
     const savedWords = new Set(words(source).flatMap(word => [word, word.replace(/s$/, "")]));
     const savedNumbers = new Set(source.match(/\d+(?:[.,]\d+)*/g) || []);
     if ((text.match(/\d+(?:[.,]\d+)*/g) || []).some(number => !savedNumbers.has(number))) return "Remove numbers that are not in the saved description facts. Do not add prices, stock counts, or SKU values.";
-    const styleWords = new Set(words("a an the and or for of to in on with from by at is are this that it its our your you enjoy try discover choose choice product item option treat everyday classic simple delightful delicious indulgent perfect ideal great addition favorite favourite available selection selected features offers offering suitable made shop find look looking store collection range ready time taste experience"));
+    const styleWords = new Set(words("a an the and or for of to in on with from by at is are this that it its our your you enjoy try discover choose choice product item option treat everyday classic simple delight delightful delicious indulgent perfect ideal great addition favorite favourite available selection selected features offers offering suitable made shop find look looking store collection range ready time taste experience"));
     const unsupported = words(text).filter(word => word.length > 3 && !savedWords.has(word) && !savedWords.has(word.replace(/s$/, "")) && !styleWords.has(word));
     if (unsupported.length) return `Use only the saved product facts. Remove unsupported details such as ${Array.from(new Set(unsupported)).slice(0, 5).join(", ")}. Keep it simple when details are missing.`;
     if (!text.toLowerCase().includes(facts.productName.toLowerCase())) return "Include the exact selected product name.";

@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { money } from "@/lib/constants";
+import { descriptionFromSavedDetails } from "@/lib/ai-product-description";
 import { promotionFromSavedDetails } from "@/lib/ai-promotion";
 import { assertLocalAiSupport, generateLocalDraft } from "@/lib/local-ai";
 import { orderDelayReviewText, type OrderDelayReview } from "@/lib/ai-order-delays";
@@ -134,16 +135,19 @@ export function useAiWorkspace(usage: PlanUsageSummary, enabled: boolean) {
   }
 
   async function useSavedDetails() {
-    if (toolId !== "promo_generator" || !product || busy || saving || blocked) return;
+    if (!["promo_generator", "product_description_writer"].includes(toolId) || !product || busy || saving || blocked) return;
     const id = product.id;
+    const workflow = toolId;
     setSaving(true); setError(""); setStatus("Refreshing product details…");
     const fresh = await loadResources();
     if (mounted.current) {
       const selected = fresh && fresh.products.find(item => item.id === id);
       if (selected) {
-        changeThread("promo_generator", { ...emptyThread(), productId: id, resultProductId: id,
-          output: promotionFromSavedDetails({ productName: selected.name, priceText: money(selected.sellingPrice, fresh.currency), available: selected.stock > 0 }),
-          completed: true, source: "catalog", goal: "Write a short promotion using this product's saved details." });
+        changeThread(workflow, { ...emptyThread(), productId: id, resultProductId: id,
+          output: workflow === "product_description_writer"
+            ? descriptionFromSavedDetails({ productName: selected.name, category: selected.category })
+            : promotionFromSavedDetails({ productName: selected.name, priceText: money(selected.sellingPrice, fresh.currency), available: selected.stock > 0 }),
+          completed: true, source: "catalog", goal: workflow === "product_description_writer" ? "Write a short description using this product's saved facts." : "Write a short promotion using this product's saved details." });
         setStatus("");
       } else { setError("Product details could not be refreshed. Reload your catalog before creating a message."); setStatus(""); }
       setSaving(false);
