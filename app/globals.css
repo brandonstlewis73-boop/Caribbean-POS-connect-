@@ -2632,3 +2632,31 @@ th {
 .business-shell .ui-panel [class*="divide-"]>*+* { border-color:#e5eaf0; }
 .business-shell .ui-panel [class*="shadow-"] { box-shadow:none; }
 .workspace-data-action { display:flex; align-items:center; justify-content:center; gap:10px; min-height:48px; padding:12px; border:1px solid #dce4ec; border-radius:12px; background:#f5f8fb; color:#087e80; font-size:13px; font-weight:650; }
+
+/* Readable business text, including compact phone controls. */
+.business-shell { color-scheme:light; font-size:16px; }
+.business-shell .app-shell-main .text-xs { font-size:14px; line-height:1.5; }
+.business-shell .app-shell-main .text-sm { font-size:15px; line-height:1.5; }
+.business-shell .ui-panel .text-slate-400 { color:#526579; }
+.business-shell .app-shell-main input::placeholder,
+.business-shell .app-shell-main textarea::placeholder { color:#526579; opacity:1; }
+.business-shell .ui-panel label>span { color:#42576a; line-height:1.4; }
+.business-shell .workspace-tabs button,
+.business-shell .workspace-pagination,
+.business-shell .workspace-data-action,
+.business-shell .workspace-save-message,
+.business-shell .workspace-health { font-size:14px; line-height:1.5; }
+.business-shell .workspace-mobile-picker>span { color:#526579; font-size:13px; }
+.business-shell .app-mobile-drawer nav a { font-size:14px; line-height:1.4; }
+.business-shell .app-shell-main input:not([type=checkbox]):not([type=radio]),
+.business-shell .app-shell-main select,
+.business-shell .app-shell-main textarea { font-size:16px; line-height:1.5; }
+@media(max-width:767px){
+ .business-shell .aw-result-actions button,.business-shell .aw-result-actions a { font-size:14px; line-height:1.4; white-space:normal; }
+ .business-shell .pos-register .kyte-mobile-tools small { font-size:13px; }
+ .business-shell .pos-register .kyte-category-tabs button,
+ .business-shell .pos-catalog-summary,.business-shell .pos-payment-note,
+ .business-shell .pos-empty-actions button,.business-shell .pos-empty-actions a,
+ .business-shell .pos-sale-confirmation p,.business-shell .pos-sale-confirmation a,
+ .business-shell .dispatch-hero p { font-size:14px; line-height:1.5; }
+}
