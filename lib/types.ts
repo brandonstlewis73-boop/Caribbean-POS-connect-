@@ -368,6 +368,8 @@ export type Settings = {
   delivery_fee: number;
   delivery_rates: Record<string, number>;
   receipt_message: string;
+  receipt_template?: "modern" | "classic" | "minimal";
+  receipt_show_logo?: boolean;
   loyalty_enabled: boolean;
   loyalty_points_per_ttd: number;
   loyalty_redeem_ttd_per_point: number;

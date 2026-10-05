@@ -133,6 +133,9 @@ export const checkoutSchema = z.object({
 export const settingsSchema = z
   .record(z.union([z.string(), z.number(), z.boolean(), z.null(), z.record(z.coerce.number())]))
   .superRefine((value, ctx) => {
+    if (value.receipt_template !== undefined && !["modern", "classic", "minimal"].includes(String(value.receipt_template))) ctx.addIssue({code:z.ZodIssueCode.custom,path:["receipt_template"],message:"Choose a supported receipt template."});
+    if (value.receipt_show_logo !== undefined && typeof value.receipt_show_logo !== "boolean") ctx.addIssue({code:z.ZodIssueCode.custom,path:["receipt_show_logo"],message:"Logo visibility must be true or false."});
+    if (value.receipt_message !== undefined && (typeof value.receipt_message !== "string" || value.receipt_message.length > 500)) ctx.addIssue({code:z.ZodIssueCode.custom,path:["receipt_message"],message:"Receipt message must be text up to 500 characters."});
     if (typeof value.currency === "string" && !caribbeanCurrencyCodes.includes(value.currency)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,

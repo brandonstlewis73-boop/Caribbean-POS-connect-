@@ -3,9 +3,10 @@ import path from "path";
 import PDFDocument from "pdfkit";
 import QRCode from "qrcode";
 import { money } from "./constants";
+import { receiptLink, renderReceiptPdf } from "./receipt-layout";
 import { getBusinessSettings, getReceiptNumber } from "./data";
 import { buildAddress } from "./waze";
-import type { CustomerInput, Order } from "./types";
+import type { CustomerInput, Order, Settings } from "./types";
 
 const MAX_RECEIPT_LOGO_BYTES = 2 * 1024 * 1024;
 
@@ -27,7 +28,7 @@ async function createQrBuffer(value?: string | null, width = 110) {
     return await QRCode.toBuffer(value, {
       type: "png",
       width,
-      margin: 1,
+      margin: 4,
       errorCorrectionLevel: "M"
     });
   } catch {
@@ -90,59 +91,17 @@ function customerAddress(customer: CustomerInput) {
 
 export async function createReceiptPdfBuffer(order: Order) {
   const [settings, receiptNumber] = await Promise.all([getBusinessSettings(order.business_id), getReceiptNumber(order.id)]);
-  const doc = new PDFDocument({ size: [240, 720], margin: 18 });
-  const done = pdfToBuffer(doc);
-  const wazeQr = await createQrBuffer(order.waze_link);
-  const logoBuffer = await createLogoBuffer(settings.logo_url);
+  const paymentLink = order.payment_status === "unpaid" ? receiptLink(order.payment_link) : null;
+  const navigationLink = receiptLink(order.waze_link);
+  const [logo, paymentQr, navigationQr] = await Promise.all([
+    createLogoBuffer(settings.logo_url), createQrBuffer(paymentLink, 240), createQrBuffer(navigationLink, 240)
+  ]);
+  return renderReceiptPdf(order, settings, receiptNumber, {logo, paymentQr, navigationQr});
+}
 
-  drawCenteredLogo(doc, logoBuffer, 54);
-  doc.fontSize(13).text(settings.business_name, { align: "center" });
-  doc.fontSize(8).text(settings.business_phone, { align: "center" });
-  doc.text(settings.business_email, { align: "center" });
-  doc.text(settings.business_address, { align: "center" });
-  doc.moveDown();
-  doc.fontSize(9).text(`Receipt: ${receiptNumber || order.order_number}`);
-  doc.text(`Order: ${order.order_number}`);
-  doc.text(`Date: ${new Date(order.created_at).toLocaleString()}`);
-  doc.text(`Customer: ${order.customer_snapshot.name || "Walk-in customer"}`);
-  doc.moveDown();
-
-  for (const item of order.items) {
-    doc.fontSize(9).text(`${item.quantity} x ${item.product_name}`);
-    doc.fontSize(8).text(`${money(item.unit_price, settings.currency)} each  ${money(item.line_total, settings.currency)}`, {
-      align: "right"
-    });
-  }
-
-  doc.moveDown();
-  doc.fontSize(9).text(`Subtotal: ${money(order.subtotal, settings.currency)}`, { align: "right" });
-  if (order.discount_total) doc.text(`Discount: -${money(order.discount_total, settings.currency)}`, { align: "right" });
-  if (order.tax_total) doc.text(`Tax/Fee: ${money(order.tax_total, settings.currency)}`, { align: "right" });
-  if (order.delivery_fee) doc.text(`Delivery: ${money(order.delivery_fee, settings.currency)}`, { align: "right" });
-  doc.fontSize(12).text(`Total: ${money(order.total, settings.currency)}`, { align: "right" });
-  doc.moveDown();
-  doc.fontSize(9).text(`Payment: ${order.payment_method}`);
-  doc.text(`Status: ${order.payment_status}`);
-  if (order.payment_link) {
-    doc.text(`Payment link: ${order.payment_link}`);
-  }
-  if (order.waze_link) {
-    doc.text(`Waze: ${order.waze_link}`);
-    if (wazeQr) {
-      doc.moveDown(0.5);
-      doc.fontSize(8).text("Scan for Waze navigation", { align: "center" });
-      doc.image(wazeQr, doc.page.width / 2 - 45, doc.y + 4, { width: 90 });
-      doc.y += 98;
-    }
-  }
-  if (order.loyalty_points_earned) {
-    doc.text(`Loyalty earned: ${order.loyalty_points_earned} points`);
-  }
-  doc.moveDown();
-  doc.text(settings.receipt_message, { align: "center" });
-  doc.end();
-
-  return done;
+export async function createReceiptPreviewPdfBuffer(settings: Settings) {
+  const order = {id:"preview",order_number:"PREVIEW",created_at:new Date().toISOString(),order_type:"pickup",customer_snapshot:{name:"Sample customer"},items:[{id:"preview-item",quantity:2,product_name:"Sample product",unit_price:30,line_total:60}],subtotal:60,total:60,discount_total:0,tax_total:0,service_fee:0,delivery_fee:0,payment_method:"Cash",payment_status:"unpaid"} as Order;
+  return renderReceiptPdf(order,settings,"PREVIEW",{logo:settings.receipt_show_logo === false ? null : await createLogoBuffer(settings.logo_url),preview:true});
 }
 
 export async function createShippingLabelPdfBuffer(order: Order) {
