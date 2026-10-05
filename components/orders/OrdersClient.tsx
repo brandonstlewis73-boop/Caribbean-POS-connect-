@@ -470,8 +470,8 @@ export function OrdersClient({
               <div className="grid gap-2 rounded-card border border-white/10 bg-black/20 p-3">
                 <p className="text-xs font-black uppercase tracking-normal text-cyan-100/55">Customer notifications</p>
                 {selected.customer_notifications.slice(-5).map((notification) => (
-                  <div key={notification.id} className="flex items-start justify-between gap-3 text-sm">
-                    <span>
+                  <div key={notification.id} className="flex min-w-0 items-start justify-between gap-3 text-sm">
+                    <span className="min-w-0 flex-1 break-words">
                       <span className="block font-bold capitalize">{notification.channel}</span>
                       <span className="block text-xs font-semibold text-teal-50/55">{notification.message}</span>{notification.error_message?<span className="mt-1 block text-xs text-red-100">{notification.error_message}</span>:null}
                     </span>

@@ -31,13 +31,13 @@ async function loadEngine(progress: (text: string) => void, signal: AbortSignal 
     await guardLocalTask(waitForWorkerReady(worker), worker, signal, 16000, "Local AI startup timed out. Refresh the page and try again.");
     const modelId = localModelId(choice, adapter.features?.has("shader-f16") === true);
     progress(`Loading model files. First use downloads about ${choice === "quality" ? "870" : "300"} MB; you can stop at any time.`);
-    initialization = CreateWebWorkerMLCEngine(worker, modelId, { initProgressCallback: report => progress(report.text) });
+    initialization = CreateWebWorkerMLCEngine(worker, modelId, { initProgressCallback: report => progress(report.text) }, { context_window_size: 2048 });
     engine = await guardLocalTask(initialization, worker, signal, 15 * 60 * 1000, "The model download timed out. Check your connection and try again.");
     loadedChoice = choice;
     return engine;
   } catch (error) {
     resetEngine();
-    throw error instanceof Error ? error : new Error("The local model could not load. Check your connection, device memory, and GPU support.");
+    throw error instanceof Error ? error : new Error(choice === "quality" ? "The higher-quality model could not load on this device. In Device AI, choose Lightweight and try again. Close other tabs to free memory." : "The lightweight model could not load. Check your connection and available memory, and open directly in Safari on iOS 26 or newer.");
   }
 }
 export function generateLocalDraft(request: LocalGeneration, progress: (text: string) => void = () => {}, signal?: AbortSignal, onDraft: (text: string) => void = () => {}, choice: LocalModelChoice = readLocalModelChoice()) {

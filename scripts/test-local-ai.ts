@@ -6,10 +6,12 @@ import { LocalRepetitionError } from "../lib/local-ai-lifecycle";
 import { checkedLocalDraft, localDraftInstructions, localDraftInput, localDraftIssue } from "../lib/local-ai-quality";
 import assert from "node:assert/strict";
 import { generateSupportAnswer, generateTicketSummary, aiSupportStatus } from "../lib/ai-support";
-import { LOCAL_AI_MODEL, localModelId, readLocalModelChoice } from "../lib/local-ai-config";
+import { LOCAL_AI_MODEL, localModelId, readLocalModelChoice, defaultLocalModelChoice } from "../lib/local-ai-config";
 import { assertLocalAiSupport } from "../lib/local-ai";
 async function main() {
   assert.equal(readLocalModelChoice(), "quality");
+  assert.equal(defaultLocalModelChoice("Mozilla/5.0 (iPhone; CPU iPhone OS 26_0)"), "light");
+  assert.equal(defaultLocalModelChoice("Mozilla/5.0 (Windows NT 10.0)"), "quality");
   assert.equal(localModelId("quality", true), "Qwen2.5-1.5B-Instruct-q4f16_1-MLC");
   assert.equal(localModelId("quality", false), LOCAL_AI_MODEL);
   assert.equal(localModelId("light", true), "Qwen2.5-0.5B-Instruct-q4f32_1-MLC");
