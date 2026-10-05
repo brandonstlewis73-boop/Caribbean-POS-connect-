@@ -9,7 +9,11 @@ import { enforceRateLimit, requestClientKey } from "../lib/rate-limit";
 async function main() {
   Object.assign(process.env, { CPC_AUTO_MIGRATE: "false", SESSION_SECRET: "test-rate-limit-secret-with-32-bytes" });
   const db = new PGlite();
+  await db.exec("CREATE ROLE anon; CREATE ROLE authenticated; ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated");
   await db.exec(await readFile("db/security_rate_limits.sql", "utf8"));
+  const grants = await db.query<{anon_read:boolean;user_write:boolean}>("SELECT has_table_privilege('anon', 'security_rate_limits', 'SELECT') AS anon_read, has_table_privilege('authenticated', 'security_rate_limits', 'INSERT') AS user_write");
+  assert.equal(grants.rows[0].anon_read,false);
+  assert.equal(grants.rows[0].user_write,false);
   globalThis.__cpcPool = { query: async (sql: string, params: unknown[]) => db.query(sql, params) } as unknown as Pool;
   try {
     await db.exec("CREATE TABLE users (id TEXT PRIMARY KEY, business_id TEXT, name TEXT, email TEXT, role TEXT, phone TEXT, active BOOLEAN, password_hash TEXT)");
