@@ -1,5 +1,5 @@
 import type { Order } from "./types";
-import { buildAddress, buildDeliveryMapLinks } from "./waze";
+import { buildAddress, buildDeliveryMapLinks, extractCoordinates } from "./waze";
 
 export type DeliveryRouteStop = {
   order: Order;
@@ -27,7 +27,7 @@ function deliveryAddress(order: Order) {
 function coordinates(order: Order) {
   const latitude = order.delivery_latitude ?? order.customer_snapshot.gps_latitude ?? null;
   const longitude = order.delivery_longitude ?? order.customer_snapshot.gps_longitude ?? null;
-  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || Math.abs(Number(latitude)) > 90 || Math.abs(Number(longitude)) > 180) return extractCoordinates(order.delivery_location_link);
   return { latitude: Number(latitude), longitude: Number(longitude) };
 }
 
@@ -56,9 +56,9 @@ function addressSortKey(order: Order) {
     .toLowerCase();
 }
 
-export function suggestDeliveryRoute(orders: Order[]) {
+export function suggestDeliveryRoute(orders: Order[], origin?: { latitude: number; longitude: number } | null) {
   const activeDeliveries = orders.filter(
-    (order) => order.order_type === "delivery" && ACTIVE_DELIVERY_STATUSES.has(order.delivery_status)
+    (order) => order.order_type === "delivery" && ACTIVE_DELIVERY_STATUSES.has(order.delivery_status) && order.status !== "cancelled"
   );
   const withCoordinates = activeDeliveries.filter((order) => coordinates(order));
   const withoutCoordinates = activeDeliveries
@@ -67,7 +67,7 @@ export function suggestDeliveryRoute(orders: Order[]) {
 
   const routed: Order[] = [];
   const remaining = [...withCoordinates].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-  let current = remaining[0] ? coordinates(remaining[0]) : null;
+  let current = origin && Number.isFinite(origin.latitude) && Number.isFinite(origin.longitude) && Math.abs(origin.latitude) <= 90 && Math.abs(origin.longitude) <= 180 ? origin : remaining[0] ? coordinates(remaining[0]) : null;
 
   while (remaining.length) {
     let bestIndex = 0;
@@ -91,8 +91,8 @@ export function suggestDeliveryRoute(orders: Order[]) {
   return [...routed, ...withoutCoordinates].map((order, index): DeliveryRouteStop => {
     const address = deliveryAddress(order);
     const links = buildDeliveryMapLinks({
-      latitude: order.delivery_latitude ?? order.customer_snapshot.gps_latitude ?? null,
-      longitude: order.delivery_longitude ?? order.customer_snapshot.gps_longitude ?? null,
+      latitude: coordinates(order)?.latitude ?? null,
+      longitude: coordinates(order)?.longitude ?? null,
       locationLink: order.delivery_location_link,
       address
     });
@@ -102,13 +102,13 @@ export function suggestDeliveryRoute(orders: Order[]) {
       address,
       addressNeedsReview: links.addressNeedsReview,
       hasCoordinates: links.hasCoordinates,
-      wazeLink: links.wazeLink || order.waze_link || null,
-      googleMapsLink: links.googleMapsLink || order.google_maps_link || null,
+      wazeLink: links.wazeLink,
+      googleMapsLink: links.googleMapsLink,
       routeReason: links.hasCoordinates
-        ? "AI route assist used GPS distance."
+        ? "Sequenced by straight-line GPS distance."
         : links.addressNeedsReview
           ? "Address needs review."
-          : "AI route assist grouped by address area."
+          : "Grouped by address area; confirm the stop order."
     };
   });
 }

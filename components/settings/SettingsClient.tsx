@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { MAX_LOGO_IMAGE_BYTES, optimizePhoto, photoType, validateSourcePhoto } from "@/lib/photo-upload";
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import {
   AlertTriangle,
@@ -31,9 +32,9 @@ import { CARIBBEAN_CURRENCIES, currencyOptionLabel, getDefaultDeliveryRatesForCu
 import { PLAN_CONFIG, PLAN_ORDER, canUseFeature, type PlanUsageSummary } from "@/lib/plan-gating";
 import type { Business, Category, Settings, Subscription, User } from "@/lib/types";
 
-const MAX_LOGO_SIZE_BYTES = 750 * 1024;
-const LOGO_IMAGE_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/svg+xml"];
-const LOGO_FILE_ACCEPT = "image/png,image/jpeg,image/jpg,image/webp,image/svg+xml,image/*";
+const MAX_LOGO_SIZE_BYTES = MAX_LOGO_IMAGE_BYTES;
+const LOGO_IMAGE_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/svg+xml", "image/heic", "image/heif"];
+const LOGO_FILE_ACCEPT = "image/png,image/jpeg,image/jpg,image/webp,image/heic,image/heif,image/svg+xml,image/*";
 const THREE_D_THEMES = [
   { value: "caribbean", label: "Caribbean" },
   { value: "modern-retail", label: "Modern Retail" },
@@ -152,9 +153,11 @@ function logoStoragePath(businessId: string | null | undefined, file: File) {
 }
 
 async function validateLogoFile(file: File) {
-  if (!LOGO_IMAGE_TYPES.includes(file.type)) return "Logo must be a PNG, JPG, WebP, or safe SVG image.";
-  if (file.size > MAX_LOGO_SIZE_BYTES) return "Logo must be 750 KB or smaller.";
-  if (file.type === "image/svg+xml") {
+  const type = photoType(file);
+  if (!LOGO_IMAGE_TYPES.includes(type)) return "Choose a JPG, PNG, WebP, HEIC, HEIF, or safe SVG logo.";
+  if (type !== "image/svg+xml") return validateSourcePhoto(file);
+  if (file.size > MAX_LOGO_SIZE_BYTES) return "SVG logos must be 750 KB or smaller. Photo files can be up to 30 MB.";
+  if (type === "image/svg+xml") {
     const svg = await file.text();
     if (/<script|on\w+=|javascript:/i.test(svg)) return "SVG logo contains unsafe script content.";
   }
@@ -204,6 +207,7 @@ export function SettingsClient({
   const [notificationTestMessage, setNotificationTestMessage] = useState("");
   const [locationMessage, setLocationMessage] = useState("");
   const [saving, setSaving] = useState(false);
+  const [preparingLogo, setPreparingLogo] = useState(false);
   const [activeSettingsSection, setActiveSettingsSection] = useState<SettingsSection>("business");
   const [locating, setLocating] = useState(false);
   const [busyId, setBusyId] = useState("");
@@ -249,6 +253,7 @@ export function SettingsClient({
   }
 
   async function saveSettings(successMessage = "Settings saved.") {
+    if (preparingLogo) return;
     setMessage("");
     setSaving(true);
     try {
@@ -299,23 +304,27 @@ export function SettingsClient({
   async function uploadLogo(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = "";
-    if (!file) return;
-    const validationError = await validateLogoFile(file);
-    if (validationError) {
-      setMessage(validationError);
-      return;
-    }
+    if (!file || preparingLogo || saving) return;
+    setPreparingLogo(true);
+    setMessage("Preparing your photo…");
     try {
-      const logoUrl = await readFileAsDataUrl(file);
+      const validationError = await validateLogoFile(file);
+      if (validationError) throw new Error(validationError);
+      const prepared = photoType(file) === "image/svg+xml"
+        ? new File([file], file.name, { type: "image/svg+xml" })
+        : await optimizePhoto(file, { maxBytes: MAX_LOGO_SIZE_BYTES, maxDimension: 1200 });
+      const logoUrl = await readFileAsDataUrl(prepared);
       const businessId = draft.active_business_id || null;
       setDraft((current) => ({
         ...current,
         logo_url: logoUrl,
-        logo_storage_path: logoStoragePath(current.active_business_id || businessId, file)
+        logo_storage_path: logoStoragePath(current.active_business_id || businessId, prepared)
       }));
       setMessage("Logo ready. Save changes to apply it to this business only.");
-    } catch {
-      setMessage("Logo could not be uploaded.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Logo could not be prepared.");
+    } finally {
+      setPreparingLogo(false);
     }
   }
 
@@ -642,7 +651,7 @@ export function SettingsClient({
               <LocateFixed className="h-4 w-4" />
               {locating ? "Finding location..." : "Use My Current Location"}
             </Button>
-            <Button type="button" variant="primary" onClick={() => saveSettings("Business profile saved.")} disabled={saving} className="w-full sm:w-auto">
+            <Button type="button" variant="primary" onClick={() => saveSettings("Business profile saved.")} disabled={saving || preparingLogo} className="w-full sm:w-auto">
               <Save className="h-4 w-4" />
               {saving ? "Saving..." : "Save changes"}
             </Button>
@@ -672,7 +681,7 @@ export function SettingsClient({
               <Copy className="h-4 w-4" />
               Copy link
             </Button>
-            <Button type="button" variant="primary" onClick={() => saveSettings("Storefront settings saved.")} disabled={saving} className="w-full">
+            <Button type="button" variant="primary" onClick={() => saveSettings("Storefront settings saved.")} disabled={saving || preparingLogo} className="w-full">
               <Save className="h-4 w-4" />
               Save
             </Button>
@@ -720,7 +729,7 @@ export function SettingsClient({
                 <ExternalLink className="h-4 w-4" />
                 Preview 3D storefront
               </a>
-              <Button type="button" variant="primary" onClick={() => saveSettings("3D storefront settings saved.")} disabled={saving} className="w-full sm:w-auto">
+              <Button type="button" variant="primary" onClick={() => saveSettings("3D storefront settings saved.")} disabled={saving || preparingLogo} className="w-full sm:w-auto">
                 <Save className="h-4 w-4" />
                 Save 3D settings
               </Button>
@@ -755,7 +764,7 @@ export function SettingsClient({
             <TextAreaField label="Completed receipt template" value={draft.whatsapp_customer_receipt_template || notificationTemplates.completed} onChange={(event) => update("whatsapp_customer_receipt_template", event.target.value)} />
           </div>
           <div className="grid gap-3 sm:flex sm:flex-wrap">
-            <Button type="button" variant="primary" onClick={() => saveSettings("Notification settings saved.")} disabled={saving} className="w-full sm:w-auto">
+            <Button type="button" variant="primary" onClick={() => saveSettings("Notification settings saved.")} disabled={saving || preparingLogo} className="w-full sm:w-auto">
               <Save className="h-4 w-4" />
               Save notifications
             </Button>
@@ -916,7 +925,7 @@ export function SettingsClient({
           </div>
           <p className="rounded-card border border-white/10 bg-black/20 p-3 text-sm font-semibold text-teal-50/60">Preview: 100 {draft.base_currency || draft.currency || "TTD"} converts through the backend exchange-rate cache when EXCHANGE_RATE_API_KEY is configured.</p>
           <TextAreaField label="Manual payment instructions" value={draft.payment_link_template} onChange={(event) => update("payment_link_template", event.target.value)} />
-          <Button type="button" variant="primary" onClick={() => saveSettings("Payment settings saved.")} disabled={saving} className="w-full sm:w-auto">
+          <Button type="button" variant="primary" onClick={() => saveSettings("Payment settings saved.")} disabled={saving || preparingLogo} className="w-full sm:w-auto">
             <Save className="h-4 w-4" />
             Save payments
           </Button>
@@ -941,7 +950,7 @@ export function SettingsClient({
               />
             ))}
           </div>
-          <Button type="button" variant="primary" onClick={() => saveSettings("Delivery settings saved.")} disabled={saving} className="w-full sm:w-auto">
+          <Button type="button" variant="primary" onClick={() => saveSettings("Delivery settings saved.")} disabled={saving || preparingLogo} className="w-full sm:w-auto">
             <Save className="h-4 w-4" />
             Save delivery
           </Button>
@@ -1006,16 +1015,16 @@ export function SettingsClient({
                 <input ref={photoInputRef} type="file" accept={LOGO_FILE_ACCEPT} className="sr-only" onChange={uploadLogo} aria-label="Choose business logo from photos" />
                 <input ref={fileInputRef} type="file" accept={LOGO_FILE_ACCEPT} className="sr-only" onChange={uploadLogo} aria-label="Browse files for business logo" />
                 <div className="grid gap-2 sm:grid-cols-3">
-                  <Button type="button" onClick={() => takePhotoInputRef.current?.click()} className="w-full">Take Photo</Button>
-                  <Button type="button" onClick={() => photoInputRef.current?.click()} className="w-full">Choose Photos</Button>
-                  <Button type="button" onClick={() => fileInputRef.current?.click()} className="w-full">Browse Files</Button>
+                  <Button type="button" onClick={() => takePhotoInputRef.current?.click()} disabled={saving || preparingLogo} className="w-full">Take Photo</Button>
+                  <Button type="button" onClick={() => photoInputRef.current?.click()} disabled={saving || preparingLogo} className="w-full">Choose Photos</Button>
+                  <Button type="button" onClick={() => fileInputRef.current?.click()} disabled={saving || preparingLogo} className="w-full">Browse Files</Button>
                 </div>
                 {draft.logo_url ? (
-                  <Button type="button" variant="danger" onClick={removeLogo} className="w-full sm:w-auto">
+                  <Button type="button" variant="danger" onClick={removeLogo} disabled={saving || preparingLogo} className="w-full sm:w-auto">
                     Remove logo
                   </Button>
                 ) : null}
-                <p className="text-xs font-semibold leading-5 text-teal-50/55">PNG, JPG, WebP, or safe SVG. Maximum 750 KB. Camera capture is only used for Take Photo.</p>
+                <p className="text-xs font-semibold leading-5 text-teal-50/55">Choose photos up to 30 MB. JPG, PNG, WebP, and supported iPhone HEIC/HEIF photos are resized automatically. SVG logos: up to 750 KB.</p>
               </div>
             </div>
             <div className="grid gap-4">
@@ -1024,7 +1033,7 @@ export function SettingsClient({
             </div>
           </div>
           <TextAreaField label="Receipt footer message" value={draft.receipt_message} onChange={(event) => update("receipt_message", event.target.value)} />
-          <Button type="button" variant="primary" onClick={() => saveSettings("Branding settings saved.")} disabled={saving} className="w-full sm:w-auto">
+          <Button type="button" variant="primary" onClick={() => saveSettings("Branding settings saved.")} disabled={saving || preparingLogo} className="w-full sm:w-auto">
             <Save className="h-4 w-4" />
             Save branding
           </Button>

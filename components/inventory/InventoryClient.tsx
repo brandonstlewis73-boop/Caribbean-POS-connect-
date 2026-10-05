@@ -9,29 +9,17 @@ import { Button } from "@/components/ui/Button";
 import { Field, SelectField } from "@/components/ui/Field";
 import { Panel, PanelHeader } from "@/components/ui/Panel";
 import { money } from "@/lib/constants";
+import { MAX_PRODUCT_PHOTO_BYTES, optimizePhoto, validateSourcePhoto } from "@/lib/photo-upload";
 import { readApiPayload } from "@/lib/client-response";
 import type { Category, Product, ProductOption } from "@/lib/types";
 
-const PRODUCT_IMAGE_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
 const PRODUCT_IMAGE_ACCEPT = "image/*";
-const MAX_SOURCE_IMAGE_BYTES = 10 * 1024 * 1024;
-const MAX_UPLOAD_IMAGE_BYTES = 5 * 1024 * 1024;
-const MAX_IMAGE_DIMENSION = 1600;
-
 type UploadedImagePayload = { imageUrl: string; path: string };
 
 function productImageExtension(file: File) {
-  return (file.name.split(".").pop() || file.type.split("/").pop() || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  return (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
 }
-
-function productImageType(file: File) {
-  if (file.type) return file.type;
-  const extension = productImageExtension(file);
-  if (extension === "jpg" || extension === "jpeg") return "image/jpeg";
-  if (extension === "png") return "image/png";
-  if (extension === "webp") return "image/webp";
-  return "";
-}
+function productImageType(file: File) { return file.type || "image/jpeg"; }
 
 function safeProductImageName(file: File) {
   const extension = productImageExtension(file) || productImageType(file).split("/").pop() || "jpg";
@@ -40,12 +28,7 @@ function safeProductImageName(file: File) {
   return `${base}.${safeExtension}`;
 }
 
-function validateProductImage(file: File) {
-  const type = productImageType(file);
-  if (!PRODUCT_IMAGE_TYPES.includes(type)) return "Product photo must be JPG, PNG, or WebP. Choose a different image format.";
-  if (file.size > MAX_SOURCE_IMAGE_BYTES) return "Product photo is too large. Choose an image under 10 MB.";
-  return null;
-}
+function validateProductImage(file: File) { return validateSourcePhoto(file); }
 
 function validateProductImageUrl(value?: string | null) {
   const imageUrl = (value || "").trim();
@@ -59,41 +42,8 @@ function validateProductImageUrl(value?: string | null) {
   return "Enter a valid product image URL starting with http:// or https://.";
 }
 
-function loadImageFromFile(file: File) {
-  return new Promise<HTMLImageElement>((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const image = new Image();
-    image.onload = () => {
-      URL.revokeObjectURL(url);
-      resolve(image);
-    };
-    image.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error("Product photo could not be opened. Try a JPG, PNG, or WebP image."));
-    };
-    image.src = url;
-  });
-}
-
 async function compressProductImage(file: File) {
-  const type = productImageType(file);
-  if (file.size <= 900 * 1024) return new File([file], safeProductImageName(file), { type, lastModified: Date.now() });
-  const image = await loadImageFromFile(file);
-  const ratio = Math.min(1, MAX_IMAGE_DIMENSION / Math.max(image.width, image.height));
-  const width = Math.max(1, Math.round(image.width * ratio));
-  const height = Math.max(1, Math.round(image.height * ratio));
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  const context = canvas.getContext("2d");
-  if (!context) throw new Error("Product photo could not be compressed on this device.");
-  context.drawImage(image, 0, 0, width, height);
-  const outputType = type === "image/png" ? "image/png" : type === "image/webp" ? "image/webp" : "image/jpeg";
-  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, outputType, 0.82));
-  if (!blob) throw new Error("Product photo could not be compressed. Try another image.");
-  const compressed = new File([blob], safeProductImageName(file), { type: outputType, lastModified: Date.now() });
-  if (compressed.size > MAX_UPLOAD_IMAGE_BYTES) throw new Error("Product photo is still too large after compression. Choose a smaller image under 5 MB.");
-  return compressed;
+  return optimizePhoto(file, { maxBytes: MAX_PRODUCT_PHOTO_BYTES, maxDimension: 1600 });
 }
 
 function uploadProductImageFile(file: File, productId: string, oldImageUrl: string, onProgress: (progress: number) => void) {
@@ -118,9 +68,11 @@ function uploadProductImageFile(file: File, productId: string, oldImageUrl: stri
         onProgress(100);
         resolve(payload.data);
       } else {
-        reject(new Error(payload.error || "Product photo could not be uploaded."));
+        reject(new Error(request.status === 413 ? "The optimized photo is too large for upload. Choose a smaller photo." : payload.error || "Product photo could not be uploaded."));
       }
     };
+    request.timeout = 120000;
+    request.ontimeout = () => reject(new Error("Photo upload timed out. Check your connection and try again."));
     request.onerror = () => reject(new Error("Product photo upload failed. Check your connection and try again."));
     request.send(form);
   });
@@ -181,6 +133,7 @@ export function InventoryClient({ products, categories, currency }: { products: 
   const [message, setMessage] = useState("");
   const [categoryMessage, setCategoryMessage] = useState("");
   const [saving, setSaving] = useState(false);
+  const [preparingPhoto, setPreparingPhoto] = useState(false);
   const [savingCategory, setSavingCategory] = useState(false);
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState("");
@@ -302,7 +255,7 @@ export function InventoryClient({ products, categories, currency }: { products: 
   async function uploadProductImage(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = "";
-    if (!file) return;
+    if (!file || preparingPhoto || saving) return;
     setMessage("");
     setUploadStatus("");
     setUploadProgress(null);
@@ -311,8 +264,9 @@ export function InventoryClient({ products, categories, currency }: { products: 
       setMessage(validationError);
       return;
     }
+    setPreparingPhoto(true);
     try {
-      setUploadStatus("Compressing product photo...");
+      setUploadStatus("Preparing product photo...");
       const compressed = await compressProductImage(file);
       setPreviewFile(compressed);
       setImageMarkedForRemoval(false);
@@ -322,6 +276,8 @@ export function InventoryClient({ products, categories, currency }: { products: 
       setPreviewFile(null);
       setUploadStatus("");
       setMessage(error instanceof Error ? error.message : "Product photo could not be prepared.");
+    } finally {
+      setPreparingPhoto(false);
     }
   }
 
@@ -345,6 +301,7 @@ export function InventoryClient({ products, categories, currency }: { products: 
   }
 
   async function saveProduct() {
+    if (preparingPhoto) return;
     setMessage("");
     setUploadStatus("");
     if (!draft.name.trim()) {
@@ -643,10 +600,10 @@ export function InventoryClient({ products, categories, currency }: { products: 
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-black text-white">Product photo</p>
-                <p className="text-xs font-semibold text-teal-50/55">JPG, PNG, or WebP. Large images are compressed before upload.</p>
+                <p className="text-xs font-semibold text-teal-50/55">JPG, PNG, WebP, or supported iPhone HEIC/HEIF photos.</p>
               </div>
               {previewImageUrl ? (
-                <button type="button" onClick={removeProductImage} disabled={saving} className="grid h-9 w-9 place-items-center rounded-card border border-red-300/30 bg-red-500/10 text-red-100 disabled:opacity-50" aria-label="Remove product image">
+                <button type="button" onClick={removeProductImage} disabled={saving || preparingPhoto} className="grid h-9 w-9 place-items-center rounded-card border border-red-300/30 bg-red-500/10 text-red-100 disabled:opacity-50" aria-label="Remove product image">
                   <X className="h-4 w-4" />
                 </button>
               ) : null}
@@ -662,10 +619,11 @@ export function InventoryClient({ products, categories, currency }: { products: 
             <input ref={photoInputRef} type="file" accept={PRODUCT_IMAGE_ACCEPT} className="sr-only" onChange={uploadProductImage} aria-label="Choose product photo from photos" />
             <input ref={fileInputRef} type="file" accept={PRODUCT_IMAGE_ACCEPT} className="sr-only" onChange={uploadProductImage} aria-label="Browse files for product photo" />
             <div className="grid gap-2 sm:grid-cols-3">
-              <Button type="button" onClick={() => takePhotoInputRef.current?.click()} disabled={saving}><Camera className="h-4 w-4" />Take Photo</Button>
-              <Button type="button" onClick={() => photoInputRef.current?.click()} disabled={saving}><ImageIcon className="h-4 w-4" />Choose Photos</Button>
-              <Button type="button" onClick={() => fileInputRef.current?.click()} disabled={saving}><FolderOpen className="h-4 w-4" />Browse Files</Button>
+              <Button type="button" onClick={() => takePhotoInputRef.current?.click()} disabled={saving || preparingPhoto}><Camera className="h-4 w-4" />Take Photo</Button>
+              <Button type="button" onClick={() => photoInputRef.current?.click()} disabled={saving || preparingPhoto}><ImageIcon className="h-4 w-4" />Choose Photos</Button>
+              <Button type="button" onClick={() => fileInputRef.current?.click()} disabled={saving || preparingPhoto}><FolderOpen className="h-4 w-4" />Browse Files</Button>
             </div>
+            <p className="text-xs font-semibold text-teal-50/70">Choose photos up to 30 MB. Photos are resized automatically before upload.</p>
             {uploadStatus ? <p className="text-xs font-bold text-teal-50/70">{uploadStatus}</p> : null}
             {uploadProgress !== null ? (
               <div className="overflow-hidden rounded-full bg-white/10" aria-label={`Product photo upload ${uploadProgress}% complete`}>
@@ -694,7 +652,7 @@ export function InventoryClient({ products, categories, currency }: { products: 
             Available in POS and storefront
           </label>
           {message ? <p className="rounded-card bg-caribbean-cloud p-3 text-sm font-bold text-slate-700 dark:bg-slate-950 dark:text-slate-200">{message}</p> : null}
-          <Button variant="primary" onClick={saveProduct} disabled={saving}>
+          <Button variant="primary" onClick={saveProduct} disabled={saving || preparingPhoto}>
             <PackagePlus className="h-4 w-4" />
             {saving ? "Saving..." : editingId ? "Save product changes" : "Save product"}
           </Button>

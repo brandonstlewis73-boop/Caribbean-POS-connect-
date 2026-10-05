@@ -1,0 +1,9 @@
+# iPhone photo uploads
+
+Business logos and product photos accept JPG, PNG, WebP, HEIC, and HEIF sources up to 30 MB. Use **Choose Photos** to pick from the library; **Take Photo** uses the camera. HEIC/HEIF require native browser decoding, such as supported Safari versions. Browsers that cannot decode them show a message to use updated Safari or export a JPG. ProRAW and video files are not supported.
+
+The browser decodes and resizes the source before sending it. Logos fit within 1200 pixels and 750 KB; product photos fit within 1600 pixels and 3 MB, leaving room under Vercel's request-size limit. JPEG/HEIC/HEIF output is JPEG; PNG/WebP output preserves transparency as PNG. If the first resize exceeds the byte budget, the app reduces dimensions again. The original photo in the user's library is unchanged. Camera metadata is not copied to the newly encoded image.
+
+Logo selection updates the preview and pending settings only. **Save changes** or **Save branding** saves the prepared data URL using the existing authenticated, business-scoped settings flow. SVG logos retain their separate 750 KB limit and existing script-content check. Product selection prepares a preview; the existing authenticated product save and Supabase Storage upload run only on explicit save. Controls wait while the photo is being prepared. Failures keep the previous logo and display the preparation error.
+
+Run `node scripts/test-photo-upload.cjs` with Playwright Chromium installed. The browser test covers a source exceeding 10 MB, logo/product output budgets, dimensions, transparent PNG preservation, missing MIME inference, HEIC source acceptance, and corrupt/empty/oversize/unsupported file rejection. Settings picker/save payload were also checked with a mocked API. Actual iPhone HEIC decoding and production storage writes need a device check.

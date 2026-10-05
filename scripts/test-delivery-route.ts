@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import { suggestDeliveryRoute } from '../lib/delivery-route';
+import type { Order } from '../lib/types';
+const order = (id: string, latitude: number | null, status = 'new'): Order => ({id,order_number:id,order_type:'delivery',delivery_status:'assigned',status,created_at:'2026-10-05T10:00:00Z',customer_snapshot:{name:id,street_address:'19 Charles Court',city:'Elkton',country:'United States'},delivery_latitude:latitude,delivery_longitude:latitude === null ? null : 0} as Order);
+assert.deepEqual(suggestDeliveryRoute([order('far',10),order('near',1)],{latitude:0,longitude:0}).map(s=>s.order.id),['near','far']);
+assert.equal(suggestDeliveryRoute([order('cancelled',1,'cancelled')]).length,0);
+assert.equal(suggestDeliveryRoute([order('invalid',95)])[0].hasCoordinates,false);
+assert.equal(suggestDeliveryRoute([order('address',null)])[0].addressNeedsReview,false);
+const shared={...order('shared',null),delivery_location_link:'https://maps.google.com/?q=39.6,-75.7'};
+assert.equal(suggestDeliveryRoute([shared])[0].hasCoordinates,true);
+assert.match(suggestDeliveryRoute([shared])[0].wazeLink!,/39.6,-75.7/);
+assert.ok(!suggestDeliveryRoute([shared])[0].routeReason.includes('AI'));
+assert.equal(suggestDeliveryRoute([{...order('done',1),delivery_status:'delivered'}]).length,0);
+console.log('PASS: origin ordering, cancellation, coordinate bounds, shared GPS, address fallback, completed exclusion.');

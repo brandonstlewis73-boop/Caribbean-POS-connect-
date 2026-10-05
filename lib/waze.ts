@@ -99,7 +99,7 @@ export function buildDeliveryMapLinks(input: WazeInput): DeliveryMapLinks {
   };
 }
 
-function extractCoordinates(value?: string | null) {
+export function extractCoordinates(value?: string | null) {
   if (!value) return null;
   const match = value.match(/(-?\d{1,2}(?:\.\d+)?)[,\s]+(-?\d{1,3}(?:\.\d+)?)/);
   if (!match) return null;
