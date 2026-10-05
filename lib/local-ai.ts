@@ -1,7 +1,7 @@
 "use client";
 import { localModelId, readLocalModelChoice, type LocalModelChoice, type LocalGeneration } from "./local-ai-config";
 import { abortError, collectLocalDraft, guardLocalTask, waitForWorkerReady } from "./local-ai-lifecycle";
-import { checkedLocalDraft, localDraftInstructions, LocalDraftQualityError } from "./local-ai-quality";
+import { checkedLocalDraft, localDraftInstructions, localDraftInput, LocalDraftQualityError } from "./local-ai-quality";
 import type { WebWorkerMLCEngine } from "@mlc-ai/web-llm";
 let engine: WebWorkerMLCEngine | null = null;
 let loadedChoice: LocalModelChoice | null = null;
@@ -52,9 +52,9 @@ export function generateLocalDraft(request: LocalGeneration, progress: (text: st
           const stream = await local.chat.completions.create({
             messages: [
               { role: "system", content: localDraftInstructions(request) },
-              { role: "user", content: request.input.slice(0, 6000) + (repair ? "\nCorrection: " + repair + " Output only the completed draft." : "") }
+              { role: "user", content: localDraftInput(request, repair) }
             ],
-            stream: true, max_tokens: 256, temperature: 0.2, repetition_penalty: 1.12, frequency_penalty: 0.3
+            stream: true, max_tokens: request.purpose === "product-description" ? 96 : 256, temperature: request.purpose === "product-description" ? 0 : 0.2, repetition_penalty: 1.12, frequency_penalty: 0.3
           });
           return collectLocalDraft(stream, draft => {
             onDraft(draft);
