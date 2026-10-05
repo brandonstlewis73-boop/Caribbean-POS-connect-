@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import { freeWhatsAppLink, freeOrderUpdate } from "../lib/free-whatsapp";
-import type { Order } from "../lib/types";
+import { freeWhatsAppLink, freeOrderUpdate, freeReceiptMessage } from "../lib/free-whatsapp";
+import type { Order, Receipt } from "../lib/types";
 
 assert.equal(freeWhatsAppLink("", "hello"), null);
 assert.equal(freeWhatsAppLink("123", "hello"), null);
@@ -22,3 +22,14 @@ const noDriver = freeOrderUpdate({ ...order, assigned_driver_name: null, assigne
 assert(!noDriver.includes("Your driver"));
 assert(!noDriver.includes("Not provided"));
 console.log("Free WhatsApp phone, encoding, status, payment and privacy checks passed.");
+
+const receipt = {receipt_number:"R-4071",order_number:"1062",customer_name:"Customer",items:[{quantity:2,product_name:"Brownie"}],total:120,currency:"TTD",payment_method:"Cash",payment_status:"unpaid",whatsapp_sent_at:"2026-10-05"} as Receipt;
+const receiptText=freeReceiptMessage(receipt,"USD");
+assert.match(receiptText,/Receipt #R-4071/);
+assert.match(receiptText,/2 × Brownie/);
+assert.match(receiptText,/TT\$120.00/);
+assert.match(receiptText,/Payment status: unpaid/);
+assert(!receiptText.includes("https://"));
+assert(freeWhatsAppLink("4437582368",receiptText));
+assert.equal(freeReceiptMessage({...receipt,items:[]},"TTD").includes("undefined"),false);
+console.log("Free receipt message preserves saved totals, currency and payment status, with repeat sharing permitted.");

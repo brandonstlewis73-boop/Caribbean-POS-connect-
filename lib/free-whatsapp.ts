@@ -1,6 +1,6 @@
 import { money } from "./constants";
 import { isValidWhatsAppE164, normalizeWhatsAppNumber } from "./whatsapp";
-import type { Order } from "./types";
+import type { Order, Receipt } from "./types";
 
 export function freeWhatsAppLink(phone: string | null | undefined, message: string) {
   const normalized = normalizeWhatsAppNumber(phone);
@@ -19,4 +19,15 @@ export function freeOrderUpdate(order: Order, currency: string) {
     order.status === "out_for_delivery" && order.assigned_driver_name ? `Driver: ${order.assigned_driver_name}` : null,
     order.status === "out_for_delivery" && order.assigned_driver_phone ? `Driver phone: ${order.assigned_driver_phone}` : null
   ].filter(Boolean).join("\n");
+}
+
+export function freeReceiptMessage(receipt: Receipt, currency: string) {
+  return [
+    `Hi ${receipt.customer_name || "there"},`,
+    `Receipt #${receipt.receipt_number} · Order #${receipt.order_number}`,
+    ...(receipt.items || []).map(item => `${item.quantity} × ${item.product_name}`),
+    `Total: ${money(receipt.total, receipt.currency || currency)}`,
+    `Payment method: ${receipt.payment_method}`,
+    `Payment status: ${receipt.payment_status.replaceAll("_", " ")}`
+  ].join("\n");
 }

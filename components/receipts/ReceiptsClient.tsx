@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/Button";
 import { Panel, PanelHeader } from "@/components/ui/Panel";
 import { money } from "@/lib/constants";
 import { readApiPayload } from "@/lib/client-response";
-import type { Receipt } from "@/lib/types";
+import { FreeReceiptWhatsApp } from "./FreeReceiptWhatsApp";
+import type { Order, Receipt } from "@/lib/types";
 
 export function ReceiptsClient({
   receipts,
@@ -19,7 +20,8 @@ export function ReceiptsClient({
   currency: string;
   canResend: boolean;
 }) {
-  const [items, setItems] = useState(receipts);
+  const items = receipts;
+  const [sharing,setSharing] = useState<{receipt:Receipt;order:Order}|null>(null);
   const [query, setQuery] = useState("");
   const [message, setMessage] = useState("");
   const [busyId, setBusyId] = useState("");
@@ -52,26 +54,22 @@ export function ReceiptsClient({
       return;
     }
     setMessage("");
+    setSharing(null);
     setBusyId(receipt.id);
     try {
-      const response = await fetch("/api/receipts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "resend_whatsapp", receipt_id: receipt.id })
-      });
-      const payload = await readApiPayload<{ receipt: Receipt | null; message: string }>(response);
-      if (!response.ok) {
-        setMessage(payload.error || "Receipt WhatsApp could not be sent.");
+      const response = await fetch(`/api/orders/${encodeURIComponent(receipt.order_id)}`, {cache:"no-store"});
+      const payload = await readApiPayload<{order:Order}>(response);
+      if (!response.ok || !payload.data?.order) {
+        setMessage(payload.error || "Receipt could not be opened. Please try again.");
         return;
       }
-      if (payload.data?.receipt) {
-        setItems((current) =>
-          current.map((item) => (item.id === receipt.id ? payload.data!.receipt! : item))
-        );
+      if (payload.data.order.customer_snapshot.notification_whatsapp === false) {
+        setMessage("This customer has opted out of WhatsApp updates."); return;
       }
-      setMessage(payload.data?.message || "Receipt WhatsApp request finished.");
+      setSharing({receipt,order:payload.data.order});
+
     } catch {
-      setMessage("Receipt WhatsApp could not be sent. Check your connection and try again.");
+      setMessage("Receipt could not be opened. Check your connection and try again.");
     } finally {
       setBusyId("");
     }
@@ -81,7 +79,7 @@ export function ReceiptsClient({
   return (
     <div className="grid min-w-0 gap-4">
       <Panel>
-        <PanelHeader title="Receipts" description="Search, print, and resend customer receipts" action={<a href="/printer#receipt-templates" className="inline-flex min-h-11 items-center rounded-card border border-white/15 px-3 text-sm font-bold">Receipt templates</a>} />
+        <PanelHeader title="Receipts" description="Print receipts or share them in WhatsApp for free" action={<a href="/printer#receipt-templates" className="inline-flex min-h-11 items-center rounded-card border border-white/15 px-3 text-sm font-bold">Receipt templates</a>} />
         <Pagination {...recordPage}/>
         <div className="border-b border-caribbean-line p-4 dark:border-slate-800">
           <label className="relative min-w-0">
@@ -96,10 +94,12 @@ export function ReceiptsClient({
         </div>
 
         {message ? (
-          <p className="mx-4 mt-4 rounded-card bg-caribbean-cloud p-3 text-sm font-black text-slate-700 dark:bg-slate-950 dark:text-slate-200">
+          <p role="status" className="mx-4 mt-4 rounded-card border border-caribbean-line bg-white p-3 text-sm font-semibold text-slate-700">
             {message}
           </p>
         ) : null}
+
+        {sharing ? <FreeReceiptWhatsApp key={sharing.receipt.id} receipt={sharing.receipt} phone={sharing.order.customer_snapshot.phone} currency={currency} onClose={()=>setSharing(null)}/> : null}
 
         <div className="grid gap-3 p-4 md:hidden">
           {recordPage.items.map((receipt) => (
@@ -109,8 +109,8 @@ export function ReceiptsClient({
                   <p className="font-black">#{receipt.receipt_number}</p>
                   <p className="text-sm font-bold text-slate-500">Order #{receipt.order_number}</p>
                 </div>
-                <Badge tone={receipt.whatsapp_sent_at ? "green" : "neutral"}>
-                  {receipt.whatsapp_sent_at ? "Sent" : "Ready"}
+                <Badge tone="neutral">
+                  Ready to share
                 </Badge>
               </div>
               <p className="mt-3 font-bold">{receipt.customer_name || "Walk-in customer"}</p>
@@ -126,7 +126,7 @@ export function ReceiptsClient({
                 </a>
                 <Button onClick={() => resendWhatsApp(receipt)} disabled={busyId === receipt.id || !canResend}>
                   <MessageCircle className="h-4 w-4" />
-                  {busyId === receipt.id ? "Sending..." : "WhatsApp"}
+                  {busyId === receipt.id ? "Opening…" : "WhatsApp · free"}
                 </Button>
               </div>
             </div>
@@ -164,8 +164,8 @@ export function ReceiptsClient({
                   </td>
                   <td className="px-4 py-3 text-right font-black">{formatMoney(receipt.total)}</td>
                   <td className="px-4 py-3">
-                    <Badge tone={receipt.whatsapp_sent_at ? "green" : "neutral"}>
-                      {receipt.whatsapp_sent_at ? "Sent" : "Not sent"}
+                    <Badge tone="neutral">
+                      Ready to share
                     </Badge>
                   </td>
                   <td className="px-4 py-3">
@@ -176,7 +176,7 @@ export function ReceiptsClient({
                       </a>
                       <Button onClick={() => resendWhatsApp(receipt)} disabled={busyId === receipt.id || !canResend}>
                         <MessageCircle className="h-4 w-4" />
-                        {busyId === receipt.id ? "Sending..." : "Resend"}
+                        {busyId === receipt.id ? "Opening…" : "WhatsApp · free"}
                       </Button>
                     </div>
                   </td>
