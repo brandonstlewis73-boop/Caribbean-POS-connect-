@@ -72,9 +72,12 @@ export function OrderLiveAlerts({
   useEffect(() => {
     if (!enabled) return;
     let cancelled = false;
+    let inFlight = false;
 
 
     async function pollOrders() {
+      if (cancelled || inFlight || document.visibilityState === "hidden") return;
+      inFlight = true;
       try {
         const response = await fetch("/api/orders?status=new", { cache: "no-store" });
         const payload = await readApiPayload<{ orders: Order[] }>(response);
@@ -122,14 +125,19 @@ export function OrderLiveAlerts({
         }
       } catch {
         if (!cancelled) setWarning("Live updates disconnected. Retrying...");
+      } finally {
+        inFlight = false;
       }
     }
 
+    const onVisibility = () => { if (document.visibilityState === "visible") void pollOrders(); };
+    document.addEventListener("visibilitychange", onVisibility);
     void pollOrders();
     const timer = window.setInterval(pollOrders, POLL_MS);
     return () => {
       cancelled = true;
       window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [browserNotifications, currency, enabled, muted, playSound, showPreview]);
 

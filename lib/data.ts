@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { saleUnitPrice, paymentMethodEnabled } from "./pos-checkout";
 import { claimCheckoutRequest } from "./pos-checkout-request";
 function startOfDay(date: Date) {
@@ -679,14 +680,14 @@ export async function getBusinessBySlug(slug?: string | null) {
   return rows.rows[0] ? rowToBusiness(rows.rows[0]) : null;
 }
 
-export async function getBusinessSettings(businessId?: string | null): Promise<Settings> {
-  const base = await getSettings();
+export const getBusinessSettings = cache(async (businessId?: string | null): Promise<Settings> => {
   const id = businessId;
   if (!id) {
     return { ...defaultSettings, active_business_id: null, business_name: "", business_country: "", currency: "", logo_url: null } as Settings;
   }
 
-  const [business, settingRows] = await Promise.all([
+  const [base, business, settingRows] = await Promise.all([
+    getSettings(),
     getBusinessById(id),
     query<{ key: keyof Settings; value: unknown }>(
       "SELECT key, value FROM business_settings WHERE business_id = $1",
@@ -752,7 +753,7 @@ export async function getBusinessSettings(businessId?: string | null): Promise<S
   }
   settings.delivery_rates = normalizeDeliveryRates(settings.delivery_rates as Record<string, number>, (settings.currency as string) || CURRENCY_CODE);
   return settings as Settings;
-}
+});
 
 export async function updateSettings(input: Partial<Settings>, userId?: string) {
   const businessId = await getBusinessIdForUser(userId);
@@ -3110,27 +3111,13 @@ export async function getDashboardData(businessId?: string | null): Promise<Dash
   const oneParamScope = businessId ? "AND business_id = $1" : "AND FALSE";
   const businessParam = businessId ? [businessId] : [];
 
-  const totalSince = async (date: Date) => {
-    const result = await query<{ total: string }>(
-      `SELECT COALESCE(SUM(total), 0) AS total FROM orders WHERE status != 'cancelled' AND created_at >= $1 ${orderScope}`,
-      businessId ? [date, businessId] : [date]
-    );
-    return Number(result.rows[0]?.total || 0);
-  };
-
   const [
     settings,
     business,
     subscription,
-    dailySales,
-    weeklySales,
-    monthlySales,
-    newOrderRows,
-    pendingOrderRows,
-    completedOrderRows,
+    metricRows,
     recentCustomerRows,
     checklistProductRows,
-    deliveryOrderCountRows,
     profitEstimateRows,
     lowStockRows,
     bestSellerRows,
@@ -3143,20 +3130,17 @@ export async function getDashboardData(businessId?: string | null): Promise<Dash
     getBusinessSettings(businessId),
     getBusinessById(businessId),
     getCurrentSubscription(businessId),
-    totalSince(today),
-    totalSince(week),
-    totalSince(month),
-    query<{ count: string }>(
-      `SELECT COUNT(*) AS count FROM orders WHERE status = 'new' ${oneParamScope}`,
-      businessParam
-    ),
-    query<{ count: string }>(
-      `SELECT COUNT(*) AS count FROM orders WHERE status IN ('new', 'accepted', 'preparing', 'ready', 'out_for_delivery') ${oneParamScope}`,
-      businessParam
-    ),
-    query<{ count: string }>(
-      `SELECT COUNT(*) AS count FROM orders WHERE status = 'completed' AND created_at >= $1 ${orderScope}`,
-      businessId ? [today, businessId] : [today]
+    query<any>(
+      `SELECT
+        COALESCE(SUM(total) FILTER (WHERE status != 'cancelled' AND created_at >= $2), 0) AS daily_sales,
+        COALESCE(SUM(total) FILTER (WHERE status != 'cancelled' AND created_at >= $3), 0) AS weekly_sales,
+        COALESCE(SUM(total) FILTER (WHERE status != 'cancelled' AND created_at >= $4), 0) AS monthly_sales,
+        COUNT(*) FILTER (WHERE status = 'new') AS new_orders,
+        COUNT(*) FILTER (WHERE status IN ('new', 'accepted', 'preparing', 'ready', 'out_for_delivery')) AS pending_orders,
+        COUNT(*) FILTER (WHERE status = 'completed' AND created_at >= $2) AS completed_orders,
+        COUNT(*) FILTER (WHERE order_type = 'delivery' AND created_at >= $4) AS delivery_orders
+       FROM orders WHERE business_id = $1`,
+      [businessId || null, today, week, month]
     ),
     query<any>(
       `SELECT * FROM customers WHERE TRUE ${oneParamScope} ORDER BY updated_at DESC LIMIT 6`,
@@ -3168,10 +3152,6 @@ export async function getDashboardData(businessId?: string | null): Promise<Dash
        WHERE active = TRUE ${oneParamScope}
        LIMIT 25`,
       businessParam
-    ),
-    query<{ count: string }>(
-      `SELECT COUNT(*) AS count FROM orders WHERE order_type = 'delivery' AND created_at >= $1 ${orderScope}`,
-      businessId ? [month, businessId] : [month]
     ),
     query<{ profit: string }>(
       `SELECT COALESCE(SUM(oi.line_total - (oi.cost_price * oi.quantity)), 0) AS profit
@@ -3227,6 +3207,7 @@ export async function getDashboardData(businessId?: string | null): Promise<Dash
     listOrders({ businessId, limit: 6 })
   ]);
 
+  const metrics = metricRows.rows[0];
   return {
     currency: settings.currency || CURRENCY_CODE,
     business,
@@ -3234,14 +3215,14 @@ export async function getDashboardData(businessId?: string | null): Promise<Dash
     whatsappConfigured: Boolean(settings.whatsapp_enabled && settings.whatsapp_business_number),
     subscription,
     setupChecklist: setupChecklistForBusiness(business, settings, checklistProductRows.rows.map(rowToProduct)),
-    newOrders: Number(newOrderRows.rows[0]?.count || 0),
-    pendingOrders: Number(pendingOrderRows.rows[0]?.count || 0),
-    completedOrders: Number(completedOrderRows.rows[0]?.count || 0),
+    newOrders: Number(metrics?.new_orders || 0),
+    pendingOrders: Number(metrics?.pending_orders || 0),
+    completedOrders: Number(metrics?.completed_orders || 0),
     recentCustomers: recentCustomerRows.rows.map(rowToCustomer),
-    dailySales,
-    weeklySales,
-    monthlySales,
-    deliveryOrderCount: Number(deliveryOrderCountRows.rows[0]?.count || 0),
+    dailySales: Number(metrics?.daily_sales || 0),
+    weeklySales: Number(metrics?.weekly_sales || 0),
+    monthlySales: Number(metrics?.monthly_sales || 0),
+    deliveryOrderCount: Number(metrics?.delivery_orders || 0),
     profitEstimate: Number(profitEstimateRows.rows[0]?.profit || 0),
     recentOrders,
     lowStock: lowStockRows.rows.map(rowToProduct),
