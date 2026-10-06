@@ -1,4 +1,5 @@
 "use client";
+import { PdfDocumentButton } from "@/components/documents/PdfDocumentButton";
 
 /* eslint-disable @next/next/no-img-element */
 
@@ -954,14 +955,14 @@ export function POSClient({
                   <Printer className="h-4 w-4" />
                   Print
                 </Button>
-                <a href={`/api/orders/${lastOrder.id}/receipt`} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-card border border-caribbean-line bg-white px-3 py-2 text-center text-sm font-bold leading-tight dark:border-slate-700 dark:bg-slate-900">
+                <PdfDocumentButton href={`/api/orders/${lastOrder.id}/receipt`} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-card border border-caribbean-line bg-white px-3 py-2 text-center text-sm font-bold leading-tight dark:border-slate-700 dark:bg-slate-900">
                   <ReceiptText className="h-4 w-4" />
                   PDF
-                </a>
-                <a href={`/api/orders/${lastOrder.id}/label`} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-card border border-caribbean-line bg-white px-3 py-2 text-center text-sm font-bold leading-tight dark:border-slate-700 dark:bg-slate-900">
+                </PdfDocumentButton>
+                <PdfDocumentButton href={`/api/orders/${lastOrder.id}/label`} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-card border border-caribbean-line bg-white px-3 py-2 text-center text-sm font-bold leading-tight dark:border-slate-700 dark:bg-slate-900">
                   <PackageCheck className="h-4 w-4" />
                   Label
-                </a>
+                </PdfDocumentButton>
               </div>
               {lastOrder.payment_link ? (
                 <a href={lastOrder.payment_link} target="_blank" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-card bg-caribbean-mango px-3 py-2 text-center text-sm font-black leading-tight text-slate-950" rel="noreferrer">

@@ -1,4 +1,5 @@
 "use client";
+import { PdfDocumentButton } from "@/components/documents/PdfDocumentButton";
 import { userMessage } from "@/lib/user-messages";
 import {Pagination,usePagination} from "@/components/workspace/Pagination";
 
@@ -208,10 +209,10 @@ export function DeliveriesClient({ deliveries, currency, canEditDetails = true, 
                       Call customer
                     </a>
                   ) : null}
-                  <a href={`/api/orders/${order.id}/label`} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-card border border-caribbean-line bg-white px-3 py-2 text-center text-sm font-black leading-tight dark:border-slate-700 dark:bg-slate-900">
+                  <PdfDocumentButton href={`/api/orders/${order.id}/label`} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-card border border-caribbean-line bg-white px-3 py-2 text-center text-sm font-black leading-tight dark:border-slate-700 dark:bg-slate-900">
                     <PackageCheck className="h-4 w-4" />
                     Label
-                  </a>
+                  </PdfDocumentButton>
                   {active.some(entry => entry.id === order.id) ? <><Button disabled={Boolean(busy) || order.delivery_status === "out_for_delivery"} variant="secondary" onClick={() => setStatus(order.id, "out_for_delivery")}>
                     <Bike className="h-4 w-4" />
                     Out for delivery

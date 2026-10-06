@@ -1,4 +1,5 @@
 "use client";
+import { PdfDocumentButton } from "@/components/documents/PdfDocumentButton";
 import { userMessage } from "@/lib/user-messages";
 import {Workspace,WorkspaceSection} from "@/components/workspace/Workspace";
 import {Pagination,usePagination} from "@/components/workspace/Pagination";
@@ -623,13 +624,13 @@ export function OrdersClient({
                   Send order to WhatsApp
                 </a>
               ) : null}
-              <a href={`/api/orders/${selected.id}/receipt`} className="inline-flex min-h-10 items-center justify-center rounded-card border border-caribbean-line bg-white px-3 py-2 text-center text-sm font-black leading-tight dark:border-slate-700 dark:bg-slate-900">
+              <PdfDocumentButton href={`/api/orders/${selected.id}/receipt`} className="inline-flex min-h-10 items-center justify-center rounded-card border border-caribbean-line bg-white px-3 py-2 text-center text-sm font-black leading-tight dark:border-slate-700 dark:bg-slate-900">
                 Download PDF receipt
-              </a>
-              <a href={`/api/orders/${selected.id}/label`} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-card border border-caribbean-line bg-white px-3 py-2 text-center text-sm font-black leading-tight dark:border-slate-700 dark:bg-slate-900">
+              </PdfDocumentButton>
+              <PdfDocumentButton href={`/api/orders/${selected.id}/label`} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-card border border-caribbean-line bg-white px-3 py-2 text-center text-sm font-black leading-tight dark:border-slate-700 dark:bg-slate-900">
                 <PackageCheck className="h-4 w-4" />
                 Print shipping label
-              </a>
+              </PdfDocumentButton>
             </div></WorkspaceSection></Workspace></div>
         </Panel>
       ) : null}
