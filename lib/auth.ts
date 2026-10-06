@@ -11,7 +11,7 @@ const COOKIE_NAME = SESSION_COOKIE_NAME;
 
 type RequireUserResult =
   | { user: User; error: null; status: 200 }
-  | { user: undefined; error: string; status: 401 | 403 };
+  | { user: undefined; error: string; status: 401 | 403 | 503 };
 
 type AuthUserRow = {
   id: string;
@@ -96,15 +96,28 @@ export async function getSessionUserFromRequest(request?: NextRequest): Promise<
     request?.cookies.get(COOKIE_NAME)?.value || (await cookies()).get(COOKIE_NAME)?.value;
   if (!token) return null;
 
+  let claims: Awaited<ReturnType<typeof verifySessionClaims>>;
   try {
-    const { id, authVersion } = await verifySessionClaims(token);
+    claims = await verifySessionClaims(token);
+  } catch {
+    return null;
+  }
+  const { id, authVersion } = claims;
+  try {
     const current = await getActiveUserById(id);
     if (!current || current.authVersion !== authVersion) return null;
     const user = current.user;
     // Missing business context must never reach unscoped list/query helpers.
     return user?.business_id ? user : null;
   } catch {
-    return null;
+    throw new SessionUnavailableError();
+  }
+}
+
+export class SessionUnavailableError extends Error {
+  constructor() {
+    super("Your connection is temporarily unavailable. Please try again.");
+    this.name = "SessionUnavailableError";
   }
 }
 
@@ -112,7 +125,13 @@ export async function requireUser(
   request: NextRequest,
   permission?: Permission
 ): Promise<RequireUserResult> {
-  const user = await getSessionUserFromRequest(request);
+  let user: User | null;
+  try {
+    user = await getSessionUserFromRequest(request);
+  } catch (error) {
+    if (error instanceof SessionUnavailableError) return { user: undefined, error: error.message, status: 503 };
+    throw error;
+  }
   if (!user) {
     return { user: undefined, error: "Authentication required", status: 401 as const };
   }
@@ -128,7 +147,7 @@ export function sessionCookieOptions() {
   return {
     name: COOKIE_NAME,
     httpOnly: true,
-    sameSite: "strict" as const,
+    sameSite: "lax" as const,
     secure: process.env.NODE_ENV === "production",
     path: "/",
     maxAge: 60 * 60 * 12

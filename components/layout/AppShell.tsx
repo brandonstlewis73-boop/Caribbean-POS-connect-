@@ -20,7 +20,7 @@ export async function AppShell({
   settings?: Settings | null;
 }) {
   const user =
-    providedUser === undefined ? await getSessionUserFromRequest().catch(() => null) : providedUser;
+    providedUser === undefined ? await getSessionUserFromRequest() : providedUser;
   const settings =
     providedSettings === undefined
       ? await getBusinessSettings(user?.business_id).catch(() => null)

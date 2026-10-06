@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { PGlite } from "@electric-sql/pglite";
 import { NextRequest } from "next/server";
-import { createSession, getSessionUserFromRequest } from "../lib/auth";
+import { createSession, getSessionUserFromRequest, requireUser, SessionUnavailableError, sessionCookieOptions } from "../lib/auth";
 import type { Pool } from "pg";
 import { enforceRateLimit, requestClientKey } from "../lib/rate-limit";
 
@@ -24,6 +24,14 @@ async function main() {
     const identity = await getSessionUserFromRequest(request);
     assert.equal(identity?.id, user.id);
     assert.ok(!JSON.stringify(identity).includes("hash"));
+    assert.equal(sessionCookieOptions().sameSite, "lax");
+    const healthyPool = globalThis.__cpcPool;
+    globalThis.__cpcPool = { query: async () => { throw new Error("temporary connection failure"); } } as unknown as Pool;
+    await assert.rejects(() => getSessionUserFromRequest(request), SessionUnavailableError);
+    assert.equal((await requireUser(request)).status, 503);
+    globalThis.__cpcPool = healthyPool;
+    assert.equal((await getSessionUserFromRequest(request))?.id, user.id);
+    assert.equal((await requireUser(new NextRequest("https://pos.example/api/auth/me", {headers:{cookie:"cpc_session=invalid"}}))).status, 401);
     await db.exec("UPDATE users SET password_hash = 'rotated-test-hash' WHERE id = 'user-a'");
     assert.equal(await getSessionUserFromRequest(request), null);
     const refreshed = await createSession(user);

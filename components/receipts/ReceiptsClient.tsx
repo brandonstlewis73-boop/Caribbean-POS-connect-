@@ -120,7 +120,7 @@ export function ReceiptsClient({
                 <strong>{formatMoney(receipt.total)}</strong>
               </div>
               <div className="mt-3 grid grid-cols-2 gap-2">
-                <a href={`/api/orders/${receipt.order_id}/receipt`} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-card border border-caribbean-line px-3 py-2 text-center text-sm font-black dark:border-slate-700">
+                <a href={`/api/orders/${receipt.order_id}/receipt`} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-10 items-center justify-center gap-2 rounded-card border border-caribbean-line px-3 py-2 text-center text-sm font-black dark:border-slate-700">
                   <Printer className="h-4 w-4" />
                   Print
                 </a>
@@ -170,7 +170,7 @@ export function ReceiptsClient({
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-2">
-                      <a href={`/api/orders/${receipt.order_id}/receipt`} className="inline-flex h-10 items-center justify-center gap-2 rounded-card border border-caribbean-line px-3 text-sm font-black dark:border-slate-700">
+                      <a href={`/api/orders/${receipt.order_id}/receipt`} target="_blank" rel="noopener noreferrer" className="inline-flex h-10 items-center justify-center gap-2 rounded-card border border-caribbean-line px-3 text-sm font-black dark:border-slate-700">
                         <ReceiptText className="h-4 w-4" />
                         PDF
                       </a>
