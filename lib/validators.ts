@@ -174,7 +174,7 @@ export const businessSignupSchema = z.object({
   owner_name: z.string().trim().min(2, "Owner name is required.").optional().default("Business Owner"),
   email: z.string().trim().email("Enter a valid owner email address."),
   whatsapp_number: z.string().trim().min(7, "WhatsApp number is required."),
-  password: z.string().min(8, "Password must be at least 8 characters."),
+  password: z.string().min(12, "Password must be at least 12 characters.").max(72).refine((value) => new TextEncoder().encode(value).length <= 72, "Password must be at most 72 bytes.").refine((value) => value !== "ChangeMe123!", "Choose a unique password."),
   country: z.string().trim().optional().default("Trinidad and Tobago"),
   currency: currencySchema.optional().default("TTD")
 });
@@ -190,6 +190,7 @@ export const whatsappTestSchema = z.object({
 });
 
 export const staffUserSchema = z.object({
+  password: z.string().min(12, "Password must be at least 12 characters.").max(72).refine((value) => new TextEncoder().encode(value).length <= 72, "Password must be at most 72 bytes.").refine((value) => value !== "ChangeMe123!", "Choose a unique password.").optional(),
   name: z.string().trim().min(1, "Staff name is required."),
   phone: optionalText,
   email: z.string().trim().email("Enter a valid email address."),

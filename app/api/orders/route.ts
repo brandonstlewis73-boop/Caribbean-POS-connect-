@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { fail, ok } from "@/lib/api";
-import { getSessionUserFromRequest, requireUser } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { createOrder, listOrders } from "@/lib/data";
 import { checkoutSchema } from "@/lib/validators";
 
@@ -21,28 +21,13 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const body = await request.json().catch(() => null);
-  const parsed = checkoutSchema.safeParse(body);
+  const auth = await requireUser(request, "pos:sell");
+  if (!auth.user) return fail(auth.error, auth.status);
+  const parsed = checkoutSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return fail("Invalid order data", 422, parsed.error.flatten());
 
-  const user = await getSessionUserFromRequest(request);
-  const isCustomerFacing = ["online", "delivery", "pickup"].includes(parsed.data.order_type);
-  if (!user && !isCustomerFacing) return fail("Authentication required", 401);
-
   try {
-    const orderInput = user
-      ? parsed.data
-      : {
-          ...parsed.data,
-          assigned_driver_id: undefined,
-          created_by: undefined,
-          status: "new" as const,
-          payment_status: "unpaid" as const,
-          discount_amount: 0,
-          service_fee: undefined,
-          delivery_fee: undefined
-        };
-    const order = await createOrder({ ...orderInput, business_id: user?.business_id || null }, user?.id);
+    const order = await createOrder({ ...parsed.data, business_id: auth.user.business_id }, auth.user.id);
     return ok({ order }, { status: 201 });
   } catch (error) {
     return fail(error instanceof Error ? error.message : "Order failed", 400);

@@ -58,7 +58,7 @@ export function validateProductImageUpload(fileName: string, contentType: string
   if (!ALLOWED_PRODUCT_IMAGE_TYPES.has(contentType)) {
     return "Product photo must be JPG, PNG, or WebP.";
   }
-  if (size > MAX_PRODUCT_IMAGE_BYTES) {
+  if (size <= 0 || size > MAX_PRODUCT_IMAGE_BYTES) {
     return "Product photo is still too large after compression. Choose a smaller image under 5 MB.";
   }
   if (!fileName.trim()) {
@@ -95,6 +95,7 @@ export function productImagePathFromUrl(imageUrl?: string | null) {
 export async function uploadProductImageToStorage(input: UploadProductImageInput): Promise<UploadedProductImage> {
   const validation = validateProductImageUpload(input.fileName, input.contentType, input.bytes.byteLength);
   if (validation) throw new Error(validation);
+  if (!validProductImageBytes(input.bytes, input.contentType)) throw new Error("Product photo must contain a valid JPG, PNG, or WebP image.");
   const { supabaseUrl, serviceKey, bucket } = storageConfig();
   const path = productImageObjectPath(input);
   const response = await fetch(`${supabaseUrl}/storage/v1/object/${bucket}/${encodeURI(path)}`, {
@@ -119,9 +120,13 @@ export async function uploadProductImageToStorage(input: UploadProductImageInput
   return { bucket, path, publicUrl: productImagePublicUrl(path) };
 }
 
-export async function deleteProductImageFromStorage(imageUrl?: string | null) {
+export async function deleteProductImageFromStorage(imageUrl: string | null | undefined, owner: { businessId: string; productId: string }) {
   const path = productImagePathFromUrl(imageUrl);
   if (!path) return { deleted: false, reason: "Image is not in the product-images bucket." };
+  const prefix = `businesses/${safeSegment(owner.businessId, "business")}/products/${safeSegment(owner.productId, "product")}/`;
+  if (!path.startsWith(prefix) || path.includes("..") || path.includes("\\") || path.slice(prefix.length).includes("/")) {
+    return { deleted: false, reason: "Image does not belong to this product." };
+  }
   const { supabaseUrl, serviceKey, bucket } = storageConfig();
   const response = await fetch(`${supabaseUrl}/storage/v1/object/${bucket}`, {
     method: "DELETE",
@@ -200,4 +205,11 @@ export async function supabaseProductImageStorageStatus() {
       message: "Supabase Storage bucket check failed. Verify NEXT_PUBLIC_SUPABASE_URL and network access from Vercel."
     };
   }
+}
+export function validProductImageBytes(bytes: ArrayBuffer, type: string) {
+  const data = new Uint8Array(bytes);
+  if (type === "image/jpeg" || type === "image/jpg") return data.length >= 3 && data[0] === 0xff && data[1] === 0xd8 && data[2] === 0xff;
+  if (type === "image/png") return data.length >= 8 && [137, 80, 78, 71, 13, 10, 26, 10].every((byte, i) => data[i] === byte);
+  if (type === "image/webp") return data.length >= 12 && String.fromCharCode(...data.slice(0, 4)) === "RIFF" && String.fromCharCode(...data.slice(8, 12)) === "WEBP";
+  return false;
 }

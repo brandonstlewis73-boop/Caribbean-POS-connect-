@@ -93,9 +93,9 @@ export function SignupForm({ selectedPlan }: { selectedPlan?: string | null }) {
             </option>
           ))}
         </SelectField>
-        <Field className="md:col-span-2" label="Password" required minLength={8} autoComplete="new-password" aria-describedby="password-help" type="password" value={draft.password} onChange={(event) => update("password", event.target.value)} />
+        <Field className="md:col-span-2" label="Password" required minLength={12} maxLength={72} autoComplete="new-password" aria-describedby="password-help" type="password" value={draft.password} onChange={(event) => update("password", event.target.value)} />
       </div>
-      <p id="password-help" className="text-sm font-semibold text-teal-50/70">Use at least 8 characters for your password.</p>
+      <p id="password-help" className="text-sm font-semibold text-teal-50/70">Use at least 12 characters for your password.</p>
       <p className="text-sm font-semibold text-teal-50/70">Read how we handle your information in our <Link href="/privacy" className="text-cyan-200 underline">Privacy Policy</Link>. Need help? <Link href="/contact" className="text-cyan-200 underline">Contact us</Link>.</p>
       {error ? <p role="alert" className="rounded-card bg-red-50 p-3 text-sm font-bold text-red-700">{error}</p> : null}
       <Button variant="primary" size="lg" disabled={loading}>

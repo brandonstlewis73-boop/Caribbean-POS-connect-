@@ -8,7 +8,7 @@ export function waitForWorkerReady(worker: Worker, timeoutMs = 15000): Promise<v
       worker.removeEventListener("message", onMessage);
       worker.removeEventListener("error", onError);
       worker.removeEventListener("messageerror", onError);
-      error ? reject(error) : resolve();
+      if (error) reject(error); else resolve();
     };
     const onMessage = (event: MessageEvent) => { if (event.data?.type === "local-ai-ready") finish(); };
     const onError = () => finish(new Error("The local AI worker could not start. Refresh the page and try again."));
@@ -24,7 +24,7 @@ export function guardLocalTask<T>(task: Promise<T>, worker: Worker | null, signa
     const finish = (error: unknown, value?: T) => {
       clearTimeout(timer); signal?.removeEventListener("abort", onAbort);
       worker?.removeEventListener("error", onError); worker?.removeEventListener("messageerror", onError);
-      error ? reject(error) : resolve(value as T);
+      if (error) reject(error); else resolve(value as T);
     };
     const onAbort = () => finish(abortError());
     const onError = () => finish(new Error("The local AI worker failed. Refresh the page and try again."));

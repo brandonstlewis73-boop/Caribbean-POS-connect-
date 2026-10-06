@@ -173,8 +173,8 @@ Redeploy after saving the Vercel environment variables. Old deployments will not
 For a fresh database seeded with `db/supabase_schema_seed.sql`:
 
 ```text
-Email: admin@caribbeanpos.test
-Password: Admin123!
+Create an owner account at /signup. No default administrator password is created.
+For controlled local bootstrap only, set BOOTSTRAP_ADMIN_PASSWORD to a unique password of at least 12 characters.
 ```
 
 Change the seeded owner password before using the app for a real business, or sign up through the business owner signup flow.
@@ -341,3 +341,5 @@ This file is not part of the default production seed.
 - Marketing consent is captured on customer forms.
 - Admin and business mutations write audit logs.
 - Customer data should be handled under the privacy notice in `/privacy`.
+
+Security upgrade deployment prerequisites and remaining work are documented in [DEPLOYMENT.md](DEPLOYMENT.md#security-upgrade-rollout-october-2026).

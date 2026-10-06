@@ -61,7 +61,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   const { id } = await params;
   try {
     const product = await deleteProduct(id, auth.user.id);
-    if (product?.image_url) await deleteProductImageFromStorage(product.image_url).catch(() => null);
+    if (product?.image_url) await deleteProductImageFromStorage(product.image_url, { businessId: auth.user.business_id!, productId: id }).catch(() => null);
     return product ? ok({ product }) : fail("Product not found", 404);
   } catch (error) {
     return fail(error instanceof Error ? error.message : "Product could not be deleted.", 500);

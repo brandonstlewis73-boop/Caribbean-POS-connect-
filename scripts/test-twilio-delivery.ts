@@ -11,7 +11,7 @@ import { POST as deliveryCheck } from "../app/api/orders/[id]/whatsapp/route";
 import type { Order, Settings } from "../lib/types";
 async function main(){
  process.env.CPC_AUTO_MIGRATE="false";process.env.NEXT_PUBLIC_APP_URL="https://app.example";process.env.TWILIO_ACCOUNT_SID="AC"+"a".repeat(32);process.env.TWILIO_AUTH_TOKEN="test-token";process.env.TWILIO_WHATSAPP_FROM="whatsapp:+14155238886";
- const sid="SM"+"b".repeat(32);const attempts:Record<string,any>={};let notificationState="queued",posts=0,dedupeCalls=0;let providerState="queued";let retryEligible=false;let observedForm:URLSearchParams|null=null;
+ const sid="SM"+"b".repeat(32);const attempts:Record<string,any>={};let notificationState="queued",posts=0,dedupeCalls=0;const providerState="queued";let retryEligible=false;let observedForm:URLSearchParams|null=null;
  const originalPool=globalThis.__cpcPool,originalFetch=globalThis.fetch;
  const client={async query(sql:string,params:any[]=[]){
   if(sql.startsWith("UPDATE customer_notifications SET delivery_status='queued'")){assert(sql.includes("business_id=$2"));assert(sql.includes("failed"));assert(sql.includes("FOR UPDATE SKIP LOCKED"));const rows=retryEligible?[{id:"accepted-notification"}]:[];retryEligible=false;return{rows};}

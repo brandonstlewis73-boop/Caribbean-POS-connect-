@@ -1,3 +1,4 @@
+import { readBoundedJson } from "@/lib/request-security";
 import { NextRequest } from "next/server";
 import { fail, ok } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
@@ -15,7 +16,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const auth = await requireUser(request, "staff:manage");
   if (!auth.user) return fail(auth.error, auth.status);
-  const parsed = staffUserSchema.safeParse(await request.json().catch(() => null));
+  const parsed = staffUserSchema.safeParse(await readBoundedJson(request, 512 * 1024));
   if (!parsed.success) return fail("Invalid staff profile", 422, parsed.error.flatten());
   try {
     await assertUsageLimit(auth.user.business_id, "staff", 1);

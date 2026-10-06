@@ -14,7 +14,7 @@ export type User = {
 
 export type StaffInput = Partial<
   Pick<User, "name" | "email" | "phone" | "role" | "active" | "avatar_key" | "avatar_url">
->;
+> & { password?: string };
 
 export type Business = {
   id: string;
