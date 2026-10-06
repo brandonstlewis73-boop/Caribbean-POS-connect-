@@ -1,6 +1,7 @@
+import { deliveryLocation } from "./delivery-location";
 import { enforceRateLimit } from "./rate-limit";
 import type { Order } from "./types";
-import { buildAddress, extractCoordinates } from "./waze";
+import { buildAddress } from "./waze";
 
 export type RoutePoint = { latitude: number; longitude: number };
 export function validRoutePoint(point: RoutePoint) {
@@ -13,11 +14,7 @@ export function arrivalFromDuration(seconds: number, now = Date.now()) {
 }
 export async function calculateDeliveryEta(order: Order, origin: RoutePoint) {
   if (!validRoutePoint(origin)) throw new Error("Allow location access to estimate arrival.");
-  let destination: RoutePoint | null = null;
-  const latitude = order.delivery_latitude ?? order.customer_snapshot.gps_latitude;
-  const longitude = order.delivery_longitude ?? order.customer_snapshot.gps_longitude;
-  if (typeof latitude === "number" && typeof longitude === "number" && validRoutePoint({latitude,longitude})) destination = {latitude,longitude};
-  else destination = extractCoordinates(order.delivery_location_link);
+  let destination: RoutePoint | null = deliveryLocation(order);
   if (!destination) {
     const limited = await enforceRateLimit({scope:"delivery-address-provider",key:"nominatim",limit:1,windowSeconds:1});
     if (limited) throw new Error("Address lookup is busy. Try again shortly.");
@@ -36,8 +33,9 @@ export async function calculateDeliveryEta(order: Order, origin: RoutePoint) {
   const url = `https://router.project-osrm.org/route/v1/driving/${origin.longitude},${origin.latitude};${destination.longitude},${destination.latitude}?overview=false&alternatives=false&steps=false`;
   const response = await fetch(url,{signal:AbortSignal.timeout(12000),redirect:"error",cache:"no-store"});
   if (!response.ok) throw new Error("Route estimates are temporarily unavailable. Please try again.");
-  const data = await response.json() as {code?:string;routes?:Array<{duration:number;distance:number}>};
+  const data = await response.json() as {code?:string;routes?:Array<{duration:number;distance:number}>;waypoints?:Array<{distance:number}>};
   const route = data.routes?.[0];
   if (data.code !== "Ok" || !route || typeof route.duration !== "number") throw new Error("No usable driving route was found. Check the delivery location.");
+  if (data.waypoints?.some(point => !Number.isFinite(point.distance) || point.distance > 500)) throw new Error("The route is too far from the supplied location. Confirm the delivery pin and try again.");
   return {...arrivalFromDuration(route.duration),destination,provider:"OSRM",trafficAware:false};
 }

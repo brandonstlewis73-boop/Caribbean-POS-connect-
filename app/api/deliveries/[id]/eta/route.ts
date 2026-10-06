@@ -31,7 +31,7 @@ export async function POST(request:NextRequest,{params}:{params:Promise<{id:stri
   } catch(error) {
     console.error("Arrival estimate unavailable",error instanceof Error?error.name:"Error");
     const message = error instanceof Error ? error.message : "";
-    const explanations = ["Address lookup is busy. Try again shortly.", "Add a complete delivery address or GPS location first.", "Address lookup is temporarily unavailable. Try again later or add the delivery GPS location.", "Confirm the delivery GPS location first. The address did not identify one clear destination.", "Confirm the delivery GPS location first.", "Route estimates are temporarily unavailable. Please try again.", "No usable driving route was found. Check the delivery location."];
+    const explanations = ["The route is too far from the supplied location. Confirm the delivery pin and try again.", "Address lookup is busy. Try again shortly.", "Add a complete delivery address or GPS location first.", "Address lookup is temporarily unavailable. Try again later or add the delivery GPS location.", "Confirm the delivery GPS location first. The address did not identify one clear destination.", "Confirm the delivery GPS location first.", "Route estimates are temporarily unavailable. Please try again.", "No usable driving route was found. Check the delivery location."];
     return fail(explanations.includes(message) ? message : "We couldn’t estimate arrival. Check the delivery address or GPS location and try again.",422);
   }
 }

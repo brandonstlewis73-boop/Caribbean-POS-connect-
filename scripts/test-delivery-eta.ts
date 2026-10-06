@@ -32,12 +32,14 @@ async function main() {
     row.assigned_driver_id='driver-a';row.delivery_status='delivered';assert.equal((await POST(request(),params)).status,409);assert.equal(fetches,before);
     row.delivery_status='assigned';failRoute=true;assert.equal((await POST(request(),params)).status,422);assert.equal(writes,1,'Routing failure must preserve previous ETA');
     await assert.rejects(()=>calculateDeliveryEta(row as unknown as Order,{latitude:NaN,longitude:0}));
-    const addressOrder = {...row,delivery_latitude:null,delivery_longitude:null,customer_snapshot:{name:"Customer",street_address:"750 Library Avenue",city:"Newark",country:"United States"}} as unknown as Order;
+    const addressOrder = {...row,delivery_latitude:null,delivery_longitude:null,customer_snapshot:{name:"Customer",street_address:"750 Library Avenue",city:"Newark",country:"United States",gps_latitude:1,gps_longitude:2}} as unknown as Order;
     failRoute = false;
-    globalThis.fetch = async url => new Response(JSON.stringify(String(url).includes("nominatim") ? [{lat:"39.7",lon:"-75.7"}] : {code:"Ok",routes:[{duration:900,distance:5000}]}));
+    globalThis.fetch = async url => { if (!String(url).includes("nominatim")) assert(String(url).includes(";-75.7,39.7"), "Route must use the geocoded delivery address, not stale profile GPS"); return new Response(JSON.stringify(String(url).includes("nominatim") ? [{lat:"39.7",lon:"-75.7"}] : {code:"Ok",routes:[{duration:900,distance:5000}]})); };
     assert.equal((await calculateDeliveryEta(addressOrder,{latitude:39.65,longitude:-75.72})).minutes,15);
     globalThis.fetch = async () => new Response(JSON.stringify([{lat:"39.7",lon:"-75.7"},{lat:"40",lon:"-76"}]));
     await assert.rejects(()=>calculateDeliveryEta(addressOrder,{latitude:39.65,longitude:-75.72}),/one clear destination/);
+    globalThis.fetch = async () => new Response(JSON.stringify({code:"Ok",routes:[{duration:900,distance:5000}],waypoints:[{distance:900}]}));
+    await assert.rejects(()=>calculateDeliveryEta(row as unknown as Order,{latitude:39.65,longitude:-75.72}),/too far/);
     console.log('Delivery ETA checks passed: road duration, next-day dates, assigned-driver access, completed delivery rejection, no traffic claims, and failed route preserves ETA.');
   }finally{globalThis.fetch=oldFetch;globalThis.__cpcPool=oldPool;}
 }

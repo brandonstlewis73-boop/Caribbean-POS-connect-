@@ -12,3 +12,9 @@ assert.match(suggestDeliveryRoute([shared])[0].wazeLink!,/39.6,-75.7/);
 assert.ok(!suggestDeliveryRoute([shared])[0].routeReason.includes('AI'));
 assert.equal(suggestDeliveryRoute([{...order('done',1),delivery_status:'delivered'}]).length,0);
 console.log('PASS: origin ordering, cancellation, coordinate bounds, shared GPS, address fallback, completed exclusion.');
+
+const stale = {...order('stale',null),customer_snapshot:{name:'Customer',street_address:'750 Library Avenue',city:'Newark',country:'United States',gps_latitude:39.69397,gps_longitude:-75.7142}};
+assert.equal(suggestDeliveryRoute([stale])[0].hasCoordinates,false,'Customer profile GPS must not replace an order address');
+assert.match(suggestDeliveryRoute([stale])[0].wazeLink!,/750%20Library/);
+const partial = {...stale,delivery_latitude:40};
+assert.equal(suggestDeliveryRoute([partial])[0].hasCoordinates,false,'Never combine an order latitude with customer longitude');

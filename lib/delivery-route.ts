@@ -1,5 +1,6 @@
+import { deliveryLocation } from "./delivery-location";
 import type { Order } from "./types";
-import { buildAddress, buildDeliveryMapLinks, extractCoordinates } from "./waze";
+import { buildAddress, buildDeliveryMapLinks } from "./waze";
 
 export type DeliveryRouteStop = {
   order: Order;
@@ -24,12 +25,7 @@ function deliveryAddress(order: Order) {
   ]);
 }
 
-function coordinates(order: Order) {
-  const latitude = order.delivery_latitude ?? order.customer_snapshot.gps_latitude ?? null;
-  const longitude = order.delivery_longitude ?? order.customer_snapshot.gps_longitude ?? null;
-  if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || Math.abs(Number(latitude)) > 90 || Math.abs(Number(longitude)) > 180) return extractCoordinates(order.delivery_location_link);
-  return { latitude: Number(latitude), longitude: Number(longitude) };
-}
+const coordinates = deliveryLocation;
 
 function distanceKm(a: { latitude: number; longitude: number }, b: { latitude: number; longitude: number }) {
   const earthRadiusKm = 6371;

@@ -3,7 +3,7 @@ import { PdfDocumentButton } from "@/components/documents/PdfDocumentButton";
 import { userMessage } from "@/lib/user-messages";
 import {Pagination,usePagination} from "@/components/workspace/Pagination";
 
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { Bike, CheckCircle2, Clock, MapPinned, PackageCheck, Phone, Route, Save, Search, ChevronDown } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -27,6 +27,8 @@ function localDateTimeValue(value?: string | null) {
 export function DeliveriesClient({ deliveries, currency, canEditDetails = true, autoEstimate = true, origin = null }: { deliveries: Order[]; currency: string; canEditDetails?: boolean; autoEstimate?: boolean; origin?: { latitude: number; longitude: number } | null }) {
   const clientTime = useSyncExternalStore(subscribeToClientTime, () => true, () => false);
   const formatDateTime = (value: string) => clientTime ? new Intl.DateTimeFormat(undefined,{dateStyle:"medium",timeStyle:"short"}).format(new Date(value)) : "Loading local time…";
+  const [now, setNow] = useState(0);
+  useEffect(() => { setNow(Date.now()); const timer = setInterval(() => setNow(Date.now()), 60000); return () => clearInterval(timer); }, []);
   const [items, setItems] = useState(deliveries);
   const [drafts, setDrafts] = useState<Record<string, { driver_notes: string; estimated_delivery_at: string }>>({});
   const [message, setMessage] = useState("");
@@ -84,6 +86,7 @@ export function DeliveriesClient({ deliveries, currency, canEditDetails = true, 
         driver_notes: draft.driver_notes,
         estimated_delivery_at: draft.estimated_delivery_at ? new Date(draft.estimated_delivery_at).toISOString() : null
       } as Partial<Order>);
+      setEtaMinutes(current => { const next = {...current}; delete next[order.id]; return next; });
       setMessage(`Delivery #${order.order_number} details saved.`);
     } catch (error) {
       setMessage(userMessage(error, "Delivery details could not be saved."));
@@ -260,7 +263,7 @@ export function DeliveriesClient({ deliveries, currency, canEditDetails = true, 
                   {order.estimated_delivery_at ? (
                     <p className="inline-flex min-h-11 items-center justify-center gap-2 rounded-card border border-caribbean-line px-3 py-2 text-sm font-black dark:border-slate-800">
                       <Clock className="h-4 w-4" />
-                      <span>Arrival estimate: {formatDateTime(order.estimated_delivery_at)}<span className="mt-1 block text-xs font-semibold">{etaMinutes[order.id] ? `${etaMinutes[order.id]} min road travel · ` : ""}Your device timezone · confirm live traffic in Waze</span><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer" className="mt-1 block text-xs font-semibold underline">Route data © OpenStreetMap contributors</a></span>
+                      <span>Arrival estimate: {formatDateTime(order.estimated_delivery_at)}{now > new Date(order.estimated_delivery_at).getTime() && active.some(entry => entry.id === order.id) ? <strong className="mt-1 block text-amber-800">This estimate has passed. Refresh from the driver’s location.</strong> : null}<span className="mt-1 block text-xs font-semibold">{etaMinutes[order.id] ? `${etaMinutes[order.id]} min road travel · ` : ""}Your device timezone · confirm live traffic in Waze</span><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer" className="mt-1 block text-xs font-semibold underline">Route data © OpenStreetMap contributors</a></span>
                     </p>
                   ) : null}
                 </div>
