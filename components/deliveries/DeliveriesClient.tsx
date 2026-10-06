@@ -3,7 +3,7 @@ import { PdfDocumentButton } from "@/components/documents/PdfDocumentButton";
 import { userMessage } from "@/lib/user-messages";
 import {Pagination,usePagination} from "@/components/workspace/Pagination";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import { Bike, CheckCircle2, Clock, MapPinned, PackageCheck, Phone, Route, Save, Search, ChevronDown } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -14,6 +14,8 @@ import { readApiPayload } from "@/lib/client-response";
 import { suggestDeliveryRoute } from "@/lib/delivery-route";
 import type { Order } from "@/lib/types";
 
+const subscribeToClientTime = () => () => {};
+
 function localDateTimeValue(value?: string | null) {
   if (!value) return "";
   const date = new Date(value);
@@ -23,6 +25,8 @@ function localDateTimeValue(value?: string | null) {
 }
 
 export function DeliveriesClient({ deliveries, currency, canEditDetails = true, origin = null }: { deliveries: Order[]; currency: string; canEditDetails?: boolean; origin?: { latitude: number; longitude: number } | null }) {
+  const clientTime = useSyncExternalStore(subscribeToClientTime, () => true, () => false);
+  const formatDateTime = (value: string) => clientTime ? new Intl.DateTimeFormat(undefined,{dateStyle:"medium",timeStyle:"short"}).format(new Date(value)) : "Loading local time…";
   const [items, setItems] = useState(deliveries);
   const [drafts, setDrafts] = useState<Record<string, { driver_notes: string; estimated_delivery_at: string }>>({});
   const [message, setMessage] = useState("");
@@ -31,6 +35,7 @@ export function DeliveriesClient({ deliveries, currency, canEditDetails = true, 
   const [query, setQuery] = useState("");
   const [expanded, setExpanded] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [etaMinutes, setEtaMinutes] = useState<Record<string,number>>({});
   const [confirm, setConfirm] = useState<string | null>(null);
   const active = items.filter(order => ["pending", "assigned", "out_for_delivery"].includes(order.delivery_status) && order.status !== "cancelled");
   const drivers = Array.from(new Map(items.filter(order => order.assigned_driver_id).map(order => [order.assigned_driver_id!, order.assigned_driver_name || "Assigned driver"])).entries());
@@ -85,6 +90,30 @@ export function DeliveriesClient({ deliveries, currency, canEditDetails = true, 
     } finally { setBusy(null); }
   }
 
+  async function calculateArrival(orderId: string) {
+    if (!navigator.geolocation) throw new Error("Location is unavailable. Enter an arrival time in order details.");
+    const position = await new Promise<GeolocationPosition>((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, {enableHighAccuracy:true,timeout:15000,maximumAge:30000}));
+    const response = await fetch(`/api/deliveries/${orderId}/eta`, {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({latitude:position.coords.latitude,longitude:position.coords.longitude})});
+    const payload = await readApiPayload<{order:Order;estimate:{minutes:number}}>(response);
+    if (!response.ok || !payload.data?.order) throw new Error(payload.error || "Arrival estimate is unavailable. Check the delivery location.");
+    const updated = payload.data.order;
+    setItems(current => current.map(order => order.id === orderId ? updated : order));
+    setDrafts(current => ({...current,[orderId]:{driver_notes:current[orderId]?.driver_notes ?? updated.driver_notes ?? "",estimated_delivery_at:localDateTimeValue(updated.estimated_delivery_at)}}));
+    setEtaMinutes(current => ({...current,[orderId]:payload.data!.estimate.minutes}));
+    return updated;
+  }
+
+  async function estimateArrival(orderId: string) {
+    if (busy) return;
+    setBusy(orderId);setMessage("");
+    try {
+      const updated = await calculateArrival(orderId);
+      setMessage(`Delivery #${updated.order_number} arrival estimate saved. Road travel only; live traffic is not included.`);
+    } catch {
+      setMessage("Arrival estimate unavailable. Allow location access and check the delivery address or GPS location. You can enter an arrival time in order details.");
+    } finally {setBusy(null);}
+  }
+
   async function setStatus(orderId: string, status: Order["delivery_status"]) {
     if (busy) return;
     setBusy(orderId);
@@ -97,6 +126,10 @@ export function DeliveriesClient({ deliveries, currency, canEditDetails = true, 
       setItems(current => current.map(order => order.id === orderId ? updated : order));
       setConfirm(null);
       setMessage(`Delivery #${updated.order_number} marked ${status.replaceAll("_", " ")}.`);
+      if (status === "out_for_delivery") {
+        try { await calculateArrival(orderId); setMessage(`Delivery #${updated.order_number} is out for delivery. Arrival estimate saved without live traffic.`); }
+        catch { setMessage(`Delivery #${updated.order_number} is out for delivery. Arrival estimate unavailable; check location access and the delivery address.`); }
+      }
     } catch (error) {
       setMessage(userMessage(error, "Connection failed. Your delivery status has not been confirmed. Try again."));
     } finally { setBusy(null); }
@@ -133,7 +166,7 @@ export function DeliveriesClient({ deliveries, currency, canEditDetails = true, 
             <Panel key={order.id}>
               <PanelHeader
                 title={`${view === "active" && !mixedDrivers ? `Stop ${(recordPage.page-1)*recordPage.pageSize+index + 1} · ` : ""}#${order.order_number}`}
-                description={`${order.assigned_driver_name || "Unassigned"} - ${new Date(order.created_at).toLocaleString()}`}
+                description={`${order.assigned_driver_name || "Unassigned"} - ${formatDateTime(order.created_at)}`}
                 action={<Badge tone={order.delivery_status === "delivered" ? "green" : "amber"}>{order.delivery_status.replaceAll("_", " ")}</Badge>}
               />
               <div className="grid min-w-0 gap-4 p-4">
@@ -222,10 +255,11 @@ export function DeliveriesClient({ deliveries, currency, canEditDetails = true, 
                     Mark delivered
                   </Button></> : null}
                   {confirm === order.id ? <div className="dispatch-confirm sm:col-span-2"><strong>Confirm delivery to {order.customer_snapshot.name}?</strong><p>This updates delivery status only. Payment remains {order.payment_status}.</p><div><Button disabled={Boolean(busy)} variant="success" onClick={() => setStatus(order.id, "delivered")}>{busy === order.id ? "Updating…" : "Confirm delivered"}</Button><Button disabled={Boolean(busy)} onClick={() => setConfirm(null)}>Cancel</Button></div></div> : null}
+                  {active.some(entry => entry.id === order.id) ? <Button disabled={Boolean(busy)} onClick={() => estimateArrival(order.id)}><Clock className="h-4 w-4" />{busy === order.id ? "Working…" : "Estimate arrival"}</Button> : null}
                   {order.estimated_delivery_at ? (
                     <p className="inline-flex min-h-11 items-center justify-center gap-2 rounded-card border border-caribbean-line px-3 py-2 text-sm font-black dark:border-slate-800">
                       <Clock className="h-4 w-4" />
-                      ETA {new Date(order.estimated_delivery_at).toLocaleString()}
+                      <span>Arrival estimate: {formatDateTime(order.estimated_delivery_at)}<span className="mt-1 block text-xs font-semibold">{etaMinutes[order.id] ? `${etaMinutes[order.id]} min road travel · ` : ""}Your device timezone · confirm live traffic in Waze</span><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer" className="mt-1 block text-xs font-semibold underline">Route data © OpenStreetMap contributors</a></span>
                     </p>
                   ) : null}
                 </div>
