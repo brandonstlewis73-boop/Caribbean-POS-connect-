@@ -2946,7 +2946,7 @@ export async function updateOrder(id: string, input: Partial<Order>, userId?: st
            WHERE id = $3`,
           [
             input.driver_notes ?? existing.driver_notes ?? null,
-            input.estimated_delivery_at ?? existing.estimated_delivery_at ?? null,
+            "estimated_delivery_at" in input ? input.estimated_delivery_at : existing.estimated_delivery_at ?? null,
             id
           ],
           client

@@ -24,12 +24,14 @@ export async function POST(request:NextRequest,{params}:{params:Promise<{id:stri
     const estimate = await calculateDeliveryEta(order,input.data);
     const result = await query(`UPDATE orders SET estimated_delivery_at=$1::timestamptz, updated_at=NOW()
       WHERE id=$2 AND business_id=$3 AND status!='cancelled'
-      AND delivery_status IN ('pending','assigned','out_for_delivery')
+      AND order_type='delivery' AND delivery_status IN ('pending','assigned','out_for_delivery')
       AND ($4::text IS NULL OR assigned_driver_id=$4) RETURNING id`,[estimate.arrival,id,auth.user.business_id,auth.user.role==="driver"?auth.user.id:null]);
     if(!result.rows.length)return fail("This delivery changed. Refresh before estimating arrival.",409);
     return ok({order:await getOrder(id,auth.user.business_id),estimate});
   } catch(error) {
     console.error("Arrival estimate unavailable",error instanceof Error?error.name:"Error");
-    return fail("We couldn’t estimate arrival. Check the delivery address or GPS location and try again.",422);
+    const message = error instanceof Error ? error.message : "";
+    const explanations = ["Address lookup is busy. Try again shortly.", "Add a complete delivery address or GPS location first.", "Address lookup is temporarily unavailable. Try again later or add the delivery GPS location.", "Confirm the delivery GPS location first. The address did not identify one clear destination.", "Confirm the delivery GPS location first.", "Route estimates are temporarily unavailable. Please try again.", "No usable driving route was found. Check the delivery location."];
+    return fail(explanations.includes(message) ? message : "We couldn’t estimate arrival. Check the delivery address or GPS location and try again.",422);
   }
 }

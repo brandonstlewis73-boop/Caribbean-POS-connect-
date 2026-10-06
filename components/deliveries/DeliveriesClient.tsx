@@ -24,7 +24,7 @@ function localDateTimeValue(value?: string | null) {
   return new Date(date.getTime() - offset * 60_000).toISOString().slice(0, 16);
 }
 
-export function DeliveriesClient({ deliveries, currency, canEditDetails = true, origin = null }: { deliveries: Order[]; currency: string; canEditDetails?: boolean; origin?: { latitude: number; longitude: number } | null }) {
+export function DeliveriesClient({ deliveries, currency, canEditDetails = true, autoEstimate = true, origin = null }: { deliveries: Order[]; currency: string; canEditDetails?: boolean; autoEstimate?: boolean; origin?: { latitude: number; longitude: number } | null }) {
   const clientTime = useSyncExternalStore(subscribeToClientTime, () => true, () => false);
   const formatDateTime = (value: string) => clientTime ? new Intl.DateTimeFormat(undefined,{dateStyle:"medium",timeStyle:"short"}).format(new Date(value)) : "Loading local time…";
   const [items, setItems] = useState(deliveries);
@@ -92,8 +92,8 @@ export function DeliveriesClient({ deliveries, currency, canEditDetails = true, 
 
   async function calculateArrival(orderId: string) {
     if (!navigator.geolocation) throw new Error("Location is unavailable. Enter an arrival time in order details.");
-    const position = await new Promise<GeolocationPosition>((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, {enableHighAccuracy:true,timeout:15000,maximumAge:30000}));
-    const response = await fetch(`/api/deliveries/${orderId}/eta`, {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({latitude:position.coords.latitude,longitude:position.coords.longitude})});
+    const position = await new Promise<GeolocationPosition>((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, error => reject(new Error(error.code === 1 ? "Location access is blocked. Allow location in your browser settings, then try again." : error.code === 3 ? "Finding your location took too long. Move outdoors and try again." : "Your phone could not find its location. Check location services and try again.")), {enableHighAccuracy:true,timeout:15000,maximumAge:0}));
+    const response = await fetch(`/api/deliveries/${orderId}/eta`, {method:"POST",headers:{"Content-Type":"application/json"},signal:AbortSignal.timeout(30000),body:JSON.stringify({latitude:position.coords.latitude,longitude:position.coords.longitude})});
     const payload = await readApiPayload<{order:Order;estimate:{minutes:number}}>(response);
     if (!response.ok || !payload.data?.order) throw new Error(payload.error || "Arrival estimate is unavailable. Check the delivery location.");
     const updated = payload.data.order;
@@ -109,8 +109,8 @@ export function DeliveriesClient({ deliveries, currency, canEditDetails = true, 
     try {
       const updated = await calculateArrival(orderId);
       setMessage(`Delivery #${updated.order_number} arrival estimate saved. Road travel only; live traffic is not included.`);
-    } catch {
-      setMessage("Arrival estimate unavailable. Allow location access and check the delivery address or GPS location. You can enter an arrival time in order details.");
+    } catch (error) {
+      setMessage(userMessage(error, "Arrival estimate unavailable. Please try again."));
     } finally {setBusy(null);}
   }
 
@@ -126,7 +126,7 @@ export function DeliveriesClient({ deliveries, currency, canEditDetails = true, 
       setItems(current => current.map(order => order.id === orderId ? updated : order));
       setConfirm(null);
       setMessage(`Delivery #${updated.order_number} marked ${status.replaceAll("_", " ")}.`);
-      if (status === "out_for_delivery") {
+      if (status === "out_for_delivery" && autoEstimate) {
         try { await calculateArrival(orderId); setMessage(`Delivery #${updated.order_number} is out for delivery. Arrival estimate saved without live traffic.`); }
         catch { setMessage(`Delivery #${updated.order_number} is out for delivery. Arrival estimate unavailable; check location access and the delivery address.`); }
       }
@@ -144,6 +144,7 @@ export function DeliveriesClient({ deliveries, currency, canEditDetails = true, 
         <div className="dispatch-eyebrow"><Route size={16}/> DELIVERY OPERATIONS</div>
         <h2>Your next stop, clearly.</h2>
         <p>Manage the handoff, stay in touch, and keep every delivery moving.</p>
+        <p>Arrival estimates start from this phone’s current location. Estimate on the driver’s phone when they leave.</p>
         <div className="dispatch-metrics">
           <div><strong>{active.length}</strong><span>Active deliveries</span></div>
           <div><strong>{active.filter(order => order.delivery_status === "out_for_delivery").length}</strong><span>On the road</span></div>
@@ -255,7 +256,7 @@ export function DeliveriesClient({ deliveries, currency, canEditDetails = true, 
                     Mark delivered
                   </Button></> : null}
                   {confirm === order.id ? <div className="dispatch-confirm sm:col-span-2"><strong>Confirm delivery to {order.customer_snapshot.name}?</strong><p>This updates delivery status only. Payment remains {order.payment_status}.</p><div><Button disabled={Boolean(busy)} variant="success" onClick={() => setStatus(order.id, "delivered")}>{busy === order.id ? "Updating…" : "Confirm delivered"}</Button><Button disabled={Boolean(busy)} onClick={() => setConfirm(null)}>Cancel</Button></div></div> : null}
-                  {active.some(entry => entry.id === order.id) ? <Button disabled={Boolean(busy)} onClick={() => estimateArrival(order.id)}><Clock className="h-4 w-4" />{busy === order.id ? "Working…" : "Estimate arrival"}</Button> : null}
+                  {active.some(entry => entry.id === order.id) ? <Button disabled={Boolean(busy)} onClick={() => estimateArrival(order.id)}><Clock className="h-4 w-4" />{busy === order.id ? "Working…" : "Estimate from this phone"}</Button> : null}
                   {order.estimated_delivery_at ? (
                     <p className="inline-flex min-h-11 items-center justify-center gap-2 rounded-card border border-caribbean-line px-3 py-2 text-sm font-black dark:border-slate-800">
                       <Clock className="h-4 w-4" />

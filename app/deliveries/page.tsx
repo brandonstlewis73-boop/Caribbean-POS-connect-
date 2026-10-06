@@ -25,7 +25,7 @@ export default async function DeliveriesPage() {
   const [deliveries, settings] = await Promise.all([getDeliveries(user), getBusinessSettings(user.business_id)]);
   return (
     <AppShell active="Deliveries" title="Deliveries" user={user} settings={settings}>
-      <DeliveriesClient deliveries={deliveries} currency={settings.currency} canEditDetails={hasPermission(user.role, "orders:update")} origin={settings.business_latitude != null && settings.business_longitude != null ? { latitude: settings.business_latitude, longitude: settings.business_longitude } : null} />
+      <DeliveriesClient deliveries={deliveries} currency={settings.currency} autoEstimate={user.role === "driver"} canEditDetails={hasPermission(user.role, "orders:update")} origin={settings.business_latitude != null && settings.business_longitude != null ? { latitude: settings.business_latitude, longitude: settings.business_longitude } : null} />
     </AppShell>
   );
 }
