@@ -1,4 +1,5 @@
 "use client";
+import { parseProductPrice } from "@/lib/product-price";
 import { userMessage } from "@/lib/user-messages";
 import {Pagination,usePagination} from "@/components/workspace/Pagination";
 import {Workspace,WorkspaceSection} from "@/components/workspace/Workspace";
@@ -104,8 +105,8 @@ function emptyProduct(categories: Category[]) {
     category_id: categories[0]?.id || "",
     category: categories[0]?.name || "Uncategorized",
     description: "",
-    cost_price: 0,
-    selling_price: 0,
+    cost_price: "",
+    selling_price: "",
     discount_price: "",
     stock_quantity: 0,
     low_stock_alert: 5,
@@ -238,8 +239,8 @@ export function InventoryClient({ products, categories, currency }: { products: 
       category_id: product.category_id || categoryItems.find((item) => item.name === product.category)?.id || "",
       category: product.category,
       description: product.description || "",
-      cost_price: product.cost_price,
-      selling_price: product.selling_price,
+      cost_price: String(product.cost_price),
+      selling_price: String(product.selling_price),
       discount_price: product.discount_price == null ? "" : String(product.discount_price),
       stock_quantity: product.stock_quantity,
       low_stock_alert: product.low_stock_alert,
@@ -313,6 +314,13 @@ export function InventoryClient({ products, categories, currency }: { products: 
       setMessage("Add a product name before saving.");
       return;
     }
+    const costPrice = parseProductPrice(draft.cost_price, 0);
+    const sellingPrice = parseProductPrice(draft.selling_price);
+    const discountPrice = draft.discount_price.trim() ? parseProductPrice(draft.discount_price) : null;
+    if (costPrice === null || sellingPrice === null || (draft.discount_price.trim() && discountPrice === null)) {
+      setMessage("Enter valid prices with up to two decimal places. Selling price is required.");
+      return;
+    }
     const pastedImageUrl = (draft.image_url || "").trim();
     const pastedUrlError = selectedImageFile || imageMarkedForRemoval ? null : validateProductImageUrl(pastedImageUrl);
     if (pastedUrlError) {
@@ -323,7 +331,9 @@ export function InventoryClient({ products, categories, currency }: { products: 
     const body = {
       ...draft,
       image_url: selectedImageFile ? (editingId ? oldImageUrl || null : null) : imageMarkedForRemoval ? null : pastedImageUrl || null,
-      discount_price: draft.discount_price === "" ? null : Number(draft.discount_price),
+      cost_price: costPrice,
+      selling_price: sellingPrice,
+      discount_price: discountPrice,
       variations: parseOptionText(draft.variationsText),
       add_ons: parseOptionText(draft.addOnsText)
     };
@@ -594,9 +604,9 @@ export function InventoryClient({ products, categories, currency }: { products: 
             <input type="checkbox" checked={draft.active} onChange={(event) => setDraft({ ...draft, active: event.target.checked })} />
             Available in POS and storefront
           </label></WorkspaceSection><WorkspaceSection id="pricing" title="Pricing & stock" icon="pricing"><div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Cost price" type="number" value={draft.cost_price} onChange={(event) => setDraft({ ...draft, cost_price: Number(event.target.value) })} />
-            <Field label="Selling price" type="number" value={draft.selling_price} onChange={(event) => setDraft({ ...draft, selling_price: Number(event.target.value) })} />
-          </div><Field label="Discount price optional" type="number" value={draft.discount_price} onChange={(event) => setDraft({ ...draft, discount_price: event.target.value })} /><div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Cost price" type="text" inputMode="decimal" autoComplete="off" placeholder="0.00" className="text-base" value={draft.cost_price} onChange={(event) => setDraft({ ...draft, cost_price: event.target.value })} />
+            <Field label="Selling price" type="text" inputMode="decimal" autoComplete="off" placeholder="0.00" className="text-base" value={draft.selling_price} onChange={(event) => setDraft({ ...draft, selling_price: event.target.value })} />
+          </div><Field label="Discount price optional" type="text" inputMode="decimal" autoComplete="off" placeholder="0.00" className="text-base" value={draft.discount_price} onChange={(event) => setDraft({ ...draft, discount_price: event.target.value })} /><div className="grid gap-3 sm:grid-cols-2">
             <Field label="Stock quantity" type="number" value={draft.stock_quantity} onChange={(event) => setDraft({ ...draft, stock_quantity: Number(event.target.value) })} />
             <Field label="Low stock alert" type="number" value={draft.low_stock_alert} onChange={(event) => setDraft({ ...draft, low_stock_alert: Number(event.target.value) })} />
           </div></WorkspaceSection><WorkspaceSection id="photos" title="Product photos" icon="photo"><div className="grid gap-3 rounded-card border border-white/10 bg-black/20 p-3">
