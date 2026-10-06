@@ -2711,3 +2711,17 @@ th {
  .business-shell .pos-sale-confirmation p,.business-shell .pos-sale-confirmation a,
  .business-shell .dispatch-hero p { font-size:14px; line-height:1.5; }
 }
+
+/* The business workspace uses light cards even when the surrounding page is dark. */
+.business-shell .delivery-workspace { color:#17283b; }
+.business-shell .delivery-workspace .ui-panel button { color:#173c48; }
+.business-shell .delivery-workspace .delivery-customer-notes { color:#526579; }
+.business-shell .delivery-workspace .dispatch-toolbar,
+.business-shell .delivery-workspace .dispatch-filters select { background:#fff; color:#17283b; border-color:#dce4ec; }
+.business-shell .delivery-workspace .dispatch-filters input { color:#17283b; }
+.business-shell .delivery-workspace .dispatch-filters label { border-color:#dce4ec; }
+.business-shell .delivery-workspace .dispatch-tabs button { color:#526579; }
+.business-shell .delivery-workspace .dispatch-tabs button[aria-pressed=true] { background:#e6f5f4; color:#006c75; }
+.business-shell .delivery-workspace .dispatch-route-note,
+.business-shell .delivery-workspace .dispatch-confirm { background:#eff9f8; color:#16515a; border-color:#bce5e2; }
+.business-shell .delivery-workspace .ui-panel a[class*="bg-caribbean-teal"] { background:#087e80; color:#fff; }

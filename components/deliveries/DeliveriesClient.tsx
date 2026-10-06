@@ -144,7 +144,7 @@ export function DeliveriesClient({ deliveries, currency, canEditDetails = true, 
                     {stop?.addressNeedsReview ? "Address needs review." : addressText}
                   </p>
                   {order.customer_snapshot.delivery_notes ? (
-                    <p className="text-slate-600 dark:text-slate-300">{order.customer_snapshot.delivery_notes}</p>
+                    <p className="delivery-customer-notes text-slate-600 dark:text-slate-300">{order.customer_snapshot.delivery_notes}</p>
                   ) : null}
                 </div>
                 <button className="dispatch-expand" aria-expanded={expanded === order.id} onClick={() => setExpanded(expanded === order.id ? null : order.id)}>Order details & driver notes <ChevronDown size={18}/></button>
