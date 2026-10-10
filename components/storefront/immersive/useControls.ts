@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState, type RefObject } from "react";
+import { joystickAxis } from "@/lib/immersive/world";
 export type Controls = {
   x: number;
   z: number;
@@ -56,6 +57,8 @@ export function useControls(
     };
     const onKey = (event: KeyboardEvent) => {
       const el = event.target as HTMLElement;
+      // Always release a held key, even when focus moved into a dialog.
+      if (event.type === "keyup" && keys.current.delete(event.code)) update();
       if (
         !input.current.enabled ||
         !root.current?.contains(document.activeElement) ||
@@ -114,14 +117,20 @@ export function useControls(
       onPointerMove: (e: React.PointerEvent<HTMLDivElement>) => {
         if (joystick.current !== e.pointerId) return;
         const r = e.currentTarget.getBoundingClientRect(),
-          x = (e.clientX - r.left - r.width / 2) / 38,
-          y = (e.clientY - r.top - r.height / 2) / 38,
+          travel = r.width * 0.33,
+          x = (e.clientX - r.left - r.width / 2) / travel,
+          y = (e.clientY - r.top - r.height / 2) / travel,
           size = Math.max(1, Math.hypot(x, y));
-        input.current.x = x / size;
-        input.current.z = y / size;
-        setStick({ x: (x / size) * 32, y: (y / size) * 32 });
+        const axis = joystickAxis(x, y);
+        input.current.x = axis.x;
+        input.current.z = axis.z;
+        setStick({
+          x: (x / size) * travel * 0.84,
+          y: (y / size) * travel * 0.84,
+        });
       },
-      onPointerUp: () => {
+      onPointerUp: (e: React.PointerEvent<HTMLDivElement>) => {
+        if (joystick.current !== e.pointerId) return;
         joystick.current = null;
         input.current.x = 0;
         input.current.z = 0;
@@ -139,6 +148,7 @@ export function useControls(
       onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => {
         if (
           !input.current.enabled ||
+          look.current !== null ||
           (e.target as HTMLElement).closest(
             "button,input,select,[data-joystick]",
           )

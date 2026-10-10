@@ -34,6 +34,10 @@ import {
 import type { Product, Settings } from "@/lib/types";
 import { useControls } from "./useControls";
 import { StoreAudio } from "./audio";
+import {
+  adaptResolution,
+  type ResolutionState,
+} from "@/lib/immersive/performance";
 import type { Quality, SceneStats } from "./Scene";
 import styles from "./ImmersiveStorefront.module.css";
 const Scene = dynamic(() => import("./Scene"), { ssr: false });
@@ -112,6 +116,7 @@ export default function ImmersiveStorefront(props: Props) {
     [page, setPage] = useState(0),
     [search, setSearch] = useState("");
   const [quality, setQuality] = useState<Quality>("auto"),
+    [resolution, setResolution] = useState(1),
     [autoLow, setAutoLow] = useState(true),
     [sound, setSound] = useState(false),
     [music, setMusic] = useState(false),
@@ -124,8 +129,21 @@ export default function ImmersiveStorefront(props: Props) {
     x: 0,
     z: 0,
     speed: 0,
+    frameMs: 0,
+    p50Ms: 0,
+    p95Ms: 0,
+    samples: 0,
+    gpuMs: null,
+    estimatedMB: 0,
+    geometries: 0,
+    textures: 0,
+    renderWidth: 0,
+    renderHeight: 0,
+    assetBytes: 0,
+    assetMs: 0,
+    firstRenderMs: 0,
   });
-  const slowSamples = useRef(0),
+  const adaptive = useRef<ResolutionState>({ scale: 1, slow: 0, fast: 0 }),
     openRef = useRef<(id: string | null) => void>(() => {});
   const controls = useControls(root, ready && !panel && !selected && !fault);
   const config = useMemo(() => worldConfig(props.settings), [props.settings]);
@@ -175,8 +193,9 @@ export default function ImmersiveStorefront(props: Props) {
     }, []);
   const onStats = useCallback((next: SceneStats) => {
     setStats(next);
-    slowSamples.current = next.fps < 28 ? slowSamples.current + 1 : 0;
-    if (slowSamples.current >= 3) setAutoLow(true);
+    adaptive.current = adaptResolution(adaptive.current, next.p95Ms);
+    setResolution(adaptive.current.scale);
+    if (adaptive.current.scale < 1) setAutoLow(true);
   }, []);
   useEffect(() => {
     const siblings = [...document.body.children].filter(
@@ -287,6 +306,18 @@ export default function ImmersiveStorefront(props: Props) {
       data-player-x={stats.x.toFixed(2)}
       data-player-z={stats.z.toFixed(2)}
       data-fps={stats.fps}
+      data-frame-p95={stats.p95Ms.toFixed(1)}
+      data-frame-p50={stats.p50Ms.toFixed(1)}
+      data-frame-samples={stats.samples}
+      data-estimated-mb={stats.estimatedMB}
+      data-textures={stats.textures}
+      data-geometries={stats.geometries}
+      data-gpu-ms={stats.gpuMs?.toFixed(2) ?? "unavailable"}
+      data-resolution={quality === "high" ? 1.35 : resolution}
+      data-asset-bytes={stats.assetBytes}
+      data-asset-ms={stats.assetMs.toFixed(1)}
+      data-first-render-ms={stats.firstRenderMs.toFixed(1)}
+      data-player-speed={stats.speed.toFixed(3)}
       data-draw-calls={stats.calls}
       data-triangles={stats.triangles}
       data-quality={
@@ -305,6 +336,7 @@ export default function ImmersiveStorefront(props: Props) {
               nearby={nearby}
               low={quality === "low" || (quality === "auto" && autoLow)}
               paused={ready && Boolean(panel || selected)}
+              resolution={quality === "high" ? 1.35 : resolution}
               onReady={onReady}
               onProgress={setProgress}
               onError={onError}
@@ -315,74 +347,80 @@ export default function ImmersiveStorefront(props: Props) {
           </SceneBoundary>
         ) : null}
       </div>
-      <header className={styles.topbar}>
-        <div className={styles.brand}>
-          {props.settings.logo_url ? (
-            <img src={props.settings.logo_url} alt="" />
-          ) : (
-            <Leaf size={24} />
-          )}
-          <h1>{config.name}</h1>
-        </div>
-        <nav aria-label="Store controls">
-          <button type="button" onClick={props.onExit}>
-            <ArrowLeft size={18} />
-            <span>Quick Shop</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setPanel("settings")}
-            aria-label="Store settings"
-          >
-            <Settings2 size={20} />
-          </button>
-        </nav>
-      </header>
+      <div className={styles.hud}>
+        <header className={styles.topbar}>
+          <div className={styles.brand}>
+            {props.settings.logo_url ? (
+              <img src={props.settings.logo_url} alt="" />
+            ) : (
+              <Leaf size={24} />
+            )}
+            <h1>{config.name}</h1>
+          </div>
+          <nav aria-label="Store controls">
+            <button type="button" onClick={props.onExit}>
+              <ArrowLeft size={18} />
+              <span>Quick Shop</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setPanel("settings")}
+              aria-label="Store settings"
+            >
+              <Settings2 size={20} />
+            </button>
+          </nav>
+        </header>
+        {ready && !fault ? (
+          <div className={styles.hudTools}>
+            <div className={styles.collection}>
+              <button type="button" onClick={() => setPanel("products")}>
+                <Search size={17} />
+                Browse products
+              </button>
+              {pageCount > 1 ? (
+                <div>
+                  <button
+                    type="button"
+                    aria-label="Previous collection"
+                    disabled={currentPage === 0}
+                    onClick={() => setPage(currentPage - 1)}
+                  >
+                    Previous
+                  </button>
+                  <span>
+                    {currentPage + 1}/{pageCount}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label="Next collection"
+                    disabled={currentPage === pageCount - 1}
+                    onClick={() => setPage(currentPage + 1)}
+                  >
+                    Next
+                  </button>
+                </div>
+              ) : null}
+            </div>
+            <div className={styles.location}>
+              <span>
+                {nearby === "checkout"
+                  ? "Checkout counter"
+                  : nearProduct
+                    ? nearProduct.name
+                    : "Explore the store"}
+              </span>
+              <small>
+                {nearProduct
+                  ? format(saleUnitPrice(nearProduct))
+                  : "Walk towards a shelf to inspect products"}
+              </small>
+            </div>
+          </div>
+        ) : null}
+      </div>
       {ready && !fault ? (
         <>
-          <div className={styles.collection}>
-            <button type="button" onClick={() => setPanel("products")}>
-              <Search size={17} />
-              Browse products
-            </button>
-            {pageCount > 1 ? (
-              <div>
-                <button
-                  type="button"
-                  aria-label="Previous collection"
-                  disabled={currentPage === 0}
-                  onClick={() => setPage(currentPage - 1)}
-                >
-                  Previous
-                </button>
-                <span>
-                  {currentPage + 1}/{pageCount}
-                </span>
-                <button
-                  type="button"
-                  aria-label="Next collection"
-                  disabled={currentPage === pageCount - 1}
-                  onClick={() => setPage(currentPage + 1)}
-                >
-                  Next
-                </button>
-              </div>
-            ) : null}
-          </div>
-          <div className={styles.location}>
-            <span>
-              {nearby === "checkout"
-                ? "Checkout counter"
-                : nearProduct
-                  ? nearProduct.name
-                  : "Explore the store"}
-            </span>
-            <small>
-              {nearProduct
-                ? format(saleUnitPrice(nearProduct))
-                : "Walk towards a shelf to inspect products"}
-            </small>
-          </div>
           {nearby ? (
             <button
               type="button"
@@ -667,7 +705,9 @@ export default function ImmersiveStorefront(props: Props) {
               className={styles.setting}
               onClick={() => {
                 if (!root.current?.requestFullscreen) {
-                  setStatus("Full screen is unavailable. You can keep shopping here.");
+                  setStatus(
+                    "Full screen is unavailable. You can keep shopping here.",
+                  );
                   closePanel();
                   return;
                 }

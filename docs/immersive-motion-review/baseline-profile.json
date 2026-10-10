@@ -1,0 +1,48 @@
+{
+  "browser": "Chromium SwiftShader",
+  "viewport": "390x844 DPR1",
+  "bootMs": 2883,
+  "idle": {
+    "label": "idle, active canvas",
+    "samples": 59,
+    "meanMs": 101.9728813559322,
+    "p50Ms": 100,
+    "p95Ms": 250,
+    "fps": 9.806528821221994,
+    "renderer": {
+      "ready": "true",
+      "playerX": "2.40",
+      "playerZ": "3.30",
+      "fps": "11",
+      "drawCalls": "52",
+      "triangles": "42524",
+      "quality": "low"
+    }
+  },
+  "moving": {
+    "label": "run into aisle boundary",
+    "samples": 64,
+    "meanMs": 95.04687500000003,
+    "p50Ms": 99.89999999999964,
+    "p95Ms": 183.40000000000146,
+    "fps": 10.521124445175074,
+    "renderer": {
+      "ready": "true",
+      "playerX": "2.40",
+      "playerZ": "-5.90",
+      "fps": "15",
+      "drawCalls": "23",
+      "triangles": "41612",
+      "quality": "low"
+    }
+  },
+  "assets": [
+    {
+      "url": "shopper.glb",
+      "durationMs": 29.700000002980232,
+      "decodedBytes": 527816,
+      "transferBytes": 257102
+    }
+  ],
+  "note": "Development server, software rendering. No physical iPhone FPS or total GPU-memory claim."
+}

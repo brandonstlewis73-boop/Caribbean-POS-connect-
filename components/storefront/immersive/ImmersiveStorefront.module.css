@@ -684,3 +684,89 @@
     touch-action: none;
   }
 }
+
+/* Stack HUD rows in normal flow: safe-area insets and long names cannot overlap. */
+.hud {
+  position: absolute;
+  top: calc(var(--store-safe-top, env(safe-area-inset-top, 0px)) + 12px);
+  left: max(12px, env(safe-area-inset-left));
+  right: max(12px, env(safe-area-inset-right));
+  display: grid;
+  gap: 10px;
+  pointer-events: none;
+}
+.hud > * {
+  pointer-events: auto;
+}
+.hud .topbar,
+.hud .collection,
+.hud .location {
+  position: static;
+}
+.hudTools {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  pointer-events: none;
+}
+.hudTools > * {
+  pointer-events: auto;
+}
+.hud .collection {
+  flex-wrap: wrap;
+}
+.hud .brand {
+  flex: 1;
+}
+.hud .brand h1 {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: none;
+}
+.hud .topbar nav {
+  flex-shrink: 0;
+}
+.hud .topbar {
+  background: #fff8eb;
+  backdrop-filter: none;
+}
+.hud .location {
+  background: #20372e;
+}
+.prompt {
+  white-space: normal;
+  max-width: calc(100% - 32px);
+}
+@media (max-width: 700px) {
+  .hud .location {
+    display: none;
+  }
+  .hud .collection {
+    flex-direction: row;
+    align-items: center;
+  }
+  .hud .brand h1 {
+    font-size: 17px;
+  }
+  .hud .brand img {
+    width: 28px;
+    height: 28px;
+  }
+}
+@media (max-height: 500px) {
+  .hud {
+    top: calc(var(--store-safe-top, env(safe-area-inset-top, 0px)) + 6px);
+    gap: 6px;
+  }
+  .hud .location {
+    display: none;
+  }
+}
+.hud .brand img {
+  flex-shrink: 0;
+}
+.hud .topbar button {
+  font-size: 14px;
+}

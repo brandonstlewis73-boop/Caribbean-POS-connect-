@@ -20,6 +20,7 @@ await mkdir("/tmp/immersive-review", { recursive: true });
 async function open(options = {}) {
   const context = await browser.newContext(options);
   const page = await context.newPage();
+  page.setDefaultTimeout(60000);
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto(`${origin}/store/qa-immersive`);
   return { page, context };
@@ -30,13 +31,18 @@ async function enter(page) {
   const contrast = await entry.evaluate((button) => {
     const style = getComputedStyle(button);
     const luminance = (color) => {
-      const values = color.match(/[\d.]+/g).slice(0, 3).map(Number).map((v) => {
-        const c = v / 255;
-        return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
-      });
+      const values = color
+        .match(/[\d.]+/g)
+        .slice(0, 3)
+        .map(Number)
+        .map((v) => {
+          const c = v / 255;
+          return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+        });
       return values[0] * 0.2126 + values[1] * 0.7152 + values[2] * 0.0722;
     };
-    const a = luminance(style.color), b = luminance(style.backgroundColor);
+    const a = luminance(style.color),
+      b = luminance(style.backgroundColor);
     return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
   });
   assert.ok(contrast >= 4.5, `3D entry contrast must be readable: ${contrast}`);
@@ -126,6 +132,19 @@ try {
   const m = await enter(mobile.page);
   await expect(m.engine).toHaveAttribute("data-quality", "low");
   const mp = mobile.page;
+  // Emulate the safe-area offset that desktop browser emulation leaves at zero.
+  await m.engine.evaluate((e) =>
+    e.style.setProperty("--store-safe-top", "59px"),
+  );
+  const headerBox = await m.engine.locator("header").first().boundingBox();
+  const browseBox = await mp
+    .getByRole("button", { name: "Browse products" })
+    .boundingBox();
+  assert.ok(
+    headerBox.y >= 59 && browseBox.y >= headerBox.y + headerBox.height,
+    "HUD rows never overlap under an iPhone safe area",
+  );
+  await m.engine.evaluate((e) => e.style.removeProperty("--store-safe-top"));
   const joy = mp.getByLabel("Movement joystick");
   await expect(joy).toBeVisible();
   await expect
@@ -185,6 +204,12 @@ try {
     .click();
   await enter(mp);
   await expect(mp.getByRole("button", { name: /Bag 1/ })).toBeVisible();
+  await expect
+    .poll(
+      async () => Number(await m.engine.getAttribute("data-frame-samples")),
+      { timeout: 20000 },
+    )
+    .toBeGreaterThan(0);
   await mp.screenshot({ path: "/tmp/immersive-review/mobile.png" });
   results.push({
     view: "mobile",
@@ -196,6 +221,14 @@ try {
   await mp.setViewportSize({ width: 768, height: 1024 });
   await expect(mp.getByLabel("Movement joystick")).toBeVisible();
   await mp.setViewportSize({ width: 320, height: 568 });
+  const narrowHeader = await m.engine.locator("header").first().boundingBox();
+  const narrowBrowse = await mp
+    .getByRole("button", { name: "Browse products" })
+    .boundingBox();
+  assert.ok(
+    narrowBrowse.y >= narrowHeader.y + narrowHeader.height,
+    "320px HUD rows remain separated",
+  );
   assert.ok(
     await mp
       .locator("[data-ready]")

@@ -5,28 +5,39 @@ import { useFrame } from "@react-three/fiber";
 import {
   AnimationMixer,
   Box3,
+  BufferGeometry,
   CanvasTexture,
   Group,
-  LoopOnce,
   Mesh,
   Vector3,
   type AnimationAction,
 } from "three";
 import { clone } from "three/examples/jsm/utils/SkeletonUtils.js";
 import type { Body } from "@/lib/immersive/world";
+import {
+  gait,
+  advancePhase,
+  pickupWeight,
+  PICKUP_SECONDS,
+} from "@/lib/immersive/motion";
 export const CHARACTER_URL = "/storefront/immersive/shopper.glb";
 export function Character({
   body,
   pickup,
   staff = false,
+  paused = false,
 }: {
   body: MutableRefObject<Body>;
   pickup: MutableRefObject<number>;
   staff?: boolean;
+  paused?: boolean;
 }) {
   const gltf = useGLTF(CHARACTER_URL),
     group = useRef<Group>(null),
-    lastPickup = useRef(0);
+    lastPickup = useRef(0),
+    phase = useRef(0),
+    pickupTime = useRef(PICKUP_SECONDS),
+    weights = useRef({ idle: 1, walk: 0, run: 0 });
   const shadow = useMemo(() => {
     const canvas = document.createElement("canvas");
     canvas.width = 64;
@@ -42,10 +53,26 @@ export function Character({
   useEffect(() => () => shadow.dispose(), [shadow]);
   const rig = useMemo(() => {
     const scene = clone(gltf.scene);
+    const owned: BufferGeometry[] = [];
     scene.traverse((object) => {
       if (object instanceof Mesh) {
         object.castShadow = true;
         object.frustumCulled = false;
+        // A skinned cream work shirt replaces the rigid box previously used as
+        // an apron. Never mutate the cached shopper's shared geometry/colors.
+        if (staff && object.geometry.getAttribute("color")) {
+          object.geometry = object.geometry.clone();
+          owned.push(object.geometry);
+          const color = object.geometry.getAttribute("color");
+          for (let i = 0; i < color.count; i++) {
+            if (
+              color.getY(i) > color.getX(i) * 2 &&
+              color.getY(i) > color.getZ(i) * 1.2
+            )
+              color.setXYZ(i, 0.78, 0.73, 0.62);
+          }
+          color.needsUpdate = true;
+        }
       }
     });
     const box = new Box3().setFromObject(scene),
@@ -57,15 +84,21 @@ export function Character({
       actions: Record<string, AnimationAction> = {};
     for (const clip of gltf.animations)
       actions[clip.name] = mixer.clipAction(clip);
-    return { scene, mixer, actions };
-  }, [gltf]);
+    return { scene, mixer, actions, owned };
+  }, [gltf, staff]);
+  useEffect(
+    () => () => rig.owned.forEach((geometry) => geometry.dispose()),
+    [rig],
+  );
   useEffect(() => {
-    for (const name of ["Idle_Loop", "Walk_Loop", "Jog_Fwd_Loop"])
-      rig.actions[name]
-        ?.reset()
-        .play()
-        .setEffectiveWeight(name === "Idle_Loop" && !staff ? 1 : 0);
-    if (staff) rig.actions.Idle_Talking_Loop?.reset().play();
+    for (const action of Object.values(rig.actions))
+      action.reset().play().setEffectiveWeight(0);
+    rig.actions[staff ? "Idle_Talking_Loop" : "Idle_Loop"]?.setEffectiveWeight(
+      1,
+    );
+    rig.actions.Walk_Loop?.setEffectiveTimeScale(0);
+    rig.actions.Jog_Fwd_Loop?.setEffectiveTimeScale(0);
+    rig.actions.PickUp_Table?.setEffectiveTimeScale(0);
     rig.mixer.update(0);
     return () => {
       rig.mixer.stopAllAction();
@@ -77,36 +110,41 @@ export function Character({
       group.current.position.set(b.x, 0, b.z);
       group.current.rotation.y = b.yaw;
     }
-    const actions = rig.actions,
-      picking = actions.PickUp_Table;
+    if (paused || document.hidden) return;
+    const dt = Math.min(delta, 0.1);
     if (pickup.current !== lastPickup.current) {
       lastPickup.current = pickup.current;
-      if (picking) {
-        picking.reset().setLoop(LoopOnce, 1);
-        picking.clampWhenFinished = false;
-        picking.setEffectiveWeight(1).fadeIn(0.12).play();
-      }
+      pickupTime.current = 0;
     }
-    const busy = picking?.isRunning() || false;
-    if (!staff) {
-      const walk = Math.min(1, b.speed / 1.6),
-        run = Math.max(0, Math.min(1, (b.speed - 2) / 1.2));
-      const blend = 1 - Math.exp(-10 * Math.min(delta, 0.05));
-      for (const [name, target] of [
-        ["Idle_Loop", 1 - walk],
-        ["Walk_Loop", walk * (1 - run)],
-        ["Jog_Fwd_Loop", run],
-      ] as const) {
-        const action = actions[name];
-        if (action)
-          action.setEffectiveWeight(
-            action.getEffectiveWeight() +
-              ((busy ? 0.05 : target) - action.getEffectiveWeight()) * blend,
-          );
-      }
+    pickupTime.current = Math.min(PICKUP_SECONDS, pickupTime.current + dt);
+    const overlay = pickupWeight(pickupTime.current);
+    const target = gait(b.speed),
+      blend = 1 - Math.exp(-16 * dt);
+    for (const key of ["idle", "walk", "run"] as const)
+      weights.current[key] += (target[key] - weights.current[key]) * blend;
+    phase.current = advancePhase(phase.current, b.speed, dt);
+    const actions = rig.actions;
+    actions[staff ? "Idle_Talking_Loop" : "Idle_Loop"]?.setEffectiveWeight(
+      weights.current.idle * (1 - overlay),
+    );
+    for (const [key, name] of [
+      ["walk", "Walk_Loop"],
+      ["run", "Jog_Fwd_Loop"],
+    ] as const) {
+      const action = actions[name];
+      if (!action) continue;
+      action.time = phase.current * action.getClip().duration;
+      action.setEffectiveWeight(weights.current[key] * (1 - overlay));
     }
-    rig.mixer.update(Math.min(delta, 0.05));
-  });
+    if (actions.PickUp_Table) {
+      actions.PickUp_Table.time = Math.min(
+        pickupTime.current,
+        PICKUP_SECONDS - 0.001,
+      );
+      actions.PickUp_Table.setEffectiveWeight(overlay);
+    }
+    rig.mixer.update(dt);
+  }, -1);
   return (
     <group ref={group}>
       <primitive object={rig.scene} dispose={null} />
@@ -114,12 +152,6 @@ export function Character({
         <planeGeometry args={[0.9, 0.7]} />
         <meshBasicMaterial map={shadow} transparent depthWrite={false} />
       </mesh>
-      {staff ? (
-        <mesh position={[0, 1.03, 0.16]}>
-          <boxGeometry args={[0.36, 0.48, 0.06]} />
-          <meshStandardMaterial color="#245644" roughness={0.9} />
-        </mesh>
-      ) : null}
     </group>
   );
 }

@@ -1,5 +1,9 @@
 # Immersive storefront implementation and release review
 
+## Unreleased movement upgrade
+
+The feature-branch audit, performance comparison, limitations and validation are in [Immersive movement and mobile review](immersive-motion-review/README.md). This upgrade is not approved for production deployment. Results farther below describe the earlier release.
+
 ## Rollout
 
 The old image/video-based 3D storefront has been removed at the merchant’s request. Quick Shop remains the default landing view, with the new engine loaded only when the shopper chooses to enter. No live database migration is required.
