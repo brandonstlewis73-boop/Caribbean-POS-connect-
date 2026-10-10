@@ -28,7 +28,9 @@
     "test:backup": "node --import tsx scripts/test-business-backup.ts",
     "test:security": "node --import tsx scripts/test-security.ts",
     "test:rate-limit": "node --import tsx scripts/test-rate-limit.ts",
-    "audit:production": "npm audit --omit=dev --audit-level=moderate"
+    "audit:production": "npm audit --omit=dev --audit-level=moderate",
+    "test:immersive": "node --import tsx scripts/test-immersive.ts && node --conditions=react-server --import tsx scripts/test-immersive-checkout.cjs && node scripts/test-immersive-character.mjs",
+    "test:immersive:browser": "node scripts/test-immersive-runner.mjs"
   },
   "dependencies": {
     "@mlc-ai/web-llm": "^0.2.85",

@@ -2,7 +2,8 @@ import { limitRequest } from "@/lib/rate-limit";
 import { readBoundedJson } from "@/lib/request-security";
 import { NextRequest } from "next/server";
 import { fail, ok } from "@/lib/api";
-import { createOrder, getBusinessBySlug } from "@/lib/data";
+import { createOrder, getBusinessBySlug, getBusinessSettings } from "@/lib/data";
+import { publicCheckoutError } from "@/lib/immersive/checkout-policy";
 import { checkoutSchema } from "@/lib/validators";
 
 export const runtime = "nodejs";
@@ -25,6 +26,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
 
   try {
+    const settings = await getBusinessSettings(business.id);
+    const availabilityError = publicCheckoutError(settings, parsed.data.order_type, parsed.data.payment_method);
+    if (availabilityError) return fail(availabilityError, 409);
     const order = await createOrder(
       {
         ...parsed.data,

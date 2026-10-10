@@ -8,6 +8,7 @@ import { getBusinessBySlug, getBusinessSettings, getSubscriptionPlanId, listCate
 import { canUseFeature } from "@/lib/plan-gating";
 import { localizeOnlineSettings } from "@/lib/online-market";
 import { withPublicStoreIdentity } from "@/lib/storefront-identity";
+import { immersiveMerchantEnabled } from "@/lib/immersive/flag";
 
 function firstParam(value?: string | string[]) {
   return Array.isArray(value) ? value[0] : value;
@@ -54,6 +55,7 @@ export default async function StorefrontPage({
       businessId={business.id}
       storefrontSlug={slug}
       refreshOnMount={false}
+      immersiveEnabled={immersiveMerchantEnabled(slug, Boolean(settings.storefront_3d_enabled && threeDGate.allowed))}
     />
   );
 }

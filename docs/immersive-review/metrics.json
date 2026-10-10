@@ -1,0 +1,22 @@
+[
+  {
+    "view": "desktop",
+    "loadMs": 3497,
+    "ready": "true",
+    "playerX": "2.40",
+    "playerZ": "3.30",
+    "fps": "2",
+    "drawCalls": "72",
+    "triangles": "42996"
+  },
+  {
+    "view": "mobile",
+    "loadMs": 2628,
+    "ready": "true",
+    "playerX": "2.40",
+    "playerZ": "3.30",
+    "fps": "23",
+    "drawCalls": "52",
+    "triangles": "42524"
+  }
+]

@@ -2540,7 +2540,7 @@ export async function createOrder(payload: CheckoutPayload, userId?: string) {
     const deliveryFee=payload.idempotency_key
       ? payload.order_type==="delivery" ? configuredDeliveryFee : 0
       : payload.order_type === "delivery" || payload.order_type === "online"
-        ? payload.delivery_fee ?? getDeliveryFeeForRegion(settings, customerSnapshot.region)
+        ? payload.delivery_fee ?? configuredDeliveryFee
         : Number(payload.delivery_fee || 0);
     const taxTotal = settings.tax_enabled
       ? roundMoney(taxableBase * (Number(settings.tax_rate) / 100))

@@ -7,7 +7,8 @@ import { useEffect, useMemo, useState, type InputHTMLAttributes, type SelectHTML
 import { CheckCircle2, Headphones, LocateFixed, Lock, Minus, Plus, ShieldCheck, ShoppingBag, Store, Trash2, Truck, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { getDefaultCountryForCurrency, getDeliveryRegionsForCurrency, money, PAYMENT_METHODS } from "@/lib/constants";
-import { saleUnitPrice } from "@/lib/pos-checkout";
+import { addStoreItem, reconcileStoreCart } from "@/lib/immersive/cart";
+import { roundSaleMoney, saleUnitPrice, paymentMethodEnabled } from "@/lib/pos-checkout";
 import { publicStoreName } from "@/lib/storefront-identity";
 import { readApiPayload } from "@/lib/client-response";
 import { detectCurrentAddress } from "@/lib/location-client";
@@ -15,6 +16,7 @@ import type { OnlineMarket } from "@/lib/online-market";
 import type { Category, Order, Product, Settings } from "@/lib/types";
 
 type CartItem = Product & { quantity: number };
+const ImmersiveStorefront = dynamic(() => import("@/components/storefront/immersive/ImmersiveStorefront"), { ssr: false });
 const VirtualStorefront = dynamic(() => import("@/components/storefront/VirtualStorefrontClient"), {
   ssr: false,
   loading: () => (
@@ -44,18 +46,6 @@ function emptyCustomer(currency: string) {
   };
 }
 
-
-function paymentMethodEnabled(method: string, settings: Settings) {
-  if (method === "Cash") return settings.payment_cash_enabled;
-  if (method === "Card") return settings.payment_card_enabled;
-  if (method === "Transfer" || method === "Bank transfer") return settings.payment_bank_enabled;
-  if (method === "Digital Wallet") return settings.payment_wipay_enabled;
-  if (method === "Split Payment") return true;
-  if (method === "PayPal") return settings.payment_paypal_enabled;
-  if (method === "WiPay") return settings.payment_wipay_enabled;
-  if (method === "Pay on delivery") return settings.payment_pod_enabled;
-  return true;
-}
 
 function StoreField({ label, className, ...props }: InputHTMLAttributes<HTMLInputElement> & { label: string }) {
   return (
@@ -93,7 +83,8 @@ export function OnlineOrderClient({
   orderEndpoint = "/api/orders",
   businessId = null,
   storefrontSlug = null,
-  refreshOnMount = true
+  refreshOnMount = true,
+  immersiveEnabled = false
 }: {
   products: Product[];
   categories?: Category[];
@@ -105,6 +96,7 @@ export function OnlineOrderClient({
   businessId?: string | null;
   storefrontSlug?: string | null;
   refreshOnMount?: boolean;
+  immersiveEnabled?: boolean;
 }) {
   const [products, setProducts] = useState(initialProducts);
   const [categories, setCategories] = useState(initialCategories);
@@ -126,6 +118,7 @@ export function OnlineOrderClient({
   const [statusMessage, setStatusMessage] = useState(initialStatusMessage);
   const [loading, setLoading] = useState(false);
   const [showVirtualStore, setShowVirtualStore] = useState(Boolean(initialSettings.storefront_3d_enabled));
+  const [showImmersive, setShowImmersive] = useState(false);
   const [mobileCheckoutOpen, setMobileCheckoutOpen] = useState(false);
   const displaySettings = useMemo(() => ({ ...settings, business_name: publicStoreName(settings.business_name, storefrontSlug) }), [settings, storefrontSlug]);
 
@@ -163,6 +156,24 @@ export function OnlineOrderClient({
     };
   }, [initialSettings, menuEndpoint, refreshOnMount]);
 
+  useEffect(() => { setCart(current => reconcileStoreCart(current, products)); }, [products]);
+  useEffect(() => {
+    if (!showImmersive || !storefrontSlug) return;
+    let controller: AbortController | null = null;
+    let cancelled = false;
+    async function refresh() {
+      if (document.hidden) return;
+      controller?.abort(); controller = new AbortController();
+      try {
+        const response = await fetch(menuEndpoint, {cache:"no-store",signal:controller.signal});
+        const payload = await readApiPayload<{products:Product[];settings:Settings;categories:Category[]}>(response);
+        if (!cancelled && response.ok && payload.data) { setProducts(payload.data.products);setSettings(payload.data.settings);setCategories(payload.data.categories); }
+      } catch { /* Preserve the last catalogue; checkout revalidates against the database. */ }
+    }
+    void refresh();const timer=setInterval(refresh,45000);window.addEventListener("focus",refresh);
+    return()=>{cancelled=true;controller?.abort();clearInterval(timer);window.removeEventListener("focus",refresh);};
+  }, [showImmersive, storefrontSlug, menuEndpoint]);
+
   const threeDStorefrontEnabled = Boolean(settings.storefront_3d_enabled);
   useEffect(() => {
     if (!threeDStorefrontEnabled || typeof window === "undefined") return;
@@ -188,9 +199,12 @@ export function OnlineOrderClient({
     },
     [products, category, storefrontCategories]
   );
-  const enabledPaymentMethods = PAYMENT_METHODS.filter((method) => paymentMethodEnabled(method, settings));
+  const enabledPaymentMethods = useMemo(() => PAYMENT_METHODS.filter((method) => paymentMethodEnabled(method, settings) && (method !== "Pay on delivery" || fulfillment === "delivery")), [settings, fulfillment]);
+  useEffect(() => {
+    if (!enabledPaymentMethods.some(method => method === paymentMethod)) setPaymentMethod(enabledPaymentMethods[0] || "Cash");
+  }, [paymentMethod, enabledPaymentMethods]);
   const cartQuantity = cart.reduce((count, item) => count + item.quantity, 0);
-  const subtotal = cart.reduce((sum, item) => sum + item.selling_price * item.quantity, 0);
+  const subtotal = roundSaleMoney(cart.reduce((sum, item) => sum + item.selling_price * item.quantity, 0));
   const tax = settings.tax_enabled ? subtotal * (settings.tax_rate / 100) : 0;
   const deliveryFee =
     fulfillment === "delivery"
@@ -198,7 +212,8 @@ export function OnlineOrderClient({
         ? 0
         : Number((settings.delivery_rates || {})[customer.region] ?? settings.delivery_fee ?? 0)
       : 0;
-  const total = subtotal + tax + deliveryFee;
+  const serviceFee = settings.service_fee_enabled ? roundSaleMoney(subtotal * Number(settings.service_fee_rate) / 100) : 0;
+  const total = roundSaleMoney(subtotal + roundSaleMoney(tax) + deliveryFee + serviceFee);
   const formatMoney = (value: number | string | null | undefined) => money(value, settings.currency);
   const deliveryRegions = getDeliveryRegionsForCurrency(settings.currency);
   const defaultDeliveryRegion = deliveryRegions[0] || "";
@@ -227,15 +242,7 @@ export function OnlineOrderClient({
 
   function add(product: Product, quantity = 1) {
     if (order || settings.storefront_status === "paused" || !Number.isInteger(quantity) || quantity < 1) return;
-    setCart((current) => {
-      const existing = current.find((item) => item.id === product.id);
-      const available = Math.max(0, Math.floor(Number(product.stock_quantity) || 0) - (existing?.quantity || 0));
-      const amount = Math.min(quantity, available);
-      if (!amount) return current;
-      return existing
-        ? current.map((item) => (item.id === product.id ? { ...item, quantity: item.quantity + amount } : item))
-        : [...current, { ...product, selling_price: saleUnitPrice(product), quantity: amount }];
-    });
+    setCart(current => addStoreItem(current, products, product.id, quantity));
   }
 
   function update(productId: string, delta: number) {
@@ -299,7 +306,7 @@ export function OnlineOrderClient({
           order_type: fulfillment,
           payment_method: paymentMethod,
           payment_status: "unpaid",
-          delivery_fee: deliveryFee,
+          expected_total: total,
           delivery:
             fulfillment === "delivery"
               ? {
@@ -391,6 +398,8 @@ export function OnlineOrderClient({
               </div>
             </div>
           </div> : null}
+          {immersiveEnabled && threeDStorefrontEnabled ? <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-teal-200 bg-white p-4 text-slate-950"><div><h2 className="font-bold">Walk through the store</h2><p className="text-sm text-slate-600">Explore with your character. Your bag stays with you.</p></div><Button onClick={()=>{if(window.matchMedia('(prefers-reduced-motion: reduce)').matches){setShowVirtualStore(false);return;}setShowImmersive(true);}}>Enter immersive store</Button></div>:null}
+          {showImmersive && immersiveEnabled && threeDStorefrontEnabled ? <ImmersiveStorefront products={products} settings={displaySettings} cartQuantities={Object.fromEntries(cart.map(item=>[item.id,item.quantity]))} cartCount={cartQuantity} cartSubtotal={subtotal} canShop={!order && settings.storefront_status!=="paused"} onAddToCart={add} onExit={()=>{setShowImmersive(false);setShowVirtualStore(false);}} onViewCart={()=>{setShowImmersive(false);setMobileCheckoutOpen(true);if(window.matchMedia('(min-width: 1280px)').matches)setTimeout(()=>document.getElementById('checkout')?.scrollIntoView({block:'start'}),0);}}/>:null}
           {threeDStorefrontEnabled && !showVirtualStore ? (
             <div className="grid gap-3 rounded-[28px] border border-cyan-100 bg-white/92 p-4 shadow-xl shadow-teal-950/5 backdrop-blur sm:flex sm:items-center sm:justify-between">
               <div className="min-w-0">
@@ -577,7 +586,8 @@ export function OnlineOrderClient({
             </div>
             <div className="grid gap-2 border-t border-slate-200 bg-gradient-to-br from-slate-50 to-teal-50/45 p-5 text-sm text-slate-600">
               <div className="flex justify-between"><span>Subtotal</span><strong className="text-slate-950">{formatMoney(subtotal)}</strong></div>
-              <div className="flex justify-between"><span>Tax/Fee</span><strong className="text-slate-950">{formatMoney(tax)}</strong></div>
+              <div className="flex justify-between"><span>Tax</span><strong className="text-slate-950">{formatMoney(tax)}</strong></div>
+              {serviceFee > 0 ? <div className="flex justify-between"><span>Service fee</span><strong className="text-slate-950">{formatMoney(serviceFee)}</strong></div> : null}
               <div className="flex justify-between"><span>Delivery</span><strong className="text-slate-950">{formatMoney(deliveryFee)}</strong></div>
               <div className="mt-2 flex justify-between rounded-2xl bg-slate-950 px-4 py-3 text-xl font-black text-white"><span>Total</span><span>{formatMoney(total)}</span></div>
             </div>
