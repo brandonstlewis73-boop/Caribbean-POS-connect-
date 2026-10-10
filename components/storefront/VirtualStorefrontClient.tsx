@@ -2,7 +2,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, Check, ChevronLeft, ChevronRight, Expand, Minus, Plus, Search, ShoppingBag, Store, CreditCard, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, ChevronLeft, ChevronRight, Expand, Minus, Plus, Search, ShoppingBag, Store, CreditCard, Pause, Play, X } from "lucide-react";
 import { money } from "@/lib/constants";
 import { saleUnitPrice } from "@/lib/pos-checkout";
 import type { Category, Product, Settings } from "@/lib/types";
@@ -83,6 +83,30 @@ export default function VirtualStorefront({products,categories,settings,onAddToC
   const [message,setMessage]=useState("");
   const [atCashier,setAtCashier]=useState(false);
   const [imageFailed,setImageFailed]=useState(false);
+  const sceneRef=useRef<HTMLDivElement>(null);
+  const videoRef=useRef<HTMLVideoElement>(null);
+  const [motionPaused,setMotionPaused]=useState(false);
+  const [reducedMotion,setReducedMotion]=useState(true);
+  const [sceneVisible,setSceneVisible]=useState(false);
+  const [loadMotion,setLoadMotion]=useState(false);
+  const [motionReady,setMotionReady]=useState(false);
+  const [motionFailed,setMotionFailed]=useState(false);
+  const [playing,setPlaying]=useState(false);
+  useEffect(()=>{
+    const media=window.matchMedia('(prefers-reduced-motion: reduce)');
+    const update=()=>setReducedMotion(media.matches);update();media.addEventListener('change',update);
+    const node=sceneRef.current;
+    const observer=window.IntersectionObserver?new IntersectionObserver(entries=>{const visible=entries[0]?.isIntersecting??false;setSceneVisible(visible);if(visible)setLoadMotion(true);}):null;
+    if(node&&observer)observer.observe(node);else{setSceneVisible(true);setLoadMotion(true);}
+    return()=>{media.removeEventListener('change',update);observer?.disconnect();};
+  },[]);
+  useEffect(()=>{
+    const video=videoRef.current;if(!video)return;
+    if(sceneVisible&&!motionPaused&&!reducedMotion&&!atCashier&&!selected&&!document.hidden){video.muted=true;void video.play().catch(()=>setPlaying(false));}else video.pause();
+    const visibility=()=>{if(document.hidden)video.pause();else if(sceneVisible&&!motionPaused&&!reducedMotion&&!atCashier&&!selected)void video.play().catch(()=>setPlaying(false));};
+    document.addEventListener('visibilitychange',visibility);return()=>document.removeEventListener('visibilitychange',visibility);
+  },[sceneVisible,motionPaused,reducedMotion,atCashier,selected,loadMotion]);
+  function toggleMotion(){const video=videoRef.current;if(!video)return;if(playing){setMotionPaused(true);video.pause();}else{setMotionPaused(false);video.muted=true;void video.play().catch(()=>setPlaying(false));}}
   const rail=useRef<HTMLDivElement>(null);
   const activeProducts=useMemo(()=>products.filter(product=>product.active!==false),[products]);
   const categoryName=(product:Product)=>categories.find(entry=>entry.id===product.category_id)?.name||product.category||"Products";
@@ -103,15 +127,16 @@ export default function VirtualStorefront({products,categories,settings,onAddToC
       <button type="button" className={styles.catalogButton} onClick={onExit}><ArrowLeft size={18}/><span>View catalogue</span></button>
     </header>
     <div className={styles.sceneWrap}>
-      <div className={styles.scene}>
+      <div className={styles.scene} ref={sceneRef}>
         <div className={styles.scenePlane} style={{transform:`scale(${camera.scale})`,transformOrigin:camera.origin}}>
           {!imageFailed?<img className={styles.sceneImage} src="/storefront/bakery-cashier-service.webp" alt="Warmly lit bakery with a cashier serving a customer at the checkout counter and shoppers browsing shelves" draggable={false} onError={()=>setImageFailed(true)} fetchPriority="high"/>:<div className={styles.sceneFallback}><Store size={48}/><span>Explore the products below</span></div>}
+          {loadMotion&&!reducedMotion&&!motionFailed?<video ref={videoRef} className={`${styles.sceneVideo} ${motionReady?styles.motionReady:""}`} src="/storefront/bakery-cashier-motion.mp4" poster="/storefront/bakery-cashier-service.webp" muted loop playsInline preload="metadata" aria-hidden="true" onLoadedData={()=>setMotionReady(true)} onPlay={()=>setPlaying(true)} onPause={()=>setPlaying(false)} onError={()=>{setMotionFailed(true);setPlaying(false);}}/>:null}
           {!imageFailed?<button type="button" className={styles.cashierPin} style={{transform:`translate(-50%,-50%) scale(${1/camera.scale})`}} onClick={()=>{setView("till");setAtCashier(true);}} aria-label="Visit cashier"><CreditCard size={18}/><span>Cashier</span></button>:null}
           {!imageFailed?displayed.map((product,index)=><button type="button" key={product.id} className={styles.pin} style={{left:`${POSITIONS[index].x}%`,top:`${POSITIONS[index].y}%`,transform:`translate(-50%,-50%) scale(${1/camera.scale})`}} aria-label={`Explore ${product.name}`} onClick={()=>select(product)}><span>{index+1}</span><span className={styles.pinTooltip}>{product.name}<strong>{money(saleUnitPrice(product),settings.currency)}</strong></span></button>):null}
         </div>
         <div className={styles.sceneCaption}><span className={styles.sceneTag}>EXPLORE THE STORE</span><p>Pick a product. Make it yours.</p></div>
       </div>
-      <div className={styles.sceneControls}><div role="group" aria-label="Store view">{VIEWS.map(entry=><button type="button" key={entry.id} aria-pressed={view===entry.id} onClick={()=>{setView(entry.id);if(entry.id==="till")setAtCashier(true);}}>{entry.id==="room"?<Expand size={16}/>:null}{entry.name}</button>)}</div></div>
+      <div className={styles.sceneControls}><div role="group" aria-label="Store view">{VIEWS.map(entry=><button type="button" key={entry.id} aria-pressed={view===entry.id} onClick={()=>{setView(entry.id);if(entry.id==="till")setAtCashier(true);}}>{entry.id==="room"?<Expand size={16}/>:null}{entry.name}</button>)}</div>{!reducedMotion&&!motionFailed?<button type="button" className={styles.motionControl} onClick={toggleMotion} aria-label={playing?"Pause store animation":"Play store animation"} disabled={!loadMotion}>{playing?<Pause size={16}/>:<Play size={16}/>}<span>{playing?"Pause movement":"Play movement"}</span></button>:null}</div>
     </div>
     <div className={styles.browse}>
       <div className={styles.browseHeader}><div><span className={styles.eyebrow}>CURATED BY {settings.business_name||"YOUR STORE"}</span><h3>Find your next favourite</h3></div><label className={styles.search}><Search size={18}/><input type="search" aria-label="Search store products" placeholder="Search products" value={search} onChange={event=>{setSearch(event.target.value);movePage(0);}}/></label></div>
