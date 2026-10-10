@@ -26,7 +26,21 @@ async function open(options = {}) {
 }
 async function enter(page) {
   const start = Date.now();
-  await page.getByRole("button", { name: "Enter immersive store" }).click();
+  const entry = page.getByRole("button", { name: "Enter immersive store" });
+  const contrast = await entry.evaluate((button) => {
+    const style = getComputedStyle(button);
+    const luminance = (color) => {
+      const values = color.match(/[\d.]+/g).slice(0, 3).map(Number).map((v) => {
+        const c = v / 255;
+        return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+      });
+      return values[0] * 0.2126 + values[1] * 0.7152 + values[2] * 0.0722;
+    };
+    const a = luminance(style.color), b = luminance(style.backgroundColor);
+    return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+  });
+  assert.ok(contrast >= 4.5, `3D entry contrast must be readable: ${contrast}`);
+  await entry.click();
   const engine = page.getByRole("region", {
     name: "Baker Buds immersive store",
   });

@@ -351,6 +351,22 @@ export function OnlineOrderClient({
 
       <div id="storefront" className="mx-auto grid max-w-[1720px] min-w-0 gap-7 px-4 py-6 lg:gap-9 xl:grid-cols-[minmax(0,1fr)_minmax(450px,480px)] xl:px-8 2xl:gap-12">
         <section className="grid min-w-0 gap-4">
+          {immersiveEnabled && threeDStorefrontEnabled && !showImmersive ? (
+            <section aria-label="Explore the 3D store" className="grid gap-4 rounded-3xl border border-teal-200 bg-white p-5 text-slate-950 shadow-lg shadow-teal-950/5">
+              <div>
+                <h2 className="text-xl font-black">Step inside {displaySettings.business_name}</h2>
+                <p className="mt-1 text-sm leading-6 text-slate-600">Walk around, explore the shelves, and shop with your character.</p>
+              </div>
+              <Button type="button" variant="primary" size="lg" className="min-h-14 w-full rounded-2xl border-teal-800 bg-teal-800 text-white hover:bg-teal-900 focus-visible:outline-teal-700" onClick={() => {
+                if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                  setStatusMessage('Quick Shop is active because Reduce Motion is enabled on your device.');
+                  return;
+                }
+                setShowImmersive(true);
+              }}><Store size={22} aria-hidden="true" />Enter immersive store</Button>
+              <p className="text-center text-xs font-semibold text-slate-600">Or browse the products below with Quick Shop.</p>
+            </section>
+          ) : null}
           {!showImmersive ? <div className="relative overflow-hidden rounded-[34px] border border-teal-100 bg-slate-950 text-white shadow-2xl shadow-teal-950/10">
             {settings.storefront_banner_url ? (
               <img src={settings.storefront_banner_url} alt="" decoding="async" className="absolute inset-0 h-full w-full object-cover opacity-38" />
@@ -383,7 +399,7 @@ export function OnlineOrderClient({
               </div>
             </div>
           </div> : null}
-          {immersiveEnabled && threeDStorefrontEnabled ? <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-teal-200 bg-white p-4 text-slate-950"><div><h2 className="font-bold">Walk through the store</h2><p className="text-sm text-slate-600">Explore with your character. Your bag stays with you.</p></div><Button onClick={()=>{if(window.matchMedia('(prefers-reduced-motion: reduce)').matches){setStatusMessage('Quick Shop is active because Reduce Motion is enabled on your device.');return;}setShowImmersive(true);}}>Enter immersive store</Button></div>:null}
+
           {showImmersive && immersiveEnabled && threeDStorefrontEnabled ? <ImmersiveStorefront products={products} settings={displaySettings} cartQuantities={Object.fromEntries(cart.map(item=>[item.id,item.quantity]))} cartCount={cartQuantity} cartSubtotal={subtotal} canShop={!order && settings.storefront_status!=="paused"} onAddToCart={add} onExit={()=>{setShowImmersive(false);}} onViewCart={()=>{setShowImmersive(false);setMobileCheckoutOpen(true);if(window.matchMedia('(min-width: 1280px)').matches)setTimeout(()=>document.getElementById('checkout')?.scrollIntoView({block:'start'}),0);}}/>:null}
           {settings.storefront_status === "paused" ? (
             <p className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-black text-amber-800">
