@@ -61,12 +61,25 @@ function ProductSheet({product,category,settings,remaining,canShop,onClose,onAdd
   </dialog>;
 }
 
-function CashierSheet({products,quantities,settings,subtotal,canShop,onClose,onCheckout}: {products:Product[];quantities:Record<string,number>;settings:Settings;subtotal:number;canShop:boolean;onClose:()=>void;onCheckout:()=>void}) {
+function CashierSheet({products,quantities,settings,subtotal,canShop,motionEnabled,onClose,onCheckout}: {products:Product[];quantities:Record<string,number>;settings:Settings;subtotal:number;canShop:boolean;motionEnabled:boolean;onClose:()=>void;onCheckout:()=>void}) {
   const dialog=useRef<HTMLDialogElement>(null);
+  const counterVideo=useRef<HTMLVideoElement>(null);
+  const [counterPlaying,setCounterPlaying]=useState(false);
+  const [counterPaused,setCounterPaused]=useState(false);
+  const [counterFailed,setCounterFailed]=useState(false);
+  useEffect(()=>{const video=counterVideo.current;if(!video)return;const sync=()=>{if(motionEnabled&&!counterPaused&&!document.hidden){video.muted=true;void video.play().catch(()=>setCounterPlaying(false));}else video.pause();};sync();document.addEventListener('visibilitychange',sync);return()=>document.removeEventListener('visibilitychange',sync);},[motionEnabled,counterPaused]);
+  function toggleCounter(){const video=counterVideo.current;if(!video)return;if(counterPlaying){setCounterPaused(true);video.pause();}else{setCounterPaused(false);video.muted=true;void video.play().catch(()=>setCounterPlaying(false));}}
   const items=products.filter(product=>(quantities[product.id]||0)>0);
   useEffect(()=>{const node=dialog.current;const previous=document.activeElement as HTMLElement|null;const overflow=document.body.style.overflow;node?.showModal();document.body.style.overflow="hidden";return()=>{node?.close();document.body.style.overflow=overflow;previous?.focus();};},[]);
   return <dialog ref={dialog} className={styles.sheet} aria-labelledby="cashier-title" onCancel={onClose} onClick={event=>{if(event.target===dialog.current)onClose();}}>
     <div className={styles.sheetHeader}><span>At the checkout counter</span><button autoFocus type="button" onClick={onClose} aria-label="Close cashier"><X size={22}/></button></div>
+    <div className={styles.counterPreview}>
+      <img src="/storefront/bakery-cashier-service.webp" className={styles.counterMedia} alt="Cashier serving a customer at the card terminal"/>
+      {motionEnabled&&!counterFailed?<video ref={counterVideo} className={styles.counterMedia} src="/storefront/bakery-cashier-motion.mp4" poster="/storefront/bakery-cashier-service.webp" muted loop playsInline preload="metadata" aria-hidden="true" onPlay={()=>setCounterPlaying(true)} onPause={()=>setCounterPlaying(false)} onError={()=>{setCounterFailed(true);setCounterPlaying(false);}}/>:null}
+      <span className={styles.counterLabel}>THE CHECKOUT COUNTER</span>
+      {motionEnabled&&!counterFailed?<button type="button" className={styles.counterPlayback} onClick={toggleCounter} aria-label={counterPlaying?"Pause cashier animation":"Play cashier animation"}>{counterPlaying?<Pause size={18}/>:<Play size={18}/>}</button>:null}
+    </div>
+    <div className={styles.checkoutSteps} aria-label="Checkout steps"><span aria-current="step"><Check size={14}/>Review bag</span><ChevronRight size={14}/><span>Pickup / delivery</span><ChevronRight size={14}/><span>Payment</span></div>
     <div className={styles.sheetBody}><span className={styles.eyebrow}>{settings.business_name}</span><h2 id="cashier-title">{items.length?"Let’s check you out":"Welcome to the till"}</h2><p className={styles.description}>{items.length?"Here’s what’s in your bag. Choose pickup or delivery and your payment method in the next step.":"Choose something from the shelves first, then come back to the cashier."}</p>
     {items.length?<><ul className={styles.tillItems}>{items.map(product=><li key={product.id}><span><b>{quantities[product.id]} × {product.name}</b><small>{money(saleUnitPrice(product),settings.currency)} each</small></span><strong>{money(saleUnitPrice(product)*quantities[product.id],settings.currency)}</strong></li>)}</ul><div className={styles.tillSubtotal}><span>Subtotal</span><strong>{money(subtotal,settings.currency)}</strong></div><p className={styles.description}>Delivery and any applicable fees are calculated at checkout.</p></>:null}
     {!canShop?<p role="status" className={styles.description}>Ordering is currently unavailable.</p>:null}</div>
@@ -147,7 +160,7 @@ export default function VirtualStorefront({products,categories,settings,onAddToC
     </div>
     <footer className={styles.bagBar}><div><span>{cartCount?`${cartCount} item${cartCount===1?"":"s"} in your bag`:"Your bag is waiting"}</span><strong>{money(cartSubtotal,settings.currency)}<small>subtotal</small></strong></div><button type="button" className={styles.primary} onClick={()=>{setView("till");setAtCashier(true);}}><ShoppingBag size={19}/>Visit cashier<ArrowRight size={18}/></button></footer>
     <p role="status" className={message?styles.confirmation:styles.status}>{message?<><Check size={17}/>{message}</>:null}</p>
-    {atCashier?<CashierSheet products={products} quantities={cartQuantities} settings={settings} subtotal={cartSubtotal} canShop={canShop} onClose={()=>{setAtCashier(false);setView("room");}} onCheckout={()=>{setAtCashier(false);(onViewCart||onExit)();}}/>:null}
+    {atCashier?<CashierSheet products={products} quantities={cartQuantities} settings={settings} subtotal={cartSubtotal} canShop={canShop} motionEnabled={!reducedMotion&&!motionPaused} onClose={()=>{setAtCashier(false);setView("room");}} onCheckout={()=>{setAtCashier(false);(onViewCart||onExit)();}}/>:null}
     {selectedProduct?<ProductSheet key={selectedProduct.id} product={selectedProduct} category={categoryName(selectedProduct)} settings={settings} remaining={remaining(selectedProduct)} canShop={canShop} onClose={()=>setSelected(null)} onAdd={add}/>:null}
   </section>;
 }
