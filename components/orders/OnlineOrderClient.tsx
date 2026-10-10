@@ -4,9 +4,10 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState, type InputHTMLAttributes, type SelectHTMLAttributes } from "react";
-import { Bell, CheckCircle2, Headphones, LocateFixed, Lock, Minus, Plus, Search, ShieldCheck, ShoppingBag, Store, Trash2, Truck, X } from "lucide-react";
+import { CheckCircle2, Headphones, LocateFixed, Lock, Minus, Plus, ShieldCheck, ShoppingBag, Store, Trash2, Truck, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { getDefaultCountryForCurrency, getDeliveryRegionsForCurrency, money, PAYMENT_METHODS } from "@/lib/constants";
+import { saleUnitPrice } from "@/lib/pos-checkout";
 import { publicStoreName } from "@/lib/storefront-identity";
 import { readApiPayload } from "@/lib/client-response";
 import { detectCurrentAddress } from "@/lib/location-client";
@@ -188,6 +189,7 @@ export function OnlineOrderClient({
     [products, category, storefrontCategories]
   );
   const enabledPaymentMethods = PAYMENT_METHODS.filter((method) => paymentMethodEnabled(method, settings));
+  const cartQuantity = cart.reduce((count, item) => count + item.quantity, 0);
   const subtotal = cart.reduce((sum, item) => sum + item.selling_price * item.quantity, 0);
   const tax = settings.tax_enabled ? subtotal * (settings.tax_rate / 100) : 0;
   const deliveryFee =
@@ -223,20 +225,23 @@ export function OnlineOrderClient({
     }
   }, [fulfillment, settings.delivery_enabled, settings.pickup_enabled]);
 
-  function add(product: Product) {
-    if (order) return;
+  function add(product: Product, quantity = 1) {
+    if (order || settings.storefront_status === "paused" || !Number.isInteger(quantity) || quantity < 1) return;
     setCart((current) => {
       const existing = current.find((item) => item.id === product.id);
+      const available = Math.max(0, Math.floor(Number(product.stock_quantity) || 0) - (existing?.quantity || 0));
+      const amount = Math.min(quantity, available);
+      if (!amount) return current;
       return existing
-        ? current.map((item) => (item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item))
-        : [...current, { ...product, quantity: 1 }];
+        ? current.map((item) => (item.id === product.id ? { ...item, quantity: item.quantity + amount } : item))
+        : [...current, { ...product, selling_price: saleUnitPrice(product), quantity: amount }];
     });
   }
 
   function update(productId: string, delta: number) {
     setCart((current) =>
       current
-        .map((item) => (item.id === productId ? { ...item, quantity: Math.max(1, item.quantity + delta) } : item))
+        .map((item) => (item.id === productId ? { ...item, quantity: Math.min(Math.max(1, item.quantity + delta), Math.max(1, Math.floor(Number(item.stock_quantity) || 0))) } : item))
         .filter((item) => item.quantity > 0)
     );
   }
@@ -338,20 +343,15 @@ export function OnlineOrderClient({
             </div>
           </div>
           <div className="flex min-w-0 items-center justify-end gap-2">
-            <label className="relative hidden min-w-64 max-w-xs flex-1 lg:block">
-              <span className="sr-only">Search products</span>
-              <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <input className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 pr-10 text-sm font-semibold text-slate-700 outline-none transition focus:border-cyan-300 focus:ring-4 focus:ring-cyan-100" placeholder="Search products..." readOnly />
-            </label>
-            <button type="button" className="hidden h-11 w-11 place-items-center rounded-2xl border border-slate-200 bg-white text-slate-600 shadow-sm sm:grid" aria-label="Notifications"><Bell className="h-4 w-4" /></button>
             {!order ? (
-              <a
-                href="#checkout"
+              <button
+                type="button"
+                onClick={() => { setMobileCheckoutOpen(true); if (window.matchMedia("(min-width: 1280px)").matches) document.getElementById("checkout")?.scrollIntoView({ block: "start", behavior: "smooth" }); }}
                 className="inline-flex min-h-11 shrink-0 items-center justify-center whitespace-nowrap rounded-full border border-teal-200 bg-teal-50 px-3 py-2 text-sm font-black text-teal-800 shadow-sm"
               >
-                <span>Cart {cart.length}</span>
-                <span className="hidden sm:inline"> - {formatMoney(total)}</span>
-              </a>
+                <span>Cart {cartQuantity}</span>
+                <span className="hidden sm:inline"> - {formatMoney(cart.length ? total : 0)}</span>
+              </button>
             ) : null}
           </div>
         </div>
@@ -359,7 +359,7 @@ export function OnlineOrderClient({
 
       <div id="storefront" className="mx-auto grid max-w-[1720px] min-w-0 gap-7 px-4 py-6 lg:gap-9 xl:grid-cols-[minmax(0,1fr)_minmax(450px,480px)] xl:px-8 2xl:gap-12">
         <section className="grid min-w-0 gap-4">
-          <div className="relative overflow-hidden rounded-[34px] border border-teal-100 bg-slate-950 text-white shadow-2xl shadow-teal-950/10">
+          {!(threeDStorefrontEnabled && showVirtualStore) ? <div className="relative overflow-hidden rounded-[34px] border border-teal-100 bg-slate-950 text-white shadow-2xl shadow-teal-950/10">
             {settings.storefront_banner_url ? (
               <img src={settings.storefront_banner_url} alt="" decoding="async" className="absolute inset-0 h-full w-full object-cover opacity-38" />
             ) : null}
@@ -390,12 +390,12 @@ export function OnlineOrderClient({
                 {settings.store_hours ? <p className="rounded-2xl bg-white/10 px-3 py-2 text-sm font-bold text-cyan-50">Hours: {settings.store_hours}</p> : null}
               </div>
             </div>
-          </div>
-          {threeDStorefrontEnabled ? (
+          </div> : null}
+          {threeDStorefrontEnabled && !showVirtualStore ? (
             <div className="grid gap-3 rounded-[28px] border border-cyan-100 bg-white/92 p-4 shadow-xl shadow-teal-950/5 backdrop-blur sm:flex sm:items-center sm:justify-between">
               <div className="min-w-0">
                 <p className="text-sm font-black text-slate-950">Explore the 3D Store</p>
-                <p className="mt-1 text-sm font-semibold text-slate-500">Browse products on virtual shelves, then checkout normally when you are ready.</p>
+                <p className="mt-1 text-sm font-semibold text-slate-500">Explore the store, discover products, and build your bag.</p>
               </div>
               <div className="grid gap-2 sm:flex sm:shrink-0 sm:flex-wrap">
                 <Button type="button" variant="primary" onClick={() => setShowVirtualStore(true)} className="rounded-full bg-slate-950 text-white hover:bg-teal-700">
@@ -412,11 +412,15 @@ export function OnlineOrderClient({
               products={products}
               categories={storefrontCategories}
               settings={displaySettings}
+              cartQuantities={Object.fromEntries(cart.map(item => [item.id, item.quantity]))}
+              cartCount={cartQuantity}
+              cartSubtotal={subtotal}
+              canShop={!order && settings.storefront_status !== "paused"}
               onAddToCart={add}
               onExit={() => setShowVirtualStore(false)}
               onViewCart={() => {
-                setShowVirtualStore(false);
                 setMobileCheckoutOpen(true);
+                if (window.matchMedia("(min-width: 1280px)").matches) document.getElementById("checkout")?.scrollIntoView({ block: "start", behavior: "smooth" });
               }}
             />
           ) : null}
@@ -425,6 +429,7 @@ export function OnlineOrderClient({
               This storefront is paused right now. You can view products, but ordering is temporarily unavailable.
             </p>
           ) : null}
+          {!(threeDStorefrontEnabled && showVirtualStore) ? <>
           <div className="flex gap-2 overflow-x-auto scroll-smooth rounded-[26px] border border-slate-200 bg-white/95 p-2 shadow-lg shadow-slate-950/5">
             <button
               onClick={() => setCategory("all")}
@@ -483,7 +488,7 @@ export function OnlineOrderClient({
                   <p className="line-clamp-2 min-h-10 text-base font-black leading-tight text-slate-950">{product.name}</p>
                   {product.description ? <p className="line-clamp-2 min-h-10 text-xs font-semibold leading-5 text-slate-500">{product.description}</p> : <p className="min-h-10 text-xs font-semibold leading-5 text-slate-500">Tap to add this item to your order.</p>}
                   <div className="flex items-center justify-between gap-3">
-                    <p className="text-xl font-black text-teal-700">{formatMoney(product.selling_price)}</p>
+                    <p className="text-xl font-black text-teal-700">{formatMoney(saleUnitPrice(product))}</p>
                     <span className="rounded-full bg-slate-950 px-4 py-2 text-xs font-black text-white transition group-hover:bg-teal-700">Add</span>
                   </div>
                 </div>
@@ -498,6 +503,7 @@ export function OnlineOrderClient({
               </div>
             ) : null}
           </div>
+          </> : null}
         </section>
 
         {mobileCheckoutOpen && !order ? (
@@ -534,7 +540,7 @@ export function OnlineOrderClient({
           <section className="rounded-[34px] border border-slate-200 bg-white shadow-2xl shadow-slate-950/10">
             <div className="border-b border-slate-200 px-5 py-4">
               <h2 className="text-lg font-black tracking-tight text-slate-950">Your order</h2>
-              <p className="mt-1 text-sm font-semibold text-slate-500">{cart.length ? `${cart.length} item${cart.length === 1 ? "" : "s"} selected` : "Build your cart from the menu"}</p>
+              <p className="mt-1 text-sm font-semibold text-slate-500">{cart.length ? `${cartQuantity} item${cartQuantity === 1 ? "" : "s"} selected` : "Build your cart from the menu"}</p>
             </div>
             <div className="max-h-64 overflow-auto">
               {cart.map((item) => (
@@ -689,10 +695,10 @@ export function OnlineOrderClient({
           ) : null}
         </aside>
       </div>
-      {!order && cart.length ? (
+      {!order && cart.length && !(threeDStorefrontEnabled && showVirtualStore) ? (
         <button type="button" onClick={() => setMobileCheckoutOpen(true)} className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-40 grid rounded-full bg-slate-950 px-5 py-3 text-white shadow-2xl xl:hidden">
           <span className="flex items-center justify-between gap-3 text-sm font-black">
-            <span>{cart.length} item{cart.length === 1 ? "" : "s"}</span>
+            <span>{cartQuantity} item{cartQuantity === 1 ? "" : "s"}</span>
             <span>Checkout - {formatMoney(total)}</span>
           </span>
         </button>

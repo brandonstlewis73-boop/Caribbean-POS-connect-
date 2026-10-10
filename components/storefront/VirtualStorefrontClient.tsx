@@ -1,319 +1,111 @@
 "use client";
-
 /* eslint-disable @next/next/no-img-element */
 
-import { Minus, Plus, ShoppingBag, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { Button } from "@/components/ui/Button";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowLeft, ArrowRight, Check, ChevronLeft, ChevronRight, Expand, Minus, Plus, Search, ShoppingBag, Store, X } from "lucide-react";
 import { money } from "@/lib/constants";
+import { saleUnitPrice } from "@/lib/pos-checkout";
 import type { Category, Product, Settings } from "@/lib/types";
+import styles from "./VirtualStorefront.module.css";
 
 type Props = {
   products: Product[];
   categories: Category[];
   settings: Settings;
-  onAddToCart: (product: Product) => void;
+  onAddToCart: (product: Product, quantity?: number) => void;
   onExit: () => void;
   onViewCart?: () => void;
+  cartQuantities?: Record<string, number>;
+  cartCount?: number;
+  cartSubtotal?: number;
+  canShop?: boolean;
 };
-
-type HotspotZone = "shelf" | "centerDisplay" | "counter" | "drinks" | "frozen";
-
-type HotspotPosition = {
-  zone: HotspotZone;
-  x: number;
-  y: number;
-  size: "sm" | "md" | "lg";
-};
-
-type ProductHotspotData = HotspotPosition & {
-  id: string;
-  product: Product;
-};
-
-const STORE_SCENE_IMAGE = "/storefront/premium-bakery-virtual-store.png";
-
-const HOTSPOT_POSITIONS: HotspotPosition[] = [
-  { zone: "shelf", x: 24, y: 47, size: "sm" },
-  { zone: "centerDisplay", x: 46, y: 58, size: "md" },
-  { zone: "centerDisplay", x: 55, y: 61, size: "sm" },
-  { zone: "shelf", x: 73, y: 43, size: "sm" },
-  { zone: "drinks", x: 84, y: 57, size: "sm" },
-  { zone: "frozen", x: 36, y: 75, size: "sm" },
-  { zone: "counter", x: 20, y: 66, size: "sm" },
-  { zone: "drinks", x: 88, y: 42, size: "sm" }
+const POSITIONS = [{x:25,y:49},{x:46,y:56},{x:64,y:56},{x:79,y:38},{x:88,y:64},{x:42,y:78}];
+const VIEWS = [
+  {id:"room",name:"Full store",scale:1,origin:"50% 50%"},
+  {id:"display",name:"Display",scale:1.65,origin:"52% 63%"},
+  {id:"shelves",name:"Shelves",scale:1.65,origin:"88% 48%"}
 ];
+const stock = (product: Product) => Math.max(0,Math.floor(Number(product.stock_quantity)||0));
 
-function safeBusinessName(settings: Settings) {
-  return (settings.business_name || "Storefront").trim() || "Storefront";
-}
-
-function supportsWebGL() {
-  if (typeof window === "undefined" || typeof document === "undefined") return false;
-  try {
-    const canvas = document.createElement("canvas");
-    return Boolean(
-      window.WebGLRenderingContext &&
-        (canvas.getContext("webgl") || canvas.getContext("experimental-webgl"))
-    );
-  } catch {
-    return false;
-  }
-}
-
-function zoneForProduct(product: Product): HotspotZone | null {
-  const text = `${product.name} ${product.category || ""} ${product.description || ""}`.toLowerCase();
-  if (text.includes("drink") || text.includes("juice") || text.includes("soda") || text.includes("water") || text.includes("mauby") || text.includes("sorrel")) return "drinks";
-  if (text.includes("frozen") || text.includes("ice") || text.includes("freezer")) return "frozen";
-  return null;
-}
-
-function productHotspots(products: Product[]): ProductHotspotData[] {
-  const used = new Set<number>();
-  return products.slice(0, HOTSPOT_POSITIONS.length).map((product, index) => {
-    const preferredZone = zoneForProduct(product);
-    const preferredIndex = preferredZone ? HOTSPOT_POSITIONS.findIndex((position, positionIndex) => position.zone === preferredZone && !used.has(positionIndex)) : -1;
-    const fallbackIndex = HOTSPOT_POSITIONS.findIndex((_, positionIndex) => !used.has(positionIndex));
-    const positionIndex = preferredIndex >= 0 ? preferredIndex : Math.max(0, fallbackIndex);
-    used.add(positionIndex);
-    return {
-      ...HOTSPOT_POSITIONS[positionIndex],
-    id: `${product.id}-scene-hotspot-${index}`,
-    product
-    };
-  });
-}
-
-function CartPanel({ count, onExit, onViewCart }: { count: number; onExit: () => void; onViewCart: () => void }) {
-  return (
-    <div className="hidden items-center gap-2 rounded-full border border-white/15 bg-slate-950/72 p-1.5 shadow-2xl backdrop-blur-xl sm:flex">
-      <span className="rounded-full bg-emerald-400/14 px-3 py-2 text-xs font-black text-emerald-100">{count} live products</span>
-      <Button type="button" size="sm" onClick={onExit} className="rounded-full border-white/10 bg-white/10 px-4 text-xs text-white hover:bg-white/20">
-        Shop Normally
-      </Button>
-      <Button type="button" size="sm" variant="primary" onClick={onViewCart} className="rounded-full bg-violet-600 px-4 text-xs text-white hover:bg-violet-500">
-        View Cart <ShoppingBag className="ml-1 h-3.5 w-3.5" />
-      </Button>
-    </div>
-  );
-}
-
-function MobileCartDrawer({ onExit, onViewCart }: { onExit: () => void; onViewCart: () => void }) {
-  return (
-    <div className="rounded-[24px] border border-slate-200 bg-white/92 p-2 shadow-xl shadow-slate-950/10 backdrop-blur-xl sm:hidden">
-      <div className="grid grid-cols-[1fr_1fr] gap-2">
-        <Button type="button" size="sm" onClick={onExit} className="rounded-2xl border-slate-200 bg-white text-xs font-black text-slate-800 hover:bg-slate-50">
-          Shop Normally
-        </Button>
-        <Button type="button" size="sm" variant="primary" onClick={onViewCart} className="rounded-2xl bg-violet-600 text-xs font-black text-white hover:bg-violet-500">
-          View Cart
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-function StoreSceneImage({ settings, productCount, onExit, onViewCart, children }: { settings: Settings; productCount: number; onExit: () => void; onViewCart: () => void; children: ReactNode }) {
-  const businessName = safeBusinessName(settings);
-
-  return (
-    <div className="relative aspect-[16/10] min-h-[420px] overflow-hidden rounded-[30px] bg-slate-950 shadow-2xl sm:aspect-[16/9] md:min-h-[640px]">
-      <img
-        src={STORE_SCENE_IMAGE}
-        alt={`${businessName} virtual storefront`}
-        className="absolute inset-0 h-full w-full object-cover brightness-[1.12] contrast-[1.06] saturate-[1.05]"
-        draggable={false}
-      />
-      <div className="absolute inset-0 bg-gradient-to-b from-slate-950/25 via-transparent to-slate-950/20" />
-      <StoreSceneEnhancements />
-      <div className="absolute inset-x-0 top-0 z-10 flex items-start justify-between gap-3 p-3 sm:p-5">
-        <div className="flex min-w-0 items-center gap-3 rounded-full border border-white/15 bg-slate-950/62 px-3 py-2 text-white shadow-2xl backdrop-blur-xl">
-          <img src={settings.logo_url || "/caribbean-pos-connect-icon.png"} alt="" className="h-10 w-10 shrink-0 rounded-full bg-white object-contain p-1" />
-          <div className="min-w-0">
-            <p className="truncate text-sm font-black sm:text-base">{businessName}</p>
-            <p className="text-xs font-bold text-white/65">Virtual Store</p>
-          </div>
-        </div>
-        <CartPanel count={productCount} onExit={onExit} onViewCart={onViewCart} />
-      </div>
-      {children}
-      <div className="absolute bottom-4 left-1/2 z-10 hidden -translate-x-1/2 rounded-[24px] border border-white/15 bg-slate-950/62 px-4 py-3 text-center text-xs font-bold text-white/85 shadow-2xl backdrop-blur-xl sm:block">
-        Explore Store · Tap product pins
-      </div>
-    </div>
-  );
-}
-
-function StoreSceneEnhancements() {
-  return (
-    <>
-      <StoreSign label="Fresh Picks" className="left-[43%] top-[50%]" />
-      <ShopperSilhouette variant="shelf" className="left-[68%] top-[53%]" />
-      <ShopperSilhouette variant="center" className="left-[50%] top-[66%]" />
-      <ShopperSilhouette variant="counter" className="left-[19%] top-[62%]" />
-      <ShopperSilhouette variant="cashier" className="left-[13%] top-[48%]" />
-      <style jsx>{`
-        @keyframes shopper-drift {
-          0%, 100% { transform: translate3d(-50%, -50%, 0) translateX(-5px); opacity: 0.68; }
-          50% { transform: translate3d(-50%, -50%, 0) translateX(7px); opacity: 0.86; }
-        }
-      `}</style>
-    </>
-  );
-}
-
-function StoreSign({ label, className }: { label: string; className: string }) {
-  return (
-    <span
-      className={`pointer-events-none absolute z-[4] rounded-full border border-violet-100/30 bg-slate-950/46 px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.14em] text-violet-50 shadow-lg shadow-violet-500/15 backdrop-blur-md ${className}`}
-    >
-      {label}
-    </span>
-  );
-}
-
-function ShopperSilhouette({ className, variant }: { className: string; variant: "shelf" | "center" | "counter" | "cashier" }) {
-  const isCashier = variant === "cashier";
-  const delay = variant === "shelf" ? "0s" : variant === "center" ? "1.8s" : "3.2s";
-  return (
-    <div
-      className={`pointer-events-none absolute z-[3] hidden -translate-x-1/2 -translate-y-1/2 sm:block ${className}`}
-      style={{ animation: isCashier ? undefined : `shopper-drift 7.5s ease-in-out ${delay} infinite` }}
-    >
-      <div className="relative h-32 w-14 opacity-85">
-        <span className="absolute left-1/2 top-0 h-6 w-6 -translate-x-1/2 rounded-full bg-slate-950/82 shadow-lg ring-1 ring-white/15" />
-        <span className={`absolute left-1/2 top-6 h-16 w-9 -translate-x-1/2 rounded-t-full ${isCashier ? "bg-slate-950/84" : "bg-slate-800/76"} shadow-xl ring-1 ring-white/10`} />
-        <span className={`absolute left-[23px] top-9 h-8 w-2 -rotate-12 rounded-full ${isCashier ? "bg-cyan-100/38" : "bg-white/28"}`} />
-        <span className="absolute left-[20px] top-[82px] h-12 w-2 rotate-6 rounded-full bg-slate-950/68" />
-        <span className="absolute right-[20px] top-[82px] h-12 w-2 -rotate-6 rounded-full bg-slate-950/68" />
-        <span className="absolute left-1/2 bottom-0 h-3 w-14 -translate-x-1/2 rounded-full bg-slate-950/28 blur-sm" />
-      </div>
-    </div>
-  );
-}
-
-function ProductHotspotLayer({ hotspots, settings, onSelect }: { hotspots: ProductHotspotData[]; settings: Settings; onSelect: (product: Product) => void }) {
-  return (
-    <div className="absolute inset-0 z-20">
-      {hotspots.map((hotspot) => (
-        <ProductHotspot key={hotspot.id} hotspot={hotspot} settings={settings} onSelect={onSelect} />
-      ))}
-    </div>
-  );
-}
-
-function ProductHotspot({ hotspot, settings, onSelect }: { hotspot: ProductHotspotData; settings: Settings; onSelect: (product: Product) => void }) {
-  const sizeClass = hotspot.size === "lg" ? "h-8 w-8 sm:h-10 sm:w-10" : hotspot.size === "md" ? "h-7 w-7 sm:h-9 sm:w-9" : "h-6 w-6 sm:h-8 sm:w-8";
-
-  return (
-    <button
-      type="button"
-      onClick={() => onSelect(hotspot.product)}
-      className="group absolute -translate-x-1/2 -translate-y-1/2 outline-none"
-      style={{ left: `${hotspot.x}%`, top: `${hotspot.y}%` }}
-      aria-label={`View ${hotspot.product.name}`}
-    >
-      <span className="absolute -inset-1.5 rounded-full bg-violet-500/24 blur-md transition group-hover:bg-violet-400/48 group-focus-visible:bg-violet-400/48" />
-      <span className="absolute inset-0 rounded-full border border-violet-100/70 opacity-35 motion-safe:animate-ping" />
-      <span className={`${sizeClass} relative grid place-items-center overflow-hidden rounded-full border border-white/80 bg-slate-950/82 shadow-lg shadow-violet-950/30 ring-1 ring-violet-200/45 transition group-hover:scale-110 group-focus-visible:scale-110`}>
-        <span className="absolute inset-1 rounded-full bg-violet-500/76" />
-        {hotspot.product.image_url ? (
-          <img src={hotspot.product.image_url} alt="" className="relative h-[70%] w-[70%] rounded-full object-cover shadow-sm" />
-        ) : (
-          <ShoppingBag className="relative h-3.5 w-3.5 text-white" />
-        )}
-      </span>
-      <span className="pointer-events-none absolute left-1/2 top-full mt-2 hidden min-w-44 -translate-x-1/2 rounded-2xl border border-white/20 bg-slate-950/88 px-3 py-2 text-left text-white shadow-2xl backdrop-blur-xl group-hover:block group-focus-visible:block">
-        <span className="block truncate text-xs font-black">{hotspot.product.name}</span>
-        <span className="mt-1 block text-xs font-black text-violet-200">{money(hotspot.product.selling_price, settings.currency)}</span>
-      </span>
-    </button>
-  );
-}
-
-function ProductDetailModal({ product, category, settings, onClose, onAddToCart }: { product: Product; category: string; settings: Settings; onClose: () => void; onAddToCart: (product: Product) => void }) {
-  const [quantity, setQuantity] = useState(1);
-  const addQuantity = useCallback(() => {
-    for (let index = 0; index < quantity; index += 1) onAddToCart(product);
-    onClose();
-  }, [onAddToCart, onClose, product, quantity]);
-
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-end bg-slate-950/72 p-0 backdrop-blur-sm sm:place-items-center sm:p-4">
-      <div className="w-full max-w-xl overflow-hidden rounded-t-[30px] bg-white shadow-2xl sm:rounded-[30px]">
-        <div className="relative">
-          {product.image_url ? (
-            <img src={product.image_url} alt={product.name} className="h-64 w-full object-cover" />
-          ) : (
-            <div className="grid h-56 place-items-center bg-gradient-to-br from-violet-50 via-white to-amber-50 text-violet-700">
-              <ShoppingBag className="h-14 w-14" />
-            </div>
-          )}
-          <button type="button" onClick={onClose} className="absolute right-3 top-3 grid h-10 w-10 place-items-center rounded-full bg-white/92 text-slate-800 shadow-lg" aria-label="Close product details"><X className="h-4 w-4" /></button>
-        </div>
-        <div className="grid gap-5 p-5 sm:p-6">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-violet-700">{category}</p>
-            <h3 className="mt-2 text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">{product.name}</h3>
-            <p className="mt-2 text-2xl font-black text-violet-700">{money(product.selling_price, settings.currency)}</p>
-            {product.description ? <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">{product.description}</p> : null}
-          </div>
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-[22px] border border-slate-200 bg-slate-50 p-3">
-            <span className="text-sm font-black text-slate-700">Quantity</span>
-            <div className="flex items-center rounded-full border border-slate-200 bg-white">
-              <button type="button" onClick={() => setQuantity((value) => Math.max(1, value - 1))} className="grid h-10 w-10 place-items-center text-slate-600" aria-label="Decrease quantity"><Minus className="h-4 w-4" /></button>
-              <span className="grid h-10 w-10 place-items-center text-sm font-black text-slate-950">{quantity}</span>
-              <button type="button" onClick={() => setQuantity((value) => Math.min(99, value + 1))} className="grid h-10 w-10 place-items-center text-slate-600" aria-label="Increase quantity"><Plus className="h-4 w-4" /></button>
-            </div>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Button type="button" onClick={onClose} className="rounded-full border-slate-200 bg-white text-slate-800 hover:bg-slate-50">Keep browsing</Button>
-            <Button type="button" variant="primary" onClick={addQuantity} className="rounded-full bg-violet-600 text-white hover:bg-violet-500">Add to cart</Button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function VirtualStoreExperience({ products, categories, settings, onAddToCart, onExit, onViewCart }: Props) {
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [sceneMode, setSceneMode] = useState<"checking" | "webgl-ready" | "image-fallback">("checking");
-  const visibleProducts = useMemo(() => products.filter((product) => product.active !== false), [products]);
-  const hotspots = useMemo(() => productHotspots(visibleProducts), [visibleProducts]);
-  const categoryNameById = useMemo(() => new Map(categories.map((category) => [category.id, category.name])), [categories]);
-
+function ProductSheet({product,category,settings,remaining,canShop,onClose,onAdd}: {
+  product:Product;category:string;settings:Settings;remaining:number;canShop:boolean;
+  onClose:()=>void;onAdd:(quantity:number)=>void;
+}) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const [quantity,setQuantity] = useState(1);
+  const price = saleUnitPrice(product);
   useEffect(() => {
-    setSceneMode(supportsWebGL() ? "webgl-ready" : "image-fallback");
-  }, []);
-
-  return (
-    <section
-      data-render-mode={sceneMode}
-      className="relative grid gap-3 overflow-hidden rounded-[32px] border border-slate-200 bg-white p-3 shadow-xl shadow-slate-950/10 sm:p-4"
-    >
-      <StoreSceneImage settings={settings} productCount={visibleProducts.length} onExit={onExit} onViewCart={onViewCart || onExit}>
-        <ProductHotspotLayer hotspots={hotspots} settings={settings} onSelect={setSelectedProduct} />
-      </StoreSceneImage>
-      <MobileCartDrawer onExit={onExit} onViewCart={onViewCart || onExit} />
-      {!hotspots.length ? (
-        <p className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-center text-sm font-bold text-slate-600">
-          No products are available in this virtual store yet.
-        </p>
-      ) : null}
-      {selectedProduct ? (
-        <ProductDetailModal
-          product={selectedProduct}
-          category={categoryNameById.get(selectedProduct.category_id || "") || selectedProduct.category || "Product"}
-          settings={settings}
-          onClose={() => setSelectedProduct(null)}
-          onAddToCart={onAddToCart}
-        />
-      ) : null}
-    </section>
-  );
+    const node=dialog.current;
+    const previous=document.activeElement as HTMLElement|null;
+    const overflow=document.body.style.overflow;
+    node?.showModal();document.body.style.overflow="hidden";
+    return () => {node?.close();document.body.style.overflow=overflow;previous?.focus();};
+  },[]);
+  const allowed=canShop && remaining>0;
+  const selectedQuantity=Math.min(quantity,remaining);
+  return <dialog ref={dialog} className={styles.sheet} aria-labelledby="virtual-product-title" onCancel={onClose} onClick={event=>{if(event.target===dialog.current)onClose();}}>
+    <div className={styles.sheetContent}>
+      <div className={styles.sheetHeader}><span>Product details</span><button autoFocus type="button" onClick={onClose} aria-label="Close product details"><X size={22}/></button></div>
+      <div className={styles.productImage}>{product.image_url?<img src={product.image_url} alt={product.name} decoding="async"/>:<ShoppingBag size={56}/>}</div>
+      <div className={styles.sheetBody}>
+        <span className={styles.eyebrow}>{category}</span>
+        <h2 id="virtual-product-title">{product.name}</h2>
+        <div className={styles.priceLine}><strong>{money(price,settings.currency)}</strong>{price<Number(product.selling_price)?<del>{money(product.selling_price,settings.currency)}</del>:null}<span>{remaining>0?`${remaining} available`:stock(product)>0?"Already in your bag":"Sold out"}</span></div>
+        {product.description?<p className={styles.description}>{product.description}</p>:null}
+        {allowed?<div className={styles.quantity}><span>Quantity</span><div><button type="button" disabled={quantity<=1} onClick={()=>setQuantity(value=>Math.max(1,value-1))} aria-label="Decrease quantity"><Minus size={18}/></button><output aria-live="polite">{selectedQuantity}</output><button type="button" disabled={quantity>=remaining} onClick={()=>setQuantity(value=>Math.min(remaining,value+1))} aria-label="Increase quantity"><Plus size={18}/></button></div></div>:null}
+      </div>
+      <div className={styles.sheetFooter}><button type="button" className={styles.primary} disabled={!allowed} onClick={()=>onAdd(selectedQuantity)}><ShoppingBag size={19}/>{!canShop?"Ordering unavailable":remaining<=0?"No more available":`Add ${selectedQuantity} to bag · ${money(price*selectedQuantity,settings.currency)}`}</button><button type="button" className={styles.textButton} onClick={onClose}>Keep exploring</button></div>
+    </div>
+  </dialog>;
 }
 
-export default function VirtualStore3D(props: Props) {
-  return <VirtualStoreExperience {...props} />;
+export default function VirtualStorefront({products,categories,settings,onAddToCart,onExit,onViewCart,cartQuantities={},cartCount=0,cartSubtotal=0,canShop=true}:Props) {
+  const [category,setCategory]=useState("all");
+  const [search,setSearch]=useState("");
+  const [page,setPage]=useState(0);
+  const [view,setView]=useState("room");
+  const [selected,setSelected]=useState<Product|null>(null);
+  const [message,setMessage]=useState("");
+  const [imageFailed,setImageFailed]=useState(false);
+  const rail=useRef<HTMLDivElement>(null);
+  const activeProducts=useMemo(()=>products.filter(product=>product.active!==false),[products]);
+  const categoryName=(product:Product)=>categories.find(entry=>entry.id===product.category_id)?.name||product.category||"Products";
+  const availableCategories=categories.filter(entry=>activeProducts.some(product=>product.category_id===entry.id));
+  const filtered=activeProducts.filter(product=>(category==="all"||product.category_id===category)&&`${product.name} ${categoryName(product)}`.toLowerCase().includes(search.trim().toLowerCase()));
+  const pageCount=Math.max(1,Math.ceil(filtered.length/POSITIONS.length));
+  const currentPage=Math.min(page,pageCount-1);
+  const displayed=filtered.slice(currentPage*POSITIONS.length,(currentPage+1)*POSITIONS.length);
+  const camera=VIEWS.find(entry=>entry.id===view)||VIEWS[0];
+  const selectedProduct=selected?activeProducts.find(product=>product.id===selected.id)||null:null;
+  const remaining=(product:Product)=>Math.max(0,stock(product)-(cartQuantities[product.id]||0));
+  const select=(product:Product)=>{setSelected(product);setMessage("");};
+  function movePage(next:number){setPage(next);setView("room");rail.current?.scrollTo({left:0});}
+  function add(quantity:number){if(!selectedProduct||!canShop||quantity<1||quantity>remaining(selectedProduct))return;onAddToCart(selectedProduct,quantity);setMessage(`${quantity} × ${selectedProduct.name} added to your bag.`);setSelected(null);}
+  return <section className={styles.store} aria-label="Interactive store">
+    <header className={styles.header}>
+      <div className={styles.brand}><img src={settings.logo_url||"/caribbean-pos-connect-icon.png"} alt="" decoding="async"/><div><span className={styles.eyebrow}>THE STORE</span><h2>{settings.business_name||"Your store"}</h2></div></div>
+      <button type="button" className={styles.catalogButton} onClick={onExit}><ArrowLeft size={18}/><span>View catalogue</span></button>
+    </header>
+    <div className={styles.sceneWrap}>
+      <div className={styles.scene}>
+        <div className={styles.scenePlane} style={{transform:`scale(${camera.scale})`,transformOrigin:camera.origin}}>
+          {!imageFailed?<img className={styles.sceneImage} src="/storefront/premium-bakery-virtual-store.png" alt="Warmly lit store interior with display counter and shelves" draggable={false} onError={()=>setImageFailed(true)} fetchPriority="high"/>:<div className={styles.sceneFallback}><Store size={48}/><span>Explore the products below</span></div>}
+          {!imageFailed?displayed.map((product,index)=><button type="button" key={product.id} className={styles.pin} style={{left:`${POSITIONS[index].x}%`,top:`${POSITIONS[index].y}%`,transform:`translate(-50%,-50%) scale(${1/camera.scale})`}} aria-label={`Explore ${product.name}`} onClick={()=>select(product)}><span>{index+1}</span><span className={styles.pinTooltip}>{product.name}<strong>{money(saleUnitPrice(product),settings.currency)}</strong></span></button>):null}
+        </div>
+        <div className={styles.sceneCaption}><span className={styles.sceneTag}>EXPLORE THE STORE</span><p>Pick a product. Make it yours.</p></div>
+      </div>
+      <div className={styles.sceneControls}><div role="group" aria-label="Store view">{VIEWS.map(entry=><button type="button" key={entry.id} aria-pressed={view===entry.id} onClick={()=>setView(entry.id)}>{entry.id==="room"?<Expand size={16}/>:null}{entry.name}</button>)}</div><span><ShoppingBag size={16}/>Tap a numbered pin</span></div>
+    </div>
+    <div className={styles.browse}>
+      <div className={styles.browseHeader}><div><span className={styles.eyebrow}>CURATED BY {settings.business_name||"YOUR STORE"}</span><h3>Find your next favourite</h3></div><label className={styles.search}><Search size={18}/><input type="search" aria-label="Search store products" placeholder="Search products" value={search} onChange={event=>{setSearch(event.target.value);movePage(0);}}/></label></div>
+      <div className={styles.categories} role="group" aria-label="Product categories"><button type="button" aria-pressed={category==="all"} onClick={()=>{setCategory("all");movePage(0);}}>All products <span>{activeProducts.length}</span></button>{availableCategories.map(entry=><button type="button" key={entry.id} aria-pressed={category===entry.id} onClick={()=>{setCategory(entry.id);movePage(0);}}>{entry.name}</button>)}</div>
+      <div className={styles.productRail} ref={rail} aria-label="Store products">{displayed.map((product,index)=><button type="button" className={styles.productCard} key={product.id} aria-label={`View ${product.name}`} onClick={()=>select(product)}><div className={styles.cardImage}>{product.image_url?<img src={product.image_url} alt="" loading="lazy" decoding="async"/>:<ShoppingBag size={35}/>}<span>{index+1}</span>{stock(product)===0?<span className={styles.soldOut}>Sold out</span>:null}</div><div className={styles.cardBody}><span>{categoryName(product)}</span><h4>{product.name}</h4><div><strong>{money(saleUnitPrice(product),settings.currency)}</strong><span className={styles.cardArrow}><ArrowRight size={18}/></span></div></div></button>)}</div>
+      {!filtered.length?<div className={styles.empty}><ShoppingBag size={28}/><h4>{search?"No matching products":"No products in this collection"}</h4><p>{search?"Try another name or browse all products.":"Check back for the next collection."}</p>{search||category!=="all"?<button type="button" className={styles.textButton} onClick={()=>{setSearch("");setCategory("all");movePage(0);}}>Show all products</button>:null}</div>:null}
+      <div className={styles.pagination}><span>{filtered.length?`${currentPage*6+1}–${Math.min((currentPage+1)*6,filtered.length)} of ${filtered.length} products`:"0 products"}<span className={styles.swipeHint}> · Swipe to explore</span></span><div><button type="button" aria-label="Previous products" disabled={currentPage===0} onClick={()=>movePage(currentPage-1)}><ChevronLeft size={20}/></button><span>{currentPage+1} / {pageCount}</span><button type="button" aria-label="Next products" disabled={currentPage>=pageCount-1} onClick={()=>movePage(currentPage+1)}><ChevronRight size={20}/></button></div></div>
+    </div>
+    <footer className={styles.bagBar}><div><span>{cartCount?`${cartCount} item${cartCount===1?"":"s"} in your bag`:"Your bag is waiting"}</span><strong>{money(cartSubtotal,settings.currency)}<small>subtotal</small></strong></div><button type="button" className={styles.primary} onClick={onViewCart||onExit}><ShoppingBag size={19}/>View bag<ArrowRight size={18}/></button></footer>
+    <p role="status" className={message?styles.confirmation:styles.status}>{message?<><Check size={17}/>{message}</>:null}</p>
+    {selectedProduct?<ProductSheet key={selectedProduct.id} product={selectedProduct} category={categoryName(selectedProduct)} settings={settings} remaining={remaining(selectedProduct)} canShop={canShop} onClose={()=>setSelected(null)} onAdd={add}/>:null}
+  </section>;
 }
