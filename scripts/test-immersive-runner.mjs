@@ -72,7 +72,7 @@ try {
     await delay(500);
   }
   if (!ready) throw Error(`Development server did not start.\n${log}`);
-  await run("scripts/test-immersive-browser.mjs");
+  await run(process.env.QA_SCRIPT || "scripts/test-immersive-browser.mjs");
 } catch (error) {
   console.error(log);
   throw error;

@@ -2,6 +2,7 @@ import type { Product, Settings } from "../types";
 
 export type Point = { x: number; z: number };
 export type Collider = {
+  kind?: string;
   x: number;
   z: number;
   width: number;
@@ -39,10 +40,29 @@ export function worldConfig(settings: Settings): WorldConfig {
     fixtures: [
       { x: -5.25, z: -1, width: 1.05, depth: 8, height: 2.3 },
       { x: 5.25, z: -1, width: 1.05, depth: 8, height: 2.3 },
-      { x: -2.5, z: -5.5, width: 4.8, depth: 1.15, height: 1.05 },
+      {
+        kind: "counter",
+        x: -2.5,
+        z: -5.5,
+        width: 4.8,
+        depth: 1.15,
+        height: 1.05,
+      },
       ...(gallery
         ? []
-        : [{ x: 0, z: -0.9, width: 2.3, depth: 3.6, height: 1.05 }]),
+        : [
+            {
+              kind: "island",
+              x: 0,
+              z: -0.9,
+              width: 2.3,
+              depth: 3.6,
+              height: 1.55,
+            },
+          ]),
+      // Decorative pots are solid too; keep the camera/player out of them.
+      { x: -4.8, z: 5.5, width: 0.7, depth: 0.7, height: 1.15 },
+      { x: 4.8, z: 5.5, width: 0.7, depth: 0.7, height: 1.15 },
     ],
     spawn: { x: 2.4, z: 3.3 },
     checkout: { x: -2.5, z: -4.1 },
@@ -77,6 +97,23 @@ export type Body = Point & {
   speed: number;
 };
 export const PLAYER_RADIUS = 0.3;
+export const WALK_SPEED = 1.75;
+export const RUN_SPEED = 3.25;
+export function joystickAxis(x: number, z: number, deadzone = 0.12): Point {
+  const length = Math.hypot(x, z);
+  if (!Number.isFinite(length) || length <= deadzone) return { x: 0, z: 0 };
+  const strength = (Math.min(1, length) - deadzone) / (1 - deadzone);
+  return { x: (x / length) * strength, z: (z / length) * strength };
+}
+export function angleDelta(current: number, target: number) {
+  return Math.atan2(Math.sin(target - current), Math.cos(target - current));
+}
+export function rotateBody(current: number, target: number, dt: number) {
+  const delta = angleDelta(current, target);
+  // Ease small corrections, bound large pivots to prevent instant reversals.
+  const turn = delta * (1 - Math.exp(-14 * dt));
+  return current + Math.max(-6.5 * dt, Math.min(6.5 * dt, turn));
+}
 export function canOccupy(
   point: Point,
   colliders: Collider[],
@@ -117,15 +154,23 @@ export function stepBody(
   const magnitude = Math.min(1, length),
     x = length ? input.x / length : 0,
     z = length ? input.z / length : 0;
-  const speed = (running ? 3.7 : 2.15) * magnitude;
+  const speed = (running ? RUN_SPEED : WALK_SPEED) * magnitude;
   const tx = (x * Math.cos(cameraYaw) + z * Math.sin(cameraYaw)) * speed;
   const tz = (-x * Math.sin(cameraYaw) + z * Math.cos(cameraYaw)) * speed;
-  const smoothing = 1 - Math.exp(-(length > 0.03 ? 9 : 14) * dt);
+  const intentYaw = length > 0.03 ? Math.atan2(tx, tz) : body.yaw;
+  const yaw = rotateBody(body.yaw, intentYaw, dt);
+  // Brake into a sharp turn before accelerating in the new facing direction.
+  const alignment =
+    length > 0.03 ? Math.max(0, Math.cos(angleDelta(yaw, intentYaw))) : 1;
+  const smoothing = 1 - Math.exp(-(length > 0.03 ? 10 : 18) * dt);
   const next = {
     ...body,
-    vx: body.vx + (tx - body.vx) * smoothing,
-    vz: body.vz + (tz - body.vz) * smoothing,
+    yaw,
+    vx: body.vx + (tx * alignment - body.vx) * smoothing,
+    vz: body.vz + (tz * alignment - body.vz) * smoothing,
   };
+  if (length < 0.03 && Math.hypot(next.vx, next.vz) < 0.025)
+    next.vx = next.vz = 0;
   const steps = Math.max(
     1,
     Math.ceil((Math.hypot(next.vx, next.vz) * dt) / 0.07),
@@ -138,13 +183,8 @@ export function stepBody(
     if (canOccupy(pz, colliders)) next.z = pz.z;
     else next.vz = 0;
   }
-  next.speed = Math.hypot(next.vx, next.vz);
-  if (next.speed > 0.05)
-    next.yaw = turnTowards(
-      next.yaw,
-      Math.atan2(next.vx, next.vz),
-      1 - Math.exp(-12 * dt),
-    );
+  // Animate distance actually travelled, including partial collision steps.
+  next.speed = dt > 0 ? Math.hypot(next.x - body.x, next.z - body.z) / dt : 0;
   return next;
 }
 export function nearestInteraction(

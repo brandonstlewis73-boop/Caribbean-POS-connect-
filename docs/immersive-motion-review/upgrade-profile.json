@@ -1,0 +1,72 @@
+{
+  "browser": "Chromium SwiftShader",
+  "viewport": "390x844 DPR1",
+  "bootMs": 2519,
+  "idle": {
+    "label": "idle, active canvas",
+    "samples": 80,
+    "meanMs": 76.24749999999999,
+    "p50Ms": 83.29999999999927,
+    "p95Ms": 166.70000000000073,
+    "fps": 13.115184104396867,
+    "renderer": {
+      "ready": "true",
+      "playerX": "2.40",
+      "playerZ": "3.30",
+      "fps": "13",
+      "frameP95": "158.6",
+      "frameP50": "77.3",
+      "frameSamples": "22",
+      "estimatedMb": "25.6",
+      "textures": "28",
+      "geometries": "55",
+      "gpuMs": "79.52",
+      "resolution": "0.7",
+      "assetBytes": "527816",
+      "assetMs": "16.4",
+      "firstRenderMs": "794.2",
+      "playerSpeed": "0.000",
+      "drawCalls": "58",
+      "triangles": "42826",
+      "quality": "low"
+    }
+  },
+  "moving": {
+    "label": "run into aisle boundary",
+    "samples": 115,
+    "meanMs": 52.46173913043477,
+    "p50Ms": 50,
+    "p95Ms": 83.40000000000146,
+    "fps": 19.061510666158362,
+    "renderer": {
+      "ready": "true",
+      "playerX": "2.40",
+      "playerZ": "-6.69",
+      "fps": "20",
+      "frameP95": "70.5",
+      "frameP50": "36.8",
+      "frameSamples": "31",
+      "estimatedMb": "25",
+      "textures": "28",
+      "geometries": "55",
+      "gpuMs": "26.18",
+      "resolution": "0.7",
+      "assetBytes": "527816",
+      "assetMs": "16.4",
+      "firstRenderMs": "794.2",
+      "playerSpeed": "0.000",
+      "drawCalls": "27",
+      "triangles": "41866",
+      "quality": "low"
+    }
+  },
+  "assets": [
+    {
+      "url": "shopper.glb",
+      "durationMs": 16.399999998509884,
+      "decodedBytes": 527816,
+      "transferBytes": 257102
+    }
+  ],
+  "note": "Development server, software rendering. No physical iPhone FPS or total GPU-memory claim."
+}

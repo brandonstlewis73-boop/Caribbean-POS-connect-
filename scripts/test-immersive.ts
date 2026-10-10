@@ -61,14 +61,14 @@ assert.equal(
   true,
 );
 assert.equal(immersiveMerchantEnabled("baker-buds", true, "*"), false);
-const start: Body = { x: 2, z: 3, vx: 0, vz: 0, yaw: 0, speed: 0 };
+const start: Body = { x: 2, z: 3, vx: 0, vz: 0, yaw: Math.PI, speed: 0 };
 const simulate = (fps: number, input = { x: 0, z: -1 }, running = false) => {
   let b = { ...start };
   for (let i = 0; i < fps; i++) b = stepBody(b, input, running, 0, 1 / fps, []);
   return b;
 };
 const walk = simulate(60);
-assert.ok(walk.z < start.z - 1.8);
+assert.ok(walk.z < start.z - 1.4);
 assert.ok(Math.abs(walk.z - simulate(30).z) < 0.05);
 assert.ok(simulate(60, { x: 0, z: -1 }, true).speed > walk.speed);
 assert.ok(Math.abs(simulate(60, { x: 1, z: -1 }).speed - walk.speed) < 0.001);

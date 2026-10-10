@@ -29,7 +29,7 @@
     "test:security": "node --import tsx scripts/test-security.ts",
     "test:rate-limit": "node --import tsx scripts/test-rate-limit.ts",
     "audit:production": "npm audit --omit=dev --audit-level=moderate",
-    "test:immersive": "node --import tsx scripts/test-immersive.ts && node --conditions=react-server --import tsx scripts/test-immersive-checkout.cjs && node scripts/test-immersive-character.mjs",
+    "test:immersive": "node --import tsx scripts/test-immersive.ts && node --import tsx scripts/test-immersive-motion.ts && node --conditions=react-server --import tsx scripts/test-immersive-checkout.cjs && node scripts/test-immersive-character.mjs",
     "test:immersive:browser": "node scripts/test-immersive-runner.mjs"
   },
   "dependencies": {
