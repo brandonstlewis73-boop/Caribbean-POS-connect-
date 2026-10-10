@@ -1,4 +1,4 @@
-import { getDefaultDeliveryRatesForCurrency, getDeliveryRegionsForCurrency, getMarketForCountry } from "./constants";
+import { getMarketForCountry } from "./constants";
 import type { Settings } from "./types";
 
 export type OnlineMarket = {
@@ -22,24 +22,10 @@ export function localizeOnlineSettings(settings: Settings, countryValue?: string
     };
   }
 
-  const currency = market.currency;
-  const regions = getDeliveryRegionsForCurrency(currency);
-  const defaultRates = getDefaultDeliveryRatesForCurrency(currency);
-  const existingRates = settings.currency === currency ? settings.delivery_rates || {} : {};
-
+  // Product prices are stored in the merchant currency. Location is not an FX quote.
+  const currency = settings.currency;
   return {
-    settings: {
-      ...settings,
-      currency,
-      delivery_fee:
-        settings.currency === currency
-          ? settings.delivery_fee
-          : Number(defaultRates[regions[0] || ""] ?? settings.delivery_fee ?? 0),
-      delivery_rates: {
-        ...defaultRates,
-        ...existingRates
-      }
-    },
+    settings,
     market: {
       countryCode: market.countryCode,
       country: market.country,
