@@ -52,7 +52,7 @@
     "recharts": "^2.15.0",
     "server-only": "^0.0.1",
     "tailwind-merge": "^2.5.5",
-    "three": "^0.184.0",
+    "three": "^0.186.1",
     "zod": "^3.24.1"
   },
   "devDependencies": {
