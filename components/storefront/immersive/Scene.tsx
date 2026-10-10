@@ -4,6 +4,7 @@ import {
   useEffect,
   useMemo,
   useRef,
+  useState,
   type MutableRefObject,
 } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
@@ -43,6 +44,7 @@ export type SceneProps = {
   audio: MutableRefObject<StoreAudio | null>;
   nearby: string | null;
   low: boolean;
+  paused: boolean;
   onReady: () => void;
   onProgress: (value: number) => void;
   onError: () => void;
@@ -259,10 +261,18 @@ export function clearSceneAssetCache() {
   useGLTF.clear(CHARACTER_URL);
 }
 export default function Scene(props: SceneProps) {
+  const [hidden, setHidden] = useState(false);
+  useEffect(() => {
+    const update = () => setHidden(document.hidden);
+    update();
+    document.addEventListener("visibilitychange", update);
+    return () => document.removeEventListener("visibilitychange", update);
+  }, []);
   return (
     <>
       <Progress onProgress={props.onProgress} />
       <Canvas
+        frameloop={props.paused || hidden ? "demand" : "always"}
         shadows={!props.low}
         dpr={props.low ? 1 : [1, 1.5]}
         camera={{ position: [1.9, 2.5, 6.5], fov: 58, near: 0.1, far: 40 }}

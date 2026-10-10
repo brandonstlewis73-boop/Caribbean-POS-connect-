@@ -1,14 +1,17 @@
-import { chromium, expect } from "@playwright/test";
+import { chromium, webkit, expect } from "@playwright/test";
 import { mkdir, writeFile } from "node:fs/promises";
 import assert from "node:assert/strict";
-const browser = await chromium.launch({
+const safari = process.env.QA_BROWSER === "webkit";
+const browser = await (safari ? webkit : chromium).launch({
   headless: true,
-  args: [
-    "--no-sandbox",
-    "--use-gl=angle",
-    "--use-angle=swiftshader",
-    "--enable-unsafe-swiftshader",
-  ],
+  args: safari
+    ? []
+    : [
+        "--no-sandbox",
+        "--use-gl=angle",
+        "--use-angle=swiftshader",
+        "--enable-unsafe-swiftshader",
+      ],
 });
 const origin = process.env.QA_ORIGIN,
   results = [],
@@ -107,6 +110,7 @@ try {
     deviceScaleFactor: 1,
   });
   const m = await enter(mobile.page);
+  await expect(m.engine).toHaveAttribute("data-quality", "low");
   const mp = mobile.page;
   const joy = mp.getByLabel("Movement joystick");
   await expect(joy).toBeVisible();
@@ -117,20 +121,30 @@ try {
     .toBeGreaterThan(0);
   const box = await joy.boundingBox();
   const before = Number(await m.engine.getAttribute("data-player-z"));
-  const cdp = await mobile.context.newCDPSession(mp);
-  await cdp.send("Input.dispatchTouchEvent", {
-    type: "touchStart",
-    touchPoints: [{ x: box.x + 58, y: box.y + 58, id: 1 }],
-  });
-  await cdp.send("Input.dispatchTouchEvent", {
-    type: "touchMove",
-    touchPoints: [{ x: box.x + 58, y: box.y + 15, id: 1 }],
-  });
-  await mp.waitForTimeout(3500);
-  await cdp.send("Input.dispatchTouchEvent", {
-    type: "touchEnd",
-    touchPoints: [],
-  });
+  if (safari) {
+    // WebKit has no CDP touch-drag API. Exercise native pointer dragging on
+    // the mobile joystick; Chromium below covers actual touch dispatch.
+    await mp.mouse.move(box.x + 58, box.y + 58);
+    await mp.mouse.down();
+    await mp.mouse.move(box.x + 58, box.y + 15);
+    await mp.waitForTimeout(3500);
+    await mp.mouse.up();
+  } else {
+    const cdp = await mobile.context.newCDPSession(mp);
+    await cdp.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [{ x: box.x + 58, y: box.y + 58, id: 1 }],
+    });
+    await cdp.send("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: [{ x: box.x + 58, y: box.y + 15, id: 1 }],
+    });
+    await mp.waitForTimeout(3500);
+    await cdp.send("Input.dispatchTouchEvent", {
+      type: "touchEnd",
+      touchPoints: [],
+    });
+  }
   await mp.waitForTimeout(1500);
   assert.ok(
     Number(await m.engine.getAttribute("data-player-z")) < before - 0.1,
@@ -270,7 +284,7 @@ try {
   await reduced.context.close();
   assert.deepEqual(errors, []);
   await writeFile(
-    "/tmp/immersive-review/metrics.json",
+    `/tmp/immersive-review/metrics${safari ? "-webkit" : ""}.json`,
     JSON.stringify(results, null, 2),
   );
   console.log(

@@ -106,9 +106,12 @@ function Sign({
 }) {
   const texture = useMemo(() => {
     const canvas = document.createElement("canvas");
-    canvas.width = 1024;
-    canvas.height = 256;
+    // Small shelf labels need a quarter of the GPU memory of the wall sign.
+    const scale = width < 2 ? 0.5 : 1;
+    canvas.width = 1024 * scale;
+    canvas.height = 256 * scale;
     const c = canvas.getContext("2d")!;
+    c.scale(scale, scale);
     c.fillStyle = dark ? "#244b3c" : "#f2e8d6";
     c.fillRect(0, 0, 1024, 256);
     c.textAlign = "center";
@@ -126,7 +129,7 @@ function Sign({
     const map = new CanvasTexture(canvas);
     map.colorSpace = SRGBColorSpace;
     return map;
-  }, [text, subtext, dark]);
+  }, [text, subtext, dark, width]);
   useEffect(() => () => texture.dispose(), [texture]);
   return (
     <mesh position={position} rotation={[0, rotation, 0]}>

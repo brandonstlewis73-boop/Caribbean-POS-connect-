@@ -16,18 +16,9 @@ import type { OnlineMarket } from "@/lib/online-market";
 import type { Category, Order, Product, Settings } from "@/lib/types";
 
 type CartItem = Product & { quantity: number };
-const ImmersiveStorefront = dynamic(() => import("@/components/storefront/immersive/ImmersiveStorefront"), { ssr: false });
-const VirtualStorefront = dynamic(() => import("@/components/storefront/VirtualStorefrontClient"), {
+const ImmersiveStorefront = dynamic(() => import("@/components/storefront/immersive/ImmersiveStorefront"), {
   ssr: false,
-  loading: () => (
-    <section className="grid min-h-[420px] place-items-center rounded-[30px] border border-slate-200 bg-slate-950 p-6 text-center text-white shadow-2xl">
-      <div>
-        <div className="mx-auto h-14 w-14 animate-pulse rounded-3xl bg-cyan-300/20" />
-        <p className="mt-4 text-lg font-black">Loading 3D storefront...</p>
-        <p className="mt-2 text-sm font-semibold text-cyan-50/60">The normal storefront and checkout remain available.</p>
-      </div>
-    </section>
-  )
+  loading: () => <p role="status" className="rounded-2xl border border-teal-200 bg-white p-4 font-semibold text-slate-800">Opening your 3D store…</p>
 });
 
 function emptyCustomer(currency: string) {
@@ -117,7 +108,6 @@ export function OnlineOrderClient({
   const [error, setError] = useState("");
   const [statusMessage, setStatusMessage] = useState(initialStatusMessage);
   const [loading, setLoading] = useState(false);
-  const [showVirtualStore, setShowVirtualStore] = useState(Boolean(initialSettings.storefront_3d_enabled));
   const [showImmersive, setShowImmersive] = useState(false);
   const [mobileCheckoutOpen, setMobileCheckoutOpen] = useState(false);
   const displaySettings = useMemo(() => ({ ...settings, business_name: publicStoreName(settings.business_name, storefrontSlug) }), [settings, storefrontSlug]);
@@ -175,11 +165,6 @@ export function OnlineOrderClient({
   }, [showImmersive, storefrontSlug, menuEndpoint]);
 
   const threeDStorefrontEnabled = Boolean(settings.storefront_3d_enabled);
-  useEffect(() => {
-    if (!threeDStorefrontEnabled || typeof window === "undefined") return;
-    const view = new URLSearchParams(window.location.search).get("view");
-    if (view === "3d" || view === "3d-preview") setShowVirtualStore(true);
-  }, [threeDStorefrontEnabled]);
   const storefrontCategories = useMemo(() => {
     if (settings.show_empty_categories) return categories;
     return categories.filter((item) =>
@@ -366,7 +351,7 @@ export function OnlineOrderClient({
 
       <div id="storefront" className="mx-auto grid max-w-[1720px] min-w-0 gap-7 px-4 py-6 lg:gap-9 xl:grid-cols-[minmax(0,1fr)_minmax(450px,480px)] xl:px-8 2xl:gap-12">
         <section className="grid min-w-0 gap-4">
-          {!(threeDStorefrontEnabled && showVirtualStore) ? <div className="relative overflow-hidden rounded-[34px] border border-teal-100 bg-slate-950 text-white shadow-2xl shadow-teal-950/10">
+          {!showImmersive ? <div className="relative overflow-hidden rounded-[34px] border border-teal-100 bg-slate-950 text-white shadow-2xl shadow-teal-950/10">
             {settings.storefront_banner_url ? (
               <img src={settings.storefront_banner_url} alt="" decoding="async" className="absolute inset-0 h-full w-full object-cover opacity-38" />
             ) : null}
@@ -398,47 +383,14 @@ export function OnlineOrderClient({
               </div>
             </div>
           </div> : null}
-          {immersiveEnabled && threeDStorefrontEnabled ? <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-teal-200 bg-white p-4 text-slate-950"><div><h2 className="font-bold">Walk through the store</h2><p className="text-sm text-slate-600">Explore with your character. Your bag stays with you.</p></div><Button onClick={()=>{if(window.matchMedia('(prefers-reduced-motion: reduce)').matches){setShowVirtualStore(false);return;}setShowImmersive(true);}}>Enter immersive store</Button></div>:null}
-          {showImmersive && immersiveEnabled && threeDStorefrontEnabled ? <ImmersiveStorefront products={products} settings={displaySettings} cartQuantities={Object.fromEntries(cart.map(item=>[item.id,item.quantity]))} cartCount={cartQuantity} cartSubtotal={subtotal} canShop={!order && settings.storefront_status!=="paused"} onAddToCart={add} onExit={()=>{setShowImmersive(false);setShowVirtualStore(false);}} onViewCart={()=>{setShowImmersive(false);setMobileCheckoutOpen(true);if(window.matchMedia('(min-width: 1280px)').matches)setTimeout(()=>document.getElementById('checkout')?.scrollIntoView({block:'start'}),0);}}/>:null}
-          {threeDStorefrontEnabled && !showVirtualStore ? (
-            <div className="grid gap-3 rounded-[28px] border border-cyan-100 bg-white/92 p-4 shadow-xl shadow-teal-950/5 backdrop-blur sm:flex sm:items-center sm:justify-between">
-              <div className="min-w-0">
-                <p className="text-sm font-black text-slate-950">Explore the 3D Store</p>
-                <p className="mt-1 text-sm font-semibold text-slate-500">Explore the store, discover products, and build your bag.</p>
-              </div>
-              <div className="grid gap-2 sm:flex sm:shrink-0 sm:flex-wrap">
-                <Button type="button" variant="primary" onClick={() => setShowVirtualStore(true)} className="rounded-full bg-slate-950 text-white hover:bg-teal-700">
-                  Enter 3D Store
-                </Button>
-                <Button type="button" onClick={() => setShowVirtualStore(false)} className="rounded-full border-slate-200 bg-white text-slate-800 hover:border-teal-300 hover:bg-teal-50">
-                  Shop Normally
-                </Button>
-              </div>
-            </div>
-          ) : null}
-          {threeDStorefrontEnabled && showVirtualStore ? (
-            <VirtualStorefront
-              products={products}
-              categories={storefrontCategories}
-              settings={displaySettings}
-              cartQuantities={Object.fromEntries(cart.map(item => [item.id, item.quantity]))}
-              cartCount={cartQuantity}
-              cartSubtotal={subtotal}
-              canShop={!order && settings.storefront_status !== "paused"}
-              onAddToCart={add}
-              onExit={() => setShowVirtualStore(false)}
-              onViewCart={() => {
-                setMobileCheckoutOpen(true);
-                if (window.matchMedia("(min-width: 1280px)").matches) document.getElementById("checkout")?.scrollIntoView({ block: "start", behavior: "smooth" });
-              }}
-            />
-          ) : null}
+          {immersiveEnabled && threeDStorefrontEnabled ? <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-teal-200 bg-white p-4 text-slate-950"><div><h2 className="font-bold">Walk through the store</h2><p className="text-sm text-slate-600">Explore with your character. Your bag stays with you.</p></div><Button onClick={()=>{if(window.matchMedia('(prefers-reduced-motion: reduce)').matches){setStatusMessage('Quick Shop is active because Reduce Motion is enabled on your device.');return;}setShowImmersive(true);}}>Enter immersive store</Button></div>:null}
+          {showImmersive && immersiveEnabled && threeDStorefrontEnabled ? <ImmersiveStorefront products={products} settings={displaySettings} cartQuantities={Object.fromEntries(cart.map(item=>[item.id,item.quantity]))} cartCount={cartQuantity} cartSubtotal={subtotal} canShop={!order && settings.storefront_status!=="paused"} onAddToCart={add} onExit={()=>{setShowImmersive(false);}} onViewCart={()=>{setShowImmersive(false);setMobileCheckoutOpen(true);if(window.matchMedia('(min-width: 1280px)').matches)setTimeout(()=>document.getElementById('checkout')?.scrollIntoView({block:'start'}),0);}}/>:null}
           {settings.storefront_status === "paused" ? (
             <p className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-black text-amber-800">
               This storefront is paused right now. You can view products, but ordering is temporarily unavailable.
             </p>
           ) : null}
-          {!(threeDStorefrontEnabled && showVirtualStore) ? <>
+          {!showImmersive ? <>
           <div className="flex gap-2 overflow-x-auto scroll-smooth rounded-[26px] border border-slate-200 bg-white/95 p-2 shadow-lg shadow-slate-950/5">
             <button
               onClick={() => setCategory("all")}
@@ -705,7 +657,7 @@ export function OnlineOrderClient({
           ) : null}
         </aside>
       </div>
-      {!order && cart.length && !(threeDStorefrontEnabled && showVirtualStore) ? (
+      {!order && cart.length && !showImmersive ? (
         <button type="button" onClick={() => setMobileCheckoutOpen(true)} className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-40 grid rounded-full bg-slate-950 px-5 py-3 text-white shadow-2xl xl:hidden">
           <span className="flex items-center justify-between gap-3 text-sm font-black">
             <span>{cartQuantity} item{cartQuantity === 1 ? "" : "s"}</span>

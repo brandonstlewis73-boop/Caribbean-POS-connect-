@@ -112,7 +112,7 @@ export default function ImmersiveStorefront(props: Props) {
     [page, setPage] = useState(0),
     [search, setSearch] = useState("");
   const [quality, setQuality] = useState<Quality>("auto"),
-    [autoLow, setAutoLow] = useState(false),
+    [autoLow, setAutoLow] = useState(true),
     [sound, setSound] = useState(false),
     [music, setMusic] = useState(false),
     [status, setStatus] = useState(""),
@@ -197,7 +197,8 @@ export default function ImmersiveStorefront(props: Props) {
     };
     pref.addEventListener("change", change);
     setAutoLow(
-      window.innerWidth < 700 ||
+      window.matchMedia("(pointer: coarse)").matches ||
+        window.innerWidth < 700 ||
         ((navigator as Navigator & { deviceMemory?: number }).deviceMemory !==
           undefined &&
           Number(
@@ -288,6 +289,9 @@ export default function ImmersiveStorefront(props: Props) {
       data-fps={stats.fps}
       data-draw-calls={stats.calls}
       data-triangles={stats.triangles}
+      data-quality={
+        quality === "low" || (quality === "auto" && autoLow) ? "low" : "high"
+      }
     >
       <div className={styles.viewport} {...controls.look}>
         {!fault ? (
@@ -300,6 +304,7 @@ export default function ImmersiveStorefront(props: Props) {
               audio={audio}
               nearby={nearby}
               low={quality === "low" || (quality === "auto" && autoLow)}
+              paused={ready && Boolean(panel || selected)}
               onReady={onReady}
               onProgress={setProgress}
               onError={onError}
@@ -661,6 +666,11 @@ export default function ImmersiveStorefront(props: Props) {
               type="button"
               className={styles.setting}
               onClick={() => {
+                if (!root.current?.requestFullscreen) {
+                  setStatus("Full screen is unavailable. You can keep shopping here.");
+                  closePanel();
+                  return;
+                }
                 void root.current
                   ?.requestFullscreen?.()
                   .catch(() =>

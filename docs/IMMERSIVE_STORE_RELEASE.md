@@ -2,9 +2,9 @@
 
 ## Rollout
 
-This implementation is isolated on `feature/immersive-shopping-engine`. The existing storefront remains the default. No production environment variable or live database was changed.
+The old image/video-based 3D storefront has been removed at the merchant’s request. Quick Shop remains the default landing view, with the new engine loaded only when the shopper chooses to enter. No live database migration is required.
 
-Set server-only `IMMERSIVE_STOREFRONT_MERCHANTS=baker-buds` in a **preview** environment to expose the entry for Baker Buds. The merchant's existing `storefront_3d_enabled` setting and subscription permission must also allow 3D. A URL parameter cannot bypass these checks. Removing the allowlist entry removes the new experience without replacing checkout.
+The reviewed code rollout allows `baker-buds` only when `IMMERSIVE_STOREFRONT_MERCHANTS` is unset. An explicit empty environment value disables the engine; a comma-separated server-only value overrides the rollout. The merchant’s `storefront_3d_enabled` setting and subscription permission must also allow 3D. A URL parameter cannot bypass these checks.
 
 ## Architecture
 
@@ -59,7 +59,7 @@ The rig is 527,816 bytes (256,802 bytes with gzip). Its WebP textures are at mos
 
 Screenshots: [desktop](immersive-review/desktop.png), [phone](immersive-review/mobile.png), [shared checkout](immersive-review/mobile-checkout.png). Raw samples: [metrics.json](immersive-review/metrics.json).
 
-The Vercel connector returned HTTP 403 when creating the branch-scoped preview flag. No Vercel CLI or CLI token is available in this workspace. The hosted engine preview could not be enabled. Production was not deployed or enabled; physical-device validation and merchant visual approval remain release gates.
+The earlier environment-variable mutation was denied by Vercel (403). The new release uses a reviewed, merchant-specific code allowlist, retaining an environment override and the existing subscription/settings gates. Deployment status is reported separately after hosted verification.
 
 Production bundle: `/store/[slug]` first-load JavaScript is 129 KB per Next.js. The lazy engine UI is 22,067 bytes raw / 7,929 gzip; its CSS is 12,114 / 2,638. Scene chunks total 1,005,983 bytes raw / 271,688 gzip. These are generated-artifact sizes, separate from runtime asset/photo transfers.
 
@@ -97,3 +97,15 @@ Production bundle: `/store/[slug]` first-load JavaScript is 129 KB per Next.js. 
 - [`scripts/test-immersive-checkout.cjs`](../scripts/test-immersive-checkout.cjs)
 - [`scripts/test-immersive-runner.mjs`](../scripts/test-immersive-runner.mjs)
 - [`scripts/test-immersive.ts`](../scripts/test-immersive.ts)
+
+## iPhone compatibility follow-up
+
+- Removed `VirtualStorefrontClient.tsx` and its stylesheet, old entry buttons and state. No legacy scene/video runs behind the new engine.
+- Touch/coarse-pointer devices (including iPad and landscape iPhone) start with battery-saver graphics: DPR 1, no shadow map, two characters. The initial renderer is lightweight before capability detection.
+- Rendering pauses while product/settings dialogs are open or the browser tab is hidden.
+- Shelf label texture resolution is halved in each dimension, reducing their GPU allocation by 75%. Product information remains available as accessible HTML.
+- Explicit loading, reduced-motion and unavailable-fullscreen feedback replaces silent actions.
+- Browser suite can run with `QA_BROWSER=webkit`; Chromium retains native touch dispatch, while WebKit uses native pointer dragging because its automation API has no touch-drag primitive.
+- Physical iPhone GPU/memory and iOS audio behavior still require a device check. Linux WebKit is closer browser-engine coverage, not proof of physical-device performance.
+
+Follow-up validation (2026-10-10): typecheck, immersive unit/route/asset tests, POS tests and production-hardening tests passed. Full Chromium and WebKit browser suites passed, including shared cart, pickup checkout (intercepted submission only), controls, 320px/landscape/tablet layout, context loss, unsupported WebGL, reduced motion and failed-asset retry. No live orders or notifications were generated. Latest raw development/software-renderer samples are `metrics.json` and `metrics-webkit.json`; FPS samples are not physical-device benchmarks (they may include paused dialogs).
