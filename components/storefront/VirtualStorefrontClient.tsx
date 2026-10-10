@@ -2,7 +2,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, Check, ChevronLeft, ChevronRight, Expand, Minus, Plus, Search, ShoppingBag, Store, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, ChevronLeft, ChevronRight, Expand, Minus, Plus, Search, ShoppingBag, Store, Pause, Play, X } from "lucide-react";
 import { money } from "@/lib/constants";
 import { saleUnitPrice } from "@/lib/pos-checkout";
 import type { Category, Product, Settings } from "@/lib/types";
@@ -68,6 +68,15 @@ export default function VirtualStorefront({products,categories,settings,onAddToC
   const [selected,setSelected]=useState<Product|null>(null);
   const [message,setMessage]=useState("");
   const [imageFailed,setImageFailed]=useState(false);
+  const [motionPaused,setMotionPaused]=useState(false);
+  const [sceneVisible,setSceneVisible]=useState(true);
+  const sceneRef=useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const node=sceneRef.current;
+    if (!node || !window.IntersectionObserver) return;
+    const observer=new IntersectionObserver(entries=>setSceneVisible(entries[0]?.isIntersecting ?? false));
+    observer.observe(node);return ()=>observer.disconnect();
+  },[]);
   const rail=useRef<HTMLDivElement>(null);
   const activeProducts=useMemo(()=>products.filter(product=>product.active!==false),[products]);
   const categoryName=(product:Product)=>categories.find(entry=>entry.id===product.category_id)?.name||product.category||"Products";
@@ -88,14 +97,17 @@ export default function VirtualStorefront({products,categories,settings,onAddToC
       <button type="button" className={styles.catalogButton} onClick={onExit}><ArrowLeft size={18}/><span>View catalogue</span></button>
     </header>
     <div className={styles.sceneWrap}>
-      <div className={styles.scene}>
+      <div className={styles.scene} ref={sceneRef}>
         <div className={styles.scenePlane} style={{transform:`scale(${camera.scale})`,transformOrigin:camera.origin}}>
-          {!imageFailed?<img className={styles.sceneImage} src="/storefront/premium-bakery-virtual-store.png" alt="Warmly lit store interior with display counter and shelves" draggable={false} onError={()=>setImageFailed(true)} fetchPriority="high"/>:<div className={styles.sceneFallback}><Store size={48}/><span>Explore the products below</span></div>}
+          {!imageFailed?<img className={styles.sceneImage} src="/storefront/bakery-with-customers.webp" alt="Warmly lit bakery with a cashier at the till and customers browsing shelves" draggable={false} onError={()=>setImageFailed(true)} fetchPriority="high"/>:<div className={styles.sceneFallback}><Store size={48}/><span>Explore the products below</span></div>}
+          {!imageFailed?<div aria-hidden="true" className={`${styles.customerMotion} ${motionPaused || !sceneVisible ? styles.motionPaused : ""}`}><div className={styles.rearCustomerJourney}><div className={styles.rearWalkingCustomer}/></div></div>:null}
+          {!imageFailed?<img className={styles.foregroundCounter} src="/storefront/bakery-with-customers.webp" alt="" aria-hidden="true" draggable={false}/>:null}
+          {!imageFailed?<div aria-hidden="true" className={`${styles.customerMotion} ${styles.frontCustomerMotion} ${motionPaused || !sceneVisible ? styles.motionPaused : ""}`}><div className={styles.customerJourney}><div className={styles.walkingCustomer}/><span className={styles.customerShadow}/></div></div>:null}
           {!imageFailed?displayed.map((product,index)=><button type="button" key={product.id} className={styles.pin} style={{left:`${POSITIONS[index].x}%`,top:`${POSITIONS[index].y}%`,transform:`translate(-50%,-50%) scale(${1/camera.scale})`}} aria-label={`Explore ${product.name}`} onClick={()=>select(product)}><span>{index+1}</span><span className={styles.pinTooltip}>{product.name}<strong>{money(saleUnitPrice(product),settings.currency)}</strong></span></button>):null}
         </div>
         <div className={styles.sceneCaption}><span className={styles.sceneTag}>EXPLORE THE STORE</span><p>Pick a product. Make it yours.</p></div>
       </div>
-      <div className={styles.sceneControls}><div role="group" aria-label="Store view">{VIEWS.map(entry=><button type="button" key={entry.id} aria-pressed={view===entry.id} onClick={()=>setView(entry.id)}>{entry.id==="room"?<Expand size={16}/>:null}{entry.name}</button>)}</div><span><ShoppingBag size={16}/>Tap a numbered pin</span></div>
+      <div className={styles.sceneControls}><div role="group" aria-label="Store view">{VIEWS.map(entry=><button type="button" key={entry.id} aria-pressed={view===entry.id} onClick={()=>setView(entry.id)}>{entry.id==="room"?<Expand size={16}/>:null}{entry.name}</button>)}</div><button type="button" className={styles.motionButton} aria-pressed={motionPaused} aria-label={motionPaused?"Resume customer movement":"Pause customer movement"} onClick={()=>setMotionPaused(value=>!value)}>{motionPaused?<Play size={16}/>:<Pause size={16}/>}<span>{motionPaused?"Resume movement":"Pause movement"}</span></button></div>
     </div>
     <div className={styles.browse}>
       <div className={styles.browseHeader}><div><span className={styles.eyebrow}>CURATED BY {settings.business_name||"YOUR STORE"}</span><h3>Find your next favourite</h3></div><label className={styles.search}><Search size={18}/><input type="search" aria-label="Search store products" placeholder="Search products" value={search} onChange={event=>{setSearch(event.target.value);movePage(0);}}/></label></div>
