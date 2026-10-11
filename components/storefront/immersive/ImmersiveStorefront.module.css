@@ -770,3 +770,110 @@
 .hud .topbar button {
   font-size: 14px;
 }
+.lookButton {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fbf5e8;
+  color: #23382d;
+  border: 1px solid #ded5c2;
+  border-radius: 14px;
+  padding: 12px 16px;
+  font-size: 14px;
+  min-height: 44px;
+  pointer-events: auto;
+}
+.wardrobe {
+  padding: 20px;
+  display: grid;
+  gap: 18px;
+  color: #27392e;
+}
+.wardrobe p {
+  margin: 0;
+  line-height: 1.5;
+}
+.wardrobe fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.wardrobe legend {
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+.wardrobeTabs {
+  display: flex;
+  gap: 8px;
+}
+.wardrobeTabs button {
+  flex: 1;
+  padding: 12px;
+  border: 1px solid #c9cbbf;
+  border-radius: 12px;
+  color: #334536;
+  background: #f4f1e8;
+}
+.wardrobeTabs button[aria-pressed="true"] {
+  background: #294b3a;
+  color: #fff;
+}
+.outfits {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.outfits button {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid #d9d9ca;
+  border-radius: 14px;
+  background: #faf8f0;
+  color: #283e31;
+  text-align: left;
+  min-height: 90px;
+}
+.outfits button[aria-pressed="true"],
+.swatches button[aria-pressed="true"] {
+  border: 2px solid #345a43;
+  background: #edf2e7;
+}
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.swatches button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: #fffdf7;
+  color: #27392e;
+  border: 1px solid #d9d9ca;
+  border-radius: 10px;
+  padding: 8px 10px;
+  min-height: 44px;
+  font-size: 13px;
+}
+.colorChip {
+  width: 22px;
+  height: 22px;
+  border: 1px solid #0003;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.wardrobeActions {
+  display: flex;
+  gap: 10px;
+  position: sticky;
+  bottom: 0;
+  background: #fffdf5;
+  padding: 12px 0;
+}
+.wardrobeActions button {
+  flex: 1;
+}

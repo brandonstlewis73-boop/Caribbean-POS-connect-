@@ -9,6 +9,8 @@ import {
   CanvasTexture,
   Group,
   Mesh,
+  SkinnedMesh,
+  MeshStandardMaterial,
   Vector3,
   type AnimationAction,
 } from "three";
@@ -20,17 +22,26 @@ import {
   pickupWeight,
   PICKUP_SECONDS,
 } from "@/lib/immersive/motion";
+import { DEFAULT_AVATAR, type Avatar } from "@/lib/immersive/avatar";
+import { dressGeometry } from "@/lib/immersive/wardrobe";
+const STAFF_AVATAR: Avatar = {
+  ...DEFAULT_AVATAR,
+  top: "cream",
+  trousers: "dark",
+};
 export const CHARACTER_URL = "/storefront/immersive/shopper.glb";
 export function Character({
   body,
   pickup,
   staff = false,
   paused = false,
+  appearance = DEFAULT_AVATAR,
 }: {
   body: MutableRefObject<Body>;
   pickup: MutableRefObject<number>;
   staff?: boolean;
   paused?: boolean;
+  appearance?: Avatar;
 }) {
   const gltf = useGLTF(CHARACTER_URL),
     group = useRef<Group>(null),
@@ -53,28 +64,40 @@ export function Character({
   useEffect(() => () => shadow.dispose(), [shadow]);
   const rig = useMemo(() => {
     const scene = clone(gltf.scene);
-    const owned: BufferGeometry[] = [];
+    const owned: BufferGeometry[] = [],
+      materials: MeshStandardMaterial[] = [];
+    const garments: { source: SkinnedMesh; mesh: SkinnedMesh }[] = [];
     scene.traverse((object) => {
-      if (object instanceof Mesh) {
-        object.castShadow = true;
-        object.frustumCulled = false;
-        // A skinned cream work shirt replaces the rigid box previously used as
-        // an apron. Never mutate the cached shopper's shared geometry/colors.
-        if (staff && object.geometry.getAttribute("color")) {
-          object.geometry = object.geometry.clone();
-          owned.push(object.geometry);
-          const color = object.geometry.getAttribute("color");
-          for (let i = 0; i < color.count; i++) {
-            if (
-              color.getY(i) > color.getX(i) * 2 &&
-              color.getY(i) > color.getZ(i) * 1.2
-            )
-              color.setXYZ(i, 0.78, 0.73, 0.62);
-          }
-          color.needsUpdate = true;
+      if (!(object instanceof Mesh)) return;
+      object.castShadow = true;
+      object.frustumCulled = false;
+      if (object.geometry.getAttribute("color")) {
+        const dressed = dressGeometry(
+          object.geometry,
+          staff ? STAFF_AVATAR : appearance,
+        );
+        object.geometry = dressed.geometry;
+        owned.push(dressed.geometry);
+        if (dressed.garment && object instanceof SkinnedMesh) {
+          owned.push(dressed.garment);
+          const material = new MeshStandardMaterial({
+            vertexColors: true,
+            roughness: 0.94,
+          });
+          materials.push(material);
+          const garment = new SkinnedMesh(dressed.garment, material);
+          garment.position.copy(object.position);
+          garment.quaternion.copy(object.quaternion);
+          garment.scale.copy(object.scale);
+          garment.bindMode = object.bindMode;
+          garment.bind(object.skeleton, object.bindMatrix);
+          garment.castShadow = true;
+          garment.frustumCulled = false;
+          garments.push({ source: object, mesh: garment });
         }
       }
     });
+    for (const { source, mesh } of garments) source.parent?.add(mesh);
     const box = new Box3().setFromObject(scene),
       height = box.getSize(new Vector3()).y,
       scale = 1.75 / height;
@@ -84,10 +107,18 @@ export function Character({
       actions: Record<string, AnimationAction> = {};
     for (const clip of gltf.animations)
       actions[clip.name] = mixer.clipAction(clip);
-    return { scene, mixer, actions, owned };
-  }, [gltf, staff]);
+    const skeletons = new Set<SkinnedMesh["skeleton"]>();
+    scene.traverse((object) => {
+      if (object instanceof SkinnedMesh) skeletons.add(object.skeleton);
+    });
+    return { scene, mixer, actions, owned, materials, skeletons };
+  }, [gltf, staff, appearance]);
   useEffect(
-    () => () => rig.owned.forEach((geometry) => geometry.dispose()),
+    () => () => {
+      rig.owned.forEach((geometry) => geometry.dispose());
+      rig.materials.forEach((material) => material.dispose());
+      rig.skeletons.forEach((skeleton) => skeleton.dispose());
+    },
     [rig],
   );
   useEffect(() => {

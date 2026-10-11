@@ -23,3 +23,16 @@ node optimize-immersive-character.mjs /path/to/human_male.glb /path/to/shopper.g
 ```
 
 These tools are not runtime dependencies. The application uses its existing Three.js/R3F/Drei packages. Verify the output with `node scripts/test-immersive-character.mjs` in the repository.
+
+## Bakery surface materials
+
+Local `materials/oak.webp`, `materials/stone.webp` and `materials/plaster.webp` are resized WebP derivatives of Poly Haven CC0 textures:
+
+- https://polyhaven.com/a/wood_table_001 — diffuse JPG, 1K source, 768px WebP derivative.
+- https://polyhaven.com/a/marble_01 — diffuse JPG, 1K source, 768px WebP derivative.
+- https://polyhaven.com/a/plastered_wall_02 — diffuse JPG, 1K source, 512px WebP derivative.
+- License: https://polyhaven.com/license (CC0).
+
+Combined encoded size: 78,370 bytes. Runtime limits the surface texture backing canvases to 512 × 512. A base material remains usable if a texture request fails.
+
+The optional shirt and jacket shells are derived at runtime from the CC0 rig's existing vertices and skin weights; no remote avatar service is used. Outfit/appearance preferences are stored locally in the shopper's browser, without changing merchant records.

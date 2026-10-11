@@ -23,6 +23,7 @@ import {
   Search,
   Maximize,
   Leaf,
+  Shirt,
 } from "lucide-react";
 import { money } from "@/lib/constants";
 import { availableSaleStock, saleUnitPrice } from "@/lib/pos-checkout";
@@ -40,6 +41,13 @@ import {
 } from "@/lib/immersive/performance";
 import type { Quality, SceneStats } from "./Scene";
 import styles from "./ImmersiveStorefront.module.css";
+import {
+  DEFAULT_AVATAR,
+  readAvatar,
+  saveAvatar,
+  type Avatar,
+} from "@/lib/immersive/avatar";
+import { Wardrobe } from "./Wardrobe";
 const Scene = dynamic(() => import("./Scene"), { ssr: false });
 class SceneBoundary extends Component<
   { children: ReactNode; onError: () => void },
@@ -110,11 +118,21 @@ export default function ImmersiveStorefront(props: Props) {
     [progress, setProgress] = useState(0),
     [fault, setFault] = useState(false),
     [attempt, setAttempt] = useState(0);
-  const [panel, setPanel] = useState<"products" | "settings" | null>(null),
+  const [panel, setPanel] = useState<
+      "products" | "settings" | "wardrobe" | null
+    >(null),
     [selected, setSelected] = useState<string | null>(null),
     [nearby, setNearby] = useState<string | null>(null),
     [page, setPage] = useState(0),
     [search, setSearch] = useState("");
+  const [appearance, setAppearance] = useState<Avatar>(DEFAULT_AVATAR);
+  useEffect(() => {
+    try {
+      setAppearance(readAvatar(localStorage));
+    } catch {
+      /* Private browsing may disable storage. */
+    }
+  }, []);
   const [quality, setQuality] = useState<Quality>("auto"),
     [resolution, setResolution] = useState(1),
     [autoLow, setAutoLow] = useState(true),
@@ -328,6 +346,7 @@ export default function ImmersiveStorefront(props: Props) {
         {!fault ? (
           <SceneBoundary key={attempt} onError={onError}>
             <Scene
+              appearance={appearance}
               config={config}
               placements={placements}
               currency={props.settings.currency}
@@ -373,6 +392,14 @@ export default function ImmersiveStorefront(props: Props) {
         </header>
         {ready && !fault ? (
           <div className={styles.hudTools}>
+            <button
+              type="button"
+              className={styles.lookButton}
+              onClick={() => setPanel("wardrobe")}
+            >
+              <Shirt size={18} />
+              Your look
+            </button>
             <div className={styles.collection}>
               <button type="button" onClick={() => setPanel("products")}>
                 <Search size={17} />
@@ -647,6 +674,28 @@ export default function ImmersiveStorefront(props: Props) {
               <p>This product is no longer available.</p>
             </div>
           )}
+        </Panel>
+      ) : null}
+      {panel === "wardrobe" ? (
+        <Panel title="Your look" onClose={closePanel}>
+          <Wardrobe
+            value={appearance}
+            onApply={(value) => {
+              setAppearance(value);
+              let saved = false;
+              try {
+                saved = saveAvatar(localStorage, value);
+              } catch {
+                /* Use for this visit. */
+              }
+              closePanel();
+              setStatus(
+                saved
+                  ? "Your look is saved. Enjoy the store."
+                  : "Your look is ready for this visit.",
+              );
+            }}
+          />
         </Panel>
       ) : null}
       {panel === "settings" ? (

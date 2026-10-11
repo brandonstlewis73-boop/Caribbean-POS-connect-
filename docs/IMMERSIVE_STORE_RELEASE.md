@@ -1,8 +1,10 @@
 # Immersive storefront implementation and release review
 
-## Unreleased movement upgrade
+## Bakery style and character customization
 
-The feature-branch audit, performance comparison, limitations and validation are in [Immersive movement and mobile review](immersive-motion-review/README.md). This upgrade is not approved for production deployment. Results farther below describe the earlier release.
+The current feature-branch changes and validation are in [Bakery style and wardrobe review](bakery-style-review/README.md). Production release requires the validation recorded there.
+
+The preceding movement upgrade was merged in PR #44 and deployed at `eacd41d98e3c7b700bb892a938e1374abeb7abf4`. Its audit and validation are in [Immersive movement and mobile review](immersive-motion-review/README.md).
 
 ## Rollout
 
