@@ -76,6 +76,22 @@ try {
       timeout: 20000,
     })
     .toBeGreaterThan(0);
+  await page.getByRole("button", { name: "Your look", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Canvas jacket", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Clay", exact: true }).click();
+  await page.getByRole("button", { name: "Wear this look" }).click();
+  await page.getByRole("button", { name: "Your look", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Canvas jacket", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  const savedAvatar = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem("caribbean-pos.avatar.v1")),
+  );
+  assert.equal(savedAvatar.outfit, "jacket");
+  assert.equal(savedAvatar.top, "clay");
+  await page.getByRole("button", { name: "Close Your look" }).click();
   await engine.focus();
   const z0 = Number(await engine.getAttribute("data-player-z"));
   await page.keyboard.down("KeyW");

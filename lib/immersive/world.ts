@@ -32,8 +32,8 @@ export function worldConfig(settings: Settings): WorldConfig {
         ? "#273744"
         : theme === "beauty"
           ? "#895d6a"
-          : "#275e4e",
-    wood: theme === "modern-retail" ? "#8f795e" : "#a9794f",
+          : "#40553e",
+    wood: theme === "modern-retail" ? "#b8a58c" : "#d3b18d",
     wall: "#f0e4cf",
     light: settings.storefront_3d_lighting === "evening" ? 0.7 : 1,
     layout: settings.storefront_3d_layout || "shelves",
@@ -53,18 +53,19 @@ export function worldConfig(settings: Settings): WorldConfig {
         : [
             {
               kind: "island",
-              x: 0,
+              x: 1.1,
               z: -0.9,
               width: 2.3,
               depth: 3.6,
-              height: 1.55,
+              height: 1.85,
             },
           ]),
+      { x: 2.65, z: -6.65, width: 5.2, depth: 0.45, height: 2.6 },
       // Decorative pots are solid too; keep the camera/player out of them.
       { x: -4.8, z: 5.5, width: 0.7, depth: 0.7, height: 1.15 },
       { x: 4.8, z: 5.5, width: 0.7, depth: 0.7, height: 1.15 },
     ],
-    spawn: { x: 2.4, z: 3.3 },
+    spawn: { x: -1.1, z: 3.7 },
     checkout: { x: -2.5, z: -4.1 },
   };
 }

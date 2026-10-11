@@ -18,6 +18,8 @@ import {
   Texture,
   TextureLoader,
 } from "three";
+import { BakeryWindows, WindowLight } from "./BakeryWindows";
+import { BakeryDetails } from "./BakeryDetails";
 import type { Placement, WorldConfig } from "@/lib/immersive/world";
 import { money } from "@/lib/constants";
 import { saleUnitPrice } from "@/lib/pos-checkout";
@@ -52,6 +54,27 @@ function getSurfaceMap(surface: Surface = "plain") {
   const map = new CanvasTexture(canvas);
   map.colorSpace = SRGBColorSpace;
   surfaceMaps.set(surface, map);
+  const asset = {
+    wood: "oak",
+    stone: "stone",
+    plaster: "plaster",
+    plain: null,
+  }[surface];
+  if (asset)
+    new TextureLoader().load(
+      `/storefront/immersive/materials/${asset}.webp`,
+      (loaded) => {
+        map.image.width = 512;
+        map.image.height = 512;
+        map.image.getContext("2d")?.drawImage(loaded.image, 0, 0, 512, 512);
+        map.needsUpdate = true;
+        loaded.dispose();
+      },
+      undefined,
+      () => {
+        /* Keep the lightweight base finish if a material cannot load. */
+      },
+    );
   return map;
 }
 type Box = {
@@ -59,13 +82,14 @@ type Box = {
   s: [number, number, number];
   r?: number;
 };
-function Boxes({
+export function Boxes({
   boxes,
   color,
   roughness = 0.7,
   metalness = 0,
   rounded = false,
   surface = "plain",
+  unlit = false,
 }: {
   boxes: Box[];
   color: string;
@@ -73,6 +97,7 @@ function Boxes({
   metalness?: number;
   rounded?: boolean;
   surface?: Surface;
+  unlit?: boolean;
 }) {
   const ref = useRef<InstancedMesh>(null);
   const low = useContext(LightMaterials);
@@ -104,7 +129,9 @@ function Boxes({
       ) : (
         <boxGeometry args={[1, 1, 1]} />
       )}
-      {low ? (
+      {unlit ? (
+        <meshBasicMaterial color={color} />
+      ) : low ? (
         <meshLambertMaterial map={getSurfaceMap(surface)} color="#ffffff" />
       ) : (
         <meshStandardMaterial
@@ -131,6 +158,7 @@ function Sign({
   width = 3,
   height = 0.75,
   dark = false,
+  backless = false,
 }: {
   text: string;
   subtext?: string;
@@ -139,6 +167,7 @@ function Sign({
   width?: number;
   height?: number;
   dark?: boolean;
+  backless?: boolean;
 }) {
   const texture = useMemo(() => {
     const canvas = document.createElement("canvas");
@@ -149,7 +178,7 @@ function Sign({
     const c = canvas.getContext("2d")!;
     c.scale(scale, scale);
     c.fillStyle = dark ? "#244b3c" : "#f2e8d6";
-    c.fillRect(0, 0, 1024, 256);
+    if (!backless) c.fillRect(0, 0, 1024, 256);
     c.textAlign = "center";
     c.fillStyle = dark ? "#fff4da" : "#244b3c";
     let size = 78;
@@ -165,12 +194,12 @@ function Sign({
     const map = new CanvasTexture(canvas);
     map.colorSpace = SRGBColorSpace;
     return map;
-  }, [text, subtext, dark, width]);
+  }, [text, subtext, dark, width, backless]);
   useEffect(() => () => texture.dispose(), [texture]);
   return (
     <mesh position={position} rotation={[0, rotation, 0]}>
       <planeGeometry args={[width, height]} />
-      <meshBasicMaterial map={texture} />
+      <meshBasicMaterial map={texture} transparent={backless} />
     </mesh>
   );
 }
@@ -336,33 +365,11 @@ function StoreEnvironment({
       ),
     [],
   );
-  const foliage = useMemo(
-    () =>
-      [-4.8, 4.8].flatMap((x) =>
-        Array.from(
-          { length: 22 },
-          (_, i): Box => ({
-            p: [
-              x + Math.sin(i * 1.4) * 0.28,
-              2.65 + (i % 6) * 0.08,
-              -4.5 + Math.cos(i * 0.7) * 0.3,
-            ],
-            s: [0.23, 0.11, 0.38],
-            r: i,
-          }),
-        ),
-      ),
-    [],
-  );
   return (
     <LightMaterials.Provider value={low}>
       <group>
         <Boxes boxes={loaves} color="#bf8445" rounded />
-        <Boxes boxes={foliage} color="#3d6747" rounded />
-        <Boxes
-          boxes={[{ p: [0, 3, -6.91], s: [5.7, 1.65, 0.09] }]}
-          color="#92734d"
-        />
+
         <Boxes boxes={floor} color="#e1d8c8" roughness={0.62} surface="stone" />
         <Boxes
           boxes={[
@@ -377,7 +384,9 @@ function StoreEnvironment({
         <Boxes boxes={planks} color={config.wood} surface="wood" />
         <Boxes boxes={posts} color="#b99552" metalness={0.6} roughness={0.35} />
         <Boxes boxes={beams} color="#795d44" surface="wood" />
-        <Boxes boxes={goods} color="#d0ae73" />
+        <Boxes boxes={goods} color="#d8c7a0" />
+        <BakeryDetails config={config} />
+
         <Boxes
           boxes={[
             { p: [-5.88, 0.13, 0], s: [0.08, 0.24, 14] },
@@ -386,20 +395,8 @@ function StoreEnvironment({
           ]}
           color={config.accent}
         />
-        <Boxes
-          boxes={[-1, 1].flatMap(
-            (side) =>
-              [
-                { p: [side * 5.84, 0.76, 4.6], s: [0.08, 0.1, 2.3] },
-                { p: [side * 5.84, 3.45, 4.6], s: [0.08, 0.1, 2.3] },
-                { p: [side * 5.84, 2.1, 3.48], s: [0.08, 2.7, 0.08] },
-                { p: [side * 5.84, 2.1, 5.72], s: [0.08, 2.7, 0.08] },
-                { p: [side * 5.82, 2.1, 4.6], s: [0.08, 2.7, 0.055] },
-                { p: [side * 5.82, 2.1, 4.6], s: [0.08, 0.055, 2.2] },
-              ] as Box[],
-          )}
-          color="#eee8d9"
-        />
+        <BakeryWindows />
+        <WindowLight />
         <Sign
           text="BAKED & BOXED"
           subtext="Browse the shelves · Choose your favorites"
@@ -422,7 +419,7 @@ function StoreEnvironment({
             <group key={i}>
               <Boxes
                 boxes={[{ p: [f.x, 0.5, f.z], s: [f.width, 1, f.depth] }]}
-                color={config.accent}
+                color="#52654b"
               />
               <Boxes
                 boxes={Array.from(
@@ -443,7 +440,7 @@ function StoreEnvironment({
                     ],
                   }),
                 )}
-                color={config.accent}
+                color="#52654b"
               />
               <Boxes
                 boxes={[
@@ -470,52 +467,6 @@ function StoreEnvironment({
                 color="#c8a761"
                 metalness={0.7}
               />
-              {i > 0 ? (
-                <>
-                  <Boxes
-                    boxes={[-1, 1].flatMap(
-                      (side) =>
-                        [
-                          {
-                            p: [
-                              f.x + side * (f.width / 2 - 0.1),
-                              1.36,
-                              f.z - f.depth / 2 + 0.12,
-                            ],
-                            s: [0.045, 0.56, 0.045],
-                          },
-                          {
-                            p: [
-                              f.x + side * (f.width / 2 - 0.1),
-                              1.36,
-                              f.z + f.depth / 2 - 0.12,
-                            ],
-                            s: [0.045, 0.56, 0.045],
-                          },
-                          {
-                            p: [f.x + side * (f.width / 2 - 0.1), 1.64, f.z],
-                            s: [0.045, 0.035, f.depth - 0.2],
-                          },
-                        ] as Box[],
-                    )}
-                    color="#b99a61"
-                    metalness={0.55}
-                    roughness={0.3}
-                  />
-                  <mesh position={[f.x, 1.65, f.z]}>
-                    <boxGeometry
-                      args={[f.width - 0.16, 0.025, f.depth - 0.1]}
-                    />
-                    <meshStandardMaterial
-                      color="#dcece5"
-                      transparent
-                      opacity={0.14}
-                      roughness={0.18}
-                      depthWrite={false}
-                    />
-                  </mesh>
-                </>
-              ) : null}
               {i > 0
                 ? [-1.1, 0, 1.1].map((z) => (
                     <group key={z} position={[f.x, 1.18, f.z + z]}>
@@ -534,10 +485,10 @@ function StoreEnvironment({
           ))}
         <Sign
           text={config.name}
-          subtext="Welcome. Take a look around."
-          position={[0, 3, -6.83]}
-          width={5.2}
-          height={1.3}
+          position={[0, 3.48, -6.83]}
+          width={3.8}
+          height={0.8}
+          backless
         />
         <Sign
           text="Checkout"
@@ -597,14 +548,6 @@ function StoreEnvironment({
             ))}
           </group>
         ))}
-        <Boxes
-          boxes={[
-            { p: [-5.88, 2.1, 4.6], s: [0.03, 2.7, 2.2] },
-            { p: [5.88, 2.1, 4.6], s: [0.03, 2.7, 2.2] },
-          ]}
-          color="#b8d4d2"
-          roughness={0.3}
-        />
         {placements.map((p) => (
           <ProductDisplay
             key={p.product.id}
