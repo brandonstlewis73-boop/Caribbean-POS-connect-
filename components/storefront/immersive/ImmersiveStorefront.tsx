@@ -125,6 +125,8 @@ export default function ImmersiveStorefront(props: Props) {
     [nearby, setNearby] = useState<string | null>(null),
     [page, setPage] = useState(0),
     [search, setSearch] = useState("");
+  const [changingLook, setChangingLook] = useState(false);
+  const onAppearanceReady = useCallback(() => setChangingLook(false), []);
   const [appearance, setAppearance] = useState<Avatar>(DEFAULT_AVATAR);
   useEffect(() => {
     try {
@@ -163,7 +165,10 @@ export default function ImmersiveStorefront(props: Props) {
   });
   const adaptive = useRef<ResolutionState>({ scale: 1, slow: 0, fast: 0 }),
     openRef = useRef<(id: string | null) => void>(() => {});
-  const controls = useControls(root, ready && !panel && !selected && !fault);
+  const controls = useControls(
+    root,
+    ready && !changingLook && !panel && !selected && !fault,
+  );
   const config = useMemo(() => worldConfig(props.settings), [props.settings]);
   const products = useMemo(
     () => props.products.filter((p) => p.active !== false),
@@ -320,7 +325,7 @@ export default function ImmersiveStorefront(props: Props) {
       tabIndex={0}
       role="region"
       aria-label={`${config.name} immersive store`}
-      data-ready={ready}
+      data-ready={ready && !changingLook}
       data-player-x={stats.x.toFixed(2)}
       data-player-z={stats.z.toFixed(2)}
       data-fps={stats.fps}
@@ -354,9 +359,10 @@ export default function ImmersiveStorefront(props: Props) {
               audio={audio}
               nearby={nearby}
               low={quality === "low" || (quality === "auto" && autoLow)}
-              paused={ready && Boolean(panel || selected)}
+              paused={ready && Boolean(panel || selected || changingLook)}
               resolution={quality === "high" ? 1.35 : resolution}
               onReady={onReady}
+              onAppearanceReady={onAppearanceReady}
               onProgress={setProgress}
               onError={onError}
               onNearby={setNearby}
@@ -505,10 +511,12 @@ export default function ImmersiveStorefront(props: Props) {
           </button>
         </>
       ) : null}
-      {!ready && !fault ? (
+      {(!ready || changingLook) && !fault ? (
         <div className={styles.cover}>
           <Leaf size={38} />
-          <h2>Opening {config.name}</h2>
+          <h2>
+            {changingLook ? "Changing your look" : `Opening ${config.name}`}
+          </h2>
           <p>Preparing the store and your character</p>
           <progress
             max={100}
@@ -681,6 +689,8 @@ export default function ImmersiveStorefront(props: Props) {
           <Wardrobe
             value={appearance}
             onApply={(value) => {
+              if (JSON.stringify(value) !== JSON.stringify(appearance))
+                setChangingLook(true);
               setAppearance(value);
               let saved = false;
               try {

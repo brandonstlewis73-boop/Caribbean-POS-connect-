@@ -1,8 +1,12 @@
 # Immersive storefront implementation and release review
 
+## Textured characters and scanned bakery assets
+
+The new feature branch replaces the base character with distinct textured human rigs and optimized scanned decoration. See [Character visual review](character-visual-review/README.md) for scope, evidence and physical-device requirements.
+
 ## Bakery style and character customization
 
-The current feature-branch changes and validation are in [Bakery style and wardrobe review](bakery-style-review/README.md). Production release requires the validation recorded there.
+The preceding PR #45 changes and validation are in [Bakery style and wardrobe review](bakery-style-review/README.md). Production release requires the validation recorded there.
 
 The preceding movement upgrade was merged in PR #44 and deployed at `eacd41d98e3c7b700bb892a938e1374abeb7abf4`. Its audit and validation are in [Immersive movement and mobile review](immersive-motion-review/README.md).
 

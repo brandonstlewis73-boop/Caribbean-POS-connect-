@@ -39,7 +39,7 @@ try {
     });
     await page.getByRole("button", { name: "Your look", exact: true }).click();
     await page
-      .getByRole("button", { name: "Canvas jacket", exact: true })
+      .getByRole("button", { name: "Soft knitwear", exact: true })
       .click();
     await page.getByRole("button", { name: "Clay", exact: true }).click();
     await page.screenshot({
@@ -81,7 +81,7 @@ try {
     });
     await page.getByRole("button", { name: "Your look", exact: true }).click();
     await expect(
-      page.getByRole("button", { name: "Canvas jacket", exact: true }),
+      page.getByRole("button", { name: "Soft knitwear", exact: true }),
     ).toHaveAttribute("aria-pressed", "true");
     await expect(
       page.getByRole("button", { name: "Clay", exact: true }),

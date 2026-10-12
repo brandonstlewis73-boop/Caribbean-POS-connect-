@@ -11,7 +11,8 @@ import {
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useGLTF, useProgress } from "@react-three/drei";
 import { ACESFilmicToneMapping, PerspectiveCamera, Vector3 } from "three";
-import { Character, CHARACTER_URL } from "./Character";
+import { DECOR_MODELS, decorUrl } from "./ScannedDecor";
+import { Character } from "./Character";
 import { RoomLighting } from "./RoomLighting";
 import { Environment } from "./Environment";
 import { FrameProfiler } from "./FrameProfiler";
@@ -57,7 +58,14 @@ export type SceneStats = {
   assetMs: number;
   firstRenderMs: number;
 };
-import type { Avatar } from "@/lib/immersive/avatar";
+import {
+  DEFAULT_AVATAR,
+  CHARACTER_MODELS,
+  characterUrl,
+  type Avatar,
+} from "@/lib/immersive/avatar";
+const AMBIENT_AVATAR: Avatar = { ...DEFAULT_AVATAR, character: "knit" };
+const ALTERNATE_AVATAR: Avatar = { ...DEFAULT_AVATAR, character: "linen" };
 export type SceneProps = {
   appearance: Avatar;
   config: WorldConfig;
@@ -71,6 +79,7 @@ export type SceneProps = {
   resolution: number;
   startedAt?: number;
   onReady: () => void;
+  onAppearanceReady: () => void;
   onProgress: (value: number) => void;
   onError: () => void;
   onNearby: (id: string | null) => void;
@@ -301,12 +310,15 @@ function World(props: SceneProps) {
         nearby={props.nearby}
       />
       <Character
+        low={props.low}
         body={displayPlayer}
         pickup={pickup}
         paused={props.paused}
         appearance={props.appearance}
+        onLoaded={props.onAppearanceReady}
       />
       <Character
+        low={props.low}
         body={staff}
         pickup={staffAction}
         staff
@@ -314,6 +326,12 @@ function World(props: SceneProps) {
       />
       {!props.low ? (
         <Character
+          low={props.low}
+          appearance={
+            props.appearance.character === "knit"
+              ? ALTERNATE_AVATAR
+              : AMBIENT_AVATAR
+          }
           body={customer}
           pickup={customerAction}
           paused={props.paused}
@@ -323,7 +341,8 @@ function World(props: SceneProps) {
   );
 }
 export function clearSceneAssetCache() {
-  useGLTF.clear(CHARACTER_URL);
+  for (const model of CHARACTER_MODELS) useGLTF.clear(characterUrl(model));
+  for (const model of DECOR_MODELS) useGLTF.clear(decorUrl(model));
 }
 function Scene(props: SceneProps) {
   const [hidden, setHidden] = useState(false);

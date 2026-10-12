@@ -99,19 +99,6 @@ export function BakeryDetails({ config }: { config: WorldConfig }) {
       })),
     [],
   );
-  const buns = useMemo(
-    () =>
-      [0.65, 1.31, 1.97].flatMap((y) =>
-        Array.from(
-          { length: 14 },
-          (_, i): Item => ({
-            p: [0.26 + i * 0.35, y, -6.48],
-            s: [0.13, 0.095, 0.12],
-          }),
-        ),
-      ),
-    [],
-  );
   const bottles = useMemo(
     () =>
       [-5.2, 5.2].flatMap((x) =>
@@ -121,26 +108,6 @@ export function BakeryDetails({ config }: { config: WorldConfig }) {
             p: [x, 1.92, -4.7 + i * 0.48],
             s: [0.8, 0.8, 0.8],
           }),
-        ),
-      ),
-    [],
-  );
-  const leaves = useMemo(
-    () =>
-      [-1, 1].flatMap((side) =>
-        [0, 1, 2].flatMap((plant) =>
-          Array.from(
-            { length: 16 },
-            (_, i): Item => ({
-              p: [
-                side * (5.1 + Math.sin(i * 1.7) * 0.22),
-                2.9 - i * 0.045,
-                -4.5 + plant * 2.2 + Math.cos(i * 1.3) * 0.23,
-              ],
-              s: [0.13, 0.025, 0.23],
-              r: [0.2 + i * 0.08, i * 1.4, 0.45],
-            }),
-          ),
         ),
       ),
     [],
@@ -198,9 +165,7 @@ export function BakeryDetails({ config }: { config: WorldConfig }) {
         color="#ffe5ac"
         unlit
       />
-      <Batch items={buns} shape="bun" color="#b98042" />
       <Batch items={bottles} shape="bottle" color="#85723f" />
-      <Batch items={leaves} shape="leaf" color="#426444" />
       {island && (
         <Batch
           items={[-1.1, 0, 1.1].map((z) => ({

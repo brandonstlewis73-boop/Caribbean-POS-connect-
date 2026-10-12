@@ -17,14 +17,16 @@ import {
   SRGBColorSpace,
   Texture,
   TextureLoader,
+  RepeatWrapping,
 } from "three";
 import { BakeryWindows, WindowLight } from "./BakeryWindows";
+import { ScannedDecor } from "./ScannedDecor";
 import { BakeryDetails } from "./BakeryDetails";
 import type { Placement, WorldConfig } from "@/lib/immersive/world";
 import { money } from "@/lib/constants";
 import { saleUnitPrice } from "@/lib/pos-checkout";
 const LightMaterials = createContext(false);
-type Surface = "wood" | "stone" | "plaster" | "plain";
+type Surface = "wood" | "stone" | "plaster" | "marble" | "plain";
 const surfaceMaps = new Map<Surface, CanvasTexture>();
 function getSurfaceMap(surface: Surface = "plain") {
   const cached = surfaceMaps.get(surface);
@@ -59,6 +61,7 @@ function getSurfaceMap(surface: Surface = "plain") {
     stone: "stone",
     plaster: "plaster",
     plain: null,
+    marble: null,
   }[surface];
   if (asset)
     new TextureLoader().load(
@@ -302,17 +305,12 @@ function StoreEnvironment({
   currency: string;
   nearby: string | null;
 }) {
-  const floor = useMemo(
-    () =>
-      Array.from(
-        { length: 168 },
-        (_, i): Box => ({
-          p: [-5.55 + (i % 12) * 1.01, -0.045, -6.5 + Math.floor(i / 12)],
-          s: [0.995, 0.09, 0.985],
-        }),
-      ),
-    [],
-  );
+  const floorMap = useMemo(() => {
+    const map = getSurfaceMap("stone");
+    map.wrapS = map.wrapT = RepeatWrapping;
+    map.repeat.set(3, 3.5);
+    return map;
+  }, []);
   const planks = useMemo(
     () =>
       [-5.28, 5.28].flatMap((x) =>
@@ -370,7 +368,14 @@ function StoreEnvironment({
       <group>
         <Boxes boxes={loaves} color="#bf8445" rounded />
 
-        <Boxes boxes={floor} color="#e1d8c8" roughness={0.62} surface="stone" />
+        <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+          <planeGeometry args={[12, 14]} />
+          <meshStandardMaterial
+            map={floorMap}
+            color="#f5f2e9"
+            roughness={0.65}
+          />
+        </mesh>
         <Boxes
           boxes={[
             { p: [0, 2.15, -7], s: [12, 4.3, 0.15] },
@@ -386,6 +391,7 @@ function StoreEnvironment({
         <Boxes boxes={beams} color="#795d44" surface="wood" />
         <Boxes boxes={goods} color="#d8c7a0" />
         <BakeryDetails config={config} />
+        <ScannedDecor config={config} low={low} />
 
         <Boxes
           boxes={[
@@ -450,7 +456,7 @@ function StoreEnvironment({
                   },
                 ]}
                 color="#eee4d1"
-                surface="stone"
+                surface="marble"
                 roughness={0.3}
               />
               <Boxes
@@ -467,20 +473,6 @@ function StoreEnvironment({
                 color="#c8a761"
                 metalness={0.7}
               />
-              {i > 0
-                ? [-1.1, 0, 1.1].map((z) => (
-                    <group key={z} position={[f.x, 1.18, f.z + z]}>
-                      <mesh castShadow>
-                        <cylinderGeometry args={[0.42, 0.44, 0.13, 20]} />
-                        <meshStandardMaterial color="#5c3422" roughness={0.9} />
-                      </mesh>
-                      <mesh position={[0, 0.09, 0]}>
-                        <cylinderGeometry args={[0.39, 0.41, 0.07, 20]} />
-                        <meshStandardMaterial color="#e4b989" />
-                      </mesh>
-                    </group>
-                  ))
-                : null}
             </group>
           ))}
         <Sign
@@ -523,29 +515,6 @@ function StoreEnvironment({
                 emissiveIntensity={2}
               />
             </mesh>
-          </group>
-        ))}
-        {[-1, 1].map((side) => (
-          <group key={side} position={[side * 4.8, 0, 5.5]}>
-            <mesh position={[0, 0.25, 0]} castShadow>
-              <cylinderGeometry args={[0.33, 0.25, 0.5, 16]} />
-              <meshStandardMaterial color="#c6b69a" />
-            </mesh>
-            {[0, 1, 2, 3, 4].map((i) => (
-              <mesh
-                key={i}
-                position={[
-                  Math.sin(i * 2) * 0.17,
-                  0.65 + i * 0.08,
-                  Math.cos(i * 2) * 0.17,
-                ]}
-                rotation={[0.35, i * 2, 0.3]}
-                castShadow
-              >
-                <sphereGeometry args={[0.18, 8, 6]} />
-                <meshStandardMaterial color={i % 2 ? "#52774c" : "#345e3c"} />
-              </mesh>
-            ))}
           </group>
         ))}
         {placements.map((p) => (

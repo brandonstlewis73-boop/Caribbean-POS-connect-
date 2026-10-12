@@ -1,53 +1,50 @@
-export const AVATAR_KEY = "caribbean-pos.avatar.v1";
-export const OUTFITS = [
-  { id: "shirt", name: "Everyday shirt" },
-  { id: "jacket", name: "Canvas jacket" },
+export const AVATAR_KEY = "caribbean-pos.avatar.v2";
+export const CHARACTERS = [
+  {
+    id: "denim",
+    name: "Denim jacket",
+    description: "Textured denim, layered tee and sneakers",
+    height: 1.8,
+  },
+  {
+    id: "linen",
+    name: "Relaxed shirt",
+    description: "Rolled sleeves, tailored trousers and leather shoes",
+    height: 1.78,
+  },
+  {
+    id: "knit",
+    name: "Soft knitwear",
+    description: "Belted cardigan, fitted jeans and ankle boots",
+    height: 1.69,
+  },
 ] as const;
-export const CLOTH_COLORS = [
-  { id: "sage", name: "Sage", hex: "#55654c" },
-  { id: "cream", name: "Cream", hex: "#e4d9bf" },
-  { id: "navy", name: "Navy", hex: "#263c52" },
-  { id: "clay", name: "Clay", hex: "#aa6049" },
-  { id: "charcoal", name: "Charcoal", hex: "#343a39" },
+export type CharacterId = (typeof CHARACTERS)[number]["id"];
+export const TOP_COLORS = [
+  { id: "original", name: "Original fabric", hex: "#ffffff" },
+  { id: "sage", name: "Sage", hex: "#a4b59a" },
+  { id: "navy", name: "Navy", hex: "#8299b0" },
+  { id: "clay", name: "Clay", hex: "#c28f75" },
 ] as const;
 export const TROUSER_COLORS = [
-  { id: "sand", name: "Sand chinos", hex: "#ae9474" },
-  { id: "denim", name: "Blue denim", hex: "#364e65" },
-  { id: "dark", name: "Charcoal trousers", hex: "#333b3c" },
-] as const;
-export const SHOE_COLORS = [
-  { id: "white", name: "Ivory sneakers", hex: "#e8e3d8" },
-  { id: "brown", name: "Brown shoes", hex: "#684833" },
-  { id: "black", name: "Black shoes", hex: "#242927" },
-] as const;
-export const SKIN_COLORS = [
-  { id: "deep", name: "Deep", hex: "#69412e" },
-  { id: "brown", name: "Brown", hex: "#a46b46" },
-  { id: "tan", name: "Tan", hex: "#c99168" },
-  { id: "light", name: "Light", hex: "#e6b68d" },
-] as const;
-export const HAIR_COLORS = [
-  { id: "black", name: "Black", hex: "#211d19" },
-  { id: "brown", name: "Brown", hex: "#4b3022" },
-  { id: "blond", name: "Blond", hex: "#a48451" },
-  { id: "silver", name: "Silver", hex: "#9c9c93" },
+  { id: "original", name: "Original trousers", hex: "#ffffff" },
+  { id: "dark", name: "Charcoal", hex: "#838587" },
+  { id: "sand", name: "Warm sand", hex: "#c1ad8c" },
 ] as const;
 export type Avatar = {
-  outfit: (typeof OUTFITS)[number]["id"];
-  top: (typeof CLOTH_COLORS)[number]["id"];
+  character: CharacterId;
+  top: (typeof TOP_COLORS)[number]["id"];
   trousers: (typeof TROUSER_COLORS)[number]["id"];
-  shoes: (typeof SHOE_COLORS)[number]["id"];
-  skin: (typeof SKIN_COLORS)[number]["id"];
-  hair: (typeof HAIR_COLORS)[number]["id"];
 };
 export const DEFAULT_AVATAR: Avatar = {
-  outfit: "shirt",
-  top: "sage",
-  trousers: "sand",
-  shoes: "white",
-  skin: "brown",
-  hair: "brown",
+  character: "denim",
+  top: "original",
+  trousers: "original",
 };
+export const CHARACTER_MODELS = ["denim", "linen", "knit", "chef"] as const;
+export function characterUrl(id: (typeof CHARACTER_MODELS)[number]) {
+  return `/storefront/immersive/people/${id}.glb`;
+}
 export function normalizeAvatar(value: unknown): Avatar {
   const input =
     value && typeof value === "object"
@@ -55,12 +52,9 @@ export function normalizeAvatar(value: unknown): Avatar {
       : {};
   const result = { ...DEFAULT_AVATAR };
   const groups = {
-    outfit: OUTFITS,
-    top: CLOTH_COLORS,
+    character: CHARACTERS,
+    top: TOP_COLORS,
     trousers: TROUSER_COLORS,
-    shoes: SHOE_COLORS,
-    skin: SKIN_COLORS,
-    hair: HAIR_COLORS,
   };
   for (const key of Object.keys(groups) as (keyof Avatar)[]) {
     const option = groups[key].find((o) => o.id === input[key]);

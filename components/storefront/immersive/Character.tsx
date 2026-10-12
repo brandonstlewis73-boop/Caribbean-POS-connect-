@@ -4,14 +4,11 @@ import { useGLTF } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import {
   AnimationMixer,
-  Box3,
-  BufferGeometry,
   CanvasTexture,
   Group,
   Mesh,
   SkinnedMesh,
-  MeshStandardMaterial,
-  Vector3,
+  Material,
   type AnimationAction,
 } from "three";
 import { clone } from "three/examples/jsm/utils/SkeletonUtils.js";
@@ -22,28 +19,34 @@ import {
   pickupWeight,
   PICKUP_SECONDS,
 } from "@/lib/immersive/motion";
-import { DEFAULT_AVATAR, type Avatar } from "@/lib/immersive/avatar";
-import { dressGeometry } from "@/lib/immersive/wardrobe";
-const STAFF_AVATAR: Avatar = {
-  ...DEFAULT_AVATAR,
-  top: "cream",
-  trousers: "dark",
-};
-export const CHARACTER_URL = "/storefront/immersive/shopper.glb";
+import {
+  DEFAULT_AVATAR,
+  CHARACTERS,
+  characterUrl,
+  type Avatar,
+} from "@/lib/immersive/avatar";
+import { dressMaterial } from "@/lib/immersive/wardrobe";
+import { fitCharacter } from "@/lib/immersive/model-geometry";
+export const CHARACTER_URL = characterUrl("denim");
 export function Character({
   body,
   pickup,
   staff = false,
+  low = false,
   paused = false,
   appearance = DEFAULT_AVATAR,
+  onLoaded,
 }: {
   body: MutableRefObject<Body>;
   pickup: MutableRefObject<number>;
   staff?: boolean;
+  low?: boolean;
   paused?: boolean;
   appearance?: Avatar;
+  onLoaded?: () => void;
 }) {
-  const gltf = useGLTF(CHARACTER_URL),
+  const model = staff ? "chef" : appearance.character;
+  const gltf = useGLTF(characterUrl(model)),
     group = useRef<Group>(null),
     lastPickup = useRef(0),
     phase = useRef(0),
@@ -64,45 +67,30 @@ export function Character({
   useEffect(() => () => shadow.dispose(), [shadow]);
   const rig = useMemo(() => {
     const scene = clone(gltf.scene);
-    const owned: BufferGeometry[] = [],
-      materials: MeshStandardMaterial[] = [];
-    const garments: { source: SkinnedMesh; mesh: SkinnedMesh }[] = [];
+    const materials: Material[] = [];
     scene.traverse((object) => {
       if (!(object instanceof Mesh)) return;
       object.castShadow = true;
       object.frustumCulled = false;
-      if (object.geometry.getAttribute("color")) {
-        const dressed = dressGeometry(
-          object.geometry,
-          staff ? STAFF_AVATAR : appearance,
+      const customize = (source: Material) => {
+        const material = dressMaterial(
+          source,
+          staff ? DEFAULT_AVATAR : appearance,
+          low,
         );
-        object.geometry = dressed.geometry;
-        owned.push(dressed.geometry);
-        if (dressed.garment && object instanceof SkinnedMesh) {
-          owned.push(dressed.garment);
-          const material = new MeshStandardMaterial({
-            vertexColors: true,
-            roughness: 0.94,
-          });
-          materials.push(material);
-          const garment = new SkinnedMesh(dressed.garment, material);
-          garment.position.copy(object.position);
-          garment.quaternion.copy(object.quaternion);
-          garment.scale.copy(object.scale);
-          garment.bindMode = object.bindMode;
-          garment.bind(object.skeleton, object.bindMatrix);
-          garment.castShadow = true;
-          garment.frustumCulled = false;
-          garments.push({ source: object, mesh: garment });
-        }
-      }
+        materials.push(material);
+        return material;
+      };
+      object.material = Array.isArray(object.material)
+        ? object.material.map(customize)
+        : customize(object.material);
     });
-    for (const { source, mesh } of garments) source.parent?.add(mesh);
-    const box = new Box3().setFromObject(scene),
-      height = box.getSize(new Vector3()).y,
-      scale = 1.75 / height;
-    scene.scale.setScalar(scale);
-    scene.position.y = -box.min.y * scale;
+    fitCharacter(
+      scene,
+      staff
+        ? 1.67
+        : CHARACTERS.find((c) => c.id === appearance.character)!.height,
+    );
     const mixer = new AnimationMixer(scene),
       actions: Record<string, AnimationAction> = {};
     for (const clip of gltf.animations)
@@ -111,16 +99,18 @@ export function Character({
     scene.traverse((object) => {
       if (object instanceof SkinnedMesh) skeletons.add(object.skeleton);
     });
-    return { scene, mixer, actions, owned, materials, skeletons };
-  }, [gltf, staff, appearance]);
+    return { scene, mixer, actions, materials, skeletons };
+  }, [gltf, staff, appearance, low]);
   useEffect(
     () => () => {
-      rig.owned.forEach((geometry) => geometry.dispose());
       rig.materials.forEach((material) => material.dispose());
       rig.skeletons.forEach((skeleton) => skeleton.dispose());
     },
     [rig],
   );
+  useEffect(() => {
+    onLoaded?.();
+  }, [rig, onLoaded]);
   useEffect(() => {
     for (const action of Object.values(rig.actions))
       action.reset().play().setEffectiveWeight(0);
@@ -169,8 +159,9 @@ export function Character({
     }
     if (actions.PickUp_Table) {
       actions.PickUp_Table.time = Math.min(
-        pickupTime.current,
-        PICKUP_SECONDS - 0.001,
+        (pickupTime.current / PICKUP_SECONDS) *
+          actions.PickUp_Table.getClip().duration,
+        actions.PickUp_Table.getClip().duration - 0.001,
       );
       actions.PickUp_Table.setEffectiveWeight(overlay);
     }
