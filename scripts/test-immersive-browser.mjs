@@ -78,18 +78,19 @@ try {
     .toBeGreaterThan(0);
   await page.getByRole("button", { name: "Your look", exact: true }).click();
   await page
-    .getByRole("button", { name: "Canvas jacket", exact: true })
+    .getByRole("button", { name: "Soft knitwear", exact: true })
     .click();
   await page.getByRole("button", { name: "Clay", exact: true }).click();
   await page.getByRole("button", { name: "Wear this look" }).click();
+  await expect(engine).toHaveAttribute("data-ready", "true", { timeout: 60000 });
   await page.getByRole("button", { name: "Your look", exact: true }).click();
   await expect(
-    page.getByRole("button", { name: "Canvas jacket", exact: true }),
+    page.getByRole("button", { name: "Soft knitwear", exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
   const savedAvatar = await page.evaluate(() =>
-    JSON.parse(localStorage.getItem("caribbean-pos.avatar.v1")),
+    JSON.parse(localStorage.getItem("caribbean-pos.avatar.v2")),
   );
-  assert.equal(savedAvatar.outfit, "jacket");
+  assert.equal(savedAvatar.character, "knit");
   assert.equal(savedAvatar.top, "clay");
   await page.getByRole("button", { name: "Close Your look" }).click();
   await engine.focus();
@@ -308,7 +309,7 @@ try {
   asset.page.removeAllListeners("pageerror");
   asset.page.on("pageerror", (e) => assetErrors.push(e.message));
   let first = true;
-  await asset.page.route("**/storefront/immersive/shopper.glb", (route) => {
+  await asset.page.route("**/storefront/immersive/people/denim.glb", (route) => {
     if (first) {
       first = false;
       return route.fulfill({ status: 503, body: "Temporary asset failure" });
@@ -331,7 +332,7 @@ try {
   );
   assert.ok(
     assetErrors.every(
-      (message) => message.includes("shopper.glb") && message.includes("503"),
+      (message) => message.includes("denim.glb") && message.includes("503"),
     ),
     "only the deliberately failed asset may report an error",
   );

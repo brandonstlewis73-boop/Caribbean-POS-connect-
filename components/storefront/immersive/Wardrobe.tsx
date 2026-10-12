@@ -1,14 +1,11 @@
 "use client";
 import { useState } from "react";
-import { Shirt, Check, RotateCcw } from "lucide-react";
+import { Check, RotateCcw } from "lucide-react";
 import {
   DEFAULT_AVATAR,
-  OUTFITS,
-  CLOTH_COLORS,
+  CHARACTERS,
+  TOP_COLORS,
   TROUSER_COLORS,
-  SHOE_COLORS,
-  SKIN_COLORS,
-  HAIR_COLORS,
   type Avatar,
 } from "@/lib/immersive/avatar";
 import styles from "./ImmersiveStorefront.module.css";
@@ -19,58 +16,42 @@ export function Wardrobe({
   value: Avatar;
   onApply: (value: Avatar) => void;
 }) {
-  const [draft, setDraft] = useState(value),
-    [tab, setTab] = useState<"outfit" | "appearance">("outfit");
-  const groups =
-    tab === "outfit"
-      ? [
-          { key: "top", label: "Top color", options: CLOTH_COLORS },
-          { key: "trousers", label: "Trousers", options: TROUSER_COLORS },
-          { key: "shoes", label: "Footwear", options: SHOE_COLORS },
-        ]
-      : [
-          { key: "skin", label: "Skin tone", options: SKIN_COLORS },
-          { key: "hair", label: "Hair color", options: HAIR_COLORS },
-        ];
+  const [draft, setDraft] = useState(value);
   return (
     <div className={styles.wardrobe}>
-      <p>Make yourself at home. Choose your look for the store.</p>
-      <div
-        className={styles.wardrobeTabs}
-        role="group"
-        aria-label="Customization category"
-      >
-        {(["outfit", "appearance"] as const).map((t) => (
-          <button
-            key={t}
-            type="button"
-            aria-pressed={tab === t}
-            onClick={() => setTab(t)}
-          >
-            {t === "outfit" ? "Clothing" : "Appearance"}
-          </button>
-        ))}
-      </div>
-      {tab === "outfit" && (
-        <fieldset>
-          <legend>Choose an outfit</legend>
-          <div className={styles.outfits}>
-            {OUTFITS.map((o) => (
-              <button
-                key={o.id}
-                type="button"
-                aria-pressed={draft.outfit === o.id}
-                onClick={() => setDraft({ ...draft, outfit: o.id })}
-              >
-                <Shirt size={30} />
-                <span>{o.name}</span>
-                {draft.outfit === o.id && <Check size={16} />}
-              </button>
-            ))}
-          </div>
-        </fieldset>
-      )}
-      {groups.map((g) => (
+      <p>Choose your character and a complete, textured outfit.</p>
+      <fieldset>
+        <legend>Character & outfit</legend>
+        <div className={styles.characterChoices}>
+          {CHARACTERS.map((c) => (
+            <button
+              key={c.id}
+              aria-label={c.name}
+              type="button"
+              aria-pressed={draft.character === c.id}
+              onClick={() => setDraft({ ...draft, character: c.id })}
+            >
+              {/* Local authored asset preview, not a remote user image. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={`/storefront/immersive/people/${c.id}.webp`}
+                alt=""
+                width={160}
+                height={220}
+              />
+              <span>
+                <strong>{c.name}</strong>
+                {draft.character === c.id && <Check size={17} />}
+              </span>
+              <small>{c.description}</small>
+            </button>
+          ))}
+        </div>
+      </fieldset>
+      {[
+        { key: "top", label: "Fabric tint", options: TOP_COLORS },
+        { key: "trousers", label: "Trouser finish", options: TROUSER_COLORS },
+      ].map((g) => (
         <fieldset key={g.key}>
           <legend>{g.label}</legend>
           <div className={styles.swatches}>
@@ -79,7 +60,7 @@ export function Wardrobe({
                 key={o.id}
                 type="button"
                 aria-label={o.name}
-                aria-pressed={draft[g.key as keyof Avatar] === o.id}
+                aria-pressed={draft[g.key as "top" | "trousers"] === o.id}
                 onClick={() => setDraft({ ...draft, [g.key]: o.id })}
               >
                 <span
@@ -87,7 +68,9 @@ export function Wardrobe({
                   style={{ backgroundColor: o.hex }}
                 />
                 {o.name}
-                {draft[g.key as keyof Avatar] === o.id && <Check size={14} />}
+                {draft[g.key as "top" | "trousers"] === o.id && (
+                  <Check size={14} />
+                )}
               </button>
             ))}
           </div>
@@ -111,7 +94,8 @@ export function Wardrobe({
         </button>
       </div>
       <p className={styles.help}>
-        Your look is saved on this browser. Clothing changes are free.
+        Free to change. Your chosen character and outfit are saved in this
+        browser.
       </p>
     </div>
   );
