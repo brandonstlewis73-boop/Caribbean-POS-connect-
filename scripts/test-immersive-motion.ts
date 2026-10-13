@@ -22,6 +22,7 @@ import {
 } from "../lib/immersive/motion";
 import {
   FrameWindow,
+  RenderPacer,
   adaptResolution,
   estimateSceneBytes,
 } from "../lib/immersive/performance";
@@ -152,3 +153,30 @@ assert.equal(
   5.65,
   "camera stays inside room",
 );
+
+// Render pacing must limit GPU submissions without catch-up bursts or timer drift.
+
+for (const refresh of [60, 120]) {
+  for (const target of [30, 60] as const) {
+    const pacer = new RenderPacer();
+    let rendered = 0;
+    for (let frame = 0; frame < refresh * 10; frame++)
+      if (pacer.due((frame * 1000) / refresh, target)) rendered++;
+    assert.ok(
+      Math.abs(rendered - target * 10) <= 1,
+      `${refresh}Hz display respects ${target} FPS budget`,
+    );
+    assert.equal(pacer.due(20000, target), true);
+    assert.equal(pacer.due(20001, target), false, "no catch-up burst");
+    pacer.reset();
+    assert.equal(pacer.due(20001, target), true, "resume renders immediately");
+  }
+}
+console.log("PASS GPU render pacing on 60/120Hz displays, stalls and resume");
+let mobileBudget = { scale: 0.7, slow: 0, fast: 0 };
+for (let i = 0; i < 8; i++)
+  mobileBudget = adaptResolution(mobileBudget, 33.34, 30);
+assert.equal(mobileBudget.scale, 0.85, "stable 30 FPS restores resolution");
+for (let i = 0; i < 3; i++)
+  mobileBudget = adaptResolution(mobileBudget, 50, 30);
+assert.equal(mobileBudget.scale, 0.7, "missed mobile budget lowers resolution");

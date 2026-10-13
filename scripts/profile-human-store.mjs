@@ -48,7 +48,9 @@ try {
       path: folder + `/${mobile ? "phone" : "desktop"}-wardrobe.png`,
     });
     await page.getByRole("button", { name: "Wear this look" }).click();
-    await expect(engine).toHaveAttribute("data-ready", "true", { timeout: 60000 });
+    await expect(engine).toHaveAttribute("data-ready", "true", {
+      timeout: 60000,
+    });
     await page.waitForTimeout(2500);
     await engine.focus();
     await page.keyboard.down("KeyS");
@@ -76,8 +78,9 @@ try {
     const sorted = [...frames].sort((a, b) => a - b);
     reports.push({
       view: mobile ? "phone" : "desktop",
-      fps: 1000 / (frames.reduce((a, b) => a + b, 0) / frames.length),
-      p95: sorted[Math.floor(sorted.length * 0.95)],
+      animationRafFps:
+        1000 / (frames.reduce((a, b) => a + b, 0) / frames.length),
+      animationRafP95: sorted[Math.floor(sorted.length * 0.95)],
       renderer: await engine.evaluate((e) => ({ ...e.dataset })),
       errors,
     });

@@ -272,6 +272,7 @@ function World(props: SceneProps) {
   return (
     <>
       <FrameProfiler
+        low={props.low}
         body={player}
         paused={props.paused}
         onStats={props.onStats}
@@ -282,10 +283,10 @@ function World(props: SceneProps) {
       {!props.low ? <RoomLighting /> : null}
       <color attach="background" args={["#efe3cf"]} />
       <fog attach="fog" args={["#efe3cf", 16, 30]} />
-      <hemisphereLight args={["#f8f1e3", "#827a6c", 1.45 * config.light]} />
+      <hemisphereLight args={["#f8f1e3", "#827a6c", 1.2 * config.light]} />
       <directionalLight
         position={[-3.5, 7, 4]}
-        intensity={1.8 * config.light}
+        intensity={1.55 * config.light}
         color="#fff1d9"
         castShadow={!props.low}
         shadow-mapSize={[1024, 1024]}

@@ -33,9 +33,11 @@ export type ResolutionState = { scale: number; slow: number; fast: number };
 export function adaptResolution(
   state: ResolutionState,
   p95: number,
+  targetFps: 30 | 60 = 60,
 ): ResolutionState {
-  const slow = p95 > 34 ? state.slow + 1 : 0;
-  const fast = p95 > 0 && p95 < 19 ? state.fast + 1 : 0;
+  const slow = p95 > (targetFps === 30 ? 42 : 34) ? state.slow + 1 : 0;
+  const fast =
+    p95 > 0 && p95 < (targetFps === 30 ? 35 : 19) ? state.fast + 1 : 0;
   if (slow >= 3)
     return {
       scale: Math.max(0.7, Math.round((state.scale - 0.15) * 100) / 100),
@@ -99,4 +101,26 @@ export function estimateSceneBytes(scene: Object3D, pixels: number) {
       (texture.generateMipmaps ? 4 / 3 : 1);
   }
   return Math.round((bytes / 1048576) * 10) / 10;
+}
+
+/** Pace submitted GPU frames without slowing the collision/input simulation. */
+export class RenderPacer {
+  private next = 0;
+  private rate = 0;
+  reset() {
+    this.next = 0;
+    this.rate = 0;
+  }
+  due(now: number, fps: 30 | 60) {
+    const interval = 1000 / fps;
+    if (this.rate !== fps) {
+      this.rate = fps;
+      this.next = now;
+    }
+    if (now + 0.5 < this.next) return false;
+    this.next += interval;
+    // Drop missed frames after a stall; never render a burst to catch up.
+    if (this.next <= now - 0.5) this.next = now + interval;
+    return true;
+  }
 }

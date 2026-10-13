@@ -20,6 +20,7 @@ import {
   RepeatWrapping,
 } from "three";
 import { BakeryWindows, WindowLight } from "./BakeryWindows";
+import { FixtureShadows } from "./FixtureShadows";
 import { ScannedDecor } from "./ScannedDecor";
 import { BakeryDetails } from "./BakeryDetails";
 import type { Placement, WorldConfig } from "@/lib/immersive/world";
@@ -45,7 +46,7 @@ function getSurfaceMap(surface: Surface = "plain") {
       const value =
         surface === "wood"
           ? 216 + grain * 13 + noise
-          : surface === "stone"
+          : surface === "stone" || surface === "marble"
             ? 245 - Math.pow(Math.abs(vein), 28) * 18 + noise * 0.25
             : 247 + noise * 0.5;
       const at = (y * 256 + x) * 4;
@@ -140,7 +141,7 @@ export function Boxes({
         <meshStandardMaterial
           map={getSurfaceMap(surface)}
           bumpMap={
-            surface === "wood" || surface === "stone"
+            surface === "wood" || surface === "stone" || surface === "marble"
               ? getSurfaceMap(surface)
               : undefined
           }
@@ -309,6 +310,7 @@ function StoreEnvironment({
     const map = getSurfaceMap("stone");
     map.wrapS = map.wrapT = RepeatWrapping;
     map.repeat.set(3, 3.5);
+    map.anisotropy = 4;
     return map;
   }, []);
   const planks = useMemo(
@@ -390,6 +392,7 @@ function StoreEnvironment({
         <Boxes boxes={posts} color="#b99552" metalness={0.6} roughness={0.35} />
         <Boxes boxes={beams} color="#795d44" surface="wood" />
         <Boxes boxes={goods} color="#d8c7a0" />
+        <FixtureShadows config={config} />
         <BakeryDetails config={config} />
         <ScannedDecor config={config} low={low} />
 

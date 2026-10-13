@@ -15,6 +15,7 @@ export const DECOR_MODELS = [
   "croissant",
   "carrot_cake",
   "potted_plant_01",
+  "potted_plant_low",
 ] as const;
 export type DecorModel = (typeof DECOR_MODELS)[number];
 export const decorUrl = (name: DecorModel) =>
@@ -155,7 +156,11 @@ export function ScannedDecor({
   return (
     <group>
       <Instances low={low} name="croissant" placements={bread} />
-      <Instances low={low} name="potted_plant_01" placements={plants} />
+      <Instances
+        low={low}
+        name={low ? "potted_plant_low" : "potted_plant_01"}
+        placements={plants}
+      />
       {cakes.length > 0 && (
         <Instances low={low} name="carrot_cake" placements={cakes} />
       )}
