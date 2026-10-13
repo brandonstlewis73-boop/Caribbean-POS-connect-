@@ -98,6 +98,7 @@ for (const [name, triangles, bytes] of [
   ["croissant", 1000, 180000],
   ["carrot_cake", 3500, 320000],
   ["potted_plant_01", 13000, 450000],
+  ["potted_plant_low", 4500, 300000],
 ]) {
   const data = fs.readFileSync(`public/storefront/immersive/decor/${name}.glb`);
   const json = JSON.parse(data.subarray(20, 20 + data.readUInt32LE(12)));

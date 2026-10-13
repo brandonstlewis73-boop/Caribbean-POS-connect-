@@ -214,12 +214,19 @@ export default function ImmersiveStorefront(props: Props) {
       setFault(true);
       setReady(false);
     }, []);
-  const onStats = useCallback((next: SceneStats) => {
-    setStats(next);
-    adaptive.current = adaptResolution(adaptive.current, next.p95Ms);
-    setResolution(adaptive.current.scale);
-    if (adaptive.current.scale < 1) setAutoLow(true);
-  }, []);
+  const onStats = useCallback(
+    (next: SceneStats) => {
+      setStats(next);
+      adaptive.current = adaptResolution(
+        adaptive.current,
+        next.p95Ms,
+        quality === "low" || (quality === "auto" && autoLow) ? 30 : 60,
+      );
+      setResolution(adaptive.current.scale);
+      if (adaptive.current.scale < 1) setAutoLow(true);
+    },
+    [quality, autoLow],
+  );
   useEffect(() => {
     const siblings = [...document.body.children].filter(
       (el) => el !== root.current && el instanceof HTMLElement,

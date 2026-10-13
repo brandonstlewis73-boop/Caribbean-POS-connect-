@@ -1,0 +1,56 @@
+[
+  {
+    "view": "phone",
+    "animationRafFps": 22.088883027825393,
+    "animationRafP95": 83.40000000000146,
+    "renderer": {
+      "ready": "true",
+      "playerX": "-1.10",
+      "playerZ": "4.06",
+      "fps": "16",
+      "frameP95": "86.1",
+      "frameP50": "69.9",
+      "frameSamples": "26",
+      "estimatedMb": "46",
+      "textures": "38",
+      "geometries": "66",
+      "gpuMs": "64.52",
+      "resolution": "0.7",
+      "assetBytes": "3299936",
+      "assetMs": "110.8",
+      "firstRenderMs": "1640.0",
+      "playerSpeed": "0.000",
+      "drawCalls": "61",
+      "triangles": "55754",
+      "quality": "low"
+    },
+    "errors": []
+  },
+  {
+    "view": "desktop",
+    "animationRafFps": 4.838865769863541,
+    "animationRafP95": 416.6999999999971,
+    "renderer": {
+      "ready": "true",
+      "playerX": "-1.10",
+      "playerZ": "3.70",
+      "fps": "6",
+      "frameP95": "259.2",
+      "frameP50": "203.6",
+      "frameSamples": "9",
+      "estimatedMb": "48.6",
+      "textures": "74",
+      "geometries": "98",
+      "gpuMs": "188.37",
+      "resolution": "0.7",
+      "assetBytes": "3695956",
+      "assetMs": "108.6",
+      "firstRenderMs": "2116.1",
+      "playerSpeed": "0.000",
+      "drawCalls": "91",
+      "triangles": "56110",
+      "quality": "low"
+    },
+    "errors": []
+  }
+]

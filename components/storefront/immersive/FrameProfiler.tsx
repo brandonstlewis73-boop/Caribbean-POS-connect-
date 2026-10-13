@@ -1,12 +1,17 @@
 "use client";
 import { useEffect, useRef, type MutableRefObject } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
-import { FrameWindow, estimateSceneBytes } from "@/lib/immersive/performance";
+import {
+  FrameWindow,
+  estimateSceneBytes,
+  RenderPacer,
+} from "@/lib/immersive/performance";
 import type { Body } from "@/lib/immersive/world";
 import type { SceneStats } from "./Scene";
 type TimerExtension = { TIME_ELAPSED_EXT: number; GPU_DISJOINT_EXT: number };
 export function FrameProfiler({
   body,
+  low,
   paused,
   onStats,
   onReady,
@@ -14,6 +19,7 @@ export function FrameProfiler({
   startedAt,
 }: {
   body: MutableRefObject<Body>;
+  low: boolean;
   paused: boolean;
   onStats: (stats: SceneStats) => void;
   onReady: () => void;
@@ -28,6 +34,8 @@ export function FrameProfiler({
     lastReport = useRef(0),
     loadedMs = useRef(0);
   const frameCount = useRef(0);
+  const pacer = useRef(new RenderPacer());
+  const lastRendered = useRef(0);
   const query = useRef<WebGLQuery | null>(null),
     gpuMs = useRef<number | null>(null);
   const ctx = gl.getContext() as WebGL2RenderingContext;
@@ -39,12 +47,18 @@ export function FrameProfiler({
     };
   }, [ctx]);
   useEffect(() => {
+    pacer.current.reset();
+    lastRendered.current = 0;
     skip.current = true;
     window.current.reset();
     lastReport.current = performance.now();
-  }, [paused]);
-  useFrame((_, delta) => {
+  }, [paused, low]);
+  useFrame(() => {
     if (document.hidden) return;
+    const now = performance.now();
+    if (!paused && !pacer.current.due(now, low ? 30 : 60)) return;
+    const elapsed = lastRendered.current ? now - lastRendered.current : 0;
+    lastRendered.current = now;
     const ext = extension.current;
     if (
       query.current &&
@@ -84,7 +98,7 @@ export function FrameProfiler({
       lastReport.current = performance.now();
       return;
     }
-    window.current.add(delta * 1000);
+    window.current.add(elapsed);
     if (performance.now() - lastReport.current < 1500) return;
     const resources = performance.getEntriesByType(
       "resource",

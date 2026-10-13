@@ -49,3 +49,7 @@ Combined encoded size: 78,370 bytes. Surface backing canvases are limited to 512
 ## Legacy asset
 
 `shopper.glb` is retained for historical tooling only; the current scene does not load it. It derives from Quaternius Universal Base Characters/Universal Animation Library, CC0: https://quaternius.com/packs/universalbasecharacters.html. Original combined source: https://github.com/NafisRayan/Animate-Rigged-Humanoid-No-Blender/blob/main/test/human_male.glb.
+
+## Mobile plant derivative
+
+`decor/potted_plant_low.glb` further simplifies the same CC0 plant to 4,198 triangles and 282,652 bytes. The original is retained for higher quality. Reproduce with `scripts/assets/build-plant-lod.mjs INPUT_GLB OUTPUT_GLB` in the isolated glTF tooling directory described above (glTF Transform and meshoptimizer); no runtime dependency is added.
